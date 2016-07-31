@@ -1,42 +1,42 @@
-extern crate rand;
-extern crate termion;
-
-use rand::Rng;
-
-use termion::color::{Fg, Bg, Blue, Green, Rgb, Color, AnsiValue};
-use termion::raw::IntoRawMode;
-use std::io::{Read, Write, stdout, stdin};
-
-const APP_NAME: &'static str = "umpire";
-
-// impl Copy for Rgb {
-//
-// }
-//
-// impl<C:Color+Copy> Copy for Bg<C> {
-//
-// }
-
-// type RgbColor = Rgb;
-// impl Copy for RgbColor {}
-//
-//
-// type BgRgb = Bg<RgbColor>;
-// impl Copy for BgRgb {}
-
-// type BgColor<C> = Bg<C>;
-//
-// impl<C:Color> Bg<C> {
-//
-// }
+//!
+//! Umpire: a game of world conquest
+//!
 
 //Wishlist:
 // Copy is implemented for Rgb, Bg, Fg
 
+extern crate rand;
+extern crate terminal_size;
+extern crate termion;
+
+use std::io::{Read, Write, stdout, stdin};
+
+use rand::Rng;
+use terminal_size::{Width, Height, terminal_size};
+use termion::color::{Fg, Bg, Blue, Green, Rgb, Color, AnsiValue};
+use termion::event::Key;
+use termion::raw::IntoRawMode;
+use termion::input::TermRead;
+
+
+const APP_NAME: &'static str = "umpire";
+
+const MAP_DIMS: Dims = Dims { width: 180, height: 90 };
+const HEADER_HEIGHT: u16 = 1;
+const FOOTER_HEIGHT: u16 = 5;
+
+const NUM_CONTINENTS:u16 = 100;
+
+
+
+
+
+
+
 enum TerrainType {
     WATER,
     LAND,
-    CITY
+    // CITY
     //ice, lava, river, deep sea vs shallow, etc.
 }
 
@@ -59,7 +59,7 @@ impl Terrain {
         match self.type_ {
             TerrainType::WATER => AnsiValue(12),
             TerrainType::LAND => AnsiValue(10),
-            TerrainType::CITY => AnsiValue(245)
+            // TerrainType::CITY => AnsiValue(245)
         }
     }
 }
@@ -71,6 +71,8 @@ enum Alignment {
 }
 
 enum UnitType {
+    CITY,
+
     INFANTRY,
     ARMOR,
     FIGHTER,
@@ -86,8 +88,7 @@ enum UnitType {
 struct Unit {
     type_: UnitType,
     alignment: Alignment,
-    name: &'static str,
-    symbol: char,
+    // name: &'static str,
     hp: u32,
     max_hp: u32,
     x: u32,
@@ -103,12 +104,43 @@ impl Unit {
         Unit {
             type_: UnitType::INFANTRY,
             alignment: alignment,
-            name: "Infantry",
-            symbol: 'i',
+            // name: "Infantry",
             hp: 1,
             max_hp: 1,
             x: x,
             y: y
+        }
+    }
+
+    fn symbol(&self) -> char {
+        match self.type_ {
+            UnitType::CITY => '#',
+            UnitType::INFANTRY => '⤲',
+            UnitType::ARMOR => 'A',
+            UnitType::FIGHTER => '✈',
+            UnitType::BOMBER => 'b',
+            UnitType::TRANSPORT => 't',
+            UnitType::DESTROYER => 'd',
+            UnitType::SUBMARINE => '—',
+            UnitType::CRUISER => 'c',
+            UnitType::BATTLESHIP => 'B',
+            UnitType::CARRIER => 'C'
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        match self.type_ {
+            UnitType::CITY => "City",
+            UnitType::INFANTRY => "Infantry",
+            UnitType::ARMOR => "Armor",
+            UnitType::FIGHTER => "Fighter",
+            UnitType::BOMBER => "Bomber",
+            UnitType::TRANSPORT => "Transport",
+            UnitType::DESTROYER => "Destroyer",
+            UnitType::SUBMARINE => "Submarine",
+            UnitType::CRUISER => "Cruiser",
+            UnitType::BATTLESHIP => "Battleship",
+            UnitType::CARRIER => "Carrier"
         }
     }
 }
@@ -127,20 +159,28 @@ impl Tile {
     }
 }
 
-const MAP_WIDTH:u16 = 180;
-const MAP_HEIGHT:u16 = 90;
+#[derive(Copy,Clone)]
+struct Dims {
+    width: u16,
+    height: u16
+}
 
-const VIEWPORT_WIDTH:u16 = 50;
-const VIEWPORT_HEIGHT:u16 = 50;
-
-const NUM_CONTINENTS:u16 = 100;
+#[derive(Copy,Clone)]
+struct Vec2d<T> {
+    x: T,
+    y: T
+}
 
 struct Game {
-    map_width: u16,
-    map_height: u16,
-    viewport_x_offset: u16,
-    viewport_y_offset: u16,
-    tiles: Vec<Vec<Tile>> // tiles[col][row]
+    term_dims: Dims,
+    map_dims: Dims,
+    header_height: u16,
+    viewport_dims: Dims,
+    viewport_offset: Vec2d<u16>,
+    tiles: Vec<Vec<Tile>>, // tiles[col][row]
+
+    old_h_scroll_x: Option<u16>,
+    old_v_scroll_y: Option<u16>
 }
 
 // 0-indexed variant of Goto
@@ -149,24 +189,34 @@ fn goto(x: u16, y: u16) -> termion::cursor::Goto {
 }
 
 impl Game {
-    fn new(map_width: u16, map_height: u16, num_continents: u16) -> Game {
+    fn new(term_dims: Dims, map_dims: Dims, header_height: u16, footer_height: u16, num_continents: u16) -> Game {
         let mut map_tiles = Vec::new();
 
-        for x in 0..map_width {
+        for x in 0..map_dims.width {
             let mut col = Vec::new();
-            for y in 0..map_height {
+            for y in 0..map_dims.height {
                 col.push(Tile::new(Terrain::water(x, y)));
             }
 
             map_tiles.push(col);
         }
 
+        let h_scrollbar_height = 1;
+        let v_scrollbar_width = 1;
+
         let mut game = Game {
-            map_width: map_width,
-            map_height: map_height,
-            viewport_x_offset: map_width/2,
-            viewport_y_offset: map_height/2,
-            tiles: map_tiles
+            term_dims: term_dims,
+            map_dims: map_dims,
+            header_height: header_height,
+            viewport_dims: Dims{
+                width: term_dims.width - v_scrollbar_width,
+                height: term_dims.height - header_height - footer_height - h_scrollbar_height
+            },
+            viewport_offset: Vec2d{ x: map_dims.width/2, y: map_dims.height/2 },
+            tiles: map_tiles,
+
+            old_h_scroll_x: Option::None,
+            old_v_scroll_y: Option::None,
         };
 
         game.generate_map(num_continents);
@@ -175,152 +225,162 @@ impl Game {
         game
     }
 
-    fn draw(&self) {
+    fn draw(&mut self) {
         let stdout = stdout();
         let mut stdout = stdout.lock().into_raw_mode().unwrap();
 
-        write!(stdout, "{}", termion::clear::All).unwrap();
+        write!(stdout, "{}{}{}{}{}",
+            termion::clear::All,
+            goto(0,0),
+            termion::style::Underline,
+            APP_NAME,
+            termion::style::Reset
+        ).unwrap();
 
-        for viewport_x in 0..VIEWPORT_WIDTH {
-            for viewport_y in 0..VIEWPORT_HEIGHT {
-                let abs_x = (viewport_x + self.viewport_x_offset) % MAP_WIDTH;// mod implements wrapping
-                let abs_y = (viewport_y + self.viewport_y_offset) % MAP_HEIGHT;// mod implements wrapping
+
+        self.draw_map();
+        self.draw_scroll_bars();
+
+        write!(stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
+        stdout.flush().unwrap();
+    }
+
+    fn draw_map(&self) {
+        let stdout = stdout();
+        let mut stdout = stdout.lock().into_raw_mode().unwrap();
+
+        for viewport_x in 0..self.viewport_dims.width {
+            for viewport_y in 0..self.viewport_dims.height {
+                let abs_x = (viewport_x + self.viewport_offset.x) % self.map_dims.width;// mod implements wrapping
+                let abs_y = (viewport_y + self.viewport_offset.y) % self.map_dims.height;// mod implements wrapping
 
                 let tile = &self.tiles[abs_x as usize][abs_y as usize];
                 let terrain = &tile.terrain;
 
-                write!(stdout, "{}{} ", goto(viewport_x, viewport_y), Bg(terrain.color())).unwrap();
+                write!(stdout, "{}{} ", goto(viewport_x, viewport_y + self.header_height), Bg(terrain.color())).unwrap();
             }
         }
+    }
 
-        write!(stdout, "{}", termion::style::Reset).unwrap();
+    fn draw_scroll_mark(x: u16, y: u16, sym: char) {
+        let stdout = stdout();
+        let mut stdout = stdout.lock().into_raw_mode().unwrap();
+        write!(stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym);
+    }
+
+    fn erase(x: u16, y: u16) {
+        let stdout = stdout();
+        let mut stdout = stdout.lock().into_raw_mode().unwrap();
+        write!(stdout, "{}{} ", termion::style::Reset, goto(x,y));
+    }
+
+    fn draw_scroll_bars(&mut self) {
+        let stdout = stdout();
+        let mut stdout = stdout.lock().into_raw_mode().unwrap();
+
+
+        let h_scrollbar_height = 1;
+        let v_scrollbar_width = 1;
+
+        let h_scroll_x: u16 = (self.viewport_dims.width as f32 * (self.viewport_offset.x as f32 / self.map_dims.width as f32)) as u16;
+        let h_scroll_y = self.header_height + self.viewport_dims.height + h_scrollbar_height - 1;
+
+
+        //FIXME There must be a cleaner way to do this
+        match self.old_h_scroll_x {
+            Option::None => {
+                Game::draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
+            },
+            Option::Some(old_h_scroll_x) => {
+                if(h_scroll_x != old_h_scroll_x) {
+                    Game::erase(old_h_scroll_x, h_scroll_y);
+                    Game::draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
+                }
+            }
+        }
+        self.old_h_scroll_x = Option::Some(h_scroll_x);
+
+        let v_scroll_x = self.viewport_dims.width + v_scrollbar_width - 1;
+        let v_scroll_y: u16 = (self.viewport_dims.height as f32 * (self.viewport_offset.y as f32 / self.map_dims.height as f32)) as u16;
+
+        //FIXME There must be a cleaner way to do this
+        match self.old_v_scroll_y {
+            Option::None => {
+                Game::draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
+            },
+            Option::Some(old_v_scroll_y) => {
+                if(v_scroll_y != old_v_scroll_y) {
+                    Game::erase(v_scroll_x, old_v_scroll_y);
+                    Game::draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
+                }
+            }
+        }
+        self.old_v_scroll_y = Option::Some(v_scroll_y);
     }
 
     fn generate_map(&mut self, continents: u16) {
         let mut rng = rand::thread_rng();
         for _ in 0..continents {
-            let x = rng.gen_range(0, self.map_width);
-            let y = rng.gen_range(0, self.map_height);
+            let x = rng.gen_range(0, self.map_dims.width);
+            let y = rng.gen_range(0, self.map_dims.height);
 
-            let tile = &mut self.tiles[x as usize][y as usize];
-            let terrain = &mut tile.terrain;
+            let terrain = &mut self.tiles[x as usize][y as usize].terrain;
+            // let terrain = &mut tile.terrain;
             terrain.type_ = TerrainType::LAND;
-            // let mut terrain = &tile.terrain;
-            // (*terrain).type_ = TerrainType::LAND;
-            // let mut type_ = &terrain.type_;
-            // type_ = TerrainType::LAND;
-            // let mut tiles = self.tiles;
-            // tiles[x as usize][y as usize].terrain.type_ = TerrainType::LAND;
         }
     }
-}
 
-struct Test {
-    x: i32
+    fn shift_viewport(&mut self, shift: Vec2d<i32>) {
+        let mut new_x_offset:i32 = ( self.viewport_offset.x as i32 ) + shift.x;
+        let mut new_y_offset:i32 = ( self.viewport_offset.y as i32 ) + shift.y;
+
+        while new_x_offset < 0 {
+            new_x_offset += self.map_dims.width as i32;
+        }
+        while new_y_offset < 0 {
+            new_y_offset += self.map_dims.height as i32;
+        }
+
+        self.viewport_offset.x = (new_x_offset as u16) % self.map_dims.width;
+        self.viewport_offset.y = (new_y_offset as u16) % self.map_dims.height;
+        self.draw_map();
+        self.draw_scroll_bars();
+    }
 }
 
 fn main() {
 
-    let mut a = Test { x: 10 };
-    let b = &mut a;
-    // a.x = 20;
-    b.x = 20;
+    if let Some((Width(term_width), Height(term_height))) = terminal_size() {
+        // println!("Your terminal is {} cols wide and {} lines tall", w, h);
 
-    let game = Game::new(MAP_WIDTH, MAP_HEIGHT, NUM_CONTINENTS);
-    game.draw();
+        let mut game = Game::new(
+            Dims{ width: term_width, height: term_height },
+            MAP_DIMS, HEADER_HEIGHT, FOOTER_HEIGHT, NUM_CONTINENTS
+        );
 
 
 
-    return;
+        let stdin = stdin();
+        // let stdin = stdin.lock();
 
-    // Initialize 'em all.
-    let stdout = stdout();
-    let mut stdout = stdout.lock().into_raw_mode().unwrap();
-    let stdin = stdin();
-    let stdin = stdin.lock();
+        let stdout = stdout();
+        let mut stdout = stdout.lock().into_raw_mode().unwrap();
 
-    write!(stdout, "{}{}{}yo, 'q' will exit.{}{}", termion::clear::All, termion::cursor::Goto(5, 5),
-           termion::style::Bold, termion::style::Reset, termion::cursor::Goto(20, 10)).unwrap();
-    stdout.flush().unwrap();
+        game.draw();
 
-    let mut bytes = stdin.bytes();
-    loop {
-        let b = bytes.next().unwrap().unwrap();
-
-        match b {
-            // Quit
-            b'q' => return,
-            // Clear the screen
-            b'c' => write!(stdout, "{}", termion::clear::All),
-            // // Set red color
-            // b'r' => write!(stdout, "{}", color::Fg(color::Rgb(5, 0, 0))),
-            // Write it to stdout.
-            a => write!(stdout, "{}", a),
-        }.unwrap();
-
-        stdout.flush().unwrap();
+        for c in stdin.keys() {
+            match c.unwrap() {
+                Key::Char('H') => game.shift_viewport(Vec2d{x:-1, y:  0}),
+                Key::Char('L') => game.shift_viewport(Vec2d{x: 1, y:  0}),
+                Key::Char('K') => game.shift_viewport(Vec2d{x: 0, y: -1}),
+                Key::Char('J') => game.shift_viewport(Vec2d{x: 0, y:  1}),
+                Key::Char('q') => break,
+                _ => {}
+            }
+            // stdout.flush().unwrap();
+        }
+        println!("");
+    } else {
+        println!("Unable to get terminal size");
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// extern crate termion;
-//
-// use termion::event::Key;
-// use termion::input::TermRead;
-// use termion::raw::IntoRawMode;
-// use std::io::{Write, stdout, stdin};
-//
-// fn rainbow<W: Write>(stdout: &mut W, blue: u8) {
-//     write!(stdout, "{}{}", termion::cursor::Goto(1, 1), termion::clear::All).unwrap();
-//
-//     for red in 0..255 {
-//         for green in 0..255 {
-//             write!(stdout, "{} ", termion::color::Bg(termion::color::Rgb(red, green, blue))).unwrap();
-//         }
-//         write!(stdout, "\n\r").unwrap();
-//     }
-//
-//     writeln!(stdout, "{}b = {}", termion::style::Reset, blue).unwrap();
-// }
-//
-// fn main() {
-//     let stdin = stdin();
-//     let mut stdout = stdout().into_raw_mode().unwrap();
-//
-//     writeln!(stdout, "{}{}{}Use the arrow keys to change the blue in the rainbow.",
-//            termion::clear::All,
-//            termion::cursor::Goto(1, 1),
-//            termion::cursor::Hide).unwrap();
-//
-//     let mut blue = 172u8;
-//
-//     for c in stdin.keys() {
-//         match c.unwrap() {
-//             Key::Up => {
-//                 blue = blue.saturating_add(4);
-//                 rainbow(&mut stdout, blue);
-//             },
-//             Key::Down => {
-//                 blue = blue.saturating_sub(4);
-//                 rainbow(&mut stdout, blue);
-//             },
-//             Key::Char('q') => break,
-//             _ => {},
-//         }
-//         stdout.flush().unwrap();
-//     }
-//
-//     write!(stdout, "{}", termion::cursor::Show).unwrap();
-// }
