@@ -5,6 +5,8 @@
 //Wishlist:
 // Copy is implemented for Rgb, Bg, Fg
 
+mod conf;
+
 extern crate rand;
 extern crate terminal_size;
 extern crate termion;
@@ -19,21 +21,9 @@ use termion::event::Key;
 use termion::raw::IntoRawMode;
 use termion::input::TermRead;
 
+// Derived configuration
+const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
 
-const APP_NAME: &'static str = "umpire";
-
-const MAP_DIMS: Dims = Dims { width: 180, height: 90 };
-const HEADER_HEIGHT: u16 = 1;
-const FOOTER_HEIGHT: u16 = 5;
-
-const LANDMASSES:u16 = 150;
-const GROWTH_ITERATIONS : u16 = 5;
-// const GROWTH_PROB   : f32 = 0.1;
-const GROWTH_CARDINAL_LAMBDA : f32 = 2_f32;
-const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
-
-const NUM_TEAMS: u16 = 4;
-const PLAYER_TEAM: u16 = 0;
 
 
 
@@ -264,7 +254,7 @@ impl Game {
             termion::clear::All,
             goto(0,0),
             termion::style::Underline,
-            APP_NAME,
+            conf::APP_NAME,
             termion::style::Reset
         ).unwrap();
 
@@ -421,7 +411,7 @@ impl Game {
         let mut rng = rand::thread_rng();
 
         // Seed the continents/islands
-        for _ in 0..LANDMASSES {
+        for _ in 0..conf::LANDMASSES {
             let x = rng.gen_range(0, self.map_dims.width);
             let y = rng.gen_range(0, self.map_dims.height);
 
@@ -431,7 +421,7 @@ impl Game {
         }
 
         // Grow landmasses
-        for _iteration in 0..GROWTH_ITERATIONS {
+        for _iteration in 0..conf::GROWTH_ITERATIONS {
             for x in 0..self.map_dims.width {
                 for y in 0..self.map_dims.height {
 
@@ -449,8 +439,8 @@ impl Game {
                         //     }
                         // },
                         TerrainType::WATER => {
-                            let cardinal_growth_prob = self._land_cardinal_neighbors(x, y) as f32 / (4_f32 + GROWTH_CARDINAL_LAMBDA);
-                            let diagonal_growth_prob = self._land_diagonal_neighbors(x, y) as f32 / (4_f32 + GROWTH_DIAGONAL_LAMBDA);
+                            let cardinal_growth_prob = self._land_cardinal_neighbors(x, y) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
+                            let diagonal_growth_prob = self._land_diagonal_neighbors(x, y) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
 
                             if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
                                 self.tiles[x as usize][y as usize].terrain.type_ = TerrainType::LAND;
@@ -465,7 +455,7 @@ impl Game {
 
 
         let mut team_idx = 0;
-        while team_idx < NUM_TEAMS {
+        while team_idx < conf::NUM_TEAMS {
             let x = rng.gen_range(0, self.map_dims.width);
             let y = rng.gen_range(0, self.map_dims.height);
 
@@ -505,7 +495,7 @@ fn main() {
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
         let mut game = Game::new(
             Dims{ width: term_width, height: term_height },
-            MAP_DIMS, HEADER_HEIGHT, FOOTER_HEIGHT
+            MAP_DIMS, conf::HEADER_HEIGHT, conf::FOOTER_HEIGHT
         );
 
         let stdin = stdin();
@@ -528,7 +518,7 @@ fn main() {
                 _ => {}
             }
         }
-        println!("");
+        write!(stdout, "{}{}\n\n", goto(0, term_height), termion::style::Reset).unwrap();
     } else {
         println!("Unable to get terminal size");
     }
