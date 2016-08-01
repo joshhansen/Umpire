@@ -26,16 +26,18 @@ const MAP_DIMS: Dims = Dims { width: 180, height: 90 };
 const HEADER_HEIGHT: u16 = 1;
 const FOOTER_HEIGHT: u16 = 5;
 
-const NUM_CONTINENTS:u16 = 100;
-const GROWTH_ITERATIONS : u16 = 10;
-const GROWTH_PROB   : f32 = 0.2;
+const LANDMASSES:u16 = 150;
+const GROWTH_ITERATIONS : u16 = 5;
+const GROWTH_PROB   : f32 = 0.1;
+const GROWTH_CARDINAL_LAMBDA : f32 = 2_f32;
+const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
 
 const NUM_TEAMS: u16 = 4;
 const PLAYER_TEAM: u16 = 0;
 
 
 
-// Terminal utility functions
+// Utility functions
 
 /// 0-indexed variant of Goto
 fn goto(x: u16, y: u16) -> termion::cursor::Goto {
@@ -54,9 +56,17 @@ fn erase(x: u16, y: u16) {
     write!(stdout, "{}{} ", termion::style::Reset, goto(x,y));
 }
 
+fn safe_minus_one(x:u16) -> u16 {
+    if x > 0 { x - 1}
+    else { 0 }
+}
 
+fn safe_plus_one(x:u16, max:u16) -> u16 {
+    if x < max { x + 1 }
+    else { max }
+}
 
-
+#[derive(PartialEq)]
 enum TerrainType {
     WATER,
     LAND,
@@ -210,7 +220,7 @@ struct Game {
 }
 
 impl Game {
-    fn new(term_dims: Dims, map_dims: Dims, header_height: u16, footer_height: u16, num_continents: u16) -> Game {
+    fn new(term_dims: Dims, map_dims: Dims, header_height: u16, footer_height: u16) -> Game {
         let mut map_tiles = Vec::new();
 
         for x in 0..map_dims.width {
@@ -240,7 +250,7 @@ impl Game {
             old_v_scroll_y: Option::None,
         };
 
-        game.generate_map(num_continents);
+        game.generate_map();
 
 
         game
@@ -343,11 +353,75 @@ impl Game {
         self.old_v_scroll_y = Option::Some(v_scroll_y);
     }
 
-    fn generate_map(&mut self, continents: u16) {
+    fn _is_land(&self, x:u16, y:u16) -> bool {
+        return self.tiles[x as usize][y as usize].terrain.type_ == TerrainType::LAND;
+    }
+
+    fn _land_cardinal_neighbors(&self, x:u16, y:u16) -> u16 {
+        let mut land_cardinal_neighbors = 0;
+
+        // left
+        if x > 0 && self._is_land(x-1, y) {
+            land_cardinal_neighbors += 1;
+        }
+        // right
+        if x < self.map_dims.width - 1 && self._is_land(x+1, y) {
+            land_cardinal_neighbors += 1;
+        }
+        // up
+        if y > 0 && self._is_land(x, y-1) {
+            land_cardinal_neighbors += 1;
+        }
+        // down
+        if y < self.map_dims.height - 1 && self._is_land(x, y+1) {
+            land_cardinal_neighbors += 1;
+        }
+
+        land_cardinal_neighbors
+    }
+
+    fn _land_diagonal_neighbors(&self, x:u16, y:u16) -> u16 {
+        let x_low_room = x > 0;
+        let y_low_room = y > 0;
+        let x_high_room = x < self.map_dims.width - 1;
+        let y_high_room = y < self.map_dims.height - 1;
+
+        let mut land_neighbors = 0;
+
+        if x_low_room && y_low_room && self._is_land(x-1, y-1) {
+            land_neighbors += 1;
+        }
+        if x_low_room && y_high_room && self._is_land(x-1, y+1) {
+            land_neighbors += 1;
+        }
+        if x_high_room && y_low_room && self._is_land(x+1, y-1) {
+            land_neighbors += 1;
+        }
+        if x_high_room && y_high_room && self._is_land(x+1, y+1) {
+            land_neighbors += 1;
+        }
+        land_neighbors
+    }
+
+    // fn _land_neighbors(&self, x:u16, y:u16) -> u16 {
+    //     let mut land_nearby = 0;
+    //     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
+    //         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
+    //             if x2 != x && y2 != y {
+    //                 if self.tiles[x2 as usize][y2 as usize].terrain.type_ == TerrainType::LAND {
+    //                     land_nearby += 1;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     land_nearby
+    // }
+
+    fn generate_map(&mut self) {
         let mut rng = rand::thread_rng();
 
         // Seed the continents/islands
-        for _ in 0..continents {
+        for _ in 0..LANDMASSES {
             let x = rng.gen_range(0, self.map_dims.width);
             let y = rng.gen_range(0, self.map_dims.height);
 
@@ -360,30 +434,35 @@ impl Game {
         for _iteration in 0..GROWTH_ITERATIONS {
             for x in 0..self.map_dims.width {
                 for y in 0..self.map_dims.height {
+
                     match self.tiles[x as usize][y as usize].terrain.type_ {
-                        TerrainType::LAND => {
+                        // TerrainType::LAND => {
+                        //
+                        //     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
+                        //         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
+                        //             if x2 != x && y2 != y {
+                        //                 if rng.next_f32() <= GROWTH_PROB {
+                        //                     self.tiles[x2 as usize][y2 as usize].terrain.type_ = TerrainType::LAND;
+                        //                 }
+                        //             }
+                        //         }
+                        //     }
+                        // },
+                        TerrainType::WATER => {
+                            let cardinal_growth_prob = self._land_cardinal_neighbors(x, y) as f32 / (4_f32 + GROWTH_CARDINAL_LAMBDA);
+                            let diagonal_growth_prob = self._land_diagonal_neighbors(x, y) as f32 / (4_f32 + GROWTH_DIAGONAL_LAMBDA);
 
-                            let x_min = if x > 0 { x-1 } else { 0 };
-                            let y_min = if y > 0 { y-1 } else { 0 };
-
-                            for x2 in x_min..min(x+2, self.map_dims.width) {
-                                for y2 in y_min..min(y+2, self.map_dims.height) {
-                                    if x2 != x && y2 != y {
-                                        if rng.next_f32() <= GROWTH_PROB {
-                                            self.tiles[x2 as usize][y2 as usize].terrain.type_ = TerrainType::LAND;
-                                        }
-
-                                    }
-                                }
+                            if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
+                                self.tiles[x as usize][y as usize].terrain.type_ = TerrainType::LAND;
                             }
-
-                        },
+                        }
                         _ => {}
                     }
-
                 }
             }
         }
+
+
 
         let mut team_idx = 0;
         while team_idx < NUM_TEAMS {
@@ -426,7 +505,7 @@ fn main() {
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
         let mut game = Game::new(
             Dims{ width: term_width, height: term_height },
-            MAP_DIMS, HEADER_HEIGHT, FOOTER_HEIGHT, NUM_CONTINENTS
+            MAP_DIMS, HEADER_HEIGHT, FOOTER_HEIGHT
         );
 
         let stdin = stdin();
