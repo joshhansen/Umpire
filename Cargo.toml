@@ -1,0 +1,10 @@
+[package]
+name = "umpire"
+version = "0.1.0"
+authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
+
+[dependencies]
+termion = "1.0.3"
+rand = "0.3.14"
+terminal_size = "0.1.5"
+
