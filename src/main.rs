@@ -506,15 +506,15 @@ fn main() {
 
         for c in stdin.keys() {
             match c.unwrap() {
-                Key::Char('H') => game.shift_viewport(Vec2d{x:-1, y: 0}),
-                Key::Char('L') => game.shift_viewport(Vec2d{x: 1, y: 0}),
-                Key::Char('K') => game.shift_viewport(Vec2d{x: 0, y:-1}),
-                Key::Char('J') => game.shift_viewport(Vec2d{x: 0, y: 1}),
-                Key::Char('Y') => game.shift_viewport(Vec2d{x:-1, y:-1}),
-                Key::Char('U') => game.shift_viewport(Vec2d{x: 1, y:-1}),
-                Key::Char('B') => game.shift_viewport(Vec2d{x:-1, y: 1}),
-                Key::Char('N') => game.shift_viewport(Vec2d{x: 1, y: 1}),
-                Key::Char('q') => break,
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_LEFT)       => game.shift_viewport(Vec2d{x:-1, y: 0}),
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_RIGHT)      => game.shift_viewport(Vec2d{x: 1, y: 0}),
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_UP)         => game.shift_viewport(Vec2d{x: 0, y:-1}),
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN)       => game.shift_viewport(Vec2d{x: 0, y: 1}),
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_LEFT)    => game.shift_viewport(Vec2d{x:-1, y:-1}),
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_RIGHT)   => game.shift_viewport(Vec2d{x: 1, y:-1}),
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT)  => game.shift_viewport(Vec2d{x:-1, y: 1}),
+                Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT) => game.shift_viewport(Vec2d{x: 1, y: 1}),
+                Key::Char(conf::KEY_QUIT) => break,
                 _ => {}
             }
         }
