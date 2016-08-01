@@ -201,6 +201,8 @@ struct Game {
     term_dims: Dims,
     map_dims: Dims,
     header_height: u16,
+    h_scrollbar_height: u16,
+    v_scrollbar_width: u16,
     viewport_dims: Dims,
     viewport_offset: Vec2d<u16>,
     tiles: Vec<Vec<Tile>>, // tiles[col][row]
@@ -229,6 +231,8 @@ impl Game {
             term_dims: term_dims,
             map_dims: map_dims,
             header_height: header_height,
+            h_scrollbar_height: h_scrollbar_height,
+            v_scrollbar_width: v_scrollbar_width,
             viewport_dims: Dims{
                 width: term_dims.width - v_scrollbar_width,
                 height: term_dims.height - header_height - footer_height - h_scrollbar_height
@@ -303,12 +307,8 @@ impl Game {
         let stdout = stdout();
         let stdout = stdout.lock().into_raw_mode().unwrap();
 
-
-        let h_scrollbar_height = 1;
-        let v_scrollbar_width = 1;
-
         let h_scroll_x: u16 = (self.viewport_dims.width as f32 * (self.viewport_offset.x as f32 / self.map_dims.width as f32)) as u16;
-        let h_scroll_y = self.header_height + self.viewport_dims.height + h_scrollbar_height;
+        let h_scroll_y = self.header_height + self.viewport_dims.height + self.h_scrollbar_height;
 
 
         //FIXME There must be a cleaner way to do this
@@ -325,8 +325,8 @@ impl Game {
         }
         self.old_h_scroll_x = Option::Some(h_scroll_x);
 
-        let v_scroll_x = self.viewport_dims.width + v_scrollbar_width - 1;
-        let v_scroll_y: u16 = (self.viewport_dims.height as f32 * (self.viewport_offset.y as f32 / self.map_dims.height as f32)) as u16;
+        let v_scroll_x = self.viewport_dims.width + self.v_scrollbar_width - 1;
+        let v_scroll_y: u16 = self.header_height + (self.viewport_dims.height as f32 * (self.viewport_offset.y as f32 / self.map_dims.height as f32)) as u16;
 
         //FIXME There must be a cleaner way to do this
         match self.old_v_scroll_y {
