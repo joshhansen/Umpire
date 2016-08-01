@@ -88,7 +88,6 @@ enum UnitType {
 struct Unit {
     type_: UnitType,
     alignment: Alignment,
-    // name: &'static str,
     hp: u32,
     max_hp: u32,
     x: u32,
@@ -144,9 +143,6 @@ impl Unit {
         }
     }
 }
-
-
-// // Ж≈≋♂
 
 struct Tile {
     terrain: Terrain,
@@ -349,20 +345,13 @@ impl Game {
 }
 
 fn main() {
-
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
-        // println!("Your terminal is {} cols wide and {} lines tall", w, h);
-
         let mut game = Game::new(
             Dims{ width: term_width, height: term_height },
             MAP_DIMS, HEADER_HEIGHT, FOOTER_HEIGHT, NUM_CONTINENTS
         );
 
-
-
         let stdin = stdin();
-        // let stdin = stdin.lock();
-
         let stdout = stdout();
         let mut stdout = stdout.lock().into_raw_mode().unwrap();
 
@@ -377,7 +366,6 @@ fn main() {
                 Key::Char('q') => break,
                 _ => {}
             }
-            // stdout.flush().unwrap();
         }
         println!("");
     } else {
