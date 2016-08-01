@@ -25,8 +25,6 @@ use termion::input::TermRead;
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
 
 
-
-
 // Utility functions
 
 /// 0-indexed variant of Goto
@@ -246,7 +244,6 @@ impl Game {
 
         game.generate_map();
 
-
         game
     }
 
@@ -261,7 +258,6 @@ impl Game {
             conf::APP_NAME,
             termion::style::Reset
         ).unwrap();
-
 
         self.draw_map();
         self.draw_scroll_bars();
@@ -297,8 +293,6 @@ impl Game {
                     sym,
                     termion::style::NoUnderline
                 ).unwrap();
-
-
             }
         }
     }
