@@ -9,6 +9,7 @@ extern crate rand;
 extern crate terminal_size;
 extern crate termion;
 
+use std::cmp::{min,max};
 use std::io::{Read, Write, stdout, stdin};
 
 use rand::Rng;
@@ -26,6 +27,8 @@ const HEADER_HEIGHT: u16 = 1;
 const FOOTER_HEIGHT: u16 = 5;
 
 const NUM_CONTINENTS:u16 = 100;
+const GROWTH_ITERATIONS : u16 = 10;
+const GROWTH_PROB   : f32 = 0.2;
 
 const NUM_TEAMS: u16 = 4;
 const PLAYER_TEAM: u16 = 0;
@@ -342,6 +345,8 @@ impl Game {
 
     fn generate_map(&mut self, continents: u16) {
         let mut rng = rand::thread_rng();
+
+        // Seed the continents/islands
         for _ in 0..continents {
             let x = rng.gen_range(0, self.map_dims.width);
             let y = rng.gen_range(0, self.map_dims.height);
@@ -349,6 +354,35 @@ impl Game {
             let terrain = &mut self.tiles[x as usize][y as usize].terrain;
             // let terrain = &mut tile.terrain;
             terrain.type_ = TerrainType::LAND;
+        }
+
+        // Grow landmasses
+        for _iteration in 0..GROWTH_ITERATIONS {
+            for x in 0..self.map_dims.width {
+                for y in 0..self.map_dims.height {
+                    match self.tiles[x as usize][y as usize].terrain.type_ {
+                        TerrainType::LAND => {
+
+                            let x_min = if x > 0 { x-1 } else { 0 };
+                            let y_min = if y > 0 { y-1 } else { 0 };
+
+                            for x2 in x_min..min(x+2, self.map_dims.width) {
+                                for y2 in y_min..min(y+2, self.map_dims.height) {
+                                    if x2 != x && y2 != y {
+                                        if rng.next_f32() <= GROWTH_PROB {
+                                            self.tiles[x2 as usize][y2 as usize].terrain.type_ = TerrainType::LAND;
+                                        }
+
+                                    }
+                                }
+                            }
+
+                        },
+                        _ => {}
+                    }
+
+                }
+            }
         }
 
         let mut team_idx = 0;
