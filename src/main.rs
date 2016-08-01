@@ -275,12 +275,25 @@ impl Game {
                 let tile = &self.tiles[abs_x as usize][abs_y as usize];
                 let terrain = &tile.terrain;
 
-                write!(stdout, "{}{} ", goto(viewport_x, viewport_y + self.header_height), Bg(terrain.color())).unwrap();
+                let sym = match tile.units.last() {
+                    Option::None => ' ',
+                    Option::Some(unit) => unit.symbol()
+                };
+
+                if abs_y == self.map_dims.height - 1 {
+                    write!(stdout, "{}", termion::style::Underline).unwrap();
+                }
+
+                write!(stdout, "{}{}{}{}",
+                    goto(viewport_x, viewport_y + self.header_height),
+                    Bg(terrain.color()),
+                    sym,
+                    termion::style::NoUnderline
+                ).unwrap();
+
+
             }
         }
-    }
-
-
     }
 
     fn draw_scroll_bars(&mut self) {
