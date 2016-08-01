@@ -403,10 +403,14 @@ fn main() {
 
         for c in stdin.keys() {
             match c.unwrap() {
-                Key::Char('H') => game.shift_viewport(Vec2d{x:-1, y:  0}),
-                Key::Char('L') => game.shift_viewport(Vec2d{x: 1, y:  0}),
-                Key::Char('K') => game.shift_viewport(Vec2d{x: 0, y: -1}),
-                Key::Char('J') => game.shift_viewport(Vec2d{x: 0, y:  1}),
+                Key::Char('H') => game.shift_viewport(Vec2d{x:-1, y: 0}),
+                Key::Char('L') => game.shift_viewport(Vec2d{x: 1, y: 0}),
+                Key::Char('K') => game.shift_viewport(Vec2d{x: 0, y:-1}),
+                Key::Char('J') => game.shift_viewport(Vec2d{x: 0, y: 1}),
+                Key::Char('Y') => game.shift_viewport(Vec2d{x:-1, y:-1}),
+                Key::Char('U') => game.shift_viewport(Vec2d{x: 1, y:-1}),
+                Key::Char('B') => game.shift_viewport(Vec2d{x:-1, y: 1}),
+                Key::Char('N') => game.shift_viewport(Vec2d{x: 1, y: 1}),
                 Key::Char('q') => break,
                 _ => {}
             }
