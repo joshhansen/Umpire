@@ -32,6 +32,25 @@ const PLAYER_TEAM: u16 = 0;
 
 
 
+// Terminal utility functions
+
+/// 0-indexed variant of Goto
+fn goto(x: u16, y: u16) -> termion::cursor::Goto {
+    termion::cursor::Goto(x + 1, y + 1)
+}
+
+fn draw_scroll_mark(x: u16, y: u16, sym: char) {
+    let stdout = stdout();
+    let mut stdout = stdout.lock().into_raw_mode().unwrap();
+    write!(stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym);
+}
+
+fn erase(x: u16, y: u16) {
+    let stdout = stdout();
+    let mut stdout = stdout.lock().into_raw_mode().unwrap();
+    write!(stdout, "{}{} ", termion::style::Reset, goto(x,y));
+}
+
 
 
 
@@ -187,11 +206,6 @@ struct Game {
     old_v_scroll_y: Option<u16>
 }
 
-// 0-indexed variant of Goto
-fn goto(x: u16, y: u16) -> termion::cursor::Goto {
-    termion::cursor::Goto(x + 1, y + 1)
-}
-
 impl Game {
     fn new(term_dims: Dims, map_dims: Dims, header_height: u16, footer_height: u16, num_continents: u16) -> Game {
         let mut map_tiles = Vec::new();
@@ -266,16 +280,7 @@ impl Game {
         }
     }
 
-    fn draw_scroll_mark(x: u16, y: u16, sym: char) {
-        let stdout = stdout();
-        let mut stdout = stdout.lock().into_raw_mode().unwrap();
-        write!(stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym);
-    }
 
-    fn erase(x: u16, y: u16) {
-        let stdout = stdout();
-        let mut stdout = stdout.lock().into_raw_mode().unwrap();
-        write!(stdout, "{}{} ", termion::style::Reset, goto(x,y));
     }
 
     fn draw_scroll_bars(&mut self) {
@@ -293,12 +298,12 @@ impl Game {
         //FIXME There must be a cleaner way to do this
         match self.old_h_scroll_x {
             Option::None => {
-                Game::draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
+                draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
             },
             Option::Some(old_h_scroll_x) => {
-                if(h_scroll_x != old_h_scroll_x) {
-                    Game::erase(old_h_scroll_x, h_scroll_y);
-                    Game::draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
+                if h_scroll_x != old_h_scroll_x {
+                    erase(old_h_scroll_x, h_scroll_y);
+                    draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
                 }
             }
         }
@@ -310,12 +315,12 @@ impl Game {
         //FIXME There must be a cleaner way to do this
         match self.old_v_scroll_y {
             Option::None => {
-                Game::draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
+                draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
             },
             Option::Some(old_v_scroll_y) => {
-                if(v_scroll_y != old_v_scroll_y) {
-                    Game::erase(v_scroll_x, old_v_scroll_y);
-                    Game::draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
+                if v_scroll_y != old_v_scroll_y {
+                    erase(v_scroll_x, old_v_scroll_y);
+                    draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
                 }
             }
         }
