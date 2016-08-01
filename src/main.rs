@@ -27,6 +27,8 @@ const FOOTER_HEIGHT: u16 = 5;
 
 const NUM_CONTINENTS:u16 = 100;
 
+const NUM_TEAMS: u16 = 4;
+const PLAYER_TEAM: u16 = 0;
 
 
 
@@ -66,7 +68,7 @@ impl Terrain {
 
 enum Alignment {
     NEUTRAL,
-    BELLIGERENT { team: u32 }
+    BELLIGERENT { team: u16 }
     // active neutral, chaotic, etc.
 }
 
@@ -90,20 +92,26 @@ struct Unit {
     alignment: Alignment,
     hp: u32,
     max_hp: u32,
-    x: u32,
-    y: u32
+    x: u16,
+    y: u16
 }
 
 impl Unit {
-    // fn new(name: &'static str, symbol: char) -> Unit {
-    //     Unit{ name: name, symbol: symbol }
-    // }
-
-    fn infantry(alignment: Alignment, x: u32, y: u32) -> Unit {
+    fn infantry(alignment: Alignment, x: u16, y: u16) -> Unit {
         Unit {
             type_: UnitType::INFANTRY,
             alignment: alignment,
-            // name: "Infantry",
+            hp: 1,
+            max_hp: 1,
+            x: x,
+            y: y
+        }
+    }
+
+    fn city(alignment: Alignment, x: u16, y:u16) -> Unit {
+        Unit {
+            type_: UnitType::CITY,
+            alignment: alignment,
             hp: 1,
             max_hp: 1,
             x: x,
@@ -323,6 +331,24 @@ impl Game {
             let terrain = &mut self.tiles[x as usize][y as usize].terrain;
             // let terrain = &mut tile.terrain;
             terrain.type_ = TerrainType::LAND;
+        }
+
+        let mut team_idx = 0;
+        while team_idx < NUM_TEAMS {
+            let x = rng.gen_range(0, self.map_dims.width);
+            let y = rng.gen_range(0, self.map_dims.height);
+
+            let tile = &mut self.tiles[x as usize][y as usize];
+
+            match tile.terrain.type_ {
+                TerrainType::LAND => {
+                    if tile.units.is_empty() {
+                        tile.units.push( Unit::city( Alignment::BELLIGERENT{ team: team_idx }, x, y ) );
+                        team_idx += 1;
+                    }
+                },
+                _ => {}
+            }
         }
     }
 
