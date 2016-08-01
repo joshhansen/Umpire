@@ -9,12 +9,12 @@ extern crate rand;
 extern crate terminal_size;
 extern crate termion;
 
-use std::cmp::{min,max};
-use std::io::{Read, Write, stdout, stdin};
+use std::cmp::max;
+use std::io::{Write, stdout, stdin};
 
 use rand::Rng;
 use terminal_size::{Width, Height, terminal_size};
-use termion::color::{Fg, Bg, Blue, Green, Rgb, Color, AnsiValue};
+use termion::color::{Fg, Bg, AnsiValue};
 use termion::event::Key;
 use termion::raw::IntoRawMode;
 use termion::input::TermRead;
@@ -28,7 +28,7 @@ const FOOTER_HEIGHT: u16 = 5;
 
 const LANDMASSES:u16 = 150;
 const GROWTH_ITERATIONS : u16 = 5;
-const GROWTH_PROB   : f32 = 0.1;
+// const GROWTH_PROB   : f32 = 0.1;
 const GROWTH_CARDINAL_LAMBDA : f32 = 2_f32;
 const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
 
@@ -281,7 +281,7 @@ impl Game {
         let mut stdout = stdout.lock().into_raw_mode().unwrap();
 
         for viewport_x in 0..self.viewport_dims.width {
-            for viewport_y in 0..self.viewport_dims.height {
+            for viewport_y in 0..(self.viewport_dims.height+1) {
                 let abs_x = (viewport_x + self.viewport_offset.x) % self.map_dims.width;// mod implements wrapping
                 let abs_y = (viewport_y + self.viewport_offset.y) % self.map_dims.height;// mod implements wrapping
 
@@ -311,14 +311,14 @@ impl Game {
 
     fn draw_scroll_bars(&mut self) {
         let stdout = stdout();
-        let mut stdout = stdout.lock().into_raw_mode().unwrap();
+        let stdout = stdout.lock().into_raw_mode().unwrap();
 
 
         let h_scrollbar_height = 1;
         let v_scrollbar_width = 1;
 
         let h_scroll_x: u16 = (self.viewport_dims.width as f32 * (self.viewport_offset.x as f32 / self.map_dims.width as f32)) as u16;
-        let h_scroll_y = self.header_height + self.viewport_dims.height + h_scrollbar_height - 1;
+        let h_scroll_y = self.header_height + self.viewport_dims.height + h_scrollbar_height;
 
 
         //FIXME There must be a cleaner way to do this
