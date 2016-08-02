@@ -6,6 +6,12 @@
 // Copy is implemented for Rgb, Bg, Fg
 
 mod conf;
+mod map;
+mod unit;
+mod util;
+
+use map::{Tile};
+use util::{draw_scroll_mark,erase,goto,Dims,Vec2d};
 
 extern crate rand;
 extern crate terminal_size;
@@ -24,186 +30,6 @@ use termion::input::TermRead;
 // Derived configuration
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
 
-
-// Utility functions
-
-/// 0-indexed variant of Goto
-fn goto(x: u16, y: u16) -> termion::cursor::Goto {
-    termion::cursor::Goto(x + 1, y + 1)
-}
-
-fn draw_scroll_mark(x: u16, y: u16, sym: char) {
-    let stdout = stdout();
-    let mut stdout = stdout.lock().into_raw_mode().unwrap();
-    write!(stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym);
-}
-
-fn erase(x: u16, y: u16) {
-    let stdout = stdout();
-    let mut stdout = stdout.lock().into_raw_mode().unwrap();
-    write!(stdout, "{}{} ", termion::style::Reset, goto(x,y));
-}
-
-fn safe_minus_one(x:u16) -> u16 {
-    if x > 0 { x - 1}
-    else { 0 }
-}
-
-fn safe_plus_one(x:u16, max:u16) -> u16 {
-    if x < max { x + 1 }
-    else { max }
-}
-
-#[derive(PartialEq)]
-enum TerrainType {
-    WATER,
-    LAND,
-    // CITY
-    //ice, lava, river, deep sea vs shallow, etc.
-}
-
-struct Terrain {
-    type_: TerrainType,
-    x: u16,
-    y: u16
-}
-
-impl Terrain {
-    fn water(x: u16, y: u16) -> Terrain {
-        Terrain{ type_: TerrainType::WATER, x: x, y: y }
-    }
-
-    fn land(x: u16, y: u16) -> Terrain {
-        Terrain{ type_: TerrainType::LAND, x: x, y: y }
-    }
-
-    fn color(&self) -> AnsiValue {
-        match self.type_ {
-            TerrainType::WATER => AnsiValue(12),
-            TerrainType::LAND => AnsiValue(10),
-            // TerrainType::CITY => AnsiValue(245)
-        }
-    }
-}
-
-#[derive(Copy,Clone)]
-enum Alignment {
-    NEUTRAL,
-    BELLIGERENT { team: u8 }
-    // active neutral, chaotic, etc.
-}
-
-fn team_color(alignment: Alignment) -> AnsiValue {
-    match alignment {
-        Alignment::NEUTRAL => AnsiValue(8),
-        Alignment::BELLIGERENT{team} => AnsiValue(team+9)
-    }
-}
-
-
-enum UnitType {
-    CITY,
-
-    INFANTRY,
-    ARMOR,
-    FIGHTER,
-    BOMBER,
-    TRANSPORT,
-    DESTROYER,
-    SUBMARINE,
-    CRUISER,
-    BATTLESHIP,
-    CARRIER
-}
-
-struct Unit {
-    type_: UnitType,
-    alignment: Alignment,
-    hp: u32,
-    max_hp: u32,
-    x: u16,
-    y: u16
-}
-
-impl Unit {
-    fn infantry(alignment: Alignment, x: u16, y: u16) -> Unit {
-        Unit {
-            type_: UnitType::INFANTRY,
-            alignment: alignment,
-            hp: 1,
-            max_hp: 1,
-            x: x,
-            y: y
-        }
-    }
-
-    fn city(alignment: Alignment, x: u16, y:u16) -> Unit {
-        Unit {
-            type_: UnitType::CITY,
-            alignment: alignment,
-            hp: 1,
-            max_hp: 1,
-            x: x,
-            y: y
-        }
-    }
-
-    fn symbol(&self) -> char {
-        match self.type_ {
-            UnitType::CITY => '#',
-            UnitType::INFANTRY => '⤲',
-            UnitType::ARMOR => 'A',
-            UnitType::FIGHTER => '✈',
-            UnitType::BOMBER => 'b',
-            UnitType::TRANSPORT => 't',
-            UnitType::DESTROYER => 'd',
-            UnitType::SUBMARINE => '—',
-            UnitType::CRUISER => 'c',
-            UnitType::BATTLESHIP => 'B',
-            UnitType::CARRIER => 'C'
-        }
-    }
-
-    fn name(&self) -> &'static str {
-        match self.type_ {
-            UnitType::CITY => "City",
-            UnitType::INFANTRY => "Infantry",
-            UnitType::ARMOR => "Armor",
-            UnitType::FIGHTER => "Fighter",
-            UnitType::BOMBER => "Bomber",
-            UnitType::TRANSPORT => "Transport",
-            UnitType::DESTROYER => "Destroyer",
-            UnitType::SUBMARINE => "Submarine",
-            UnitType::CRUISER => "Cruiser",
-            UnitType::BATTLESHIP => "Battleship",
-            UnitType::CARRIER => "Carrier"
-        }
-    }
-}
-
-struct Tile {
-    terrain: Terrain,
-    units: Vec<Unit>
-}
-
-impl Tile {
-    fn new(terrain: Terrain) -> Tile {
-        Tile{ terrain: terrain, units: Vec::new() }
-    }
-}
-
-#[derive(Copy,Clone)]
-struct Dims {
-    width: u16,
-    height: u16
-}
-
-#[derive(Copy,Clone)]
-struct Vec2d<T> {
-    x: T,
-    y: T
-}
-
 struct Game {
     term_dims: Dims,
     map_dims: Dims,
@@ -220,16 +46,7 @@ struct Game {
 
 impl Game {
     fn new(term_dims: Dims, map_dims: Dims, header_height: u16, footer_height: u16) -> Game {
-        let mut map_tiles = Vec::new();
 
-        for x in 0..map_dims.width {
-            let mut col = Vec::new();
-            for y in 0..map_dims.height {
-                col.push(Tile::new(Terrain::water(x, y)));
-            }
-
-            map_tiles.push(col);
-        }
 
         let h_scrollbar_height = 1;
         let v_scrollbar_width = 1;
@@ -245,13 +62,11 @@ impl Game {
                 height: term_dims.height - header_height - footer_height - h_scrollbar_height
             },
             viewport_offset: Vec2d{ x: map_dims.width/2, y: map_dims.height/2 },
-            tiles: map_tiles,
+            tiles: map::gen::generate_map(map_dims),
 
             old_h_scroll_x: Option::None,
             old_v_scroll_y: Option::None,
         };
-
-        game.generate_map();
 
         game
     }
@@ -299,7 +114,7 @@ impl Game {
 
                 let fg_color = if tile.units.is_empty() { AnsiValue(0) } else {
                     let last_unit = &tile.units.last().unwrap();
-                    team_color(last_unit.alignment)
+                    unit::alignment_color(last_unit.alignment)
                 };
 
                 write!(stdout, "{}{}{}{}{}",
@@ -353,146 +168,7 @@ impl Game {
         self.old_v_scroll_y = Option::Some(v_scroll_y);
     }
 
-    fn _is_land(&self, x:u16, y:u16) -> bool {
-        return self.tiles[x as usize][y as usize].terrain.type_ == TerrainType::LAND;
-    }
 
-    fn _land_cardinal_neighbors(&self, x:u16, y:u16) -> u16 {
-        let mut land_cardinal_neighbors = 0;
-
-        // left
-        if x > 0 && self._is_land(x-1, y) {
-            land_cardinal_neighbors += 1;
-        }
-        // right
-        if x < self.map_dims.width - 1 && self._is_land(x+1, y) {
-            land_cardinal_neighbors += 1;
-        }
-        // up
-        if y > 0 && self._is_land(x, y-1) {
-            land_cardinal_neighbors += 1;
-        }
-        // down
-        if y < self.map_dims.height - 1 && self._is_land(x, y+1) {
-            land_cardinal_neighbors += 1;
-        }
-
-        land_cardinal_neighbors
-    }
-
-    fn _land_diagonal_neighbors(&self, x:u16, y:u16) -> u16 {
-        let x_low_room = x > 0;
-        let y_low_room = y > 0;
-        let x_high_room = x < self.map_dims.width - 1;
-        let y_high_room = y < self.map_dims.height - 1;
-
-        let mut land_neighbors = 0;
-
-        if x_low_room && y_low_room && self._is_land(x-1, y-1) {
-            land_neighbors += 1;
-        }
-        if x_low_room && y_high_room && self._is_land(x-1, y+1) {
-            land_neighbors += 1;
-        }
-        if x_high_room && y_low_room && self._is_land(x+1, y-1) {
-            land_neighbors += 1;
-        }
-        if x_high_room && y_high_room && self._is_land(x+1, y+1) {
-            land_neighbors += 1;
-        }
-        land_neighbors
-    }
-
-    // fn _land_neighbors(&self, x:u16, y:u16) -> u16 {
-    //     let mut land_nearby = 0;
-    //     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
-    //         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
-    //             if x2 != x && y2 != y {
-    //                 if self.tiles[x2 as usize][y2 as usize].terrain.type_ == TerrainType::LAND {
-    //                     land_nearby += 1;
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     land_nearby
-    // }
-
-    fn generate_map(&mut self) {
-        let mut rng = rand::thread_rng();
-
-        // Seed the continents/islands
-        for _ in 0..conf::LANDMASSES {
-            let x = rng.gen_range(0, self.map_dims.width);
-            let y = rng.gen_range(0, self.map_dims.height);
-
-            let terrain = &mut self.tiles[x as usize][y as usize].terrain;
-            // let terrain = &mut tile.terrain;
-            terrain.type_ = TerrainType::LAND;
-        }
-
-        // Grow landmasses
-        for _iteration in 0..conf::GROWTH_ITERATIONS {
-            for x in 0..self.map_dims.width {
-                for y in 0..self.map_dims.height {
-
-                    match self.tiles[x as usize][y as usize].terrain.type_ {
-                        // TerrainType::LAND => {
-                        //
-                        //     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
-                        //         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
-                        //             if x2 != x && y2 != y {
-                        //                 if rng.next_f32() <= GROWTH_PROB {
-                        //                     self.tiles[x2 as usize][y2 as usize].terrain.type_ = TerrainType::LAND;
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
-                        // },
-                        TerrainType::WATER => {
-                            let cardinal_growth_prob = self._land_cardinal_neighbors(x, y) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
-                            let diagonal_growth_prob = self._land_diagonal_neighbors(x, y) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
-
-                            if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
-                                self.tiles[x as usize][y as usize].terrain.type_ = TerrainType::LAND;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        // Populate neutral cities
-        for x in 0..self.map_dims.width {
-            for y in 0..self.map_dims.height {
-                let tile = &mut self.tiles[x as usize][y as usize];
-                if tile.terrain.type_ == TerrainType::LAND {
-                    if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                        tile.units.push( Unit::city(Alignment::NEUTRAL, x, y));
-                    }
-                }
-            }
-        }
-
-        // Populate player cities
-        let mut team_idx = 0_u8;
-        while team_idx < conf::NUM_TEAMS {
-            let x = rng.gen_range(0, self.map_dims.width);
-            let y = rng.gen_range(0, self.map_dims.height);
-
-            let tile = &mut self.tiles[x as usize][y as usize];
-
-            match tile.terrain.type_ {
-                TerrainType::LAND => {
-                    if tile.units.is_empty() {
-                        tile.units.push( Unit::city( Alignment::BELLIGERENT{ team: team_idx }, x, y ) );
-                        team_idx += 1;
-                    }
-                },
-                _ => {}
-            }
-        }
-    }
 
     fn shift_viewport(&mut self, shift: Vec2d<i32>) {
         let mut new_x_offset:i32 = ( self.viewport_offset.x as i32 ) + shift.x;
