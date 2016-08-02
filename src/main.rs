@@ -86,11 +86,20 @@ impl Terrain {
     }
 }
 
+#[derive(Copy,Clone)]
 enum Alignment {
     NEUTRAL,
-    BELLIGERENT { team: u16 }
+    BELLIGERENT { team: u8 }
     // active neutral, chaotic, etc.
 }
+
+fn team_color(alignment: Alignment) -> AnsiValue {
+    match alignment {
+        Alignment::NEUTRAL => AnsiValue(8),
+        Alignment::BELLIGERENT{team} => AnsiValue(team+9)
+    }
+}
+
 
 enum UnitType {
     CITY,
@@ -287,8 +296,15 @@ impl Game {
                     write!(stdout, "{}", termion::style::Underline).unwrap();
                 }
 
-                write!(stdout, "{}{}{}{}",
+
+                let fg_color = if tile.units.is_empty() { AnsiValue(0) } else {
+                    let last_unit = &tile.units.last().unwrap();
+                    team_color(last_unit.alignment)
+                };
+
+                write!(stdout, "{}{}{}{}{}",
                     goto(viewport_x, viewport_y + self.header_height),
+                    Fg(fg_color),
                     Bg(terrain.color()),
                     sym,
                     termion::style::NoUnderline
@@ -446,9 +462,20 @@ impl Game {
             }
         }
 
+        // Populate neutral cities
+        for x in 0..self.map_dims.width {
+            for y in 0..self.map_dims.height {
+                let tile = &mut self.tiles[x as usize][y as usize];
+                if tile.terrain.type_ == TerrainType::LAND {
+                    if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
+                        tile.units.push( Unit::city(Alignment::NEUTRAL, x, y));
+                    }
+                }
+            }
+        }
 
-
-        let mut team_idx = 0;
+        // Populate player cities
+        let mut team_idx = 0_u8;
         while team_idx < conf::NUM_TEAMS {
             let x = rng.gen_range(0, self.map_dims.width);
             let y = rng.gen_range(0, self.map_dims.height);
