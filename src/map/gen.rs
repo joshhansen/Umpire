@@ -81,7 +81,7 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
     for x in 0..map_dims.width {
         let mut col = Vec::new();
         for y in 0..map_dims.height {
-            col.push(Tile::new(Terrain::water(x, y)));
+            col.push(Tile::new(Terrain::water(), x, y));
         }
 
         tiles.push(col);

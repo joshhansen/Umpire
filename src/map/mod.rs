@@ -1,8 +1,8 @@
 extern crate termion;
 
-use unit::Unit;
-
 use termion::color::{Fg, AnsiValue};
+
+use unit::{Alignment,Unit,alignment_color};
 
 #[derive(PartialEq)]
 pub enum TerrainType {
@@ -14,17 +14,15 @@ pub enum TerrainType {
 
 pub struct Terrain {
     pub type_: TerrainType,
-    pub x: u16,
-    pub y: u16
 }
 
 impl Terrain {
-    pub fn water(x: u16, y: u16) -> Terrain {
-        Terrain{ type_: TerrainType::WATER, x: x, y: y }
+    pub fn water() -> Terrain {
+        Terrain{ type_: TerrainType::WATER }
     }
 
-    pub fn land(x: u16, y: u16) -> Terrain {
-        Terrain{ type_: TerrainType::LAND, x: x, y: y }
+    pub fn land() -> Terrain {
+        Terrain{ type_: TerrainType::LAND }
     }
 
     pub fn color(&self) -> AnsiValue {
@@ -38,12 +36,39 @@ impl Terrain {
 
 pub struct Tile {
     pub terrain: Terrain,
-    pub units: Vec<Unit>
+    pub units: Vec<Unit>,
+    pub x: u16,
+    pub y: u16
 }
 
 impl Tile {
-    fn new(terrain: Terrain) -> Tile {
-        Tile{ terrain: terrain, units: Vec::new() }
+    fn new(terrain: Terrain, x:u16, y:u16) -> Tile {
+        Tile{ terrain: terrain, units: Vec::new(), x: x, y: y }
+    }
+
+    pub fn sym(&self) -> char {
+        match self.units.last() {
+            Option::None => ' ',
+            Option::Some(unit) => unit.sym()
+        }
+    }
+
+    pub fn alignment(&self) -> Option<Alignment> {
+        match self.units.last() {
+            Option::None => Option::None,
+            Option::Some(unit) => Option::Some(unit.alignment)
+        }
+    }
+
+    pub fn fg_color(&self) -> Option<AnsiValue> {
+        match self.units.last() {
+            Option::None => Option::None,
+            Option::Some(last_unit) => Option::Some(alignment_color(last_unit.alignment))
+        }
+    }
+
+    pub fn bg_color(&self) -> AnsiValue {
+        self.terrain.color()
     }
 }
 

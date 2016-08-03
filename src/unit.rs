@@ -2,7 +2,7 @@ extern crate termion;
 
 use termion::color::AnsiValue;
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,PartialEq)]
 pub enum Alignment {
     NEUTRAL,
     BELLIGERENT { team: u8 }
@@ -63,7 +63,7 @@ impl Unit {
         }
     }
 
-    pub fn symbol(&self) -> char {
+    pub fn sym(&self) -> char {
         match self.type_ {
             UnitType::CITY => '#',
             UnitType::INFANTRY => '⤲',
