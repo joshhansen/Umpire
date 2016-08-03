@@ -26,14 +26,21 @@ pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
 //     else { max }
 // }
 
+#[derive(Clone,Copy)]
+pub struct Rect {
+    pub left: u16,
+    pub top: u16,
+    pub width: u16,
+    pub height: u16
+}
 
-#[derive(Copy,Clone)]
+#[derive(Clone,Copy)]
 pub struct Dims {
     pub width: u16,
     pub height: u16
 }
 
-#[derive(Copy,Clone)]
+#[derive(Clone,Copy)]
 pub struct Vec2d<T> {
     pub x: T,
     pub y: T

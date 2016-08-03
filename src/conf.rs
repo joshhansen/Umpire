@@ -32,6 +32,7 @@ pub const NEUTRAL_CITY_DENSITY : f32 = 0.05;
 pub const NUM_TEAMS: u8 = 4;
 
 // Key mappings
+pub const KEY_VIEWPORT_SIZE_ROTATE:      char = 'v';
 pub const KEY_VIEWPORT_SHIFT_LEFT:       char = 'H';
 pub const KEY_VIEWPORT_SHIFT_RIGHT:      char = 'L';
 pub const KEY_VIEWPORT_SHIFT_UP:         char = 'K';
