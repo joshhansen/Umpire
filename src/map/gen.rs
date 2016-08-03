@@ -8,7 +8,7 @@ use rand::Rng;
 
 use conf;
 use map::{Terrain,TerrainType,Tile};
-use unit::{Alignment,Unit};
+use unit::{Alignment,City,Unit};
 use util::Dims;
 
 fn is_land(tiles: &Vec<Vec<Tile>>, x:u16, y:u16) -> bool {
@@ -139,7 +139,7 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
             let tile = &mut tiles[x as usize][y as usize];
             if tile.terrain.type_ == TerrainType::LAND {
                 if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                    tile.units.push( Unit::city(Alignment::NEUTRAL, x, y));
+                    tile.city = Some(City::new(Alignment::NEUTRAL, x, y));
                 }
             }
         }
@@ -155,8 +155,8 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
 
         match tile.terrain.type_ {
             TerrainType::LAND => {
-                if tile.units.is_empty() {
-                    tile.units.push( Unit::city( Alignment::BELLIGERENT{ team: team_idx }, x, y ) );
+                if tile.city.is_none() {
+                    tile.city = Some(City::new(Alignment::BELLIGERENT{ team: team_idx }, x, y));
                     team_idx += 1;
                 }
             },
