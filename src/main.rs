@@ -56,7 +56,7 @@ impl<'b> Game<'b> {
     fn new(
         stdout: termion::raw::RawTerminal<std::io::StdoutLock<'b>>,
         term_dims: Dims, map_dims: Dims, header_height: u16, footer_height: u16
-    ) -> Game<'b> {
+    ) -> Self {
 
         let h_scrollbar_height = 1;
         let v_scrollbar_width = 1;
