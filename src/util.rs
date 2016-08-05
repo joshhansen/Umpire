@@ -9,10 +9,7 @@ use std::io::{Write,stdout};
 use termion::color::{Fg, AnsiValue};
 use termion::raw::IntoRawMode;
 
-/// 0-indexed variant of Goto
-pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
-    termion::cursor::Goto(x + 1, y + 1)
-}
+
 
 
 
