@@ -40,6 +40,7 @@ pub trait Sym {
     fn sym(&self) -> char;
 }
 
+#[derive(Clone,Copy)]
 pub enum UnitType {
     INFANTRY,
     ARMOR,
@@ -91,13 +92,15 @@ pub fn cost(type_: UnitType) -> u16 {
         UnitType::CARRIER => 48
     }
 }
+
 impl Unit {
-    pub fn infantry(alignment: Alignment, x: u16, y: u16) -> Unit {
+    pub fn new(type_: UnitType, alignment: Alignment, x: u16, y: u16) -> Self {
+        let max_hp = max_hp(type_);
         Unit {
-            type_: UnitType::INFANTRY,
+            type_: type_,
             alignment: alignment,
-            hp: 1,
-            max_hp: 1,
+            hp: max_hp,
+            max_hp: max_hp,
             x: x,
             y: y
         }
@@ -155,9 +158,9 @@ impl Aligned for Unit {
 pub struct City {
     x: u16,
     y: u16,
-    alignment: Alignment,
-    production_type: Option<UnitType>,
-    production_progress: u16,
+    pub alignment: Alignment,
+    pub unit_under_production: Option<UnitType>,
+    pub production_progress: u16,
 }
 
 impl City {
@@ -166,7 +169,7 @@ impl City {
             x: x,
             y: y,
             alignment: alignment,
-            production_type: None,
+            unit_under_production: None,
             production_progress: 0
         }
     }
