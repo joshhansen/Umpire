@@ -278,6 +278,38 @@ impl<'b> Game<'b> {
         self.draw_scroll_bars();
     }
 
+    fn run_turn(&mut self) {
+        for x in 0..self.map_dims.width {
+            for y in 0..self.map_dims.height {
+                let tile = &mut self.tiles[x as usize][y as usize];
+
+                match tile.city {
+                    Some(ref mut city) => {
+                        match city.alignment {
+                            Alignment::BELLIGERENT{player} => {
+
+                                match city.unit_under_production {
+                                    None => {
+                                        println!("Need to set production for city at {},{}", x, y);
+                                    },
+                                    Some(unit_under_production) => {
+                                        city.production_progress += 1;
+                                        if city.production_progress >= unit::cost(unit_under_production) {
+                                            let new_unit = Unit::new(unit_under_production, city.alignment, x, y);
+                                            tile.units.push(new_unit);
+                                        }
+                                    }
+                                }
+
+                            },
+                            Alignment::NEUTRAL => {}
+                        }
+                    },
+                    None => {}
+                }
+            }
+        }
+    }
 
 
     // Utility methods
@@ -309,6 +341,8 @@ fn main() {
 
 
         game.draw();
+
+        game.run_turn();
 
         for c in stdin.keys() {
             match c.unwrap() {
