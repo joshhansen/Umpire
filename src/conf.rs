@@ -1,3 +1,4 @@
+use unit::PlayerNum;
 
 /// The name of this application
 pub const APP_NAME: &'static str = "umpire";
@@ -29,7 +30,7 @@ pub const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
 pub const NEUTRAL_CITY_DENSITY : f32 = 0.05;
 
 /// The number of teams playing, including humans and AIs
-pub const NUM_TEAMS: u8 = 4;
+pub const NUM_PLAYERS: PlayerNum = 4;
 
 // Key mappings
 pub const KEY_VIEWPORT_SIZE_ROTATE:      char = 'v';

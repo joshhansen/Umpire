@@ -2,17 +2,19 @@ extern crate termion;
 
 use termion::color::AnsiValue;
 
+pub type PlayerNum = u8;
+
 #[derive(Copy,Clone,PartialEq)]
 pub enum Alignment {
     NEUTRAL,
-    BELLIGERENT { team: u8 }
+    BELLIGERENT { player: PlayerNum }
     // active neutral, chaotic, etc.
 }
 
 pub fn alignment_color(alignment: Alignment) -> AnsiValue {
     match alignment {
         Alignment::NEUTRAL => AnsiValue(8),
-        Alignment::BELLIGERENT{team} => AnsiValue(team+9)
+        Alignment::BELLIGERENT{player} => AnsiValue(player+9)
     }
 }
 
