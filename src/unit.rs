@@ -62,6 +62,35 @@ pub struct Unit {
     y: u16
 }
 
+fn max_hp(type_: UnitType) -> u16 {
+    match type_ {
+        UnitType::INFANTRY => 1,
+        UnitType::ARMOR => 2,
+        UnitType::FIGHTER => 1,
+        UnitType::BOMBER => 1,
+        UnitType::TRANSPORT => 3,
+        UnitType::DESTROYER => 2,
+        UnitType::SUBMARINE => 2,
+        UnitType::CRUISER => 4,
+        UnitType::BATTLESHIP => 8,
+        UnitType::CARRIER => 6
+    }
+}
+
+pub fn cost(type_: UnitType) -> u16 {
+    match type_ {
+        UnitType::INFANTRY => 6,
+        UnitType::ARMOR => 12,//?
+        UnitType::FIGHTER => 12,
+        UnitType::BOMBER => 12,//?
+        UnitType::TRANSPORT => 30,
+        UnitType::DESTROYER => 24,
+        UnitType::SUBMARINE => 24,
+        UnitType::CRUISER => 36,
+        UnitType::BATTLESHIP => 60,
+        UnitType::CARRIER => 48
+    }
+}
 impl Unit {
     pub fn infantry(alignment: Alignment, x: u16, y: u16) -> Unit {
         Unit {
