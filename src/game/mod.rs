@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 
-use conf;
 use map::Tile;
 use map::gen::generate_map;
 use unit::{Alignment,PlayerNum,Unit,cost as production_cost};
@@ -24,12 +23,6 @@ pub struct Game {
     pub tiles: Vec<Vec<Tile>>, // tiles[col][row]
     player_maps: HashMap<PlayerNum,Vec<Vec<Obs>>>,
     turn: Turn,
-}
-
-enum ViewportSize {
-    REGULAR,
-    THEATER,
-    FULLSCREEN
 }
 
 impl Game {

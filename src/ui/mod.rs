@@ -26,14 +26,14 @@ pub struct UI<'a> {
     header_height: u16,
     h_scrollbar_height: u16,
     v_scrollbar_width: u16,
-    pub viewport_size: ViewportSize,
+    viewport_size: ViewportSize,
     viewport_rect: Rect,
     viewport_offset: Vec2d<u16>,
     old_h_scroll_x: Option<u16>,
     old_v_scroll_y: Option<u16>
 }
 
-pub enum ViewportSize {
+enum ViewportSize {
     REGULAR,
     THEATER,
     FULLSCREEN
@@ -130,7 +130,7 @@ impl<'b> UI<'b> {
         self.quit();
     }
 
-    pub fn set_viewport_size(&mut self, viewport_size: ViewportSize) {
+    fn set_viewport_size(&mut self, viewport_size: ViewportSize) {
         self.viewport_rect = viewport_rect(&viewport_size, self.header_height, self.h_scrollbar_height, self.v_scrollbar_width, &self.term_dims);
         self.viewport_size = viewport_size;
         self.draw();
@@ -177,7 +177,7 @@ impl<'b> UI<'b> {
 
         match tile.fg_color() {
             Option::Some(fg_color) => {
-                write!(self.stdout, "{}", Fg(fg_color));
+                write!(self.stdout, "{}", Fg(fg_color)).unwrap();
             },
             _ => {}
         }
@@ -292,11 +292,11 @@ impl<'b> UI<'b> {
 
     // Utility methods
     fn draw_scroll_mark(&mut self, x: u16, y: u16, sym: char) {
-        write!(self.stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym);
+        write!(self.stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
     }
 
     fn erase(&mut self, x: u16, y: u16) {
-        write!(self.stdout, "{}{} ", termion::style::Reset, goto(x,y));
+        write!(self.stdout, "{}{} ", termion::style::Reset, goto(x,y)).unwrap();
     }
 
     pub fn quit(&mut self) {

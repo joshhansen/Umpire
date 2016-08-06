@@ -27,9 +27,7 @@ use util::Dims;
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
 
 
-
 fn main() {
-
     // let home:Result<String,()> = conf::get("HOME");
     // println!("{}", home.unwrap());
     // let shlvl:Result<u16,()> = conf::get("SHLVL");

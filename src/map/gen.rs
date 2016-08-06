@@ -10,7 +10,7 @@ use rand::Rng;
 
 use conf;
 use map::{Terrain,TerrainType,Tile};
-use unit::{Alignment,City,PlayerNum};
+use unit::{Alignment,City};
 use util::Dims;
 
 fn is_land(tiles: &Vec<Vec<Tile>>, x:u16, y:u16) -> bool {
