@@ -90,8 +90,8 @@ impl<'b> UI<'b> {
             viewport_size: ViewportSize::REGULAR,
             viewport_rect: viewport_rect(&ViewportSize::REGULAR, header_height, h_scrollbar_height, v_scrollbar_width, &term_dims),
             viewport_offset: offset,
-            old_h_scroll_x: Option::None,
-            old_v_scroll_y: Option::None,
+            old_h_scroll_x: None,
+            old_v_scroll_y: None,
         };
 
         ui
@@ -176,7 +176,7 @@ impl<'b> UI<'b> {
         }
 
         match tile.fg_color() {
-            Option::Some(fg_color) => {
+            Some(fg_color) => {
                 write!(self.stdout, "{}", Fg(fg_color)).unwrap();
             },
             _ => {}
@@ -201,16 +201,16 @@ impl<'b> UI<'b> {
                     let new_tile = &self.game.tiles[new_map_x as usize][new_map_y as usize];
 
                     let alignments_match = match old_tile.alignment() {
-                        Option::None => {
+                        None => {
                             match new_tile.alignment() {
-                                Option::None => true,
-                                Option::Some(_new_alignment) => false
+                                None => true,
+                                Some(_new_alignment) => false
                             }
                         },
-                        Option::Some(old_alignment) => {
+                        Some(old_alignment) => {
                             match new_tile.alignment() {
-                                Option::None => false,
-                                Option::Some(new_alignment) => old_alignment==new_alignment
+                                None => false,
+                                Some(new_alignment) => old_alignment==new_alignment
                             }
                         }
                     };
@@ -237,34 +237,34 @@ impl<'b> UI<'b> {
 
         //FIXME There must be a cleaner way to do this
         match self.old_h_scroll_x {
-            Option::None => {
+            None => {
                 self.draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
             },
-            Option::Some(old_h_scroll_x) => {
+            Some(old_h_scroll_x) => {
                 if h_scroll_x != old_h_scroll_x {
                     self.erase(old_h_scroll_x, h_scroll_y);
                     self.draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
                 }
             }
         }
-        self.old_h_scroll_x = Option::Some(h_scroll_x);
+        self.old_h_scroll_x = Some(h_scroll_x);
 
         let v_scroll_x = self.viewport_rect.width + self.v_scrollbar_width - 1;
         let v_scroll_y: u16 = self.header_height + (self.viewport_rect.height as f32 * (self.viewport_offset.y as f32 / self.game.map_dims.height as f32)) as u16;
 
         //FIXME There must be a cleaner way to do this
         match self.old_v_scroll_y {
-            Option::None => {
+            None => {
                 self.draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
             },
-            Option::Some(old_v_scroll_y) => {
+            Some(old_v_scroll_y) => {
                 if v_scroll_y != old_v_scroll_y {
                     self.erase(v_scroll_x, old_v_scroll_y);
                     self.draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
                 }
             }
         }
-        self.old_v_scroll_y = Option::Some(v_scroll_y);
+        self.old_v_scroll_y = Some(v_scroll_y);
     }
 
 
