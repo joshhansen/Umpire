@@ -8,7 +8,6 @@ use std::io::{Write, stdout, stdin, StdoutLock};
 
 use termion::color::{Fg, Bg, AnsiValue};
 use termion::event::Key;
-use termion::raw::IntoRawMode;
 use termion::input::TermRead;
 
 use conf;

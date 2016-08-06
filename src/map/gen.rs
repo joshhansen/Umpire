@@ -4,11 +4,13 @@
 
 extern crate rand;
 
+// use std::num::Zero;
+
 use rand::Rng;
 
 use conf;
 use map::{Terrain,TerrainType,Tile};
-use unit::{Alignment,City,PlayerNum,Unit};
+use unit::{Alignment,City,PlayerNum};
 use util::Dims;
 
 fn is_land(tiles: &Vec<Vec<Tile>>, x:u16, y:u16) -> bool {

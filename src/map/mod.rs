@@ -1,6 +1,6 @@
 extern crate termion;
 
-use termion::color::{Fg, AnsiValue};
+use termion::color::AnsiValue;
 
 use unit::{Alignment,City,Unit,alignment_color,Aligned,Sym};
 

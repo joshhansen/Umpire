@@ -2,17 +2,6 @@
 //! Utility functions and structs
 //!
 
-extern crate termion;
-
-use std::io::{Write,stdout};
-
-use termion::color::{Fg, AnsiValue};
-use termion::raw::IntoRawMode;
-
-
-
-
-
 // pub fn safe_minus_one(x:u16) -> u16 {
 //     if x > 0 { x - 1}
 //     else { 0 }

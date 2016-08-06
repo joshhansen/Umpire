@@ -12,28 +12,16 @@ mod ui;
 mod unit;
 mod util;
 
-use map::{Tile};
-use unit::{Alignment,PlayerNum,Unit};
-use util::{Dims,Vec2d,Rect};
-
 extern crate rand;
 extern crate terminal_size;
 extern crate termion;
 
-use std::cmp::max;
-use std::collections::HashMap;
-use std::io::{Write, stdout, stdin};
-// use std::num::Zero;
+use std::io::stdout;
 
-use rand::Rng;
 use terminal_size::{Width, Height, terminal_size};
-use termion::color::{Fg, Bg, AnsiValue};
-use termion::event::Key;
 use termion::raw::IntoRawMode;
-use termion::input::TermRead;
 
-use ui::ViewportSize;
-
+use util::Dims;
 
 // Derived configuration
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
