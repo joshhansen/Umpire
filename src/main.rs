@@ -5,6 +5,18 @@
 //Wishlist:
 // Copy is implemented for Rgb, Bg, Fg
 
+// Name ideas:
+// * ocracy
+// * emp
+// * umpire
+// * pire
+// * perium
+// * shmempire
+// * hegemon
+// * vegemon
+// * perator
+// * metropole
+
 mod conf;
 mod game;
 mod map;
@@ -37,7 +49,7 @@ fn main() {
     let stdout_1 = stdout_0.lock().into_raw_mode().unwrap();
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
         let mut ui = ui::UI::new(
-            game::Game::new(MAP_DIMS),
+            game::Game::new(MAP_DIMS, conf::NUM_PLAYERS),
             stdout_1,
             Dims{ width: term_width, height: term_height },
             conf::HEADER_HEIGHT, conf::FOOTER_HEIGHT

@@ -12,7 +12,7 @@ use termion::input::TermRead;
 
 use conf;
 use game::Game;
-use util::{Dims,Rect,Vec2d};
+use util::{Dims,Rect,Vec2d,Location};
 
 /// 0-indexed variant of Goto
 pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
@@ -27,7 +27,7 @@ pub struct UI<'a> {
     h_scrollbar_height: u16,
     v_scrollbar_width: u16,
     viewport_size: ViewportSize,
-    viewport_rect: Rect,
+    // viewport_rect: Rect,
     viewport_offset: Vec2d<u16>,
     old_h_scroll_x: Option<u16>,
     old_v_scroll_y: Option<u16>
@@ -39,34 +39,7 @@ enum ViewportSize {
     FULLSCREEN
 }
 
-fn viewport_rect(
-        viewport_size: &ViewportSize,
-        header_height: u16,
-        h_scrollbar_height: u16,
-        v_scrollbar_width: u16,
-        term_dims: &Dims
-) -> Rect {
-    match *viewport_size {
-        ViewportSize::REGULAR => Rect {
-            left: 0,
-            top: header_height,
-            width: (term_dims.width - v_scrollbar_width) / 2,
-            height: 25
-        },
-        ViewportSize::THEATER => Rect {
-            left: 0,
-            top: header_height,
-            width: term_dims.width - v_scrollbar_width,
-            height: 25
-        },
-        ViewportSize::FULLSCREEN => Rect {
-            left: 0,
-            top: 0,
-            width: term_dims.width - v_scrollbar_width,
-            height: term_dims.height - h_scrollbar_height - 1
-        }
-    }
-}
+
 
 impl<'b> UI<'b> {
     pub fn new(
@@ -88,7 +61,7 @@ impl<'b> UI<'b> {
             h_scrollbar_height: h_scrollbar_height,
             v_scrollbar_width: v_scrollbar_width,
             viewport_size: ViewportSize::REGULAR,
-            viewport_rect: viewport_rect(&ViewportSize::REGULAR, header_height, h_scrollbar_height, v_scrollbar_width, &term_dims),
+            // viewport_rect: viewport_rect(&ViewportSize::REGULAR, header_height, h_scrollbar_height, v_scrollbar_width, &term_dims),
             viewport_offset: offset,
             old_h_scroll_x: None,
             old_v_scroll_y: None,
@@ -99,8 +72,13 @@ impl<'b> UI<'b> {
 
     pub fn run(&mut self) {
         self.draw();
+{
+        let (player,turn) = self.game.next_player_turn();
 
-        self.game.run_turn();
+        for production_set_loc in turn.production_set_requests() {
+
+        }
+    }
 
         let stdin = stdin();
         for c in stdin.keys() {
@@ -131,7 +109,7 @@ impl<'b> UI<'b> {
     }
 
     fn set_viewport_size(&mut self, viewport_size: ViewportSize) {
-        self.viewport_rect = viewport_rect(&viewport_size, self.header_height, self.h_scrollbar_height, self.v_scrollbar_width, &self.term_dims);
+        // self.viewport_rect = viewport_rect(&viewport_size, self.header_height, self.h_scrollbar_height, self.v_scrollbar_width, &self.term_dims);
         self.viewport_size = viewport_size;
         self.draw();
     }
@@ -148,28 +126,34 @@ impl<'b> UI<'b> {
         self.draw_map();
         self.draw_scroll_bars();
 
+        write!(self.stdout, "{}{}", goto(45, 45), self.game.turn).unwrap();
+
         write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
     }
 
-    fn viewport_to_map_coords(&self, x: &u16, y: &u16, viewport_offset: &Vec2d<u16>) -> (u16,u16) {
-        let map_x:u16 = (x + viewport_offset.x) % self.game.map_dims.width;// mod implements wrapping
-        let map_y:u16 = (y + viewport_offset.y) % self.game.map_dims.height;// mod implements wrapping
-        (map_x,map_y)
+    fn viewport_to_map_coords(&self, x: &u16, y: &u16) -> Location {
+        let map_x:u16 = (x + self.viewport_offset.x) % self.game.map_dims.width;// mod implements wrapping
+        let map_y:u16 = (y + self.viewport_offset.y) % self.game.map_dims.height;// mod implements wrapping
+        Location{
+            x: map_x,
+            y: map_y
+        }
     }
 
     fn draw_map(&mut self) {
-        for viewport_x in 0_u16..self.viewport_rect.width {
-            for viewport_y in 0_u16..(self.viewport_rect.height+1) {
-                let (map_x,map_y) = self.viewport_to_map_coords(&viewport_x, &viewport_y, &self.viewport_offset);
+        let viewport_rect = self.viewport_rect();
+        for viewport_x in 0_u16..viewport_rect.width {
+            for viewport_y in 0_u16..(viewport_rect.height+1) {
+                let map_location = self.viewport_to_map_coords(&viewport_x, &viewport_y);
 
-                self.draw_tile(map_x, map_y, viewport_x, viewport_y);
+                self.draw_tile(map_location, viewport_x, viewport_y);
             }
         }
     }
 
-    fn draw_tile(&mut self, tile_x: u16, tile_y: u16, viewport_x: u16, viewport_y: u16) {
-        let tile = &self.game.tiles[tile_x as usize][tile_y as usize];
+    fn draw_tile(&mut self, tile_loc: Location, viewport_x: u16, viewport_y: u16) {
+        let tile = &self.game.tiles[tile_loc];
 
         if tile.y == self.game.map_dims.height - 1 {
             write!(self.stdout, "{}", termion::style::Underline).unwrap();
@@ -182,23 +166,26 @@ impl<'b> UI<'b> {
             _ => {}
         }
 
+        let viewport_rect = self.viewport_rect();
         write!(self.stdout, "{}{}{}{}",
-            goto(viewport_x + self.viewport_rect.left, viewport_y + self.viewport_rect.top),
+            goto(viewport_x + viewport_rect.left, viewport_y + viewport_rect.top),
             Bg(tile.bg_color()),
             tile.sym(),
             termion::style::NoUnderline
         ).unwrap();
     }
 
-    fn update_map(&mut self, new_viewport_offset: Vec2d<u16>) {
-        for viewport_x in 0_u16..self.viewport_rect.width {
-            for viewport_y in 0_u16..(self.viewport_rect.height+1) {
-                let (old_map_x,old_map_y) = self.viewport_to_map_coords(&viewport_x, &viewport_y, &new_viewport_offset);
-                let (new_map_x,new_map_y) = self.viewport_to_map_coords(&viewport_x, &viewport_y, &new_viewport_offset);
+    /// Update the map to reflect the current viewport offset
+    fn update_map(&mut self) {
+        let viewport_rect = self.viewport_rect();
+        for viewport_x in 0_u16..viewport_rect.width {
+            for viewport_y in 0_u16..(viewport_rect.height+1) {
+                let old_map_loc = self.viewport_to_map_coords(&viewport_x, &viewport_y);
+                let new_map_loc = self.viewport_to_map_coords(&viewport_x, &viewport_y);
 
                 let should_draw_tile:bool = {
-                    let old_tile = &self.game.tiles[old_map_x as usize][old_map_y as usize];
-                    let new_tile = &self.game.tiles[new_map_x as usize][new_map_y as usize];
+                    let old_tile = &self.game.tiles[old_map_loc];
+                    let new_tile = &self.game.tiles[new_map_loc];
 
                     let alignments_match = match old_tile.alignment() {
                         None => {
@@ -223,7 +210,7 @@ impl<'b> UI<'b> {
 
 
                 if should_draw_tile {
-                    self.draw_tile(new_map_x, new_map_y, viewport_x, viewport_y);
+                    self.draw_tile(new_map_loc, viewport_x, viewport_y);
                 }
 
             }
@@ -231,8 +218,9 @@ impl<'b> UI<'b> {
     }
 
     fn draw_scroll_bars(&mut self) {
-        let h_scroll_x: u16 = (self.viewport_rect.width as f32 * (self.viewport_offset.x as f32 / self.game.map_dims.width as f32)) as u16;
-        let h_scroll_y = self.header_height + self.viewport_rect.height + self.h_scrollbar_height;
+        let viewport_rect = self.viewport_rect();
+        let h_scroll_x: u16 = (viewport_rect.width as f32 * (self.viewport_offset.x as f32 / self.game.map_dims.width as f32)) as u16;
+        let h_scroll_y = self.header_height + viewport_rect.height + self.h_scrollbar_height;
 
 
         //FIXME There must be a cleaner way to do this
@@ -249,8 +237,8 @@ impl<'b> UI<'b> {
         }
         self.old_h_scroll_x = Some(h_scroll_x);
 
-        let v_scroll_x = self.viewport_rect.width + self.v_scrollbar_width - 1;
-        let v_scroll_y: u16 = self.header_height + (self.viewport_rect.height as f32 * (self.viewport_offset.y as f32 / self.game.map_dims.height as f32)) as u16;
+        let v_scroll_x = viewport_rect.width + self.v_scrollbar_width - 1;
+        let v_scroll_y: u16 = self.header_height + (viewport_rect.height as f32 * (self.viewport_offset.y as f32 / self.game.map_dims.height as f32)) as u16;
 
         //FIXME There must be a cleaner way to do this
         match self.old_v_scroll_y {
@@ -282,12 +270,17 @@ impl<'b> UI<'b> {
 
         let new_viewport_offset: Vec2d<u16> = Vec2d{ x: new_x_offset as u16, y: new_y_offset as u16 };
 
-        self.update_map(new_viewport_offset);
+        self.update_map();
 
         self.viewport_offset.x = (new_x_offset as u16) % self.game.map_dims.width;
         self.viewport_offset.y = (new_y_offset as u16) % self.game.map_dims.height;
         // self.draw_map();
         self.draw_scroll_bars();
+    }
+
+    pub fn center_viewport(&mut self, center: Location) {
+        self.viewport_offset = center;
+        self.update_map()
     }
 
     // Utility methods
@@ -301,5 +294,28 @@ impl<'b> UI<'b> {
 
     pub fn quit(&mut self) {
         write!(self.stdout, "{}{}\n\n", goto(0, self.term_dims.height), termion::style::Reset).unwrap();
+    }
+
+    fn viewport_rect(&self) -> Rect {
+        match self.viewport_size {
+            ViewportSize::REGULAR => Rect {
+                left: 0,
+                top: self.header_height,
+                width: (self.term_dims.width - self.v_scrollbar_width) / 2,
+                height: 25
+            },
+            ViewportSize::THEATER => Rect {
+                left: 0,
+                top: self.header_height,
+                width: self.term_dims.width - self.v_scrollbar_width,
+                height: 25
+            },
+            ViewportSize::FULLSCREEN => Rect {
+                left: 0,
+                top: 0,
+                width: self.term_dims.width - self.v_scrollbar_width,
+                height: self.term_dims.height - self.h_scrollbar_height - 1
+            }
+        }
     }
 }

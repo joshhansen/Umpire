@@ -4,7 +4,7 @@ use termion::color::AnsiValue;
 
 pub type PlayerNum = u8;
 
-#[derive(Copy,Clone,PartialEq)]
+#[derive(Copy,Clone,PartialEq,Hash,Eq)]
 pub enum Alignment {
     NEUTRAL,
     BELLIGERENT { player: PlayerNum }
@@ -40,7 +40,7 @@ pub trait Sym {
     fn sym(&self) -> char;
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Hash,PartialEq,Eq)]
 pub enum UnitType {
     INFANTRY,
     ARMOR,
@@ -54,13 +54,16 @@ pub enum UnitType {
     CARRIER
 }
 
+#[derive(Clone)]
 pub struct Unit {
     type_: UnitType,
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
     x: u16,
-    y: u16
+    y: u16,
+    pub sentry: bool,
+    pub moves_remaining: u16
 }
 
 fn max_hp(type_: UnitType) -> u16 {
@@ -93,6 +96,8 @@ pub fn cost(type_: UnitType) -> u16 {
     }
 }
 
+
+
 impl Unit {
     pub fn new(type_: UnitType, alignment: Alignment, x: u16, y: u16) -> Self {
         let max_hp = max_hp(type_);
@@ -102,7 +107,24 @@ impl Unit {
             hp: max_hp,
             max_hp: max_hp,
             x: x,
-            y: y
+            y: y,
+            sentry: false,
+            moves_remaining: 0
+        }
+    }
+
+    pub fn movement_per_turn(&self) -> u16 {
+        match self.type_ {
+            UnitType::INFANTRY => 1,
+            UnitType::ARMOR => 2,//?
+            UnitType::FIGHTER => 5,
+            UnitType::BOMBER => 5,//?
+            UnitType::TRANSPORT => 2,
+            UnitType::DESTROYER => 3,
+            UnitType::SUBMARINE => 2,
+            UnitType::CRUISER => 2,
+            UnitType::BATTLESHIP => 1,
+            UnitType::CARRIER => 1
         }
     }
 }
@@ -155,9 +177,10 @@ impl Aligned for Unit {
     fn alignment(&self) -> Alignment { self.alignment }
 }
 
+#[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
-    x: u16,
-    y: u16,
+    pub x: u16,
+    pub y: u16,
     pub alignment: Alignment,
     pub unit_under_production: Option<UnitType>,
     pub production_progress: u16,

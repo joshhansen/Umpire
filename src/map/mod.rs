@@ -4,7 +4,7 @@ use termion::color::AnsiValue;
 
 use unit::{Alignment,City,Unit,alignment_color,Aligned,Sym};
 
-#[derive(PartialEq)]
+#[derive(Clone,PartialEq)]
 pub enum TerrainType {
     WATER,
     LAND,
@@ -12,6 +12,7 @@ pub enum TerrainType {
     //ice, lava, river, deep sea vs shallow, etc.
 }
 
+#[derive(Clone)]
 pub struct Terrain {
     pub type_: TerrainType,
 }
@@ -34,9 +35,10 @@ impl Terrain {
     }
 }
 
+#[derive(Clone)]
 pub struct Tile {
     pub terrain: Terrain,
-    pub units: Vec<Unit>,
+    pub unit: Option<Unit>,
     pub city: Option<City>,
     pub x: u16,
     pub y: u16
@@ -44,41 +46,51 @@ pub struct Tile {
 
 impl Tile {
     fn new(terrain: Terrain, x:u16, y:u16) -> Tile {
-        Tile{ terrain: terrain, units: Vec::new(), city: None, x: x, y: y }
+        Tile{ terrain: terrain, unit: None, city: None, x: x, y: y }
     }
 
     pub fn sym(&self) -> char {
-        match self.units.last() {
-            Option::None => match self.city {
+        match self.unit {
+            None => match self.city {
                 None => ' ',
                 Some(ref city) => city.sym()
             },
-            Option::Some(unit) => unit.sym()
+            Some(ref unit) => unit.sym()
         }
     }
 
     pub fn alignment(&self) -> Option<Alignment> {
-        match self.units.last() {
-            Option::None => match self.city {
+        match self.unit {
+            None => match self.city {
                 None => None,
                 Some(ref city) => Some(city.alignment())
             },
-            Option::Some(unit) => Option::Some(unit.alignment)
+            Some(ref unit) => Some(unit.alignment)
         }
     }
 
     pub fn fg_color(&self) -> Option<AnsiValue> {
-        match self.units.last() {
-            Option::None => match self.city {
+        match self.unit {
+            None => match self.city {
                 None => None,
                 Some(ref city) => Some(alignment_color(city.alignment()))
             },
-            Option::Some(last_unit) => Option::Some(alignment_color(last_unit.alignment))
+            Some(ref last_unit) => Some(alignment_color(last_unit.alignment))
         }
     }
 
     pub fn bg_color(&self) -> AnsiValue {
         self.terrain.color()
+    }
+
+    pub fn pop_unit(&mut self) -> Option<Unit> {
+        let unit = self.unit.clone();
+        self.unit = None;
+        unit
+    }
+
+    pub fn set_unit(&mut self, unit: Unit) {
+        self.unit = Some(unit);
     }
 }
 

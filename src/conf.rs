@@ -1,7 +1,47 @@
+// use std::collections::HashMap;
+// use std::convert::AsRef;
+// use std::env;
+// use std::ffi::OsStr;
+// use std::str::FromStr;
+//
+// mod keys {
+//     pub const APP_NAME: &'static str = "APP_NAME";
+// }
+//
+// pub struct Config {
+//     map: HashMap<&'static str, String>
+// }
+//
+// impl Config {
+//     fn new() -> Config {
+//         let mut conf = Config {
+//             map: HashMap::new()
+//         };
+//
+//
+//
+//
+//
+//         conf
+//     }
+// }
+//
+// pub fn get<K:AsRef<OsStr>,T:FromStr>(key: K) -> Result<T,()> {
+//     match env::var(key) {
+//         Ok(val) => match val.parse::<T>() {
+//             Ok(parsed_val) => Ok(parsed_val),
+//             Err(_) => Err(())
+//         },
+//         Err(_e) => Err(())
+//     }
+// }
+
 use unit::PlayerNum;
 
 /// The name of this application
 pub const APP_NAME: &'static str = "umpire";
+
+pub const USER_NAME: &'static str = "Jersh";
 
 /// The width of the game map
 pub const MAP_WIDTH: u16 = 180;
@@ -31,6 +71,8 @@ pub const NEUTRAL_CITY_DENSITY : f32 = 0.05;
 
 /// The number of teams playing, including humans and AIs
 pub const NUM_PLAYERS: PlayerNum = 4;
+
+pub const HUMAN_PLAYER: PlayerNum = 0;
 
 // Key mappings
 pub const KEY_VIEWPORT_SIZE_ROTATE:      char = 'v';
