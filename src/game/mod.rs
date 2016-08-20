@@ -3,10 +3,9 @@
 //!
 //! This implements the game logic without regard for user interface.
 
-use std::collections::{HashMap,HashSet};
+use std::collections::HashSet;
 use std::ops::{Index,IndexMut};
 
-use conf;
 use map::Tile;
 use map::gen::generate_map;
 use unit::{Alignment,PlayerNum,Unit,UnitType};

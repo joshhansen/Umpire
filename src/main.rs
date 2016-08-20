@@ -53,7 +53,7 @@ fn main() {
             Game::new(MAP_DIMS, conf::NUM_PLAYERS),
             stdout_1,
             Dims{ width: term_width, height: term_height },
-            conf::HEADER_HEIGHT, conf::FOOTER_HEIGHT
+            conf::HEADER_HEIGHT
         );
 
         ui.run();

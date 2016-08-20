@@ -45,7 +45,7 @@ impl<'b> UI<'b> {
     pub fn new(
         game: Game,
         stdout: termion::raw::RawTerminal<StdoutLock<'b>>,
-        term_dims: Dims, header_height: u16, footer_height: u16
+        term_dims: Dims, header_height: u16
     ) -> Self {
 
         let h_scrollbar_height = 1;
@@ -53,8 +53,9 @@ impl<'b> UI<'b> {
 
         let offset = Vec2d{ x: game.map_dims.width/2, y: game.map_dims.height/2 };
 
-        let mut ui = UI {
+        UI {
             game: game,
+            mode: Mode::General,
             stdout: stdout,
             term_dims: term_dims,
             header_height: header_height,
@@ -65,9 +66,6 @@ impl<'b> UI<'b> {
             viewport_offset: offset,
             old_h_scroll_x: None,
             old_v_scroll_y: None,
-        };
-
-        ui
     }
 
     pub fn run(&mut self) {
@@ -267,8 +265,6 @@ impl<'b> UI<'b> {
         while new_y_offset < 0 {
             new_y_offset += self.game.map_dims.height as i32;
         }
-
-        let new_viewport_offset: Vec2d<u16> = Vec2d{ x: new_x_offset as u16, y: new_y_offset as u16 };
 
         self.update_map();
 
