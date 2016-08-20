@@ -153,7 +153,7 @@ impl<'b> UI<'b> {
     fn draw_tile(&mut self, tile_loc: Location, viewport_x: u16, viewport_y: u16) {
         let tile = &self.game.tiles[tile_loc];
 
-        if tile.y == self.game.map_dims.height - 1 {
+        if tile.loc.y == self.game.map_dims.height - 1 {
             write!(self.stdout, "{}", termion::style::Underline).unwrap();
         }
 
