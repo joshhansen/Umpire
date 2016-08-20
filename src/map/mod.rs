@@ -3,6 +3,7 @@ extern crate termion;
 use termion::color::AnsiValue;
 
 use unit::{Alignment,City,Unit,alignment_color,Aligned,Sym};
+use util::Location;
 
 #[derive(Clone,PartialEq)]
 pub enum TerrainType {
@@ -40,13 +41,12 @@ pub struct Tile {
     pub terrain: Terrain,
     pub unit: Option<Unit>,
     pub city: Option<City>,
-    pub x: u16,
-    pub y: u16
+    pub loc: Location
 }
 
 impl Tile {
-    fn new(terrain: Terrain, x:u16, y:u16) -> Tile {
-        Tile{ terrain: terrain, unit: None, city: None, x: x, y: y }
+    fn new(terrain: Terrain, loc: Location) -> Tile {
+        Tile{ terrain: terrain, unit: None, city: None, loc: loc }
     }
 
     pub fn sym(&self) -> char {

@@ -2,6 +2,8 @@ extern crate termion;
 
 use termion::color::AnsiValue;
 
+use util::Location;
+
 pub type PlayerNum = u8;
 
 #[derive(Copy,Clone,PartialEq,Hash,Eq)]
@@ -19,8 +21,7 @@ pub fn alignment_color(alignment: Alignment) -> AnsiValue {
 }
 
 pub trait Located {
-    fn x(&self) -> u16;
-    fn y(&self) -> u16;
+    fn loc(&self) -> Location;
 }
 
 pub trait CombatCapable {
@@ -60,8 +61,7 @@ pub struct Unit {
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
-    x: u16,
-    y: u16,
+    loc: Location,
     pub sentry: bool,
     pub moves_remaining: u16
 }
@@ -99,15 +99,14 @@ pub fn cost(type_: UnitType) -> u16 {
 
 
 impl Unit {
-    pub fn new(type_: UnitType, alignment: Alignment, x: u16, y: u16) -> Self {
+    pub fn new(type_: UnitType, alignment: Alignment, loc: Location) -> Self {
         let max_hp = max_hp(type_);
         Unit {
             type_: type_,
             alignment: alignment,
             hp: max_hp,
             max_hp: max_hp,
-            x: x,
-            y: y,
+            loc: loc,
             sentry: false,
             moves_remaining: 0
         }
@@ -164,8 +163,7 @@ impl Named for Unit {
 }
 
 impl Located for Unit {
-    fn x(&self) -> u16 { self.x }
-    fn y(&self) -> u16 { self.y }
+    fn loc(&self) -> Location { self.loc }
 }
 
 impl CombatCapable for Unit {
@@ -179,18 +177,16 @@ impl Aligned for Unit {
 
 #[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
-    pub x: u16,
-    pub y: u16,
+    pub loc: Location,
     pub alignment: Alignment,
     pub unit_under_production: Option<UnitType>,
     pub production_progress: u16,
 }
 
 impl City {
-    pub fn new(alignment: Alignment, x: u16, y:u16) -> City {
+    pub fn new(alignment: Alignment, loc: Location) -> City {
         City {
-            x: x,
-            y: y,
+            loc: loc,
             alignment: alignment,
             unit_under_production: None,
             production_progress: 0
@@ -198,9 +194,9 @@ impl City {
     }
 }
 
+
 impl Located for City {
-    fn x(&self) -> u16 { self.x }
-    fn y(&self) -> u16 { self.y }
+    fn loc(&self) -> Location { self.loc }
 }
 
 impl Aligned for City {

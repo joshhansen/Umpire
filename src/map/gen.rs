@@ -11,53 +11,53 @@ use rand::Rng;
 use conf;
 use map::{Terrain,TerrainType,Tile};
 use unit::{Alignment,City};
-use util::Dims;
+use util::{Dims,Location};
 
 fn is_land(tiles: &Vec<Vec<Tile>>, x:u16, y:u16) -> bool {
     return tiles[x as usize][y as usize].terrain.type_ == TerrainType::LAND;
 }
 
-fn land_cardinal_neighbors(tiles: &Vec<Vec<Tile>>, x:u16, y:u16, map_dims: Dims) -> u16 {
+fn land_cardinal_neighbors(tiles: &Vec<Vec<Tile>>, loc: Location, map_dims: Dims) -> u16 {
     let mut land_cardinal_neighbors = 0;
 
     // left
-    if x > 0 && is_land(tiles, x-1, y) {
+    if loc.x > 0 && is_land(tiles, loc.x-1, loc.y) {
         land_cardinal_neighbors += 1;
     }
     // right
-    if x < map_dims.width - 1 && is_land(tiles, x+1, y) {
+    if loc.x < map_dims.width - 1 && is_land(tiles, loc.x+1, loc.y) {
         land_cardinal_neighbors += 1;
     }
     // up
-    if y > 0 && is_land(tiles, x, y-1) {
+    if loc.y > 0 && is_land(tiles, loc.x, loc.y-1) {
         land_cardinal_neighbors += 1;
     }
     // down
-    if y < map_dims.height - 1 && is_land(tiles, x, y+1) {
+    if loc.y < map_dims.height - 1 && is_land(tiles, loc.x, loc.y+1) {
         land_cardinal_neighbors += 1;
     }
 
     land_cardinal_neighbors
 }
 
-fn land_diagonal_neighbors(tiles: &Vec<Vec<Tile>>, x:u16, y:u16, map_dims: Dims) -> u16 {
-    let x_low_room = x > 0;
-    let y_low_room = y > 0;
-    let x_high_room = x < map_dims.width - 1;
-    let y_high_room = y < map_dims.height - 1;
+fn land_diagonal_neighbors(tiles: &Vec<Vec<Tile>>, loc: Location, map_dims: Dims) -> u16 {
+    let x_low_room = loc.x > 0;
+    let y_low_room = loc.y > 0;
+    let x_high_room = loc.x < map_dims.width - 1;
+    let y_high_room = loc.y < map_dims.height - 1;
 
     let mut land_neighbors = 0;
 
-    if x_low_room && y_low_room && is_land(tiles, x-1, y-1) {
+    if x_low_room && y_low_room && is_land(tiles, loc.x-1, loc.y-1) {
         land_neighbors += 1;
     }
-    if x_low_room && y_high_room && is_land(tiles, x-1, y+1) {
+    if x_low_room && y_high_room && is_land(tiles, loc.x-1, loc.y+1) {
         land_neighbors += 1;
     }
-    if x_high_room && y_low_room && is_land(tiles, x+1, y-1) {
+    if x_high_room && y_low_room && is_land(tiles, loc.x+1, loc.y-1) {
         land_neighbors += 1;
     }
-    if x_high_room && y_high_room && is_land(tiles, x+1, y+1) {
+    if x_high_room && y_high_room && is_land(tiles, loc.x+1, loc.y+1) {
         land_neighbors += 1;
     }
     land_neighbors
@@ -83,7 +83,7 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
     for x in 0..map_dims.width {
         let mut col = Vec::new();
         for y in 0..map_dims.height {
-            col.push(Tile::new(Terrain::water(), x, y));
+            col.push(Tile::new(Terrain::water(), Location{x:x,y:y}));
         }
 
         tiles.push(col);
@@ -122,8 +122,9 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
                     //     }
                     // },
                     TerrainType::WATER => {
-                        let cardinal_growth_prob = land_cardinal_neighbors(&tiles, x, y, map_dims) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
-                        let diagonal_growth_prob = land_diagonal_neighbors(&tiles, x, y, map_dims) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
+                        let loc = Location{x: x, y: y};
+                        let cardinal_growth_prob = land_cardinal_neighbors(&tiles, loc, map_dims) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
+                        let diagonal_growth_prob = land_diagonal_neighbors(&tiles, loc, map_dims) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
 
                         if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
                             tiles[x as usize][y as usize].terrain.type_ = TerrainType::LAND;
@@ -141,7 +142,7 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
             let tile = &mut tiles[x as usize][y as usize];
             if tile.terrain.type_ == TerrainType::LAND {
                 if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                    tile.city = Some(City::new(Alignment::NEUTRAL, x, y));
+                    tile.city = Some(City::new(Alignment::NEUTRAL, Location{x:x, y:y}));
                 }
             }
         }
@@ -150,15 +151,17 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
     // Populate player cities
     let mut player_num = 0;
     while player_num < conf::NUM_PLAYERS {
-        let x = rng.gen_range(0, map_dims.width);
-        let y = rng.gen_range(0, map_dims.height);
+        let loc = Location{
+            x: rng.gen_range(0, map_dims.width),
+            y: rng.gen_range(0, map_dims.height)
+        };
 
-        let tile = &mut tiles[x as usize][y as usize];
+        let tile = &mut tiles[loc];
 
         match tile.terrain.type_ {
             TerrainType::LAND => {
                 if tile.city.is_none() {
-                    tile.city = Some(City::new(Alignment::BELLIGERENT{ player: player_num }, x, y));
+                    tile.city = Some(City::new(Alignment::BELLIGERENT{ player: player_num }, loc));
                     player_num += 1;
                 }
             },
