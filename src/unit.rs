@@ -1,5 +1,7 @@
 extern crate termion;
 
+use std::fmt;
+
 use termion::color::AnsiValue;
 
 use util::Location;
@@ -194,6 +196,11 @@ impl City {
     }
 }
 
+impl fmt::Display for City {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "City@{}", self.loc)
+    }
+}
 
 impl Located for City {
     fn loc(&self) -> Location { self.loc }

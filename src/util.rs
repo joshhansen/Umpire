@@ -12,6 +12,8 @@
 //     else { max }
 // }
 
+use std::fmt;
+
 #[derive(Clone,Copy)]
 pub struct Rect {
     pub left: u16,
@@ -49,6 +51,12 @@ impl Location {
         let x_dist = Location::dist_u16(self.x, other.x);
         let y_dist = Location::dist_u16(self.y, other.y);
         x_dist + y_dist
+    }
+}
+
+impl fmt::Display for Location {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
     }
 }
 
