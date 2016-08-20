@@ -9,7 +9,7 @@ use std::ops::{Index,IndexMut};
 use conf;
 use map::Tile;
 use map::gen::generate_map;
-use unit::{Alignment,PlayerNum,Unit,UnitType,cost as production_cost};
+use unit::{Alignment,PlayerNum,Unit,UnitType};
 use util::{Dims,Location};
 
 pub type TurnNum = u32;
@@ -195,7 +195,7 @@ impl Game {
 
                                     Some(ref unit_under_production) => {
                                         city.production_progress += 1;
-                                        if city.production_progress >= production_cost(*unit_under_production) {
+                                        if city.production_progress >= unit_under_production.cost() {
                                             let new_unit = Unit::new(*unit_under_production, city.alignment, x, y);
                                             tile.unit = Some(new_unit);
                                             city.production_progress = 0;

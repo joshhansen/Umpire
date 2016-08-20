@@ -57,6 +57,38 @@ pub enum UnitType {
     CARRIER
 }
 
+impl UnitType {
+    fn max_hp(&self) -> u16 {
+        match *self {
+            UnitType::INFANTRY => 1,
+            UnitType::ARMOR => 2,
+            UnitType::FIGHTER => 1,
+            UnitType::BOMBER => 1,
+            UnitType::TRANSPORT => 3,
+            UnitType::DESTROYER => 2,
+            UnitType::SUBMARINE => 2,
+            UnitType::CRUISER => 4,
+            UnitType::BATTLESHIP => 8,
+            UnitType::CARRIER => 6
+        }
+    }
+
+    pub fn cost(&self) -> u16 {
+        match *self {
+            UnitType::INFANTRY => 6,
+            UnitType::ARMOR => 12,//?
+            UnitType::FIGHTER => 12,
+            UnitType::BOMBER => 12,//?
+            UnitType::TRANSPORT => 30,
+            UnitType::DESTROYER => 24,
+            UnitType::SUBMARINE => 24,
+            UnitType::CRUISER => 36,
+            UnitType::BATTLESHIP => 60,
+            UnitType::CARRIER => 48
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Unit {
     type_: UnitType,
@@ -68,41 +100,13 @@ pub struct Unit {
     pub moves_remaining: u16
 }
 
-fn max_hp(type_: UnitType) -> u16 {
-    match type_ {
-        UnitType::INFANTRY => 1,
-        UnitType::ARMOR => 2,
-        UnitType::FIGHTER => 1,
-        UnitType::BOMBER => 1,
-        UnitType::TRANSPORT => 3,
-        UnitType::DESTROYER => 2,
-        UnitType::SUBMARINE => 2,
-        UnitType::CRUISER => 4,
-        UnitType::BATTLESHIP => 8,
-        UnitType::CARRIER => 6
-    }
-}
 
-pub fn cost(type_: UnitType) -> u16 {
-    match type_ {
-        UnitType::INFANTRY => 6,
-        UnitType::ARMOR => 12,//?
-        UnitType::FIGHTER => 12,
-        UnitType::BOMBER => 12,//?
-        UnitType::TRANSPORT => 30,
-        UnitType::DESTROYER => 24,
-        UnitType::SUBMARINE => 24,
-        UnitType::CRUISER => 36,
-        UnitType::BATTLESHIP => 60,
-        UnitType::CARRIER => 48
-    }
-}
 
 
 
 impl Unit {
     pub fn new(type_: UnitType, alignment: Alignment, loc: Location) -> Self {
-        let max_hp = max_hp(type_);
+        let max_hp =type_.max_hp();
         Unit {
             type_: type_,
             alignment: alignment,
