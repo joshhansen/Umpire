@@ -34,6 +34,7 @@ use terminal_size::{Width, Height, terminal_size};
 use termion::raw::IntoRawMode;
 
 use util::Dims;
+use game::Game;
 
 // Derived configuration
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
@@ -49,7 +50,7 @@ fn main() {
     let stdout_1 = stdout_0.lock().into_raw_mode().unwrap();
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
         let mut ui = ui::UI::new(
-            game::Game::new(MAP_DIMS, conf::NUM_PLAYERS),
+            Game::new(MAP_DIMS, conf::NUM_PLAYERS),
             stdout_1,
             Dims{ width: term_width, height: term_height },
             conf::HEADER_HEIGHT, conf::FOOTER_HEIGHT
