@@ -5,33 +5,21 @@ use termion::color::AnsiValue;
 use unit::{Alignment,City,Unit,alignment_color,Aligned,Sym};
 use util::Location;
 
+
 #[derive(Clone,PartialEq)]
-pub enum TerrainType {
+pub enum Terrain {
     WATER,
     LAND,
     // CITY
     //ice, lava, river, deep sea vs shallow, etc.
 }
 
-#[derive(Clone)]
-pub struct Terrain {
-    pub type_: TerrainType,
-}
-
 impl Terrain {
-    pub fn water() -> Terrain {
-        Terrain{ type_: TerrainType::WATER }
-    }
-
-    pub fn land() -> Terrain {
-        Terrain{ type_: TerrainType::LAND }
-    }
-
     pub fn color(&self) -> AnsiValue {
-        match self.type_ {
-            TerrainType::WATER => AnsiValue(12),
-            TerrainType::LAND => AnsiValue(10),
-            // TerrainType::CITY => AnsiValue(245)
+        match *self {
+            Terrain::WATER => AnsiValue(12),
+            Terrain::LAND => AnsiValue(10),
+            // Terrain::CITY => AnsiValue(245)
         }
     }
 }
