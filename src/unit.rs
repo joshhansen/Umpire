@@ -15,10 +15,12 @@ pub enum Alignment {
     // active neutral, chaotic, etc.
 }
 
-pub fn alignment_color(alignment: Alignment) -> AnsiValue {
-    match alignment {
-        Alignment::NEUTRAL => AnsiValue(8),
-        Alignment::BELLIGERENT{player} => AnsiValue(player+9)
+impl Alignment {
+    pub fn color(&self) -> AnsiValue {
+        match *self {
+            Alignment::NEUTRAL => AnsiValue(8),
+            Alignment::BELLIGERENT{player} => AnsiValue(player+9)
+        }
     }
 }
 

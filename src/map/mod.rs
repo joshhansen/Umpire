@@ -2,7 +2,7 @@ extern crate termion;
 
 use termion::color::AnsiValue;
 
-use unit::{Alignment,City,Unit,alignment_color,Aligned,Sym};
+use unit::{Alignment,City,Unit,Aligned,Sym};
 use util::Location;
 
 
@@ -61,9 +61,9 @@ impl Tile {
         match self.unit {
             None => match self.city {
                 None => None,
-                Some(ref city) => Some(alignment_color(city.alignment()))
+                Some(ref city) => Some(city.alignment().color())
             },
-            Some(ref last_unit) => Some(alignment_color(last_unit.alignment))
+            Some(ref last_unit) => Some(last_unit.alignment.color())
         }
     }
 
