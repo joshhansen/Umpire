@@ -424,7 +424,7 @@ impl<'b> UI<'b> {
     fn draw_scroll_bars(&mut self) {
         let viewport_rect = self.viewport_rect();
         let h_scroll_x: u16 = (viewport_rect.width as f32 * (self.viewport_offset.x as f32 / self.game.map_dims.width as f32)) as u16;
-        let h_scroll_y = self.header_height + viewport_rect.height + self.h_scrollbar_height;
+        let h_scroll_y = viewport_rect.bottom() + 1;
 
 
         //FIXME There must be a cleaner way to do this
@@ -441,7 +441,7 @@ impl<'b> UI<'b> {
         }
         self.old_h_scroll_x = Some(h_scroll_x);
 
-        let v_scroll_x = viewport_rect.width + self.v_scrollbar_width - 1;
+        let v_scroll_x = viewport_rect.right();
         let v_scroll_y: u16 = self.header_height + (viewport_rect.height as f32 * (self.viewport_offset.y as f32 / self.game.map_dims.height as f32)) as u16;
 
         //FIXME There must be a cleaner way to do this
