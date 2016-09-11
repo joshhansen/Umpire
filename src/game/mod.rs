@@ -150,7 +150,7 @@ impl Game {
             for y in 0..self.map_dims.height {
                 let loc = Location{x:x, y:y};
                 let tile: &mut Tile = &mut self.tiles[loc];
-                
+
                 if let Some(ref mut city) = tile.city {
                     if let Alignment::BELLIGERENT{player} = city.alignment {
                         if player==player_num {
@@ -227,13 +227,10 @@ impl Game {
     }
 
     pub fn set_production(&mut self, location: &Location, production: &UnitType) -> Result<(),()> {
-        match self.tiles[*location].city {
-            Some(ref mut city) => {
-                city.unit_under_production = Some(*production)
-            },
-            None => {
-                return Err(());
-            }
+        if let Some(ref mut city) = self.tiles[*location].city {
+            city.unit_under_production = Some(*production)
+        } else {
+            return Err(());
         }
 
         self.production_set_requests.remove(location);
