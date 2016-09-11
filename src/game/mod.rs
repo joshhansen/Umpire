@@ -146,92 +146,37 @@ impl Game {
     }
 
     fn begin_player_turn(&mut self, player_num: PlayerNum) {
-        // let mut productions_to_set:Vec<(u16,u16)> = vec![];
-        // let mut units_to_move = vec![];
-
-
-
         for x in 0..self.map_dims.width {
             for y in 0..self.map_dims.height {
                 let loc = Location{x:x, y:y};
                 let tile: &mut Tile = &mut self.tiles[loc];
-                // let mut city = tile.city;
-                match tile.city {
-                    Some(ref mut city) => {
-                        match city.alignment {
-                            Alignment::BELLIGERENT{player} if player==player_num => {
-                                match city.unit_under_production {
-                                    None => {
-                                        // productions_to_set.push((x, y));
-                                        self.production_set_requests.insert(loc);
-                                    },
+                
+                if let Some(ref mut city) = tile.city {
+                    if let Alignment::BELLIGERENT{player} = city.alignment {
+                        if player==player_num {
 
-                                    Some(ref unit_under_production) => {
-                                        city.production_progress += 1;
-                                        if city.production_progress >= unit_under_production.cost() {
-                                            let new_unit = Unit::new(*unit_under_production, city.alignment, loc);
-                                            tile.unit = Some(new_unit);
-                                            city.production_progress = 0;
-                                        }
-                                    }
+                            if let Some(ref unit_under_production) = city.unit_under_production {
+                                city.production_progress += 1;
+                                if city.production_progress >= unit_under_production.cost() {
+                                    let new_unit = Unit::new(*unit_under_production, city.alignment, loc);
+                                    tile.unit = Some(new_unit);
+                                    city.production_progress = 0;
                                 }
-                            },
-                            _ => {}
+                            } else {
+                                self.production_set_requests.insert(loc);
+                            }
                         }
-                    },
-                    None => {}
+                    }
                 }
 
-                match tile.unit {
-                    Some(ref mut unit) => {
-                        unit.moves_remaining += unit.movement_per_turn();
-                        if !unit.sentry {
-                            // units_to_move.push((x, y));
-                            self.unit_move_requests.insert(Location{x:x, y:y});
-                        }
-                    },
-                    None => {}
+                if let Some(ref mut unit) = tile.unit {
+                    unit.moves_remaining += unit.movement_per_turn();
+                    if !unit.sentry {
+                        self.unit_move_requests.insert(loc);
+                    }
                 }
-
-
-
             }
         }
-
-        // PlayerTurn{
-        //     tiles: & mut self.tiles,
-        //     production_set_requests: production_set_requests,
-        //     unit_move_requests: unit_move_requests
-        // }
-        // for x in 0..self.map_dims.width {
-        //     for y in 0..self.map_dims.height {
-        //         let tile = &mut self.tiles[x as usize][y as usize];
-        //
-        //         match tile.city {
-        //             Some(ref mut city) => {
-        //                 match city.alignment {
-        //                     Alignment::BELLIGERENT{player} => {
-        //                         match city.unit_under_production {
-        //                             None => {
-        //                                 println!("Need to set production for city at {},{}", x, y);
-        //                             },
-        //                             Some(unit_under_production) => {
-        //                                 city.production_progress += 1;
-        //                                 if city.production_progress >= production_cost(unit_under_production) {
-        //                                     let new_unit = Unit::new(unit_under_production, city.alignment, x, y);
-        //                                     tile.units.push(new_unit);
-        //                                 }
-        //                             }
-        //                         }
-        //
-        //                     },
-        //                     Alignment::NEUTRAL => {}
-        //                 }
-        //             },
-        //             None => {}
-        //         }
-        //     }
-        // }
     }
 
     // fn player_map(&self, player: PlayerNum) -> Option<&Vec<Vec<Obs>>> {
