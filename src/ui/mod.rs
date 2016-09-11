@@ -386,7 +386,7 @@ impl<'b> UI<'b> {
             goto(viewport_x + viewport_rect.left, viewport_y + viewport_rect.top),
             Bg(tile.bg_color()),
             tile.sym(),
-            termion::style::NoUnderline
+            termion::style::Reset
         ).unwrap();
     }
 
@@ -402,17 +402,24 @@ impl<'b> UI<'b> {
                     let old_tile = &self.game.tiles[old_map_loc];
                     let new_tile = &self.game.tiles[new_map_loc];
 
-                    new_map_loc.y == self.game.map_dims.height - 1 ||
-                    !(
-                        old_tile.terrain.type_==new_tile.terrain.type_ &&
+                    let redraw_for_border =
+                    old_map_loc.y != new_map_loc.y && (
+                        old_map_loc.y == self.game.map_dims.height - 1 ||
+                        new_map_loc.y == self.game.map_dims.height - 1
+                    );
+
+                    let redraw_for_mismatch = !(
+                        old_tile.terrain==new_tile.terrain &&
                         old_tile.sym() == new_tile.sym() &&
                         old_tile.alignment() == new_tile.alignment()
-                    )
+                    );
+
+                    redraw_for_border || redraw_for_mismatch
                 };
 
-                // if should_draw_tile {
+                if should_draw_tile {
                     self.draw_tile(new_map_loc, viewport_x, viewport_y);
-                // }
+                }
 
             }
         }
