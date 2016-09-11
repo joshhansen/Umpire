@@ -22,6 +22,15 @@ pub struct Rect {
     pub height: u16
 }
 
+impl Rect {
+    pub fn left(&self) -> u16 { self.left }
+    pub fn right(&self) -> u16 { self.left + self.width }
+    pub fn top(&self) -> u16 { self.top }
+    pub fn bottom(&self) -> u16 { self.top + self.height }
+    pub fn width(&self) -> u16 { self.width }
+    pub fn height(&self) -> u16 { self.height }
+}
+
 #[derive(Clone,Copy)]
 pub struct Dims {
     pub width: u16,

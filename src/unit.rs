@@ -58,6 +58,21 @@ pub enum UnitType {
 }
 
 impl UnitType {
+    pub fn values() -> Vec<UnitType> {
+        vec![
+            UnitType::INFANTRY,
+            UnitType::ARMOR,
+            UnitType::FIGHTER,
+            UnitType::BOMBER,
+            UnitType::TRANSPORT,
+            UnitType::DESTROYER,
+            UnitType::SUBMARINE,
+            UnitType::CRUISER,
+            UnitType::BATTLESHIP,
+            UnitType::CARRIER
+        ]
+    }
+
     fn max_hp(&self) -> u16 {
         match *self {
             UnitType::INFANTRY => 1,
@@ -85,6 +100,47 @@ impl UnitType {
             UnitType::CRUISER => 36,
             UnitType::BATTLESHIP => 60,
             UnitType::CARRIER => 48
+        }
+    }
+
+    pub fn key(&self) -> char {
+        match *self {
+            UnitType::INFANTRY => 'i',
+            UnitType::ARMOR => 'a',
+            UnitType::FIGHTER => 'f',
+            UnitType::BOMBER => 'b',
+            UnitType::TRANSPORT => 't',
+            UnitType::DESTROYER => 'd',
+            UnitType::SUBMARINE => 's',
+            UnitType::CRUISER => 'c',
+            UnitType::BATTLESHIP => 'B',
+            UnitType::CARRIER => 'C'
+        }
+    }
+
+    pub fn from_key(c: &char) -> Option<UnitType> {
+        for unit_type in UnitType::values().iter() {
+            if unit_type.key() == *c {
+                return Some(*unit_type);
+            }
+        }
+        None
+    }
+}
+
+impl Named for UnitType {
+    fn name(&self) -> &'static str {
+        match *self {
+            UnitType::INFANTRY => "Infantry",
+            UnitType::ARMOR => "Armor",
+            UnitType::FIGHTER => "Fighter",
+            UnitType::BOMBER => "Bomber",
+            UnitType::TRANSPORT => "Transport",
+            UnitType::DESTROYER => "Destroyer",
+            UnitType::SUBMARINE => "Submarine",
+            UnitType::CRUISER => "Cruiser",
+            UnitType::BATTLESHIP => "Battleship",
+            UnitType::CARRIER => "Carrier"
         }
     }
 }
@@ -147,23 +203,6 @@ impl Sym for Unit {
             UnitType::CRUISER => 'c',
             UnitType::BATTLESHIP => 'B',
             UnitType::CARRIER => 'C'
-        }
-    }
-}
-
-impl Named for Unit {
-    fn name(&self) -> &'static str {
-        match self.type_ {
-            UnitType::INFANTRY => "Infantry",
-            UnitType::ARMOR => "Armor",
-            UnitType::FIGHTER => "Fighter",
-            UnitType::BOMBER => "Bomber",
-            UnitType::TRANSPORT => "Transport",
-            UnitType::DESTROYER => "Destroyer",
-            UnitType::SUBMARINE => "Submarine",
-            UnitType::CRUISER => "Cruiser",
-            UnitType::BATTLESHIP => "Battleship",
-            UnitType::CARRIER => "Carrier"
         }
     }
 }
