@@ -83,5 +83,4 @@ impl Tile {
 }
 
 
-pub mod draw;
 pub mod gen;
