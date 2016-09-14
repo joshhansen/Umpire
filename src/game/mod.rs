@@ -81,7 +81,7 @@ pub struct Game {
     // player_maps: HashMap<PlayerNum,Vec<Vec<Obs>>>,
     pub turn: TurnNum,
     num_players: PlayerNum,
-    next_player: PlayerNum,
+    current_player: Option<PlayerNum>,
     production_set_requests: HashSet<Location>,
     unit_move_requests: HashSet<Location>
 }
@@ -112,7 +112,7 @@ impl Game {
             // player_maps: player_maps,
             turn: 0,
             num_players: num_players,
-            next_player: 0,
+            current_player: None,
             production_set_requests: HashSet::new(),
             unit_move_requests: HashSet::new()
         }
@@ -137,12 +137,26 @@ impl Game {
     //     (player, player_turn)
     // }
 
-    /// Returns the number of the player whose turn has just begun
-    pub fn begin_next_player_turn(&mut self) -> PlayerNum {
-        let player = self.next_player;
-        self.next_player = (self.next_player + 1) % self.num_players;
-        self.begin_player_turn(player);
-        player
+    fn next_player(&self) -> PlayerNum {
+        if let Some(current_player) = self.current_player {
+            (current_player + 1) % self.num_players
+        } else {
+            0
+        }
+    }
+
+    /// Returns the number of the player whose turn has just begun, or an error if the previous
+    /// turn wasn't done yet.
+    pub fn begin_next_player_turn(&mut self) -> Result<PlayerNum,PlayerNum> {
+        if self.production_set_requests.is_empty() && self.unit_move_requests.is_empty() {
+            // let player = self.next_player;
+            // self.next_player = (self.next_player + 1) % self.num_players;
+            let next_player = self.next_player();
+            self.current_player = Some(next_player);
+            self.begin_player_turn(next_player);
+            return Ok(next_player);
+        }
+        Err(self.current_player.unwrap())
     }
 
     fn begin_player_turn(&mut self, player_num: PlayerNum) {

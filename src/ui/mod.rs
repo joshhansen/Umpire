@@ -4,15 +4,18 @@
 //! Making use of the abstract game engine, implement a user interface for the game.
 extern crate termion;
 
+use std::cell::RefCell;
 use std::process::exit;
 use std::io::{Write, stdout, stdin, StdoutLock};
 use std::ops::{Add,Rem};
+use std::rc::Rc;
 
 use termion::color::{Fg, Bg, AnsiValue};
 use termion::event::Key;
 use termion::input::TermRead;
 
 use conf;
+use conf::HEADER_HEIGHT;
 use game::Game;
 use map::Tile;
 use unit::{City,Named,PlayerNum,UnitType};
@@ -62,6 +65,11 @@ trait Component {
     // fn draw_window_frame(&self, title: &str, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
     //
     // }
+
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.clear(stdout);
+        self.draw(game, stdout);
+    }
 }
 
 struct Map {
@@ -151,6 +159,10 @@ impl CurrentPlayer {
             player: player
         }
     }
+
+    fn set_player(&mut self, player_num: PlayerNum) {
+        self.player = Some(player_num);
+    }
 }
 
 impl Component for CurrentPlayer {
@@ -175,27 +187,100 @@ impl Component for CurrentPlayer {
     }
 }
 
-pub struct UI<'a> {
-    game: Game,
-    mode: Mode,
-    stdout: termion::raw::RawTerminal<StdoutLock<'a>>,
-    term_dims: Dims,
-    header_height: u16,
-    h_scrollbar_height: u16,
-    v_scrollbar_width: u16,
-    viewport_size: ViewportSize,
-    // viewport_rect: Rect,
-    viewport_offset: Vec2d<u16>,
-    old_h_scroll_x: Option<u16>,
-    old_v_scroll_y: Option<u16>,
+struct LogArea {
+    rect: Rect,
+    messages: Vec<String>
+}
 
-    components: Vec<Box<Component>>
+impl LogArea {
+    fn new(rect: &Rect) -> Self {
+        LogArea{ rect: *rect, messages: Vec::new() }
+    }
+
+    fn log_message(&mut self, message: String) {
+        self.messages.push(message);
+    }
+}
+
+impl Component for LogArea {
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn rect(&self) -> Rect { self.rect }
+
+    fn is_done(&self) -> bool { false }
+
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        write!(*stdout,
+            "{}{}Message Log{}",
+            self.goto(0, 0),
+            termion::style::Underline,
+            termion::style::Reset
+        ).unwrap();
+    }
+
+    fn keypress(&mut self, key: &Key, game: &mut Game) {
+        // do nothing
+    }
 }
 
 enum ViewportSize {
     REGULAR,
     THEATER,
     FULLSCREEN
+}
+
+impl ViewportSize {
+    fn rect(&self, term_dims: &Dims) -> Rect {
+        match *self {
+            ViewportSize::REGULAR => Rect {
+                left: 0,
+                top: HEADER_HEIGHT,
+                width: (term_dims.width - V_SCROLLBAR_WIDTH) / 2,
+                height: 25
+            },
+            ViewportSize::THEATER => Rect {
+                left: 0,
+                top: HEADER_HEIGHT,
+                width: term_dims.width - V_SCROLLBAR_WIDTH,
+                height: 25
+            },
+            ViewportSize::FULLSCREEN => Rect {
+                left: 0,
+                top: 0,
+                width: term_dims.width - V_SCROLLBAR_WIDTH,
+                height: term_dims.height - H_SCROLLBAR_HEIGHT - 1
+            }
+        }
+    }
+}
+
+fn current_player_rect(viewport_rect: &Rect) -> Rect {
+    Rect {
+        left: 10,
+        top: 0,
+        width: 21,
+        height: 1
+    }
+}
+
+fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
+    Rect {
+        left: 0,
+        top: viewport_rect.bottom() + 2,
+        width: viewport_rect.width,
+        height: term_dims.height - viewport_rect.height - 2
+    }
+}
+
+fn sidebar_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
+    Rect {
+        left: viewport_rect.right() + 1,
+        top: viewport_rect.top,
+        width: term_dims.width - viewport_rect.left - viewport_rect.width,
+        height: term_dims.height
+    }
 }
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
@@ -208,38 +293,63 @@ fn nonnegative_mod(x: i32, max: u16) -> u16 {
     return (result % max as i32) as u16;
 }
 
+const H_SCROLLBAR_HEIGHT: u16 = 1;
+const V_SCROLLBAR_WIDTH: u16 = 1;
+
+pub struct UI<'a> {
+    game: Game,
+    mode: Mode,
+    stdout: termion::raw::RawTerminal<StdoutLock<'a>>,
+    term_dims: Dims,
+    viewport_size: ViewportSize,
+    // viewport_rect: Rect,
+    viewport_offset: Vec2d<u16>,
+    old_h_scroll_x: Option<u16>,
+    old_v_scroll_y: Option<u16>,
+
+    log: Rc<RefCell<LogArea>>,
+    current_player: Rc<RefCell<CurrentPlayer>>,
+
+    components: Vec<Rc<RefCell<Component>>>
+}
+
 impl<'b> UI<'b> {
     pub fn new(
         game: Game,
         stdout: termion::raw::RawTerminal<StdoutLock<'b>>,
-        term_dims: Dims, header_height: u16
+        term_dims: Dims
     ) -> Self {
 
-        let h_scrollbar_height = 1;
-        let v_scrollbar_width = 1;
-
         let offset = Vec2d{ x: game.map_dims.width/2, y: game.map_dims.height/2 };
+
+        let viewport_size = ViewportSize::REGULAR;
+        let viewport_rect = viewport_size.rect(&term_dims);
+
+        let log_rect = log_area_rect(&viewport_rect, &term_dims);
+        let log = Rc::new(RefCell::new(LogArea::new(&log_rect)));
+
+        let cp_rect = current_player_rect(&viewport_rect);
+        let current_player = Rc::new(RefCell::new(CurrentPlayer::new(cp_rect, None)));
 
         let mut ui = UI {
             game: game,
             mode: Mode::General,
             stdout: stdout,
             term_dims: term_dims,
-            header_height: header_height,
-            h_scrollbar_height: h_scrollbar_height,
-            v_scrollbar_width: v_scrollbar_width,
-            viewport_size: ViewportSize::REGULAR,
-            // viewport_rect: viewport_rect(&ViewportSize::REGULAR, header_height, h_scrollbar_height, v_scrollbar_width, &term_dims),
+            viewport_size: viewport_size,
             viewport_offset: offset,
             old_h_scroll_x: None,
             old_v_scroll_y: None,
 
+
+            log: log.clone(),
+            current_player: current_player.clone(),
+
             components: Vec::new()
         };
 
-        let cp_rect = ui.current_player_rect();
-
-        ui.components.push(Box::new(CurrentPlayer::new(cp_rect, None)));
+        ui.components.push(log.clone());
+        ui.components.push(current_player.clone());
 
         ui
     }
@@ -252,11 +362,11 @@ impl<'b> UI<'b> {
             let mut component_is_done = false;
 
             if let Some(mut component) = self.components.last_mut() {
-                component.keypress(&c, &mut self.game);
-                component_is_done |= component.is_done();
+                component.borrow_mut().keypress(&c, &mut self.game);
+                component_is_done |= component.borrow().is_done();
 
                 if component_is_done {
-                    component.clear(&mut self.stdout);
+                    component.borrow().clear(&mut self.stdout);
                 }
             }
 
@@ -289,9 +399,19 @@ impl<'b> UI<'b> {
     }
 
     pub fn run(&mut self) {
+        self.log.borrow_mut().log_message("blah".to_string());
+
         // loop through endless game turns
         loop {
-            let player_num = self.game.begin_next_player_turn();
+            let player_num = match self.game.begin_next_player_turn() {
+                Ok(player_num) => player_num,
+                Err(player_num) => player_num
+            };
+
+            self.current_player.borrow_mut().player = Some(player_num);
+            // let mut curplay: &mut CurrentPlayer = self.current_player;
+            //
+            // curplay.set_player(player_num);
 
             // Process production set requests
             loop {
@@ -305,15 +425,16 @@ impl<'b> UI<'b> {
 
                 self.mode = Mode::SetProduction{loc:loc};
                 let viewport_rect = self.viewport_rect();
-                self.components.push(Box::new(SetProduction::new(
+
+                self.components.push(Rc::new(RefCell::new(SetProduction::new(
                     Rect{
-                        left: viewport_rect.width + self.v_scrollbar_width + 1,
-                        top: self.header_height + 1,
+                        left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
+                        top: HEADER_HEIGHT + 1,
                         width: self.term_dims.width - viewport_rect.width - 2,
-                        height: self.term_dims.height - self.header_height
+                        height: self.term_dims.height - HEADER_HEIGHT
                     },
                     loc)
-                ));
+                )));
 
                 self.draw();
                 self.take_input();
@@ -341,7 +462,7 @@ impl<'b> UI<'b> {
         self.draw_scroll_bars();
 
         for component in self.components.iter_mut() {
-            component.draw(&self.game, &mut self.stdout);
+            component.borrow().draw(&self.game, &mut self.stdout);
         }
 
         write!(self.stdout, "{}Turn: {}", goto(0, 45), self.game.turn).unwrap();
@@ -449,7 +570,7 @@ impl<'b> UI<'b> {
         self.old_h_scroll_x = Some(h_scroll_x);
 
         let v_scroll_x = viewport_rect.right();
-        let v_scroll_y: u16 = self.header_height + (viewport_rect.height as f32 * (self.viewport_offset.y as f32 / self.game.map_dims.height as f32)) as u16;
+        let v_scroll_y: u16 = HEADER_HEIGHT + (viewport_rect.height as f32 * (self.viewport_offset.y as f32 / self.game.map_dims.height as f32)) as u16;
 
         //FIXME There must be a cleaner way to do this
         match self.old_v_scroll_y {
@@ -535,56 +656,30 @@ impl<'b> UI<'b> {
         exit(0);
     }
 
+    // fn viewport_rect(&self) -> Rect {
+    //     match self.viewport_size {
+    //         ViewportSize::REGULAR => Rect {
+    //             left: 0,
+    //             top: HEADER_HEIGHT,
+    //             width: (self.term_dims.width - V_SCROLLBAR_WIDTH) / 2,
+    //             height: 25
+    //         },
+    //         ViewportSize::THEATER => Rect {
+    //             left: 0,
+    //             top: HEADER_HEIGHT,
+    //             width: self.term_dims.width - V_SCROLLBAR_WIDTH,
+    //             height: 25
+    //         },
+    //         ViewportSize::FULLSCREEN => Rect {
+    //             left: 0,
+    //             top: 0,
+    //             width: self.term_dims.width - V_SCROLLBAR_WIDTH,
+    //             height: self.term_dims.height - H_SCROLLBAR_HEIGHT - 1
+    //         }
+    //     }
+    // }
+
     fn viewport_rect(&self) -> Rect {
-        match self.viewport_size {
-            ViewportSize::REGULAR => Rect {
-                left: 0,
-                top: self.header_height,
-                width: (self.term_dims.width - self.v_scrollbar_width) / 2,
-                height: 25
-            },
-            ViewportSize::THEATER => Rect {
-                left: 0,
-                top: self.header_height,
-                width: self.term_dims.width - self.v_scrollbar_width,
-                height: 25
-            },
-            ViewportSize::FULLSCREEN => Rect {
-                left: 0,
-                top: 0,
-                width: self.term_dims.width - self.v_scrollbar_width,
-                height: self.term_dims.height - self.h_scrollbar_height - 1
-            }
-        }
-    }
-
-    fn log_area_rect(&self) -> Rect {
-        let vp = self.viewport_rect();
-        Rect {
-            left: 0,
-            top: vp.top - vp.height,
-            width: vp.width,
-            height: self.term_dims.height - vp.height
-        }
-    }
-
-    fn sidebar_rect(&self) -> Rect {
-        let vp = self.viewport_rect();
-        Rect {
-            left: vp.right() + 1,
-            top: vp.top,
-            width: self.term_dims.width - vp.left - vp.width,
-            height: self.term_dims.height
-        }
-    }
-
-    fn current_player_rect(&self) -> Rect {
-        let vp = self.viewport_rect();
-        Rect {
-            left: 0,
-            top: vp.top + vp.height + 2,
-            width: vp.width,
-            height: 1
-        }
+        self.viewport_size.rect(&self.term_dims)
     }
 }
