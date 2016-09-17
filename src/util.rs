@@ -43,6 +43,12 @@ pub struct Vec2d<T> {
     pub y: T
 }
 
+impl<T> Vec2d<T> {
+    pub fn new(x: T, y: T) -> Self {
+        Vec2d{ x: x, y: y }
+    }
+}
+
 
 pub type Location = Vec2d<u16>;
 impl Location {

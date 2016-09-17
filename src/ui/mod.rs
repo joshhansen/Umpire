@@ -38,16 +38,26 @@ pub enum Mode {
     Help
 }
 
-trait Component {
+trait Draw {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
+}
+
+trait Redraw {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
+}
+
+trait Keypress {
+    fn keypress(&mut self, key: &Key, game: &mut Game);
+}
+
+trait Component : Draw+Redraw+Keypress {
     fn set_rect(&mut self, rect: Rect);
 
     fn rect(&self) -> Rect;
 
     fn is_done(&self) -> bool;
 
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
 
-    fn keypress(&mut self, key: &Key, game: &mut Game);
 
     fn goto(&self, x: u16, y: u16) -> termion::cursor::Goto {
         let rect = self.rect();
@@ -65,30 +75,198 @@ trait Component {
     // fn draw_window_frame(&self, title: &str, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
     //
     // }
-
-    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        self.clear(stdout);
-        self.draw(game, stdout);
-    }
 }
 
 struct Map {
-
+    rect: Rect,
+    map_dims: Dims,
+    old_viewport_offset: Vec2d<u16>,
+    viewport_offset: Vec2d<u16>
 }
 
-// impl Component for Map {
-//     fn rect(&self, ui: &UI) -> Rect {
-//         ui.viewport_rect()
-//     }
-//
-//     fn draw(&self, ui: &UI) {
-//
-//     }
-//
-//     fn keypress(&self, key: Key) -> Option<Key> {
-//         None
-//     }
-// }
+impl Map {
+    fn new(rect: &Rect, map_dims: &Dims) -> Self {
+        Map{
+            rect: *rect,
+            map_dims: *map_dims,
+            old_viewport_offset: Vec2d::new(0, 0),
+            viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2)
+        }
+    }
+
+    pub fn shift_viewport(&mut self, shift: Vec2d<i32>) {
+        let mut new_x_offset:i32 = ( self.viewport_offset.x as i32 ) + shift.x;
+        let mut new_y_offset:i32 = ( self.viewport_offset.y as i32 ) + shift.y;
+
+        while new_x_offset < 0 {
+            new_x_offset += self.map_dims.width as i32;
+        }
+        while new_y_offset < 0 {
+            new_y_offset += self.map_dims.height as i32;
+        }
+
+        let new_viewport_offset = Vec2d{
+            x: (new_x_offset as u16) % self.map_dims.width,
+            y: (new_y_offset as u16) % self.map_dims.height
+        };
+
+        self.set_viewport_offset(new_viewport_offset);
+
+        // self.update_map(self.viewport_offset, new_viewport_offset);
+        //
+        // // self.viewport_offset.x = (new_x_offset as u16) % self.game.map_dims.width;
+        // // self.viewport_offset.y = (new_y_offset as u16) % self.game.map_dims.height;
+        //
+        // self.viewport_offset = new_viewport_offset;
+        //
+        // // self.draw_map();
+        // self.draw_scroll_bars();
+    }
+
+    fn set_viewport_offset(&mut self, new_viewport_offset: Vec2d<u16>) {
+        // let old_viewport_offset = self.viewport_offset;
+        self.old_viewport_offset = self.viewport_offset;
+        self.viewport_offset = new_viewport_offset;
+        // self.redraw(game, stdout);
+        // // self.update_map(old_viewport_offset, new_viewport_offset);
+        // // self.viewport_offset = new_viewport_offset;
+        // self.draw_scroll_bars();
+    }
+
+
+    fn center_viewport(&mut self, map_location: &Location) {
+        let new_viewport_offset = Vec2d {
+            x: nonnegative_mod(
+                map_location.x as i32 - (self.rect.width as i32 / 2),
+                self.map_dims.width
+            ),
+            y: nonnegative_mod(
+                map_location.y as i32 - (self.rect.height as i32 / 2),
+                self.map_dims.height
+            )
+        };
+
+        self.set_viewport_offset(new_viewport_offset);
+    }
+
+    fn draw_tile(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>,
+            tile_loc: Location, viewport_x: u16, viewport_y: u16) {
+
+        let tile = &game.tiles[tile_loc];
+
+        if tile.loc.y == game.map_dims.height - 1 {
+            write!(stdout, "{}", termion::style::Underline).unwrap();
+        }
+
+        if let Some(fg_color) = tile.fg_color() {
+            write!(stdout, "{}", Fg(fg_color)).unwrap();
+        }
+
+        write!(stdout, "{}{}{}{}",
+            self.goto(viewport_x, viewport_y),
+            Bg(tile.bg_color()),
+            tile.sym(),
+            termion::style::Reset
+        ).unwrap();
+    }
+
+    fn viewport_to_map_coords(&self, viewport_loc: &Location, viewport_offset: &Vec2d<u16>) -> Location {
+        Location {
+            x: (viewport_loc.x + viewport_offset.x) % self.map_dims.width, // mod implements wrapping,
+            y: (viewport_loc.y + viewport_offset.y) % self.map_dims.height // mod implements wrapping
+        }
+    }
+}
+
+impl Redraw for Map {
+    /// Update the map to reflect the current viewport offset
+    // fn update_map(&mut self, old_viewport_offset: Vec2d<u16>, new_viewport_offset: Vec2d<u16>) {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        let mut viewport_loc = Location{x: 0, y: 0};
+        for viewport_x in 0_u16..self.rect.width {
+            viewport_loc.x = viewport_x;
+            for viewport_y in 0_u16..(self.rect.height+1) {
+                viewport_loc.y = viewport_y;
+
+                let old_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.old_viewport_offset);
+                let new_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.viewport_offset);
+
+                let should_draw_tile = {
+                    let old_tile = &game.tiles[old_map_loc];
+                    let new_tile = &game.tiles[new_map_loc];
+
+                    let redraw_for_border =
+                    old_map_loc.y != new_map_loc.y && (
+                        old_map_loc.y == game.map_dims.height - 1 ||
+                        new_map_loc.y == game.map_dims.height - 1
+                    );
+
+                    let redraw_for_mismatch = !(
+                        old_tile.terrain==new_tile.terrain &&
+                        old_tile.sym() == new_tile.sym() &&
+                        old_tile.alignment() == new_tile.alignment()
+                    );
+
+                    redraw_for_border || redraw_for_mismatch
+                };
+
+                if should_draw_tile {
+                    self.draw_tile(game, stdout, new_map_loc, viewport_x, viewport_y);
+                }
+
+            }
+        }
+
+        write!(stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
+        stdout.flush().unwrap();
+    }
+}
+
+impl Keypress for Map {
+    fn keypress(&mut self, key: &Key, game: &mut Game) {
+        let map_dims = &game.map_dims;
+        match *key {
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_LEFT)       => self.shift_viewport(Vec2d{x:-1, y: 0}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_RIGHT)      => self.shift_viewport(Vec2d{x: 1, y: 0}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP)         => self.shift_viewport(Vec2d{x: 0, y:-1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN)       => self.shift_viewport(Vec2d{x: 0, y: 1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_LEFT)    => self.shift_viewport(Vec2d{x:-1, y:-1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_RIGHT)   => self.shift_viewport(Vec2d{x: 1, y:-1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT)  => self.shift_viewport(Vec2d{x:-1, y: 1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT) => self.shift_viewport(Vec2d{x: 1, y: 1}),
+            _ => {}
+        }
+    }
+}
+
+impl Component for Map {
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+
+    fn is_done(&self) -> bool { false }
+}
+
+impl Draw for Map {
+    // fn draw_map(&mut self) {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        let mut viewport_loc = Location{x: 0, y: 0};
+        for viewport_x in 0_u16..self.rect.width {
+            viewport_loc.x = viewport_x;
+            for viewport_y in 0_u16..(self.rect.height+1) {
+                viewport_loc.y = viewport_y;
+
+                let map_location = self.viewport_to_map_coords(&viewport_loc, &self.viewport_offset);
+
+                self.draw_tile(game, stdout, map_location, viewport_x, viewport_y);
+            }
+        }
+    }
+}
 
 struct SetProduction {
     rect: Rect,
@@ -108,15 +286,7 @@ impl SetProduction {
     }
 }
 
-impl Component for SetProduction {
-    fn set_rect(&mut self, rect: Rect) {
-        self.rect = rect;
-    }
-
-    fn rect(&self) -> Rect { self.rect }
-
-    fn is_done(&self) -> bool { self.done }
-
+impl Draw for SetProduction {
     fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         let ref tile = game.tiles[self.loc];
 
@@ -136,7 +306,16 @@ impl Component for SetProduction {
             }
         }
     }
+}
 
+impl Redraw for SetProduction {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.clear(stdout);
+        self.draw(game, stdout);
+    }
+}
+
+impl Keypress for SetProduction {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
         if let Key::Char(c) = *key {
             if let Some(unit_type) = UnitType::from_key(&c) {
@@ -145,6 +324,16 @@ impl Component for SetProduction {
             }
         }
     }
+}
+
+impl Component for SetProduction {
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn rect(&self) -> Rect { self.rect }
+
+    fn is_done(&self) -> bool { self.done }
 }
 
 struct CurrentPlayer {
@@ -165,6 +354,29 @@ impl CurrentPlayer {
     }
 }
 
+impl Draw for CurrentPlayer {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        write!(*stdout,
+            "{}Current Player: {}",
+            self.goto(0, 0),
+            if let Some(player) = self.player { player.to_string() } else { "None".to_string() }
+        ).unwrap();
+    }
+}
+
+impl Keypress for CurrentPlayer {
+    fn keypress(&mut self, key: &Key, game: &mut Game) {
+        // do nothing
+    }
+}
+
+impl Redraw for CurrentPlayer {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.clear(stdout);
+        self.draw(game, stdout);
+    }
+}
+
 impl Component for CurrentPlayer {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
@@ -173,18 +385,6 @@ impl Component for CurrentPlayer {
     fn rect(&self) -> Rect { self.rect }
 
     fn is_done(&self) -> bool { false }
-
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        write!(*stdout,
-            "{}Current Player: {}",
-            self.goto(0, 0),
-            if let Some(player) = self.player { player.to_string() } else { "None".to_string() }
-        ).unwrap();
-    }
-
-    fn keypress(&mut self, key: &Key, game: &mut Game) {
-        // do nothing
-    }
 }
 
 struct LogArea {
@@ -202,15 +402,7 @@ impl LogArea {
     }
 }
 
-impl Component for LogArea {
-    fn set_rect(&mut self, rect: Rect) {
-        self.rect = rect;
-    }
-
-    fn rect(&self) -> Rect { self.rect }
-
-    fn is_done(&self) -> bool { false }
-
+impl Draw for LogArea {
     fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         write!(*stdout,
             "{}{}Message Log{}",
@@ -219,10 +411,29 @@ impl Component for LogArea {
             termion::style::Reset
         ).unwrap();
     }
+}
 
+impl Keypress for LogArea {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
         // do nothing
     }
+}
+
+impl Redraw for LogArea {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.clear(stdout);
+        self.draw(game, stdout);
+    }
+}
+
+impl Component for LogArea {
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn rect(&self) -> Rect { self.rect }
+
+    fn is_done(&self) -> bool { false }
 }
 
 enum ViewportSize {
@@ -296,6 +507,23 @@ fn nonnegative_mod(x: i32, max: u16) -> u16 {
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
+type Scene = Vec<Rc<RefCell<Component>>>;
+impl Draw for Scene {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        for component in self.iter() {
+            component.borrow().draw(game, stdout);
+        }
+    }
+}
+
+impl Redraw for Scene {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        for component in self.iter() {
+            component.borrow().redraw(game, stdout);
+        }
+    }
+}
+
 pub struct UI<'a> {
     game: Game,
     mode: Mode,
@@ -307,10 +535,11 @@ pub struct UI<'a> {
     old_h_scroll_x: Option<u16>,
     old_v_scroll_y: Option<u16>,
 
+    map: Rc<RefCell<Map>>,
     log: Rc<RefCell<LogArea>>,
     current_player: Rc<RefCell<CurrentPlayer>>,
 
-    components: Vec<Rc<RefCell<Component>>>
+    scene: Scene
 }
 
 impl<'b> UI<'b> {
@@ -324,6 +553,8 @@ impl<'b> UI<'b> {
 
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(&term_dims);
+
+        let map = Rc::new(RefCell::new(Map::new(&viewport_rect, &game.map_dims)));
 
         let log_rect = log_area_rect(&viewport_rect, &term_dims);
         let log = Rc::new(RefCell::new(LogArea::new(&log_rect)));
@@ -341,15 +572,16 @@ impl<'b> UI<'b> {
             old_h_scroll_x: None,
             old_v_scroll_y: None,
 
-
+            map: map.clone(),
             log: log.clone(),
             current_player: current_player.clone(),
 
-            components: Vec::new()
+            scene: Scene::new()
         };
 
-        ui.components.push(log.clone());
-        ui.components.push(current_player.clone());
+        ui.scene.push(map.clone());
+        ui.scene.push(log.clone());
+        ui.scene.push(current_player.clone());
 
         ui
     }
@@ -361,7 +593,7 @@ impl<'b> UI<'b> {
 
             let mut component_is_done = false;
 
-            if let Some(mut component) = self.components.last_mut() {
+            if let Some(component) = self.scene.last_mut() {
                 component.borrow_mut().keypress(&c, &mut self.game);
                 component_is_done |= component.borrow().is_done();
 
@@ -371,18 +603,12 @@ impl<'b> UI<'b> {
             }
 
             if component_is_done {
-                self.components.pop();
+                self.scene.pop();
             }
 
+            self.map.borrow_mut().keypress(&c, &mut self.game);
+
             match c {
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_LEFT)       => self.shift_viewport(Vec2d{x:-1, y: 0}),
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_RIGHT)      => self.shift_viewport(Vec2d{x: 1, y: 0}),
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_UP)         => self.shift_viewport(Vec2d{x: 0, y:-1}),
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN)       => self.shift_viewport(Vec2d{x: 0, y: 1}),
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_LEFT)    => self.shift_viewport(Vec2d{x:-1, y:-1}),
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_RIGHT)   => self.shift_viewport(Vec2d{x: 1, y:-1}),
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT)  => self.shift_viewport(Vec2d{x:-1, y: 1}),
-                Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT) => self.shift_viewport(Vec2d{x: 1, y: 1}),
                 Key::Char(conf::KEY_QUIT) => self.quit(),
                 Key::Char(conf::KEY_VIEWPORT_SIZE_ROTATE) => {
                     let new_size = match self.viewport_size {
@@ -392,6 +618,7 @@ impl<'b> UI<'b> {
                     };
 
                     self.set_viewport_size(new_size);
+                    self.scene.redraw(&self.game, &mut self.stdout);
                 }
                 _ => {}
             }
@@ -421,12 +648,12 @@ impl<'b> UI<'b> {
 
                 let loc = *self.game.production_set_requests().iter().next().unwrap();
 
-                self.center_viewport(&loc);
+                self.map.borrow_mut().center_viewport(&loc);
 
                 self.mode = Mode::SetProduction{loc:loc};
                 let viewport_rect = self.viewport_rect();
 
-                self.components.push(Rc::new(RefCell::new(SetProduction::new(
+                self.scene.push(Rc::new(RefCell::new(SetProduction::new(
                     Rect{
                         left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
                         top: HEADER_HEIGHT + 1,
@@ -458,92 +685,12 @@ impl<'b> UI<'b> {
             termion::style::Reset
         ).unwrap();
 
-        self.draw_map();
+        // self.draw_map();
         self.draw_scroll_bars();
 
-        for component in self.components.iter_mut() {
-            component.borrow().draw(&self.game, &mut self.stdout);
-        }
+        self.scene.draw(&self.game, &mut self.stdout);
 
         write!(self.stdout, "{}Turn: {}", goto(0, 45), self.game.turn).unwrap();
-
-        write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
-        self.stdout.flush().unwrap();
-    }
-
-    fn viewport_to_map_coords(&self, viewport_offset: Vec2d<u16>, viewport_x: &u16, viewport_y: &u16) -> Location {
-        let map_x:u16 = (viewport_x + viewport_offset.x) % self.game.map_dims.width;// mod implements wrapping
-        let map_y:u16 = (viewport_y + viewport_offset.y) % self.game.map_dims.height;// mod implements wrapping
-        Location{
-            x: map_x,
-            y: map_y
-        }
-    }
-
-    fn draw_map(&mut self) {
-        let viewport_rect = self.viewport_rect();
-        for viewport_x in 0_u16..viewport_rect.width {
-            for viewport_y in 0_u16..(viewport_rect.height+1) {
-                let map_location = self.viewport_to_map_coords(self.viewport_offset, &viewport_x, &viewport_y);
-
-                self.draw_tile(map_location, viewport_x, viewport_y);
-            }
-        }
-    }
-
-    fn draw_tile(&mut self, tile_loc: Location, viewport_x: u16, viewport_y: u16) {
-        let tile = &self.game.tiles[tile_loc];
-
-        if tile.loc.y == self.game.map_dims.height - 1 {
-            write!(self.stdout, "{}", termion::style::Underline).unwrap();
-        }
-
-        if let Some(fg_color) = tile.fg_color() {
-            write!(self.stdout, "{}", Fg(fg_color)).unwrap();
-        }
-
-        let viewport_rect = self.viewport_rect();
-        write!(self.stdout, "{}{}{}{}",
-            goto(viewport_x + viewport_rect.left, viewport_y + viewport_rect.top),
-            Bg(tile.bg_color()),
-            tile.sym(),
-            termion::style::Reset
-        ).unwrap();
-    }
-
-    /// Update the map to reflect the current viewport offset
-    fn update_map(&mut self, old_viewport_offset: Vec2d<u16>, new_viewport_offset: Vec2d<u16>) {
-        let viewport_rect = self.viewport_rect();
-        for viewport_x in 0_u16..viewport_rect.width {
-            for viewport_y in 0_u16..(viewport_rect.height+1) {
-                let old_map_loc = self.viewport_to_map_coords(old_viewport_offset, &viewport_x, &viewport_y);
-                let new_map_loc = self.viewport_to_map_coords(new_viewport_offset, &viewport_x, &viewport_y);
-
-                let should_draw_tile = {
-                    let old_tile = &self.game.tiles[old_map_loc];
-                    let new_tile = &self.game.tiles[new_map_loc];
-
-                    let redraw_for_border =
-                    old_map_loc.y != new_map_loc.y && (
-                        old_map_loc.y == self.game.map_dims.height - 1 ||
-                        new_map_loc.y == self.game.map_dims.height - 1
-                    );
-
-                    let redraw_for_mismatch = !(
-                        old_tile.terrain==new_tile.terrain &&
-                        old_tile.sym() == new_tile.sym() &&
-                        old_tile.alignment() == new_tile.alignment()
-                    );
-
-                    redraw_for_border || redraw_for_mismatch
-                };
-
-                if should_draw_tile {
-                    self.draw_tile(new_map_loc, viewport_x, viewport_y);
-                }
-
-            }
-        }
 
         write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
@@ -587,61 +734,6 @@ impl<'b> UI<'b> {
         self.old_v_scroll_y = Some(v_scroll_y);
     }
 
-
-
-    pub fn shift_viewport(&mut self, shift: Vec2d<i32>) {
-        let mut new_x_offset:i32 = ( self.viewport_offset.x as i32 ) + shift.x;
-        let mut new_y_offset:i32 = ( self.viewport_offset.y as i32 ) + shift.y;
-
-        while new_x_offset < 0 {
-            new_x_offset += self.game.map_dims.width as i32;
-        }
-        while new_y_offset < 0 {
-            new_y_offset += self.game.map_dims.height as i32;
-        }
-
-        let new_viewport_offset = Vec2d{
-            x: (new_x_offset as u16) % self.game.map_dims.width,
-            y: (new_y_offset as u16) % self.game.map_dims.height
-        };
-
-        self.set_viewport_offset(new_viewport_offset);
-
-        // self.update_map(self.viewport_offset, new_viewport_offset);
-        //
-        // // self.viewport_offset.x = (new_x_offset as u16) % self.game.map_dims.width;
-        // // self.viewport_offset.y = (new_y_offset as u16) % self.game.map_dims.height;
-        //
-        // self.viewport_offset = new_viewport_offset;
-        //
-        // // self.draw_map();
-        // self.draw_scroll_bars();
-    }
-
-    fn set_viewport_offset(&mut self, new_viewport_offset: Vec2d<u16>) {
-        let old_viewport_offset = self.viewport_offset;
-        self.update_map(old_viewport_offset, new_viewport_offset);
-        self.viewport_offset = new_viewport_offset;
-        self.draw_scroll_bars();
-    }
-
-    pub fn center_viewport(&mut self, map_location: &Location) {
-        let viewport_rect = self.viewport_rect();
-
-        let new_viewport_offset = Vec2d{
-            x: nonnegative_mod(
-                map_location.x as i32 - (viewport_rect.width as i32 / 2),
-                self.game.map_dims.width
-            ),
-            y: nonnegative_mod(
-                map_location.y as i32 - (viewport_rect.height as i32 / 2),
-                self.game.map_dims.height
-            )
-        };
-
-        self.set_viewport_offset(new_viewport_offset);
-    }
-
     // Utility methods
     fn draw_scroll_mark(&mut self, x: u16, y: u16, sym: char) {
         write!(self.stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
@@ -655,29 +747,6 @@ impl<'b> UI<'b> {
         write!(self.stdout, "{}{}Thanks for playing {}!\n\n", goto(0, self.term_dims.height), termion::style::Reset, conf::APP_NAME).unwrap();
         exit(0);
     }
-
-    // fn viewport_rect(&self) -> Rect {
-    //     match self.viewport_size {
-    //         ViewportSize::REGULAR => Rect {
-    //             left: 0,
-    //             top: HEADER_HEIGHT,
-    //             width: (self.term_dims.width - V_SCROLLBAR_WIDTH) / 2,
-    //             height: 25
-    //         },
-    //         ViewportSize::THEATER => Rect {
-    //             left: 0,
-    //             top: HEADER_HEIGHT,
-    //             width: self.term_dims.width - V_SCROLLBAR_WIDTH,
-    //             height: 25
-    //         },
-    //         ViewportSize::FULLSCREEN => Rect {
-    //             left: 0,
-    //             top: 0,
-    //             width: self.term_dims.width - V_SCROLLBAR_WIDTH,
-    //             height: self.term_dims.height - H_SCROLLBAR_HEIGHT - 1
-    //         }
-    //     }
-    // }
 
     fn viewport_rect(&self) -> Rect {
         self.viewport_size.rect(&self.term_dims)

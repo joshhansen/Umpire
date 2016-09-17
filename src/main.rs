@@ -52,8 +52,7 @@ fn main() {
         let mut ui = ui::UI::new(
             Game::new(MAP_DIMS, conf::NUM_PLAYERS),
             stdout_1,
-            Dims{ width: term_width, height: term_height },
-            conf::HEADER_HEIGHT
+            Dims{ width: term_width, height: term_height }
         );
 
         ui.run();
