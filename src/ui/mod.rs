@@ -152,8 +152,6 @@ fn sidebar_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
     }
 }
 
-
-
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
@@ -173,6 +171,49 @@ impl Redraw for Scene {
         }
     }
 }
+
+struct MoveUnit {
+    rect: Rect,
+    loc: Location
+}
+
+impl MoveUnit {
+    fn new(rect: Rect, loc: Location) -> Self {
+        MoveUnit {
+            rect: rect,
+            loc: loc
+        }
+    }
+}
+
+impl Draw for MoveUnit {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        write!(*stdout, "{}Move Unit", self.goto(0, 0)).unwrap();
+    }
+}
+
+impl Redraw for MoveUnit {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.draw(game, stdout);
+    }
+}
+
+impl Keypress for MoveUnit {
+    fn keypress(&mut self, key: &Key, game: &mut Game) {
+        // do nothing
+    }
+}
+
+impl Component for MoveUnit {
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn rect(&self) -> Rect { self.rect }
+
+    fn is_done(&self) -> bool { false }
+}
+
 
 pub struct UI<'a> {
     mode: Mode,
@@ -276,9 +317,12 @@ impl<'b> UI<'b> {
         }
     }
 
-    pub fn run(&mut self, game: &mut Game) {
-        self.log.borrow_mut().log_message("blah".to_string());
+    fn log_message(&mut self, game: &Game, message: String) {
+        self.log.borrow_mut().log_message(message);
+        self.log.borrow_mut().redraw(game, &mut self.stdout);
+    }
 
+    pub fn run(&mut self, game: &mut Game) {
         // loop through endless game turns
         loop {
             let player_num = match game.begin_next_player_turn() {
@@ -286,7 +330,15 @@ impl<'b> UI<'b> {
                 Err(player_num) => player_num
             };
 
-            self.current_player.borrow_mut().player = Some(player_num);
+            {
+                let mut cp = self.current_player.borrow_mut();
+                cp.player = Some(player_num);
+                cp.redraw(game, &mut self.stdout);
+            }
+
+
+
+            self.log_message(game, format!("Turn {}, player {} go!", game.turn, player_num));
 
             // Process production set requests
             loop {
@@ -301,8 +353,13 @@ impl<'b> UI<'b> {
                 self.mode = Mode::SetProduction{loc:loc};
                 let viewport_rect = self.viewport_rect();
 
+                {
+                    let city = game.city(loc).unwrap();
+                    self.log_message(game, format!("Requesting production target for {}", city ));
+                }
+
                 self.scene.push(Rc::new(RefCell::new(SetProduction::new(
-                    Rect{
+                    Rect {
                         left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
                         top: HEADER_HEIGHT + 1,
                         width: self.term_dims.width - viewport_rect.width - 2,
@@ -316,6 +373,32 @@ impl<'b> UI<'b> {
             }
 
             //TODO Process unit move requests
+
+            loop {
+                if game.unit_move_requests().len() < 1 {
+                    break;
+                }
+
+                let loc = *game.unit_move_requests().iter().next().unwrap();
+
+                self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
+
+                self.mode = Mode::MoveUnit{loc:loc};
+                let viewport_rect = self.viewport_rect();
+
+                {
+                    let unit = game.unit(loc).unwrap();
+                    self.log_message(game, format!("Requesting orders for unit {}", unit ));
+                }
+
+                self.scene.push(Rc::new(RefCell::new(MoveUnit::new(
+                    sidebar_rect(&viewport_rect, &game.map_dims),
+                    loc)
+                )));
+
+                self.draw(game);
+                self.take_input(game);
+            }
         }
     }
 

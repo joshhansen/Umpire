@@ -222,6 +222,12 @@ impl Aligned for Unit {
     fn alignment(&self) -> Alignment { self.alignment }
 }
 
+impl fmt::Display for Unit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Unit@{}", self.loc)
+    }
+}
+
 #[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
     pub loc: Location,

@@ -8,7 +8,7 @@ use std::ops::{Index,IndexMut};
 
 use map::Tile;
 use map::gen::generate_map;
-use unit::{Alignment,PlayerNum,Unit,UnitType};
+use unit::{Alignment,City,PlayerNum,Unit,UnitType};
 use util::{Dims,Location};
 
 pub type TurnNum = u32;
@@ -20,28 +20,8 @@ enum Obs {
     UNOBSERVED
 }
 
-pub trait ProductionSetter {
-    fn set_production(&self, game: &Game) -> UnitType;
-}
-
-struct ProductionSetRequest {
-
-}
-
-struct UnitMoveRequest {
-    location: Location
-}
-impl UnitMoveRequest {
-    pub fn move_unit(&self, new_location: Location) -> Option<UnitMoveRequest> {
-        None
-    }
-}
-
-struct TurnDecisions {
-
-}
-
 pub type Tiles = Vec<Vec<Tile>>;
+
 impl Index<Location> for Tiles {
     type Output = Tile;
     fn index<'a>(&'a self, location: Location) -> &'a Tile {
@@ -50,30 +30,10 @@ impl Index<Location> for Tiles {
 }
 impl IndexMut<Location> for Tiles {
     fn index_mut<'a>(&'a mut self, location: Location) -> &'a mut Tile {
-
-
         let col:  &mut Vec<Tile> = self.get_mut(location.x as usize).unwrap();
         col.get_mut(location.y as usize).unwrap()
-
-        // &mut self[location.x as usize][location.y as usize]
     }
 }
-
-
-// struct PlayerTurn<'a> {
-//     production_set_requests: HashSet<Location>,
-//     unit_move_requests: HashSet<Location>
-// }
-//
-// impl<'b> PlayerTurn<'b> {
-//
-//
-//
-// }
-
-// pub trait Decider {
-//     fn make_turn_decisions(&self, game: &Game, productions_to_set: Vec<Location>, units_to_move: )
-// }
 
 pub struct Game {
     pub map_dims: Dims,
@@ -88,24 +48,6 @@ pub struct Game {
 
 impl Game {
     pub fn new(map_dims: Dims, num_players: PlayerNum) -> Self {
-        // let mut player_map = Vec::new();
-        // for x in 0..map_dims.width {
-        //     let mut col = Vec::new();
-        //     for y in 0..map_dims.height {
-        //         col.push(Obs::UNOBSERVED);
-        //     }
-        //     player_map.push(col);
-        // }
-        //
-        // let mut player_maps = HashMap::new();
-        // for player in 0..num_players {
-        //     if player == conf::HUMAN_PLAYER {
-        //         player_maps.insert(player, player_map.clone());
-        //     } else {
-        //         player_maps.insert(player, player_map.clone());
-        //     }
-        // }
-
         Game {
             map_dims: map_dims,
             tiles: generate_map(map_dims),
@@ -117,25 +59,6 @@ impl Game {
             unit_move_requests: HashSet::new()
         }
     }
-
-    // pub fn next_player_turn(&mut self) -> (PlayerNum,PlayerTurn) {
-    //
-    //     let player = self.next_player;
-    //     self.next_player = (self.next_player + 1) % self.num_players;
-    //     // self.next_player += 1;
-    //     // if self.next_player > self.num_players - 1 {
-    //     //     self.next_player = 0;
-    //     //     self.turn += 1;
-    //     // }
-    //
-    //     let player_turn = self.begin_player_turn(player);
-    //
-    //
-    //
-    //
-    //
-    //     (player, player_turn)
-    // }
 
     fn next_player(&self) -> PlayerNum {
         if let Some(current_player) = self.current_player {
@@ -196,7 +119,32 @@ impl Game {
     // fn player_map(&self, player: PlayerNum) -> Option<&Vec<Vec<Obs>>> {
     //     self.player_maps.get(&player)
     // }
+    pub fn tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
+        if let Some(col) = self.tiles.get(loc.x as usize) {
+            if let Some(ref tile) = col.get(loc.y as usize) {
+                return Some(tile);
+            }
+        }
+        None
+    }
 
+    pub fn city<'b>(&'b self, loc: Location) -> Option<&'b City> {
+        if let Some(tile) = self.tile(loc) {
+            if let Some(ref city) = tile.city {
+                return Some(city);
+            }
+        }
+        None
+    }
+
+    pub fn unit<'a>(&'a self, loc: Location) -> Option<&'a Unit> {
+        if let Some(tile) = self.tile(loc) {
+            if let Some(ref unit) = tile.unit {
+                return Some(unit);
+            }
+        }
+        None
+    }
 
     pub fn production_set_requests(&self) -> &HashSet<Location> {
         &self.production_set_requests
