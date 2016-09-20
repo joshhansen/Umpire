@@ -188,6 +188,7 @@ impl<C:ScrollableComponent> Keypress for Scroller<C> {
 impl<C:ScrollableComponent> Component for Scroller<C> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
+        self.scrollable.set_rect(rect);
     }
 
     fn rect(&self) -> Rect { self.rect }
@@ -204,11 +205,6 @@ use self::indicators::{CurrentPlayer,Turn};
 use self::log::LogArea;
 use self::map::Map;
 use self::set_production::SetProduction;
-
-
-
-
-
 
 
 enum ViewportSize {
@@ -301,7 +297,6 @@ impl Redraw for Scene {
 }
 
 pub struct UI<'a> {
-    game: Game,
     mode: Mode,
     stdout: termion::raw::RawTerminal<StdoutLock<'a>>,
     term_dims: Dims,
@@ -316,18 +311,14 @@ pub struct UI<'a> {
 
 impl<'b> UI<'b> {
     pub fn new(
-        game: Game,
+        map_dims: &Dims,
+        term_dims: Dims,
         stdout: termion::raw::RawTerminal<StdoutLock<'b>>,
-        term_dims: Dims
     ) -> Self {
-
-        // let offset = Vec2d{ x: game.map_dims.width/2, y: game.map_dims.height/2 };
-
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(&term_dims);
 
-
-        let map = Map::new(&viewport_rect, &game.map_dims);
+        let map = Map::new(&viewport_rect, map_dims);
 
         let map_scroller_rect = Rect {
             left: viewport_rect.left,
@@ -344,7 +335,7 @@ impl<'b> UI<'b> {
         let current_player = Rc::new(RefCell::new(CurrentPlayer::new(cp_rect, None)));
 
         let mut ui = UI {
-            game: game,
+            // game: game,
             mode: Mode::General,
             stdout: stdout,
             term_dims: term_dims,
@@ -367,7 +358,7 @@ impl<'b> UI<'b> {
         ui
     }
 
-    fn take_input(&mut self) {
+    fn take_input(&mut self, game: &mut Game) {
         let stdin = stdin();
         for c in stdin.keys() {
             let c = c.unwrap();
@@ -375,7 +366,7 @@ impl<'b> UI<'b> {
             let mut component_is_done = false;
 
             if let Some(component) = self.scene.last_mut() {
-                component.borrow_mut().keypress(&c, &mut self.game);
+                component.borrow_mut().keypress(&c, game);
                 component_is_done |= component.borrow().is_done();
 
                 if component_is_done {
@@ -387,8 +378,8 @@ impl<'b> UI<'b> {
                 self.scene.pop();
             }
 
-            self.map_scroller.borrow_mut().keypress(&c, &mut self.game);
-            self.map_scroller.borrow().redraw(&self.game, &mut self.stdout);
+            self.map_scroller.borrow_mut().keypress(&c, game);
+            self.map_scroller.borrow().redraw(game, &mut self.stdout);
 
             match c {
                 Key::Char(conf::KEY_QUIT) => self.quit(),
@@ -399,36 +390,33 @@ impl<'b> UI<'b> {
                         ViewportSize::FULLSCREEN => ViewportSize::REGULAR
                     };
 
-                    self.set_viewport_size(new_size);
-                    self.scene.redraw(&self.game, &mut self.stdout);
+                    self.set_viewport_size(game, new_size);
+                    self.scene.redraw(game, &mut self.stdout);
                 }
                 _ => {}
             }
         }
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, game: &mut Game) {
         self.log.borrow_mut().log_message("blah".to_string());
 
         // loop through endless game turns
         loop {
-            let player_num = match self.game.begin_next_player_turn() {
+            let player_num = match game.begin_next_player_turn() {
                 Ok(player_num) => player_num,
                 Err(player_num) => player_num
             };
 
             self.current_player.borrow_mut().player = Some(player_num);
-            // let mut curplay: &mut CurrentPlayer = self.current_player;
-            //
-            // curplay.set_player(player_num);
 
             // Process production set requests
             loop {
-                if self.game.production_set_requests().len() < 1 {
+                if game.production_set_requests().len() < 1 {
                     break;
                 }
 
-                let loc = *self.game.production_set_requests().iter().next().unwrap();
+                let loc = *game.production_set_requests().iter().next().unwrap();
 
                 self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
 
@@ -445,20 +433,21 @@ impl<'b> UI<'b> {
                     loc)
                 )));
 
-                self.draw();
-                self.take_input();
+                self.draw(game);
+                self.take_input(game);
             }
 
             //TODO Process unit move requests
         }
     }
 
-    fn set_viewport_size(&mut self, viewport_size: ViewportSize) {
+    fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
         self.viewport_size = viewport_size;
-        self.draw();
+        self.map_scroller.borrow_mut().set_rect(self.viewport_size.rect(&game.map_dims));
+        self.draw(game);
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self, game: &Game) {
         write!(self.stdout, "{}{}{}{}{}",
             termion::clear::All,
             goto(0,0),
@@ -467,7 +456,7 @@ impl<'b> UI<'b> {
             termion::style::Reset
         ).unwrap();
 
-        self.scene.draw(&self.game, &mut self.stdout);
+        self.scene.draw(game, &mut self.stdout);
 
         write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
