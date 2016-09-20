@@ -7,7 +7,8 @@ use termion::event::Key;
 
 use conf;
 use game::Game;
-use ui::{Component,Draw,Keypress,Redraw,ScrollableComponent};
+use ui::{Component,Draw,Keypress,Redraw};
+use ui::scroll::ScrollableComponent;
 use util::{Dims,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
