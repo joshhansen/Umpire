@@ -250,6 +250,7 @@ impl<'b> UI<'b> {
             }
 
             self.map.borrow_mut().keypress(&c, &mut self.game);
+            self.map.borrow().redraw(&self.game, &mut self.stdout);
 
             match c {
                 Key::Char(conf::KEY_QUIT) => self.quit(),
