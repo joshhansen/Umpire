@@ -71,12 +71,12 @@ trait Component : Draw+Redraw+Keypress {
     // }
 }
 
-mod current_player;
+mod indicators;
 mod log;
 mod map;
 mod set_production;
 
-use self::current_player::CurrentPlayer;
+use self::indicators::{CurrentPlayer,Turn};
 use self::log::LogArea;
 use self::map::Map;
 use self::set_production::SetProduction;
@@ -123,6 +123,15 @@ fn current_player_rect() -> Rect {
         left: 10,
         top: 0,
         width: 21,
+        height: 1
+    }
+}
+
+fn turn_rect(current_player_rect: &Rect) -> Rect {
+    Rect {
+        left: current_player_rect.right() + 2,
+        top: 0,
+        width: 11,
         height: 1
     }
 }
@@ -226,6 +235,8 @@ impl<'b> UI<'b> {
         ui.scene.push(log.clone());
         ui.scene.push(current_player.clone());
 
+        let turn_rect = turn_rect(&cp_rect);
+        ui.scene.push(Rc::new(RefCell::new(Turn::new(&turn_rect))));
         ui
     }
 
@@ -329,12 +340,9 @@ impl<'b> UI<'b> {
             termion::style::Reset
         ).unwrap();
 
-        // self.draw_map();
         self.draw_scroll_bars();
 
         self.scene.draw(&self.game, &mut self.stdout);
-
-        write!(self.stdout, "{}Turn: {}", goto(0, 45), self.game.turn).unwrap();
 
         write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();

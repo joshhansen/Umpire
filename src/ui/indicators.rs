@@ -60,3 +60,41 @@ impl Component for CurrentPlayer {
 
     fn is_done(&self) -> bool { false }
 }
+
+pub struct Turn {
+    rect: Rect
+}
+
+impl Turn {
+    pub fn new(rect: &Rect) -> Self {
+        Turn{ rect: *rect }
+    }
+}
+
+impl Draw for Turn {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn).unwrap();
+    }
+}
+
+impl Redraw for Turn {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.draw(game, stdout);
+    }
+}
+
+impl Keypress for Turn {
+    fn keypress(&mut self, key: &Key, game: &mut Game) {
+        // do nothing
+    }
+}
+
+impl Component for Turn {
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn rect(&self) -> Rect { self.rect }
+
+    fn is_done(&self) -> bool { false }
+}
