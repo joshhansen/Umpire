@@ -71,6 +71,130 @@ trait Component : Draw+Redraw+Keypress {
     // }
 }
 
+trait ScrollableComponent : Component {
+    // fn x_max() -> u16;
+    // fn y_max() -> u16;
+    // fn x() -> u16;
+    // fn y() -> u16;
+    // fn set_x(x: u16) -> Result<(),()>;
+    // fn set_y(y: u16) -> Result<(),()>;
+    fn offset(&self) -> Vec2d<u16>;
+    fn scroll_relative(&mut self, offset: Vec2d<i32>);
+}
+
+struct Scroller<C:ScrollableComponent> {
+    rect: Rect,
+    scrollable: C,
+    old_h_scroll_x: Option<u16>,
+    old_v_scroll_y: Option<u16>
+}
+
+impl<C:ScrollableComponent> Scroller<C> {
+    fn new(rect: &Rect, scrollable: C) -> Self {
+        Scroller {
+            rect: *rect,
+            scrollable: scrollable,
+            old_h_scroll_x: None,
+            old_v_scroll_y: None
+        }
+    }
+
+    fn h_scroll_x(&self, map_width: u16) -> u16 {
+        ((self.rect.width-1) as f32 * (self.scrollable.offset().x as f32 / map_width as f32)) as u16
+    }
+
+    fn v_scroll_y(&self, map_height: u16) -> u16 {
+        (self.rect.height as f32 * (self.scrollable.offset().y as f32 / map_height as f32)) as u16
+    }
+
+    fn draw_scroll_bars(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        let viewport_rect = self.scrollable.rect();
+        let h_scroll_x: u16 = self.h_scroll_x(game.map_dims.width);
+        let h_scroll_y = viewport_rect.bottom();
+
+        //FIXME There must be a cleaner way to do this
+        if let Some(old_h_scroll_x) = self.old_h_scroll_x {
+            if h_scroll_x != old_h_scroll_x {
+                self.erase(stdout, old_h_scroll_x, h_scroll_y);
+                self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^');
+            }
+        } else {
+            self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^');
+        }
+
+        let v_scroll_x = viewport_rect.right();
+        let v_scroll_y: u16 = self.v_scroll_y(game.map_dims.height);
+
+        //FIXME There must be a cleaner way to do this
+        if let Some(old_v_scroll_y) = self.old_v_scroll_y {
+            if v_scroll_y != old_v_scroll_y {
+                self.erase(stdout, v_scroll_x, old_v_scroll_y);
+                self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<');
+            }
+        } else {
+            self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<');
+        }
+    }
+
+    // Utility methods
+    fn draw_scroll_mark(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>, x: u16, y: u16, sym: char) {
+        write!(*stdout, "{}{}{}{}", termion::style::Reset, self.goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
+    }
+
+    fn erase(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>, x: u16, y: u16) {
+        write!(*stdout, "{}{} ", termion::style::Reset, self.goto(x,y)).unwrap();
+    }
+
+    fn scroll_relative(&mut self, game: &Game, offset: Vec2d<i32>) {
+        self.old_h_scroll_x = Some(self.h_scroll_x(game.map_dims.width));
+        self.old_v_scroll_y = Some(self.v_scroll_y(game.map_dims.height));
+        self.scrollable.scroll_relative(offset);
+
+    }
+}
+
+impl<C:ScrollableComponent> Draw for Scroller<C> {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.draw_scroll_bars(game, stdout);
+        self.scrollable.draw(game, stdout);
+    }
+}
+
+impl<C:ScrollableComponent> Redraw for Scroller<C> {
+    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.draw_scroll_bars(game, stdout);
+        self.scrollable.redraw(game, stdout);
+    }
+}
+
+impl<C:ScrollableComponent> Keypress for Scroller<C> {
+    fn keypress(&mut self, key: &Key, game: &mut Game) {
+        match *key {
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_LEFT)       => self.scroll_relative(game, Vec2d{x:-1, y: 0}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_RIGHT)      => self.scroll_relative(game, Vec2d{x: 1, y: 0}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP)         => self.scroll_relative(game, Vec2d{x: 0, y:-1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN)       => self.scroll_relative(game, Vec2d{x: 0, y: 1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_LEFT)    => self.scroll_relative(game, Vec2d{x:-1, y:-1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_RIGHT)   => self.scroll_relative(game, Vec2d{x: 1, y:-1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT)  => self.scroll_relative(game, Vec2d{x:-1, y: 1}),
+            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT) => self.scroll_relative(game, Vec2d{x: 1, y: 1}),
+            _ => {}
+        }
+
+
+    }
+}
+
+impl<C:ScrollableComponent> Component for Scroller<C> {
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
+    fn rect(&self) -> Rect { self.rect }
+
+    fn is_done(&self) -> bool { false }
+}
+
 mod indicators;
 mod log;
 mod map;
@@ -182,12 +306,8 @@ pub struct UI<'a> {
     stdout: termion::raw::RawTerminal<StdoutLock<'a>>,
     term_dims: Dims,
     viewport_size: ViewportSize,
-    // viewport_rect: Rect,
-    viewport_offset: Vec2d<u16>,
-    old_h_scroll_x: Option<u16>,
-    old_v_scroll_y: Option<u16>,
 
-    map: Rc<RefCell<Map>>,
+    map_scroller: Rc<RefCell<Scroller<Map>>>,
     log: Rc<RefCell<LogArea>>,
     current_player: Rc<RefCell<CurrentPlayer>>,
 
@@ -201,12 +321,21 @@ impl<'b> UI<'b> {
         term_dims: Dims
     ) -> Self {
 
-        let offset = Vec2d{ x: game.map_dims.width/2, y: game.map_dims.height/2 };
+        // let offset = Vec2d{ x: game.map_dims.width/2, y: game.map_dims.height/2 };
 
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(&term_dims);
 
-        let map = Rc::new(RefCell::new(Map::new(&viewport_rect, &game.map_dims)));
+
+        let map = Map::new(&viewport_rect, &game.map_dims);
+
+        let map_scroller_rect = Rect {
+            left: viewport_rect.left,
+            top: viewport_rect.top,
+            width: viewport_rect.width + 1,
+            height: viewport_rect.height + 1
+        };
+        let map_scroller = Rc::new(RefCell::new( Scroller::new( &map_scroller_rect, map ) ));
 
         let log_rect = log_area_rect(&viewport_rect, &term_dims);
         let log = Rc::new(RefCell::new(LogArea::new(&log_rect)));
@@ -220,18 +349,16 @@ impl<'b> UI<'b> {
             stdout: stdout,
             term_dims: term_dims,
             viewport_size: viewport_size,
-            viewport_offset: offset,
-            old_h_scroll_x: None,
-            old_v_scroll_y: None,
 
-            map: map.clone(),
+            map_scroller: map_scroller.clone(),
             log: log.clone(),
             current_player: current_player.clone(),
 
             scene: Scene::new()
         };
 
-        ui.scene.push(map.clone());
+        // ui.scene.push(map.clone());
+        ui.scene.push(map_scroller.clone());
         ui.scene.push(log.clone());
         ui.scene.push(current_player.clone());
 
@@ -260,8 +387,8 @@ impl<'b> UI<'b> {
                 self.scene.pop();
             }
 
-            self.map.borrow_mut().keypress(&c, &mut self.game);
-            self.map.borrow().redraw(&self.game, &mut self.stdout);
+            self.map_scroller.borrow_mut().keypress(&c, &mut self.game);
+            self.map_scroller.borrow().redraw(&self.game, &mut self.stdout);
 
             match c {
                 Key::Char(conf::KEY_QUIT) => self.quit(),
@@ -303,7 +430,7 @@ impl<'b> UI<'b> {
 
                 let loc = *self.game.production_set_requests().iter().next().unwrap();
 
-                self.map.borrow_mut().center_viewport(&loc);
+                self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
 
                 self.mode = Mode::SetProduction{loc:loc};
                 let viewport_rect = self.viewport_rect();
@@ -340,59 +467,10 @@ impl<'b> UI<'b> {
             termion::style::Reset
         ).unwrap();
 
-        self.draw_scroll_bars();
-
         self.scene.draw(&self.game, &mut self.stdout);
 
         write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
-    }
-
-    fn draw_scroll_bars(&mut self) {
-        let viewport_rect = self.viewport_rect();
-        let h_scroll_x: u16 = (viewport_rect.width as f32 * (self.viewport_offset.x as f32 / self.game.map_dims.width as f32)) as u16;
-        let h_scroll_y = viewport_rect.bottom() + 1;
-
-
-        //FIXME There must be a cleaner way to do this
-        match self.old_h_scroll_x {
-            None => {
-                self.draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
-            },
-            Some(old_h_scroll_x) => {
-                if h_scroll_x != old_h_scroll_x {
-                    self.erase(old_h_scroll_x, h_scroll_y);
-                    self.draw_scroll_mark(h_scroll_x, h_scroll_y, '^');
-                }
-            }
-        }
-        self.old_h_scroll_x = Some(h_scroll_x);
-
-        let v_scroll_x = viewport_rect.right();
-        let v_scroll_y: u16 = HEADER_HEIGHT + (viewport_rect.height as f32 * (self.viewport_offset.y as f32 / self.game.map_dims.height as f32)) as u16;
-
-        //FIXME There must be a cleaner way to do this
-        match self.old_v_scroll_y {
-            None => {
-                self.draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
-            },
-            Some(old_v_scroll_y) => {
-                if v_scroll_y != old_v_scroll_y {
-                    self.erase(v_scroll_x, old_v_scroll_y);
-                    self.draw_scroll_mark(v_scroll_x, v_scroll_y, '<');
-                }
-            }
-        }
-        self.old_v_scroll_y = Some(v_scroll_y);
-    }
-
-    // Utility methods
-    fn draw_scroll_mark(&mut self, x: u16, y: u16, sym: char) {
-        write!(self.stdout, "{}{}{}{}", termion::style::Reset, goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
-    }
-
-    fn erase(&mut self, x: u16, y: u16) {
-        write!(self.stdout, "{}{} ", termion::style::Reset, goto(x,y)).unwrap();
     }
 
     pub fn quit(&mut self) {

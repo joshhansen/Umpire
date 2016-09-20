@@ -7,7 +7,7 @@ use termion::event::Key;
 
 use conf;
 use game::Game;
-use ui::{Component,Draw,Keypress,Redraw};
+use ui::{Component,Draw,Keypress,Redraw,ScrollableComponent};
 use util::{Dims,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
@@ -119,6 +119,14 @@ impl Map {
             y: (viewport_loc.y + viewport_offset.y) % self.map_dims.height // mod implements wrapping
         }
     }
+}
+
+impl ScrollableComponent for Map {
+    fn scroll_relative(&mut self, offset: Vec2d<i32>) {
+        self.shift_viewport(offset);
+    }
+
+    fn offset(&self) -> Vec2d<u16> { self.viewport_offset }
 }
 
 impl Redraw for Map {
