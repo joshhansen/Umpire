@@ -72,12 +72,6 @@ trait Component : Draw+Redraw+Keypress {
 }
 
 trait ScrollableComponent : Component {
-    // fn x_max() -> u16;
-    // fn y_max() -> u16;
-    // fn x() -> u16;
-    // fn y() -> u16;
-    // fn set_x(x: u16) -> Result<(),()>;
-    // fn set_y(y: u16) -> Result<(),()>;
     fn offset(&self) -> Vec2d<u16>;
     fn scroll_relative(&mut self, offset: Vec2d<i32>);
 }
@@ -180,8 +174,6 @@ impl<C:ScrollableComponent> Keypress for Scroller<C> {
             Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT) => self.scroll_relative(game, Vec2d{x: 1, y: 1}),
             _ => {}
         }
-
-
     }
 }
 
