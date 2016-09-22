@@ -158,30 +158,30 @@ impl Game {
         self.unit_move_requests.insert(location);
     }
 
-    pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<(),()> {
+    pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<(),String> {
         let distance = src.distance(&dest);
 
-        let mut unit: Unit = self.tiles[src].pop_unit().unwrap();
+        let unit = self.tiles[src].pop_unit();
+        if let Some(mut unit) = unit {
+            if distance > unit.moves_remaining {
+                Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
+                            unit, src, dest, distance, unit.moves_remaining))
+            } else {
 
-        if distance > unit.moves_remaining {
-            return Err(());
-        }
+                self.unit_move_requests.remove(&src);
+                unit.moves_remaining -= distance;
 
-        {
-            let mut unit = &mut unit;
+                if unit.moves_remaining > 0 {
+                    self.unit_move_requests.insert(dest);
+                }
 
-            self.unit_move_requests.remove(&src);
-            unit.moves_remaining -= distance;
+                self.tiles[dest].set_unit(unit);
 
-
-            if unit.moves_remaining > 0 {
-                self.unit_move_requests.insert(dest);
+                Ok(())
             }
+        } else {
+            Err(format!("No unit found at source location {}", src))
         }
-
-        self.tiles[dest].set_unit(unit);
-
-        Ok(())
     }
 
     fn request_set_production(&mut self, location: Location) {
