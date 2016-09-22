@@ -5,6 +5,7 @@
 extern crate termion;
 
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::process::exit;
 use std::io::{Write, stdin, StdoutLock};
 use std::rc::Rc;
@@ -15,7 +16,7 @@ use termion::input::TermRead;
 use conf;
 use conf::HEADER_HEIGHT;
 use game::Game;
-use util::{Dims,Rect,Vec2d,Location};
+use util::{Dims,Direction,Rect,Location,Vec2d};
 
 /// 0-indexed variant of Goto
 pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
@@ -198,7 +199,18 @@ impl Redraw for MoveUnit {
 
 impl Keypress for MoveUnit {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
-        // do nothing
+
+        if let Key::Char(c) = *key {
+            if let Ok(dir) = Direction::try_from(c) {
+                let src: Vec2d<i32> = Vec2d::new(self.loc.x as i32, self.loc.y as i32);
+                let dest = src + dir.vec2d();
+
+                let src:  Vec2d<u16> = Vec2d::new(src.x as u16, src.y as u16);
+                let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
+
+                game.move_unit(src, dest);
+            }
+        }
     }
 }
 

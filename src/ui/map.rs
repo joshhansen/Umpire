@@ -1,5 +1,6 @@
 extern crate termion;
 
+use std::convert::TryFrom;
 use std::io::{StdoutLock,Write};
 
 use termion::color::{Fg, Bg};
@@ -9,7 +10,7 @@ use conf;
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
 use ui::scroll::ScrollableComponent;
-use util::{Dims,Location,Rect,Vec2d};
+use util::{Dims,Direction,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
     let mut result = x;
@@ -161,16 +162,10 @@ impl Redraw for Map {
 
 impl Keypress for Map {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
-        match *key {
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_LEFT)       => self.shift_viewport(Vec2d{x:-1, y: 0}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_RIGHT)      => self.shift_viewport(Vec2d{x: 1, y: 0}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP)         => self.shift_viewport(Vec2d{x: 0, y:-1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN)       => self.shift_viewport(Vec2d{x: 0, y: 1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_LEFT)    => self.shift_viewport(Vec2d{x:-1, y:-1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_RIGHT)   => self.shift_viewport(Vec2d{x: 1, y:-1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT)  => self.shift_viewport(Vec2d{x:-1, y: 1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT) => self.shift_viewport(Vec2d{x: 1, y: 1}),
-            _ => {}
+        if let Key::Char(c) = *key {
+            if let Ok(dir) = Direction::try_from(c) {
+                self.shift_viewport(dir.vec2d())
+            }
         }
     }
 }

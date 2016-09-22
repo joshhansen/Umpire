@@ -1,5 +1,6 @@
 extern crate termion;
 
+use std::convert::TryFrom;
 use std::io::{StdoutLock,Write};
 
 use termion::color::{Fg, AnsiValue};
@@ -9,7 +10,7 @@ use conf;
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
 use unit::PlayerNum;
-use util::{Rect,Vec2d};
+use util::{Direction,Rect,Vec2d};
 
 pub trait ScrollableComponent : Component {
     fn offset(&self) -> Vec2d<u16>;
@@ -103,16 +104,10 @@ impl<C:ScrollableComponent> Redraw for Scroller<C> {
 
 impl<C:ScrollableComponent> Keypress for Scroller<C> {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
-        match *key {
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_LEFT)       => self.scroll_relative(game, Vec2d{x:-1, y: 0}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_RIGHT)      => self.scroll_relative(game, Vec2d{x: 1, y: 0}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP)         => self.scroll_relative(game, Vec2d{x: 0, y:-1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN)       => self.scroll_relative(game, Vec2d{x: 0, y: 1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_LEFT)    => self.scroll_relative(game, Vec2d{x:-1, y:-1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_UP_RIGHT)   => self.scroll_relative(game, Vec2d{x: 1, y:-1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT)  => self.scroll_relative(game, Vec2d{x:-1, y: 1}),
-            Key::Char(conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT) => self.scroll_relative(game, Vec2d{x: 1, y: 1}),
-            _ => {}
+        if let Key::Char(c) = *key {
+            if let Ok(dir) = Direction::try_from(c) {
+                self.scroll_relative(game, dir.vec2d())
+            }
         }
     }
 }

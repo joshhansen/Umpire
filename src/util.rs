@@ -12,7 +12,11 @@
 //     else { max }
 // }
 
+use std::convert::TryFrom;
 use std::fmt;
+use std::ops::Add;
+
+use conf;
 
 #[derive(Clone,Copy)]
 pub struct Rect {
@@ -49,6 +53,58 @@ impl<T> Vec2d<T> {
     }
 }
 
+impl<N:Add<Output=N>> Add for Vec2d<N> {
+    type Output = Vec2d<N>;
+    fn add(self, rhs: Vec2d<N>) -> Vec2d<N> {
+        Vec2d {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y
+        }
+    }
+}
+
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+    UpLeft,
+    UpRight,
+    DownLeft,
+    DownRight
+}
+
+impl Direction {
+    pub fn vec2d(&self) -> Vec2d<i32> {
+        match *self {
+            Direction::Up         => Vec2d{x: 0, y:-1},
+            Direction::Down       => Vec2d{x: 0, y: 1},
+            Direction::Left       => Vec2d{x:-1, y: 0},
+            Direction::Right      => Vec2d{x: 1, y: 0},
+            Direction::UpLeft     => Vec2d{x:-1, y:-1},
+            Direction::UpRight    => Vec2d{x: 1, y:-1},
+            Direction::DownLeft   => Vec2d{x:-1, y: 1},
+            Direction::DownRight  => Vec2d{x: 1, y: 1}
+        }
+    }
+}
+
+impl TryFrom<char> for Direction {
+    type Err = ();
+    fn try_from(c: char) -> Result<Direction,()> {
+        match c {
+            conf::KEY_UP         => Ok(Direction::Up),
+            conf::KEY_DOWN       => Ok(Direction::Down),
+            conf::KEY_LEFT       => Ok(Direction::Left),
+            conf::KEY_RIGHT      => Ok(Direction::Right),
+            conf::KEY_UP_LEFT    => Ok(Direction::UpLeft),
+            conf::KEY_UP_RIGHT   => Ok(Direction::UpRight),
+            conf::KEY_DOWN_LEFT  => Ok(Direction::DownLeft),
+            conf::KEY_DOWN_RIGHT => Ok(Direction::DownRight),
+            _                    => Err(())
+        }
+    }
+}
 
 pub type Location = Vec2d<u16>;
 impl Location {

@@ -17,6 +17,8 @@
 // * perator
 // * metropole
 
+#![feature(try_from)]
+
 mod conf;
 mod game;
 mod map;
