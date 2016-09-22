@@ -6,17 +6,15 @@ extern crate termion;
 
 use std::cell::RefCell;
 use std::process::exit;
-use std::io::{Write, stdout, stdin, StdoutLock};
+use std::io::{Write, stdin, StdoutLock};
 use std::rc::Rc;
 
-use termion::color::{Fg, AnsiValue};
 use termion::event::Key;
 use termion::input::TermRead;
 
 use conf;
 use conf::HEADER_HEIGHT;
 use game::Game;
-use map::Tile;
 use util::{Dims,Rect,Vec2d,Location};
 
 /// 0-indexed variant of Goto
