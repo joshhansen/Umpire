@@ -55,26 +55,11 @@ impl Map {
         };
 
         self.set_viewport_offset(new_viewport_offset);
-
-        // self.update_map(self.viewport_offset, new_viewport_offset);
-        //
-        // // self.viewport_offset.x = (new_x_offset as u16) % self.game.map_dims.width;
-        // // self.viewport_offset.y = (new_y_offset as u16) % self.game.map_dims.height;
-        //
-        // self.viewport_offset = new_viewport_offset;
-        //
-        // // self.draw_map();
-        // self.draw_scroll_bars();
     }
 
     fn set_viewport_offset(&mut self, new_viewport_offset: Vec2d<u16>) {
-        // let old_viewport_offset = self.viewport_offset;
         self.old_viewport_offset = self.viewport_offset;
         self.viewport_offset = new_viewport_offset;
-        // self.redraw(game, stdout);
-        // // self.update_map(old_viewport_offset, new_viewport_offset);
-        // // self.viewport_offset = new_viewport_offset;
-        // self.draw_scroll_bars();
     }
 
 
@@ -203,7 +188,6 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    // fn draw_map(&mut self) {
     fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0_u16..self.rect.width {
