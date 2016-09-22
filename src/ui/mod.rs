@@ -330,6 +330,69 @@ impl<'b> UI<'b> {
         self.log.borrow_mut().redraw(game, &mut self.stdout);
     }
 
+    fn set_productions_for_player(&mut self, game: &mut Game) {
+        loop {
+            if game.production_set_requests().is_empty() {
+                break;
+            }
+
+            let loc = *game.production_set_requests().iter().next().unwrap();
+
+            self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
+
+            self.mode = Mode::SetProduction{loc:loc};
+            let viewport_rect = self.viewport_rect();
+
+            {
+                let city = game.city(loc).unwrap();
+                self.log_message(game, format!("Requesting production target for {}", city ));
+            }
+
+            self.scene.push(Rc::new(RefCell::new(SetProduction::new(
+                Rect {
+                    left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
+                    top: HEADER_HEIGHT + 1,
+                    width: self.term_dims.width - viewport_rect.width - 2,
+                    height: self.term_dims.height - HEADER_HEIGHT
+                },
+                loc)
+            )));
+
+            self.draw(game);
+            self.take_input(game);
+        }
+        self.log_message(game, "Productions set.".to_string());
+    }
+
+    fn move_units_for_player(&mut self, game: &mut Game) {
+        loop {
+            if game.unit_move_requests().len() < 1 {
+                break;
+            }
+
+            let loc = *game.unit_move_requests().iter().next().unwrap();
+
+            self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
+
+            self.mode = Mode::MoveUnit{loc:loc};
+            let viewport_rect = self.viewport_rect();
+
+            {
+                let unit = game.unit(loc).unwrap();
+                self.log_message(game, format!("Requesting orders for unit {}", unit ));
+            }
+
+            self.scene.push(Rc::new(RefCell::new(MoveUnit::new(
+                sidebar_rect(&viewport_rect, &game.map_dims),
+                loc)
+            )));
+
+            self.draw(game);
+            self.take_input(game);
+        }
+        self.log_message(game, "Units moved.".to_string());
+    }
+
     pub fn run(&mut self, game: &mut Game) {
         // loop through endless game turns
         loop {
@@ -349,63 +412,11 @@ impl<'b> UI<'b> {
             self.log_message(game, format!("Turn {}, player {} go!", game.turn, player_num));
 
             // Process production set requests
-            loop {
-                if game.production_set_requests().len() < 1 {
-                    break;
-                }
-
-                let loc = *game.production_set_requests().iter().next().unwrap();
-
-                self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
-
-                self.mode = Mode::SetProduction{loc:loc};
-                let viewport_rect = self.viewport_rect();
-
-                {
-                    let city = game.city(loc).unwrap();
-                    self.log_message(game, format!("Requesting production target for {}", city ));
-                }
-
-                self.scene.push(Rc::new(RefCell::new(SetProduction::new(
-                    Rect {
-                        left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
-                        top: HEADER_HEIGHT + 1,
-                        width: self.term_dims.width - viewport_rect.width - 2,
-                        height: self.term_dims.height - HEADER_HEIGHT
-                    },
-                    loc)
-                )));
-
-                self.draw(game);
-                self.take_input(game);
+            if !game.production_set_requests().is_empty() {
+                self.set_productions_for_player(game);
             }
-
-            //TODO Process unit move requests
-
-            loop {
-                if game.unit_move_requests().len() < 1 {
-                    break;
-                }
-
-                let loc = *game.unit_move_requests().iter().next().unwrap();
-
-                self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
-
-                self.mode = Mode::MoveUnit{loc:loc};
-                let viewport_rect = self.viewport_rect();
-
-                {
-                    let unit = game.unit(loc).unwrap();
-                    self.log_message(game, format!("Requesting orders for unit {}", unit ));
-                }
-
-                self.scene.push(Rc::new(RefCell::new(MoveUnit::new(
-                    sidebar_rect(&viewport_rect, &game.map_dims),
-                    loc)
-                )));
-
-                self.draw(game);
-                self.take_input(game);
+            if !game.unit_move_requests().is_empty() {
+                self.move_units_for_player(game);
             }
         }
     }
