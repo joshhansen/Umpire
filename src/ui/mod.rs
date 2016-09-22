@@ -289,41 +289,39 @@ impl<'b> UI<'b> {
 
     fn take_input(&mut self, game: &mut Game) {
         let stdin = stdin();
-        for c in stdin.keys() {
-            let c = c.unwrap();
+        let c = stdin.keys().next().unwrap().unwrap();
 
-            let mut component_is_done = false;
+        let mut component_is_done = false;
 
-            if let Some(component) = self.scene.last_mut() {
-                component.borrow_mut().keypress(&c, game);
-                component_is_done |= component.borrow().is_done();
-
-                if component_is_done {
-                    component.borrow().clear(&mut self.stdout);
-                }
-            }
+        if let Some(component) = self.scene.last_mut() {
+            component.borrow_mut().keypress(&c, game);
+            component_is_done |= component.borrow().is_done();
 
             if component_is_done {
-                self.scene.pop();
+                component.borrow().clear(&mut self.stdout);
             }
+        }
 
-            self.map_scroller.borrow_mut().keypress(&c, game);
-            self.map_scroller.borrow().redraw(game, &mut self.stdout);
+        if component_is_done {
+            self.scene.pop();
+        }
 
-            match c {
-                Key::Char(conf::KEY_QUIT) => self.quit(),
-                Key::Char(conf::KEY_VIEWPORT_SIZE_ROTATE) => {
-                    let new_size = match self.viewport_size {
-                        ViewportSize::REGULAR => ViewportSize::THEATER,
-                        ViewportSize::THEATER => ViewportSize::FULLSCREEN,
-                        ViewportSize::FULLSCREEN => ViewportSize::REGULAR
-                    };
+        self.map_scroller.borrow_mut().keypress(&c, game);
+        self.map_scroller.borrow().redraw(game, &mut self.stdout);
 
-                    self.set_viewport_size(game, new_size);
-                    self.scene.redraw(game, &mut self.stdout);
-                }
-                _ => {}
+        match c {
+            Key::Char(conf::KEY_QUIT) => self.quit(),
+            Key::Char(conf::KEY_VIEWPORT_SIZE_ROTATE) => {
+                let new_size = match self.viewport_size {
+                    ViewportSize::REGULAR => ViewportSize::THEATER,
+                    ViewportSize::THEATER => ViewportSize::FULLSCREEN,
+                    ViewportSize::FULLSCREEN => ViewportSize::REGULAR
+                };
+
+                self.set_viewport_size(game, new_size);
+                self.scene.redraw(game, &mut self.stdout);
             }
+            _ => {}
         }
     }
 
