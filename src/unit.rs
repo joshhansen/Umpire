@@ -8,7 +8,7 @@ use util::Location;
 
 pub type PlayerNum = u8;
 
-#[derive(Copy,Clone,PartialEq,Hash,Eq)]
+#[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
 pub enum Alignment {
     NEUTRAL,
     BELLIGERENT { player: PlayerNum }
@@ -45,7 +45,7 @@ pub trait Sym {
     fn sym(&self) -> char;
 }
 
-#[derive(Clone,Copy,Hash,PartialEq,Eq)]
+#[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
 pub enum UnitType {
     INFANTRY,
     ARMOR,
@@ -147,7 +147,7 @@ impl Named for UnitType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Copy,Debug,PartialEq)]
 pub struct Unit {
     type_: UnitType,
     pub alignment: Alignment,
