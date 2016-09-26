@@ -188,15 +188,17 @@ impl Game {
         self.production_set_requests.insert(location);
     }
 
-    pub fn set_production(&mut self, location: &Location, production: &UnitType) -> Result<(),()> {
+    pub fn set_production(&mut self, location: &Location, production: &UnitType) -> Result<(),String> {
         if let Some(ref mut city) = self.tiles[*location].city {
-            city.unit_under_production = Some(*production)
+            city.unit_under_production = Some(*production);
+            self.production_set_requests.remove(location);
+            Ok(())
         } else {
-            return Err(());
+            Err(format!(
+                "Attempted to set production for city at location {}
+but there is no city at that location",
+                *location
+            ))
         }
-
-        self.production_set_requests.remove(location);
-
-        Ok(())
     }
 }
