@@ -381,8 +381,11 @@ impl<'b> UI<'b> {
             let viewport_rect = self.viewport_rect();
 
             {
-                let unit = game.unit(loc).unwrap();
-                self.log_message(game, format!("Requesting orders for unit {}", unit ));
+                let unit = match game.unit(loc) {
+                    Some(unit) => unit,
+                    None => panic!(format!("Unit not at {}", loc))
+                };
+                self.log_message(game, format!("Requesting orders for unit {} at {}", unit, loc));
             }
 
             self.scene.push(Rc::new(RefCell::new(MoveUnit::new(
