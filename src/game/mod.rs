@@ -95,7 +95,7 @@ impl Game {
                             if let Some(ref unit_under_production) = city.unit_under_production {
                                 city.production_progress += 1;
                                 if city.production_progress >= unit_under_production.cost() {
-                                    let new_unit = Unit::new(*unit_under_production, city.alignment, loc);
+                                    let new_unit = Unit::new(*unit_under_production, city.alignment);
                                     tile.unit = Some(new_unit);
                                     city.production_progress = 0;
                                 }
