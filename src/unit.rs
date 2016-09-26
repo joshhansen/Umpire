@@ -153,7 +153,6 @@ pub struct Unit {
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
-    loc: Location,
     pub sentry: bool,
     pub moves_remaining: u16
 }
@@ -163,14 +162,13 @@ pub struct Unit {
 
 
 impl Unit {
-    pub fn new(type_: UnitType, alignment: Alignment, loc: Location) -> Self {
+    pub fn new(type_: UnitType, alignment: Alignment) -> Self {
         let max_hp =type_.max_hp();
         Unit {
             type_: type_,
             alignment: alignment,
             hp: max_hp,
             max_hp: max_hp,
-            loc: loc,
             sentry: false,
             moves_remaining: 0
         }
@@ -209,10 +207,6 @@ impl Sym for Unit {
     }
 }
 
-impl Located for Unit {
-    fn loc(&self) -> Location { self.loc }
-}
-
 impl CombatCapable for Unit {
     fn hp(&self) -> u16 { self.hp }
     fn max_hp(&self) -> u16 { self.max_hp }
@@ -224,7 +218,7 @@ impl Aligned for Unit {
 
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unit@{}", self.loc)
+        write!(f, "{}", self.type_.name())
     }
 }
 
