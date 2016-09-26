@@ -235,7 +235,8 @@ pub struct UI<'a> {
     log: Rc<RefCell<LogArea>>,
     current_player: Rc<RefCell<CurrentPlayer>>,
 
-    scene: Scene
+    scene: Scene,
+    keep_going: bool
 }
 
 impl<'b> UI<'b> {
@@ -274,7 +275,8 @@ impl<'b> UI<'b> {
             log: log.clone(),
             current_player: current_player.clone(),
 
-            scene: Scene::new()
+            scene: Scene::new(),
+            keep_going: true
         };
 
         // ui.scene.push(map.clone());
@@ -310,7 +312,7 @@ impl<'b> UI<'b> {
         self.map_scroller.borrow().redraw(game, &mut self.stdout);
 
         match c {
-            Key::Char(conf::KEY_QUIT) => self.quit(),
+            Key::Char(conf::KEY_QUIT) => self.keep_going = false,
             Key::Char(conf::KEY_VIEWPORT_SIZE_ROTATE) => {
                 let new_size = match self.viewport_size {
                     ViewportSize::REGULAR => ViewportSize::THEATER,
@@ -331,8 +333,9 @@ impl<'b> UI<'b> {
     }
 
     fn set_productions_for_player(&mut self, game: &mut Game) {
-        loop {
+        while self.keep_going {
             if game.production_set_requests().is_empty() {
+                self.log_message(game, "Productions set.".to_string());
                 break;
             }
 
@@ -361,12 +364,12 @@ impl<'b> UI<'b> {
             self.draw(game);
             self.take_input(game);
         }
-        self.log_message(game, "Productions set.".to_string());
     }
 
     fn move_units_for_player(&mut self, game: &mut Game) {
-        loop {
+        while self.keep_going {
             if game.unit_move_requests().len() < 1 {
+                self.log_message(game, "Units moved.".to_string());
                 break;
             }
 
@@ -390,12 +393,11 @@ impl<'b> UI<'b> {
             self.draw(game);
             self.take_input(game);
         }
-        self.log_message(game, "Units moved.".to_string());
     }
 
     pub fn run(&mut self, game: &mut Game) {
         // loop through endless game turns
-        loop {
+        while self.keep_going {
             let player_num = match game.begin_next_player_turn() {
                 Ok(player_num) => player_num,
                 Err(player_num) => player_num
@@ -419,6 +421,8 @@ impl<'b> UI<'b> {
                 self.move_units_for_player(game);
             }
         }
+
+        self.cleanup();
     }
 
     fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
@@ -442,12 +446,11 @@ impl<'b> UI<'b> {
         self.stdout.flush().unwrap();
     }
 
-    pub fn quit(&mut self) {
-        write!(self.stdout, "{}{}Thanks for playing {}!\n\n", goto(0, self.term_dims.height), termion::style::Reset, conf::APP_NAME).unwrap();
-        exit(0);
-    }
-
     fn viewport_rect(&self) -> Rect {
         self.viewport_size.rect(&self.term_dims)
+    }
+
+    fn cleanup(&mut self) {
+        write!(self.stdout, "{}{}", goto(0, self.term_dims.height), termion::style::Reset).unwrap();
     }
 }

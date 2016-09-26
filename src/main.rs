@@ -48,19 +48,30 @@ fn main() {
     // let shlvl:Result<u16,()> = conf::get("SHLVL");
     // println!("{}", shlvl.unwrap());
 
-    let mut game = Game::new(MAP_DIMS, conf::NUM_PLAYERS);
 
-    let stdout_0 : std::io::Stdout = stdout();
-    let stdout_1 = stdout_0.lock().into_raw_mode().unwrap();
+
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
-        let mut ui = ui::UI::new(
-            &game.map_dims,
-            Dims{ width: term_width, height: term_height },
-            stdout_1,
-        );
 
-        ui.run(&mut game);
+        let mut game = Game::new(MAP_DIMS, conf::NUM_PLAYERS);
+
+        {
+            let stdout_0 : std::io::Stdout = stdout();
+            let stdout_1 = stdout_0.lock().into_raw_mode().unwrap();
+
+            let mut ui = ui::UI::new(
+                &game.map_dims,
+                Dims{ width: term_width, height: term_height },
+                stdout_1,
+            );
+
+            ui.run(&mut game);
+        }
+
+        println!("Thanks for playing {}!\n", conf::APP_NAME);
     } else {
         println!("Unable to get terminal size");
     }
+
+
+
 }
