@@ -19,7 +19,7 @@ impl Alignment {
     pub fn color(&self) -> AnsiValue {
         match *self {
             Alignment::NEUTRAL => AnsiValue(8),
-            Alignment::BELLIGERENT{player} => AnsiValue(player+9)
+            Alignment::BELLIGERENT{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
         }
     }
 }
