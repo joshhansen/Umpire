@@ -193,7 +193,7 @@ impl Unit {
 impl Sym for Unit {
     fn sym(&self) -> char {
         match self.type_ {
-            UnitType::INFANTRY => '⤲',
+            UnitType::INFANTRY => 'i',
             UnitType::ARMOR => 'A',
             UnitType::FIGHTER => '✈',
             UnitType::BOMBER => 'b',
