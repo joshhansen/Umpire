@@ -29,7 +29,16 @@ impl Terrain {
     }
 }
 
-#[derive(Clone)]
+impl fmt::Debug for Terrain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match *self {
+            Terrain::WATER => "Water",
+            Terrain::LAND => "Land"
+        })
+    }
+}
+
+#[derive(Clone,Debug)]
 pub struct Tile {
     pub terrain: Terrain,
     pub unit: Option<Unit>,

@@ -222,7 +222,7 @@ impl fmt::Display for Unit {
     }
 }
 
-#[derive(Clone,Hash,PartialEq,Eq)]
+#[derive(Clone,Debug,Hash,PartialEq,Eq)]
 pub struct City {
     pub loc: Location,
     pub alignment: Alignment,
