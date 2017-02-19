@@ -200,6 +200,101 @@ impl <'b> Iterator for LocationGridIterator<'b> {
     }
 }
 
+/// Convert a multiline string into a map
+/// A convenience method
+/// For example:
+/// LocationGrid::try_from(
+/// "xx x x\
+///  xx  xx\
+///  x    x"
+/// )
+/// would yield a location grid with tiles populated such that each non-whitespace character
+/// corresponds to land and each whitespace character corresponds to ocean
+///
+/// Error if there are no lines or if the lines aren't of equal length
+impl TryFrom<&'static str> for LocationGrid<Tile> {
+    type Err = &'static str;
+    fn try_from(str: &'static str) -> Result<LocationGrid<Tile>,&'static str> {
+        let lines = Vec::from_iter( str.lines().map(|line| Vec::from_iter( line.chars() )) );
+        if lines.is_empty() {
+            return Err("String contained no lines");
+        }
+
+        let width = lines[0].len();
+
+        if lines.len() == 1 && width == 0 {
+            return Err("No map was provided (the string was empty)");
+        }
+
+        for line in &lines {
+            if line.len() != width {
+                return Err("Lines aren't all the same width");
+            }
+        }
+
+        Ok(
+            LocationGrid::new(
+                &Dims{width: width as u16, height: lines.len() as u16 },
+                |loc| Tile::new(
+                    if lines[loc.y as usize][loc.x as usize]==' ' {
+                        Terrain::WATER
+                    } else {
+                        Terrain::LAND
+                    },
+                    *loc
+                )
+
+            )
+        )
+
+        // Ok(LocationGrid::new(
+        //     &Dims{width: 5, height: 5},
+        //     |loc| Tile::new(Terrain::WATER, *loc)
+        // ))
+    }
+}
+
+#[test]
+fn test_str_to_map() {
+    if let Ok(_map) = LocationGrid::try_from("") {
+        assert!(false, "Empty string should be an error");
+    }
+
+    match LocationGrid::try_from(
+        "blah h\n\
+         zzz zz\n\
+         zz   z") {
+        Err(_) => {
+            assert!(false, "Any other string should be ok");
+        },
+        Ok(map) => {
+            assert_eq!(map.dims.width, 6);
+            assert_eq!(map.dims.height, 3);
+
+            assert_eq!(map[Location{x:0,y:0}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:1,y:0}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:2,y:0}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:3,y:0}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:4,y:0}].terrain, Terrain::WATER);
+            assert_eq!(map[Location{x:5,y:0}].terrain, Terrain::LAND);
+
+            assert_eq!(map[Location{x:0,y:1}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:1,y:1}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:2,y:1}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:3,y:1}].terrain, Terrain::WATER);
+            assert_eq!(map[Location{x:4,y:1}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:5,y:1}].terrain, Terrain::LAND);
+
+            assert_eq!(map[Location{x:0,y:2}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:1,y:2}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:2,y:2}].terrain, Terrain::WATER);
+            assert_eq!(map[Location{x:3,y:2}].terrain, Terrain::WATER);
+            assert_eq!(map[Location{x:4,y:2}].terrain, Terrain::WATER);
+            assert_eq!(map[Location{x:5,y:2}].terrain, Terrain::LAND);
+        }
+    }
+}
+
 pub type Tiles = LocationGrid<Tile>;
 
 pub mod gen;
