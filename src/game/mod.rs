@@ -4,9 +4,8 @@
 //! This implements the game logic without regard for user interface.
 
 use std::collections::HashSet;
-use std::ops::{Index,IndexMut};
 
-use map::Tile;
+use map::{Tile,Tiles};
 use map::gen::generate_map;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
 use util::{Dims,Location};
@@ -18,21 +17,6 @@ pub type TurnNum = u32;
 enum Obs {
     OBSERVED{tile: Tile, turn: TurnNum},
     UNOBSERVED
-}
-
-pub type Tiles = Vec<Vec<Tile>>;
-
-impl Index<Location> for Tiles {
-    type Output = Tile;
-    fn index<'a>(&'a self, location: Location) -> &'a Tile {
-        &self[location.x as usize][location.y as usize]
-    }
-}
-impl IndexMut<Location> for Tiles {
-    fn index_mut<'a>(&'a mut self, location: Location) -> &'a mut Tile {
-        let col:  &mut Vec<Tile> = self.get_mut(location.x as usize).unwrap();
-        col.get_mut(location.y as usize).unwrap()
-    }
 }
 
 pub struct Game {
@@ -119,13 +103,13 @@ impl Game {
     // fn player_map(&self, player: PlayerNum) -> Option<&Vec<Vec<Obs>>> {
     //     self.player_maps.get(&player)
     // }
+    
     pub fn tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
-        if let Some(col) = self.tiles.get(loc.x as usize) {
-            if let Some(ref tile) = col.get(loc.y as usize) {
-                return Some(tile);
-            }
-        }
-        None
+        self.tiles.get(&loc)
+    }
+
+    pub fn tile_mut<'a>(&'a mut self, loc: Location) -> Option<&'a mut Tile> {
+        self.tiles.get_mut(&loc)
     }
 
     pub fn city<'b>(&'b self, loc: Location) -> Option<&'b City> {
@@ -160,7 +144,7 @@ impl Game {
 
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<(),String> {
         let distance = src.distance(&dest);
-
+        println!("Dist: {}", distance);
         let unit = self.tiles[src].pop_unit();
         if let Some(mut unit) = unit {
             if distance > unit.moves_remaining {

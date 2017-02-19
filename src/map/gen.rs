@@ -9,7 +9,7 @@ extern crate rand;
 use rand::Rng;
 
 use conf;
-use map::{Terrain,Tile};
+use map::{Terrain,Tile,Tiles,LocationGrid};
 use unit::{Alignment,City};
 use util::{Dims,Location};
 
@@ -77,7 +77,7 @@ fn land_diagonal_neighbors(tiles: &Vec<Vec<Tile>>, loc: Location, map_dims: Dims
 //     land_nearby
 // }
 
-pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
+pub fn generate_map(map_dims: Dims) -> Tiles {
     let mut tiles = Vec::new();
 
     for x in 0..map_dims.width {
@@ -141,7 +141,7 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
     for x in 0..map_dims.width {
         for y in 0..map_dims.height {
             let loc = Location{x:x, y:y};
-            let tile = &mut tiles[loc];
+            let tile = &mut tiles[loc.x as usize][loc.y as usize];
             if tile.terrain == Terrain::LAND {
                 if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
                     tile.city = Some(City::new(Alignment::NEUTRAL, loc));
@@ -158,7 +158,7 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
             y: rng.gen_range(0, map_dims.height)
         };
 
-        let tile = &mut tiles[loc];
+        let tile = &mut tiles[loc.x as usize][loc.y as usize];
 
         if tile.terrain == Terrain::LAND {
             if tile.city.is_none() {
@@ -168,5 +168,5 @@ pub fn generate_map(map_dims: Dims) -> Vec<Vec<Tile>> {
         }
     }
 
-    tiles
+    LocationGrid::new_from_vec(&map_dims, tiles)
 }
