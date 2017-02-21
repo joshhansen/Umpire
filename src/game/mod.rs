@@ -7,8 +7,9 @@ use std::collections::HashSet;
 
 use map::{Tile,Tiles};
 use map::gen::generate_map;
+use map::dijkstra::shortest_paths;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
-use util::{Dims,Location};
+use util::{Dims,Location,Wrap,Wrap2d};
 
 pub type TurnNum = u32;
 
@@ -27,7 +28,8 @@ pub struct Game {
     num_players: PlayerNum,
     current_player: Option<PlayerNum>,
     production_set_requests: HashSet<Location>,
-    unit_move_requests: HashSet<Location>
+    unit_move_requests: HashSet<Location>,
+    wrapping: Wrap2d
 }
 
 impl Game {
@@ -40,7 +42,8 @@ impl Game {
             num_players: num_players,
             current_player: None,
             production_set_requests: HashSet::new(),
-            unit_move_requests: HashSet::new()
+            unit_move_requests: HashSet::new(),
+            wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping}
         }
     }
 
@@ -103,7 +106,7 @@ impl Game {
     // fn player_map(&self, player: PlayerNum) -> Option<&Vec<Vec<Obs>>> {
     //     self.player_maps.get(&player)
     // }
-    
+
     pub fn tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
         self.tiles.get(&loc)
     }
@@ -143,7 +146,9 @@ impl Game {
     }
 
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<(),String> {
-        let distance = src.distance(&dest);
+        let shortest_paths = shortest_paths(&self.tiles, &src, &self.wrapping);
+        let distance = shortest_paths.dist[dest];
+
         println!("Dist: {}", distance);
         let unit = self.tiles[src].pop_unit();
         if let Some(mut unit) = unit {
@@ -185,4 +190,12 @@ but there is no city at that location",
             ))
         }
     }
+}
+
+#[test]
+fn test_game() {
+    let game = Game::new(Dims{width:10, height:10}, 2);
+
+
+
 }

@@ -1,0 +1,352 @@
+//! Shortest path algorithm
+
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap,HashSet};
+use std::u16::MAX as u16_max;
+use std::fmt;
+use std::ops::{Index,IndexMut};
+use std::convert::TryFrom;
+
+
+use map::{LocationGrid,Tile};
+use util::{Dims,Location,Vec2d,Wrap,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
+
+impl Index<Location> for Vec<Vec<u16>> {
+    type Output = u16;
+    fn index<'a>(&'a self, location: Location) -> &'a Self::Output {
+        &self[location.x as usize][location.y as usize]
+    }
+}
+
+impl IndexMut<Location> for Vec<Vec<u16>> {
+    fn index_mut<'a>(&'a mut self, location: Location) -> &'a mut u16 {
+        let col:  &mut Vec<u16> = self.get_mut(location.x as usize).unwrap();
+        col.get_mut(location.y as usize).unwrap()
+    }
+}
+
+pub struct ShortestPaths {
+    pub dist: LocationGrid<u16>,
+    pub prev: LocationGrid<Option<Location>>
+}
+
+impl fmt::Debug for ShortestPaths {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Distances:\n{:?}\nPrevious Nodes:\n{:?}", self.dist, self.prev)
+    }
+}
+
+static RELATIVE_NEIGHBORS: [Vec2d<i16>; 8] = [
+    Vec2d { x: -1, y: -1 },
+    Vec2d { x: -1, y:  0 },
+    Vec2d { x: -1, y:  1 },
+    Vec2d { x:  0, y: -1 },
+    Vec2d { x:  0, y:  1 },
+    Vec2d { x:  1, y: -1 },
+    Vec2d { x:  1, y:  0 },
+    Vec2d { x:  1, y:  1}
+];
+
+///
+/// Add `inc` to `loc` respecting the specified wrapping rules in a space defined by `dims`
+/// If the result is out of bounds, return None
+///
+fn wrapped_add(loc: &Location, inc: &Vec2d<i16>, dims: &Dims, wrapping: &Wrap2d) -> Option<Location> {
+    let mut new_x: i32 = loc.x as i32 + inc.x as i32;
+    if let Wrap::Wrapping = wrapping.horiz {
+        new_x = if new_x < 0 { dims.width as i32 + new_x } else { new_x % dims.width as i32 };
+    } else if new_x >= dims.width as i32 {
+        return None;
+    }
+
+    let mut new_y: i32 = loc.y as i32 + inc.y as i32;
+    if let Wrap::Wrapping = wrapping.vert {
+        new_y = if new_y < 0 { dims.height as i32 + new_y } else { new_y % dims.height as i32 };
+    } else if new_y >= dims.height as i32 {
+        return None;
+    }
+
+    Some(Location {
+        x: new_x as u16,
+        y: new_y as u16
+    })
+}
+
+#[test]
+fn test_wrapped_add() {
+/*
+    xxxx* 5
+    xxxxx 4
+    xxxxx 3
+    xxxxx 2
+    xxxxx 1
+    xxxxx 0
+
+    01234
+*/
+    let dims = Dims{width: 5, height: 6};
+    let loc = Location{x: 4, y: 5};
+
+    let results_both: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        Some(Location{x:3, y:0}),
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        Some(Location{x:4, y:0}),
+    // Vec2d { x:  1, y: -1 },
+        Some(Location{x:0, y:4}),
+    // Vec2d { x:  1, y:  0 },
+        Some(Location{x:0, y:5}),
+    // Vec2d { x:  1, y:  1}
+        Some(Location{x:0, y:0})
+    ];
+
+    let results_horiz: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        None,
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        None,
+    // Vec2d { x:  1, y: -1 },
+        Some(Location{x:0, y:4}),
+    // Vec2d { x:  1, y:  0 },
+        Some(Location{x:0, y:5}),
+    // Vec2d { x:  1, y:  1}
+        None
+    ];
+
+    let results_vert: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        Some(Location{x:3, y:0}),
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        Some(Location{x:4, y:0}),
+    // Vec2d { x:  1, y: -1 },
+        None,
+    // Vec2d { x:  1, y:  0 },
+        None,
+    // Vec2d { x:  1, y:  1}
+        None
+    ];
+
+    let results_neither: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        None,
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        None,
+    // Vec2d { x:  1, y: -1 },
+        None,
+    // Vec2d { x:  1, y:  0 },
+        None,
+    // Vec2d { x:  1, y:  1}
+        None
+    ];
+
+    for (i, rel_neighb) in RELATIVE_NEIGHBORS.iter().enumerate() {
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_BOTH),    results_both   [i] );
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_HORIZ),   results_horiz  [i] );
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_VERT),    results_vert   [i] );
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_NEITHER), results_neither[i] );
+    }
+}
+
+fn neighbors_with_same_terrain(tiles: &LocationGrid<Tile>, loc: &Location, wrapping: &Wrap2d) -> HashSet<Location> {
+    let source_terrain = & tiles[*loc].terrain;
+
+    let mut neighbs = HashSet::new();
+    for rel_neighb in RELATIVE_NEIGHBORS.iter() {
+        if let Some(neighb_loc) = wrapped_add(loc, &rel_neighb, &tiles.dims, wrapping) {
+            if let Some(tile) = tiles.get(&neighb_loc) {
+                if tile.terrain == *source_terrain {
+                    neighbs.insert(neighb_loc);
+                }
+            }
+        }
+    }
+
+    neighbs
+}
+
+#[test]
+fn test_neighbors_with_same_terrain() {
+    if let Ok(map) = LocationGrid::try_from("*xx\n\
+                                             x x\n\
+                                             xxx") {
+
+        let loc = Location{x:0, y:2};
+
+        let neighbs_both = neighbors_with_same_terrain(&map, &loc, &WRAP_BOTH);
+        assert!(neighbs_both.contains(&Location{x:0, y:0}));
+        assert!(neighbs_both.contains(&Location{x:0, y:1}));
+        assert!(neighbs_both.contains(&Location{x:1, y:0}));
+        assert!(neighbs_both.contains(&Location{x:1, y:2}));
+        assert!(neighbs_both.contains(&Location{x:2, y:0}));
+        assert!(neighbs_both.contains(&Location{x:2, y:1}));
+        assert!(neighbs_both.contains(&Location{x:2, y:2}));
+
+        let neighbs_horiz = neighbors_with_same_terrain(&map, &loc, &WRAP_HORIZ);
+        assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
+        assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
+        assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
+        assert!( neighbs_horiz.contains(&Location{x:1, y:2}));
+        assert!(!neighbs_horiz.contains(&Location{x:2, y:0}));
+        assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
+        assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
+
+        let neighbs_vert = neighbors_with_same_terrain(&map, &loc, &WRAP_VERT);
+        assert!( neighbs_vert.contains(&Location{x:0, y:0}));
+        assert!( neighbs_vert.contains(&Location{x:0, y:1}));
+        assert!( neighbs_vert.contains(&Location{x:1, y:0}));
+        assert!( neighbs_vert.contains(&Location{x:1, y:2}));
+        assert!(!neighbs_vert.contains(&Location{x:2, y:0}));
+        assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
+        assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
+
+        let neighbs_neither = neighbors_with_same_terrain(&map, &loc, &WRAP_NEITHER);
+        assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
+        assert!( neighbs_neither.contains(&Location{x:0, y:1}));
+        assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
+        assert!( neighbs_neither.contains(&Location{x:1, y:2}));
+        assert!(!neighbs_neither.contains(&Location{x:2, y:0}));
+        assert!(!neighbs_neither.contains(&Location{x:2, y:1}));
+        assert!(!neighbs_neither.contains(&Location{x:2, y:2}));
+    } else {
+        assert!(false, "This map should have converted to a LocationGrid<Tile>");
+    }
+}
+
+#[derive(Eq,PartialEq)]
+struct State {
+    dist_: u16,
+    loc: Location
+}
+
+impl Ord for State {
+    fn cmp(&self, other: &State) -> Ordering {
+        other.dist_.cmp(&self.dist_)
+    }
+}
+
+impl PartialOrd for State {
+    fn partial_cmp(&self, other: &State) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: &Location, wrapping: &Wrap2d) -> ShortestPaths {
+    let source_terrain = & tiles[*source].terrain;
+
+    let mut q = BinaryHeap::new();
+
+    let mut dist = LocationGrid::new(&tiles.dims, |loc| u16_max);
+    let mut prev = LocationGrid::new(&tiles.dims, |loc| None);
+
+    q.push(State{ dist_: 0, loc: *source });
+
+    dist[*source] = 0;
+
+    while let Some(State{ dist_, loc }) = q.pop() {
+
+        if dist_ > dist[loc] { continue; }
+
+
+        for neighb_loc in neighbors_with_same_terrain(tiles, &loc, wrapping) {
+            let new_dist = dist_ + 1;
+            let next = State { dist_: new_dist, loc: neighb_loc };
+
+            // If so, add it to the frontier and continue
+            if new_dist < dist[neighb_loc] {
+                q.push(next);
+                // Relaxation, we have now found a better way
+                dist[neighb_loc] = new_dist;
+                prev[neighb_loc] = Some(loc);
+            }
+        }
+    }
+
+    ShortestPaths { dist: dist, prev: prev }
+}
+
+#[test]
+fn test_dijkstra() {
+    match LocationGrid::try_from(
+"\
+xxx\n\
+x x\n\
+*xx") {
+        Err(_) => {
+            assert!(false, "This map should have converted to a LocationGrid<Tile>");
+        },
+        Ok(map) => {
+            let loc = Location{x:0, y:0};
+            let shortest_neither = shortest_paths(&map, &loc, &WRAP_NEITHER);
+            println!("{:?}", shortest_neither);
+            assert_eq!(shortest_neither.dist[Location{x:1, y:0}], 1);
+            assert_eq!(shortest_neither.dist[Location{x:2, y:0}], 2);
+
+            assert_eq!(shortest_neither.dist[Location{x:0, y:1}], 1);
+            assert_eq!(shortest_neither.dist[Location{x:2, y:1}], 2);
+
+            assert_eq!(shortest_neither.dist[Location{x:0, y:2}], 2);
+            assert_eq!(shortest_neither.dist[Location{x:1, y:2}], 2);
+            assert_eq!(shortest_neither.dist[Location{x:2, y:2}], 3);
+
+
+            let shortest_horiz = shortest_paths(&map, &loc, &WRAP_HORIZ);
+            println!("{:?}", shortest_horiz);
+            assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], 1);
+            assert_eq!(shortest_horiz.dist[Location{x:2, y:0}], 1);
+
+            assert_eq!(shortest_horiz.dist[Location{x:0, y:1}], 1);
+            assert_eq!(shortest_horiz.dist[Location{x:2, y:1}], 1);
+
+            assert_eq!(shortest_horiz.dist[Location{x:0, y:2}], 2);
+            assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], 2);
+            assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], 2);
+
+            let shortest_vert = shortest_paths(&map, &loc, &WRAP_VERT);
+            assert_eq!(shortest_vert.dist[Location{x:1, y:0}], 1);
+            assert_eq!(shortest_vert.dist[Location{x:2, y:0}], 2);
+
+            assert_eq!(shortest_vert.dist[Location{x:0, y:1}], 1);
+            assert_eq!(shortest_vert.dist[Location{x:2, y:1}], 2);
+
+            assert_eq!(shortest_vert.dist[Location{x:0, y:2}], 1);
+            assert_eq!(shortest_vert.dist[Location{x:1, y:2}], 1);
+            assert_eq!(shortest_vert.dist[Location{x:2, y:2}], 2);
+
+            let shortest_both = shortest_paths(&map, &loc, &WRAP_BOTH);
+            assert_eq!(shortest_both.dist[Location{x:1, y:0}], 1);
+            assert_eq!(shortest_both.dist[Location{x:2, y:0}], 1);
+
+            assert_eq!(shortest_both.dist[Location{x:0, y:1}], 1);
+            assert_eq!(shortest_both.dist[Location{x:2, y:1}], 1);
+
+            assert_eq!(shortest_both.dist[Location{x:0, y:2}], 1);
+            assert_eq!(shortest_both.dist[Location{x:1, y:2}], 1);
+            assert_eq!(shortest_both.dist[Location{x:2, y:2}], 1);
+
+        }
+    }
+}

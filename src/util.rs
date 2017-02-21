@@ -12,6 +12,7 @@
 //     else { max }
 // }
 
+use std::cmp::{Ordering,min};
 use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Add;
@@ -35,7 +36,7 @@ impl Rect {
     pub fn height(&self) -> u16 { self.height }
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Debug)]
 pub struct Dims {
     pub width: u16,
     pub height: u16
@@ -60,6 +61,16 @@ impl<N:Add<Output=N>> Add for Vec2d<N> {
             x: self.x + rhs.x,
             y: self.y + rhs.y
         }
+    }
+}
+
+impl <T:fmt::Display> fmt::Display for Vec2d<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")
+        .and(self.x.fmt(f))
+        .and(write!(f, ","))
+        .and(self.y.fmt(f))
+        .and(write!(f, ")"))
     }
 }
 
@@ -106,6 +117,63 @@ impl TryFrom<char> for Direction {
     }
 }
 
+pub enum Wrap {
+    Wrapping,
+    NonWrapping
+}
+
+impl Wrap {
+    fn wrap_usize(&self, idx: usize, width: usize) -> usize {
+        match *self {
+            Wrap::Wrapping => idx % width,
+            Wrap::NonWrapping => idx
+        }
+    }
+
+    fn wrap_u16(&self, idx: u16, width: u16) -> u16 {
+        match *self {
+            Wrap::Wrapping => idx % width,
+            Wrap::NonWrapping => idx
+        }
+    }
+
+
+}
+
+pub struct Wrap2d {
+    pub horiz: Wrap,
+    pub vert: Wrap
+}
+
+impl Wrap2d {
+    fn wrap_loc(&self, loc: Location, dims: Dims) -> Location {
+        Location {
+            x: self.horiz.wrap_u16(loc.x, dims.width),
+            y: self.vert.wrap_u16(loc.y, dims.height)
+        }
+    }
+}
+
+pub static WRAP_BOTH: Wrap2d = Wrap2d{
+    horiz: Wrap::Wrapping,
+    vert: Wrap::Wrapping
+};
+
+pub static WRAP_HORIZ: Wrap2d = Wrap2d {
+    horiz: Wrap::Wrapping,
+    vert: Wrap::NonWrapping
+};
+
+pub static WRAP_VERT: Wrap2d = Wrap2d {
+    horiz: Wrap::NonWrapping,
+    vert: Wrap::Wrapping
+};
+
+pub static WRAP_NEITHER: Wrap2d = Wrap2d {
+    horiz: Wrap::NonWrapping,
+    vert: Wrap::NonWrapping
+};
+
 pub type Location = Vec2d<u16>;
 impl Location {
     fn dist_u16(x: u16, y: u16) -> u16 {
@@ -115,26 +183,33 @@ impl Location {
         y - x
     }
 
-    /// Manhattan distance
-    /// The number of moves it would take a unit to move from this location to the other location
-    pub fn distance(&self, other: &Location) -> u16 {
+    fn dist_u16_wrapping(x: u16, y: u16, width: u16) -> u16 {
+        match x.cmp(&y) {
+            Ordering::Equal => 0,
+            Ordering::Greater => Location::dist_u16_wrapping(y, x, width),
+            Ordering::Less => {
 
-        let x_dist = Location::dist_u16(self.x, other.x);
-        let y_dist = Location::dist_u16(self.y, other.y);
-        x_dist + y_dist
+                let dist_via_middle = y - x;
+                let dist_via_wrap = x + width - y;
+
+                min(dist_via_middle, dist_via_wrap)
+            }
+        }
     }
 }
 
-impl fmt::Display for Location {
+impl fmt::Debug for Location {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
     }
 }
 
 #[test]
-fn test_distance() {
-    let a = Location{x: 0, y: 0};
-    let b = Location{x:2, y: 2};
-    let dist = a.distance(&b);
-    assert_eq!(dist, 4);
+fn test_dist_u16_wrapping() {
+    let width = 5;
+    assert_eq!(Location::dist_u16_wrapping(1, 3, width), 2);
+    assert_eq!(Location::dist_u16_wrapping(3, 1, width), 2);
+    assert_eq!(Location::dist_u16_wrapping(0, 4, width), 1);
+    assert_eq!(Location::dist_u16_wrapping(4, 0, width), 1);
+    assert_eq!(Location::dist_u16_wrapping(0, 0, width), 0);
 }

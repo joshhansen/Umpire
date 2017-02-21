@@ -8,7 +8,7 @@ use std::ops::{Index,IndexMut};
 use termion::color::AnsiValue;
 
 use unit::{Alignment,City,Unit,Aligned,Sym};
-use util::{Dims,Location,Wrapping};
+use util::{Dims,Location};
 
 
 #[derive(Clone,PartialEq)]
@@ -128,10 +128,6 @@ impl<T> LocationGrid<T> {
         LocationGrid{ grid: grid, dims: *dims }
     }
 
-    fn get_wrapped(&self, loc: &Location, wrapping: &Wrapping) -> Option<T> {
-        None//FIXME
-    }
-
     pub fn get<'a>(&'a self, loc: &Location) -> Option<&'a T> {
         if let Some(col) = self.grid.get(loc.x as usize) {
             col.get(loc.y as usize)
@@ -169,14 +165,25 @@ impl<T> IndexMut<Location> for LocationGrid<T> {
     }
 }
 
-// impl IntoIterator for LocationGrid<Tile> {
-//     type Item = (Location,Tile);
-//     type IntoIter = LocationGridIterator;
-//
-//     fn into_iter(self) -> Self::IntoIter {
-//         LocationGridIterator{x: 0, y: 0}
-//     }
-// }
+impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut result = write!(f, "");
+
+        for j in 0..self.dims.height {
+            let j_ = self.dims.height - j - 1;
+
+            for i in 0..self.dims.width {
+                if i > 0 {
+                    result = result.and(write!(f, "\t"));
+                }
+                result = result.and(self[Location{x:j_, y:i}].fmt(f));
+            }
+            result = result.and(write!(f, "\n"));
+        }
+
+        result
+    }
+}
 
 pub struct LocationGridIterator<'a> {
     loc: Location,
@@ -255,11 +262,6 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
 
             )
         )
-
-        // Ok(LocationGrid::new(
-        //     &Dims{width: 5, height: 5},
-        //     |loc| Tile::new(Terrain::WATER, *loc)
-        // ))
     }
 }
 
@@ -306,6 +308,7 @@ fn test_str_to_map() {
 
 pub type Tiles = LocationGrid<Tile>;
 
+pub mod dijkstra;
 pub mod gen;
 mod test;
 
