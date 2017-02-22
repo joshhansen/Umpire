@@ -306,8 +306,6 @@ fn test_str_to_map() {
     }
 }
 
-pub type Tiles = LocationGrid<Tile>;
-
 pub mod dijkstra;
 pub mod gen;
 mod test;

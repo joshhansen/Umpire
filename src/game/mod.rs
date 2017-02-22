@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use map::{Tile,Tiles};
+use map::{Tile,LocationGrid};
 use map::gen::generate_map;
 use map::dijkstra::shortest_paths;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
@@ -22,7 +22,7 @@ enum Obs {
 
 pub struct Game {
     pub map_dims: Dims,
-    pub tiles: Tiles, // tiles[col][row]
+    pub tiles: LocationGrid<Tile>, // tiles[col][row]
     // player_maps: HashMap<PlayerNum,Vec<Vec<Obs>>>,
     pub turn: TurnNum,
     num_players: PlayerNum,

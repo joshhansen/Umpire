@@ -9,7 +9,7 @@ extern crate rand;
 use rand::Rng;
 
 use conf;
-use map::{Terrain,Tile,Tiles,LocationGrid};
+use map::{Terrain,Tile,LocationGrid};
 use unit::{Alignment,City};
 use util::{Dims,Location};
 
@@ -77,7 +77,7 @@ fn land_diagonal_neighbors(tiles: &Vec<Vec<Tile>>, loc: Location, map_dims: Dims
 //     land_nearby
 // }
 
-pub fn generate_map(map_dims: Dims) -> Tiles {
+pub fn generate_map(map_dims: Dims) -> LocationGrid<Tile> {
     let mut tiles = Vec::new();
 
     for x in 0..map_dims.width {
