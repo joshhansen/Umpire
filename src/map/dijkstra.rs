@@ -26,7 +26,7 @@ impl IndexMut<Location> for Vec<Vec<u16>> {
 }
 
 pub struct ShortestPaths {
-    pub dist: LocationGrid<u16>,
+    pub dist: LocationGrid<Option<u16>>,
     pub prev: LocationGrid<Option<Location>>
 }
 
@@ -259,27 +259,28 @@ pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: &Location, wrapping: &
 
     let mut q = BinaryHeap::new();
 
-    let mut dist = LocationGrid::new(&tiles.dims, |loc| u16_max);
+    let mut dist = LocationGrid::new(&tiles.dims, |loc| None);
     let mut prev = LocationGrid::new(&tiles.dims, |loc| None);
 
     q.push(State{ dist_: 0, loc: *source });
 
-    dist[*source] = 0;
+    dist[*source] = Some(0);
 
     while let Some(State{ dist_, loc }) = q.pop() {
 
-        if dist_ > dist[loc] { continue; }
+        // Quit early since we're already doing worse than the best known route
+        if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
 
 
         for neighb_loc in neighbors_with_same_terrain(tiles, &loc, wrapping) {
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
 
-            // If so, add it to the frontier and continue
-            if new_dist < dist[neighb_loc] {
+            // If the new route to the neighbor is better than any we've found so far...
+            if dist[neighb_loc].is_none() || new_dist < dist[neighb_loc].unwrap() {
                 q.push(next);
                 // Relaxation, we have now found a better way
-                dist[neighb_loc] = new_dist;
+                dist[neighb_loc] = Some(new_dist);
                 prev[neighb_loc] = Some(loc);
             }
         }
@@ -302,50 +303,58 @@ x x\n\
             let loc = Location{x:0, y:0};
             let shortest_neither = shortest_paths(&map, &loc, &WRAP_NEITHER);
             println!("{:?}", shortest_neither);
-            assert_eq!(shortest_neither.dist[Location{x:1, y:0}], 1);
-            assert_eq!(shortest_neither.dist[Location{x:2, y:0}], 2);
+            assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
+            assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
+            assert_eq!(shortest_neither.dist[Location{x:2, y:0}], Some(2));
 
-            assert_eq!(shortest_neither.dist[Location{x:0, y:1}], 1);
-            assert_eq!(shortest_neither.dist[Location{x:2, y:1}], 2);
+            assert_eq!(shortest_neither.dist[Location{x:0, y:1}], Some(1));
+            assert_eq!(shortest_neither.dist[Location{x:1, y:1}], None);
+            assert_eq!(shortest_neither.dist[Location{x:2, y:1}], Some(2));
 
-            assert_eq!(shortest_neither.dist[Location{x:0, y:2}], 2);
-            assert_eq!(shortest_neither.dist[Location{x:1, y:2}], 2);
-            assert_eq!(shortest_neither.dist[Location{x:2, y:2}], 3);
+            assert_eq!(shortest_neither.dist[Location{x:0, y:2}], Some(2));
+            assert_eq!(shortest_neither.dist[Location{x:1, y:2}], Some(2));
+            assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(3));
 
 
             let shortest_horiz = shortest_paths(&map, &loc, &WRAP_HORIZ);
             println!("{:?}", shortest_horiz);
-            assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], 1);
-            assert_eq!(shortest_horiz.dist[Location{x:2, y:0}], 1);
+            assert_eq!(shortest_horiz.dist[Location{x:0, y:0}], Some(0));
+            assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], Some(1));
+            assert_eq!(shortest_horiz.dist[Location{x:2, y:0}], Some(1));
 
-            assert_eq!(shortest_horiz.dist[Location{x:0, y:1}], 1);
-            assert_eq!(shortest_horiz.dist[Location{x:2, y:1}], 1);
+            assert_eq!(shortest_horiz.dist[Location{x:0, y:1}], Some(1));
+            assert_eq!(shortest_horiz.dist[Location{x:1, y:1}], None);
+            assert_eq!(shortest_horiz.dist[Location{x:2, y:1}], Some(1));
 
-            assert_eq!(shortest_horiz.dist[Location{x:0, y:2}], 2);
-            assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], 2);
-            assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], 2);
+            assert_eq!(shortest_horiz.dist[Location{x:0, y:2}], Some(2));
+            assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], Some(2));
+            assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], Some(2));
 
             let shortest_vert = shortest_paths(&map, &loc, &WRAP_VERT);
-            assert_eq!(shortest_vert.dist[Location{x:1, y:0}], 1);
-            assert_eq!(shortest_vert.dist[Location{x:2, y:0}], 2);
+            assert_eq!(shortest_vert.dist[Location{x:0, y:0}], Some(0));
+            assert_eq!(shortest_vert.dist[Location{x:1, y:0}], Some(1));
+            assert_eq!(shortest_vert.dist[Location{x:2, y:0}], Some(2));
 
-            assert_eq!(shortest_vert.dist[Location{x:0, y:1}], 1);
-            assert_eq!(shortest_vert.dist[Location{x:2, y:1}], 2);
+            assert_eq!(shortest_vert.dist[Location{x:0, y:1}], Some(1));
+            assert_eq!(shortest_vert.dist[Location{x:1, y:1}], None);
+            assert_eq!(shortest_vert.dist[Location{x:2, y:1}], Some(2));
 
-            assert_eq!(shortest_vert.dist[Location{x:0, y:2}], 1);
-            assert_eq!(shortest_vert.dist[Location{x:1, y:2}], 1);
-            assert_eq!(shortest_vert.dist[Location{x:2, y:2}], 2);
+            assert_eq!(shortest_vert.dist[Location{x:0, y:2}], Some(1));
+            assert_eq!(shortest_vert.dist[Location{x:1, y:2}], Some(1));
+            assert_eq!(shortest_vert.dist[Location{x:2, y:2}], Some(2));
 
             let shortest_both = shortest_paths(&map, &loc, &WRAP_BOTH);
-            assert_eq!(shortest_both.dist[Location{x:1, y:0}], 1);
-            assert_eq!(shortest_both.dist[Location{x:2, y:0}], 1);
+            assert_eq!(shortest_both.dist[Location{x:0, y:0}], Some(0));
+            assert_eq!(shortest_both.dist[Location{x:1, y:0}], Some(1));
+            assert_eq!(shortest_both.dist[Location{x:2, y:0}], Some(1));
 
-            assert_eq!(shortest_both.dist[Location{x:0, y:1}], 1);
-            assert_eq!(shortest_both.dist[Location{x:2, y:1}], 1);
+            assert_eq!(shortest_both.dist[Location{x:0, y:1}], Some(1));
+            assert_eq!(shortest_both.dist[Location{x:1, y:1}], None);
+            assert_eq!(shortest_both.dist[Location{x:2, y:1}], Some(1));
 
-            assert_eq!(shortest_both.dist[Location{x:0, y:2}], 1);
-            assert_eq!(shortest_both.dist[Location{x:1, y:2}], 1);
-            assert_eq!(shortest_both.dist[Location{x:2, y:2}], 1);
+            assert_eq!(shortest_both.dist[Location{x:0, y:2}], Some(1));
+            assert_eq!(shortest_both.dist[Location{x:1, y:2}], Some(1));
+            assert_eq!(shortest_both.dist[Location{x:2, y:2}], Some(1));
 
         }
     }

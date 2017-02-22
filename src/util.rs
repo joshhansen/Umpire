@@ -101,8 +101,8 @@ impl Direction {
 }
 
 impl TryFrom<char> for Direction {
-    type Err = ();
-    fn try_from(c: char) -> Result<Direction,()> {
+    type Err = String;
+    fn try_from(c: char) -> Result<Direction,String> {
         match c {
             conf::KEY_UP         => Ok(Direction::Up),
             conf::KEY_DOWN       => Ok(Direction::Down),
@@ -112,7 +112,7 @@ impl TryFrom<char> for Direction {
             conf::KEY_UP_RIGHT   => Ok(Direction::UpRight),
             conf::KEY_DOWN_LEFT  => Ok(Direction::DownLeft),
             conf::KEY_DOWN_RIGHT => Ok(Direction::DownRight),
-            _                    => Err(())
+            _                    => Err(format!("{} doesn't indicate a direction", c))
         }
     }
 }

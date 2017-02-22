@@ -9,6 +9,8 @@ use std::convert::TryFrom;
 use std::process::exit;
 use std::io::{Write, stdin, StdoutLock};
 use std::rc::Rc;
+use std::thread;
+use std::time::Duration;
 
 use termion::event::Key;
 use termion::input::TermRead;
@@ -201,14 +203,24 @@ impl Keypress for MoveUnit {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
 
         if let Key::Char(c) = *key {
-            if let Ok(dir) = Direction::try_from(c) {
-                let src: Vec2d<i32> = Vec2d::new(self.loc.x as i32, self.loc.y as i32);
-                let dest = src + dir.vec2d();
+            match Direction::try_from(c) {
+                Ok(dir) => {
 
-                let src:  Vec2d<u16> = Vec2d::new(src.x as u16, src.y as u16);
-                let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
+                    println!("Moving {}", c);
 
-                game.move_unit(src, dest);
+                    let src: Vec2d<i32> = Vec2d::new(self.loc.x as i32, self.loc.y as i32);
+                    let dest = src + dir.vec2d();
+
+                    let src:  Vec2d<u16> = Vec2d::new(src.x as u16, src.y as u16);
+                    let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
+
+                    game.move_unit(src, dest);
+                    thread::sleep(Duration::from_millis(350));
+                },
+                Err(msg) => {
+                    // println!("Error: {}", msg);
+                    // thread::sleep(Duration::from_millis(5000));
+                }
             }
         }
     }

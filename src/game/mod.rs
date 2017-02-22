@@ -147,29 +147,32 @@ impl Game {
 
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<(),String> {
         let shortest_paths = shortest_paths(&self.tiles, &src, &self.wrapping);
-        let distance = shortest_paths.dist[dest];
 
-        println!("Dist: {}", distance);
-        let unit = self.tiles[src].pop_unit();
-        if let Some(mut unit) = unit {
-            if distance > unit.moves_remaining {
-                Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
-                            unit, src, dest, distance, unit.moves_remaining))
-            } else {
+        if let Some(distance) = shortest_paths.dist[dest] {
+            println!("Dist: {}", distance);
+            let unit = self.tiles[src].pop_unit();
+            if let Some(mut unit) = unit {
+                if distance > unit.moves_remaining {
+                    Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
+                                unit, src, dest, distance, unit.moves_remaining))
+                } else {
 
-                self.unit_move_requests.remove(&src);
-                unit.moves_remaining -= distance;
+                    self.unit_move_requests.remove(&src);
+                    unit.moves_remaining -= distance;
 
-                if unit.moves_remaining > 0 {
-                    self.unit_move_requests.insert(dest);
+                    if unit.moves_remaining > 0 {
+                        self.unit_move_requests.insert(dest);
+                    }
+
+                    self.tiles[dest].set_unit(unit);
+
+                    Ok(())
                 }
-
-                self.tiles[dest].set_unit(unit);
-
-                Ok(())
+            } else {
+                Err(format!("No unit found at source location {}", src))
             }
         } else {
-            Err(format!("No unit found at source location {}", src))
+            return Err(format!("No route to {} from {}", dest, src));
         }
     }
 
