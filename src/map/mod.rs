@@ -2,7 +2,8 @@ extern crate termion;
 
 use std::convert::TryFrom;
 use std::fmt;
-use std::iter::FromIterator;
+use std::iter::{Enumerate,FlatMap,FromIterator,Map};
+use std::slice::Iter;
 use std::ops::{Index,IndexMut};
 
 use termion::color::AnsiValue;
@@ -146,8 +147,25 @@ impl<T> LocationGrid<T> {
 }
 
 impl LocationGrid<Tile> {
-    pub fn iter(&self) -> LocationGridIterator {
-        LocationGridIterator{loc: Location{x: 0, y: 0}, loc_grid: &self}
+    fn map1(item: &Vec<Tile>) -> Iter<Tile> {
+        item.iter()
+    }
+
+    pub fn iter(&self) -> LocationGridIter {
+        LocationGridIter {
+            iter: self.grid.iter().flat_map(LocationGrid::map1)
+        }
+    }
+}
+
+struct LocationGridIter<'a> {
+    iter: FlatMap<Iter<'a, Vec<Tile>>, Iter<'a, Tile>, fn(&Vec<Tile>) -> Iter<Tile> >
+}
+
+impl <'b> Iterator for LocationGridIter<'b> {
+    type Item = &'b Tile;
+    fn next(&mut self) -> Option<&'b Tile> {
+        self.iter.next()
     }
 }
 
@@ -182,37 +200,6 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
         }
 
         result
-    }
-}
-
-pub struct LocationGridIterator<'a> {
-    loc: Location,
-    loc_grid: &'a LocationGrid<Tile>
-}
-
-impl <'b> Iterator for LocationGridIterator<'b> {
-    type Item = (Location,&'b Tile);
-    fn next(&mut self) -> Option<(Location,&'b Tile)> {
-        /*
-            If the location is invalid, return None
-            Get the value from the current location
-            Step location forward
-            return the value
-        */
-        if let Some(tile) = self.loc_grid.get(&self.loc) {
-
-            let result = Some((self.loc, tile));
-
-            self.loc.y += 1;
-            if self.loc.y >= self.loc_grid.dims.height {
-                self.loc.y = 0;
-                self.loc.x += 1;
-            }
-
-            result
-        } else {
-            None
-        }
     }
 }
 
@@ -312,8 +299,27 @@ mod test;
 
 #[test]
 fn test_iter() {
-    let grid = LocationGrid::try_from("abc\ndef\nhij").unwrap();
-    for (loc, tile) in grid.iter() {
-        println!("{} {:?}", loc, tile);
+    let terrains: [Terrain; 9] = [
+        Terrain::LAND, Terrain::LAND, Terrain::LAND,
+        Terrain::LAND, Terrain::WATER, Terrain::LAND,
+        Terrain::LAND, Terrain::LAND, Terrain::LAND
+    ];
+    let locs: [Location; 9] = [
+        Location{x:0,y:0}, Location{x:0,y:1}, Location{x:0,y:2},
+        Location{x:1,y:0}, Location{x:1,y:1}, Location{x:1,y:2},
+        Location{x:2,y:0}, Location{x:2,y:1}, Location{x:2,y:2}
+    ];
+
+    let grid = LocationGrid::try_from("abc\nd f\nhij").unwrap();
+
+    let mut count = 0;
+    for (i, tile) in grid.iter().enumerate() {
+        println!("{:?}", tile);
+        count += 1;
+        assert_eq!(terrains[i], tile.terrain);
+        assert_eq!(locs[i], tile.loc);
+        assert_eq!(None, tile.unit);
+        assert_eq!(None, tile.city);
     }
+    assert_eq!(9, count);
 }
