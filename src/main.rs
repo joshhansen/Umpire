@@ -28,6 +28,7 @@ mod ui;
 mod unit;
 mod util;
 
+extern crate csv;
 extern crate rand;
 extern crate terminal_size;
 extern crate termion;

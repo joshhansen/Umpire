@@ -6,7 +6,7 @@
 use std::collections::HashSet;
 
 use map::{Tile,LocationGrid};
-use map::gen::generate_map;
+use map::gen::MapGenerator;
 use map::dijkstra::shortest_paths;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
 use util::{Dims,Location,Wrap,Wrap2d};
@@ -34,9 +34,11 @@ pub struct Game {
 
 impl Game {
     pub fn new(map_dims: Dims, num_players: PlayerNum) -> Self {
+        let mut map_generator = MapGenerator::new();
+        let map = map_generator.generate(map_dims);
         Game {
             map_dims: map_dims,
-            tiles: generate_map(map_dims),
+            tiles: map,
             // player_maps: player_maps,
             turn: 0,
             num_players: num_players,

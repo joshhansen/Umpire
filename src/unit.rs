@@ -228,22 +228,24 @@ pub struct City {
     pub alignment: Alignment,
     pub unit_under_production: Option<UnitType>,
     pub production_progress: u16,
+    name: String
 }
 
 impl City {
-    pub fn new(alignment: Alignment, loc: Location) -> City {
+    pub fn new(name: String, alignment: Alignment, loc: Location) -> City {
         City {
             loc: loc,
             alignment: alignment,
             unit_under_production: None,
-            production_progress: 0
+            production_progress: 0,
+            name: name
         }
     }
 }
 
 impl fmt::Display for City {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "City@{}", self.loc)
+        write!(f, "City \"{}\"@{}", self.name, self.loc)
     }
 }
 

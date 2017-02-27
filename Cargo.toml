@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
 
 [dependencies]
+csv = "0.15.0"
 termion = "1.0.3"
 rand = "0.3.14"
 terminal_size = "0.1.5"
-

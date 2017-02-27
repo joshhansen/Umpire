@@ -6,7 +6,11 @@ extern crate rand;
 
 // use std::num::Zero;
 
-use rand::Rng;
+use std::path::Path;
+use std::process;
+
+use csv;
+use rand::{thread_rng, Rng};
 
 use conf;
 use map::{Terrain,Tile,LocationGrid};
@@ -77,96 +81,153 @@ fn land_diagonal_neighbors(tiles: &Vec<Vec<Tile>>, loc: Location, map_dims: Dims
 //     land_nearby
 // }
 
-pub fn generate_map(map_dims: Dims) -> LocationGrid<Tile> {
-    let mut tiles = Vec::new();
+struct CityNamer {
+    names: Vec<String>,
+    next_name: usize
+}
 
-    for x in 0..map_dims.width {
-        let mut col = Vec::new();
-        for y in 0..map_dims.height {
-            col.push(Tile::new(Terrain::WATER, Location{x:x,y:y}));
+/// From Geonames schema
+static CITY_NAME_COL: usize = 1;
+impl CityNamer {
+    fn new() -> Self {
+        let mut names = Vec::new();
+
+        let path = Path::new("data/geonames_cities1000_2017-02-27_02:01.tsv");
+
+        match csv::Reader::from_file(path) {
+            Ok(reader) => {
+                let mut reader = reader.has_headers(false).delimiter(b'\t');
+                for row in reader.records() {
+                    let row = row.unwrap();
+                    // println!("{}, {}: {}", n1, n2, dist);
+                    // println!("{:?}", row);
+                    names.push(row[CITY_NAME_COL].clone());
+                }
+            },
+            Err(err) => {
+                printerr!("Error reading cities data file: {}", err);
+                process::exit(1);
+            }
         }
 
-        tiles.push(col);
+        println!("Cities loaded.");
+
+
+        let mut rng = thread_rng();
+        rng.shuffle(&mut names);
+
+        CityNamer{names: names, next_name: 0}
     }
 
+    fn name(&mut self) -> String {
+        let name = self.names[self.next_name % self.names.len()].clone();
+        self.next_name += 1;
+        name
+    }
+}
 
+pub struct MapGenerator {
+    namer: CityNamer
+}
 
-    let mut rng = rand::thread_rng();
-
-    // Seed the continents/islands
-    for _ in 0..conf::LANDMASSES {
-        let x = rng.gen_range(0, map_dims.width);
-        let y = rng.gen_range(0, map_dims.height);
-
-        tiles[x as usize][y as usize].terrain = Terrain::LAND;
-        // let terrain = &mut tiles[x as usize][y as usize].terrain;
-        // let terrain = &mut tile.terrain;
-        // terrain.type_ = Terrain::LAND;
+impl MapGenerator {
+    pub fn new() -> Self {
+        MapGenerator {
+            namer: CityNamer::new()
+        }
     }
 
-    // Grow landmasses
-    for _iteration in 0..conf::GROWTH_ITERATIONS {
+    pub fn generate(&mut self, map_dims: Dims) -> LocationGrid<Tile> {
+        let mut tiles = Vec::new();
+
+        for x in 0..map_dims.width {
+            let mut col = Vec::new();
+            for y in 0..map_dims.height {
+                col.push(Tile::new(Terrain::WATER, Location{x:x,y:y}));
+            }
+
+            tiles.push(col);
+        }
+
+
+
+        let mut rng = rand::thread_rng();
+
+        // Seed the continents/islands
+        for _ in 0..conf::LANDMASSES {
+            let x = rng.gen_range(0, map_dims.width);
+            let y = rng.gen_range(0, map_dims.height);
+
+            tiles[x as usize][y as usize].terrain = Terrain::LAND;
+            // let terrain = &mut tiles[x as usize][y as usize].terrain;
+            // let terrain = &mut tile.terrain;
+            // terrain.type_ = Terrain::LAND;
+        }
+
+        // Grow landmasses
+        for _iteration in 0..conf::GROWTH_ITERATIONS {
+            for x in 0..map_dims.width {
+                for y in 0..map_dims.height {
+
+                    match tiles[x as usize][y as usize].terrain {
+                        // Terrain::LAND => {
+                        //
+                        //     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
+                        //         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
+                        //             if x2 != x && y2 != y {
+                        //                 if rng.next_f32() <= GROWTH_PROB {
+                        //                     self.tiles[x2 as usize][y2 as usize].terrain = Terrain::LAND;
+                        //                 }
+                        //             }
+                        //         }
+                        //     }
+                        // },
+                        Terrain::WATER => {
+                            let loc = Location{x: x, y: y};
+                            let cardinal_growth_prob = land_cardinal_neighbors(&tiles, loc, map_dims) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
+                            let diagonal_growth_prob = land_diagonal_neighbors(&tiles, loc, map_dims) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
+
+                            if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
+                                tiles[x as usize][y as usize].terrain = Terrain::LAND;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // Populate neutral cities
         for x in 0..map_dims.width {
             for y in 0..map_dims.height {
-
-                match tiles[x as usize][y as usize].terrain {
-                    // Terrain::LAND => {
-                    //
-                    //     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
-                    //         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
-                    //             if x2 != x && y2 != y {
-                    //                 if rng.next_f32() <= GROWTH_PROB {
-                    //                     self.tiles[x2 as usize][y2 as usize].terrain = Terrain::LAND;
-                    //                 }
-                    //             }
-                    //         }
-                    //     }
-                    // },
-                    Terrain::WATER => {
-                        let loc = Location{x: x, y: y};
-                        let cardinal_growth_prob = land_cardinal_neighbors(&tiles, loc, map_dims) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
-                        let diagonal_growth_prob = land_diagonal_neighbors(&tiles, loc, map_dims) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
-
-                        if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
-                            tiles[x as usize][y as usize].terrain = Terrain::LAND;
-                        }
+                let loc = Location{x:x, y:y};
+                let tile = &mut tiles[loc.x as usize][loc.y as usize];
+                if tile.terrain == Terrain::LAND {
+                    if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
+                        tile.city = Some(City::new(self.namer.name(), Alignment::NEUTRAL, loc));
                     }
-                    _ => {}
                 }
             }
         }
-    }
 
-    // Populate neutral cities
-    for x in 0..map_dims.width {
-        for y in 0..map_dims.height {
-            let loc = Location{x:x, y:y};
+        // Populate player cities
+        let mut player_num = 0;
+        while player_num < conf::NUM_PLAYERS {
+            let loc = Location{
+                x: rng.gen_range(0, map_dims.width),
+                y: rng.gen_range(0, map_dims.height)
+            };
+
             let tile = &mut tiles[loc.x as usize][loc.y as usize];
+
             if tile.terrain == Terrain::LAND {
-                if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                    tile.city = Some(City::new(Alignment::NEUTRAL, loc));
+                if tile.city.is_none() {
+                    tile.city = Some(City::new(self.namer.name(), Alignment::BELLIGERENT{ player: player_num }, loc));
+                    player_num += 1;
                 }
             }
         }
+
+        LocationGrid::new_from_vec(&map_dims, tiles)
     }
-
-    // Populate player cities
-    let mut player_num = 0;
-    while player_num < conf::NUM_PLAYERS {
-        let loc = Location{
-            x: rng.gen_range(0, map_dims.width),
-            y: rng.gen_range(0, map_dims.height)
-        };
-
-        let tile = &mut tiles[loc.x as usize][loc.y as usize];
-
-        if tile.terrain == Terrain::LAND {
-            if tile.city.is_none() {
-                tile.city = Some(City::new(Alignment::BELLIGERENT{ player: player_num }, loc));
-                player_num += 1;
-            }
-        }
-    }
-
-    LocationGrid::new_from_vec(&map_dims, tiles)
 }
