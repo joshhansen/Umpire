@@ -12,7 +12,6 @@
 //     else { max }
 // }
 
-use std::cmp::{Ordering,min};
 use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Add;
@@ -122,36 +121,9 @@ pub enum Wrap {
     NonWrapping
 }
 
-impl Wrap {
-    fn wrap_usize(&self, idx: usize, width: usize) -> usize {
-        match *self {
-            Wrap::Wrapping => idx % width,
-            Wrap::NonWrapping => idx
-        }
-    }
-
-    fn wrap_u16(&self, idx: u16, width: u16) -> u16 {
-        match *self {
-            Wrap::Wrapping => idx % width,
-            Wrap::NonWrapping => idx
-        }
-    }
-
-
-}
-
 pub struct Wrap2d {
     pub horiz: Wrap,
     pub vert: Wrap
-}
-
-impl Wrap2d {
-    fn wrap_loc(&self, loc: Location, dims: Dims) -> Location {
-        Location {
-            x: self.horiz.wrap_u16(loc.x, dims.width),
-            y: self.vert.wrap_u16(loc.y, dims.height)
-        }
-    }
 }
 
 pub static WRAP_BOTH: Wrap2d = Wrap2d{
@@ -175,41 +147,9 @@ pub static WRAP_NEITHER: Wrap2d = Wrap2d {
 };
 
 pub type Location = Vec2d<u16>;
-impl Location {
-    fn dist_u16(x: u16, y: u16) -> u16 {
-        if x > y {
-            return x - y;
-        }
-        y - x
-    }
-
-    fn dist_u16_wrapping(x: u16, y: u16, width: u16) -> u16 {
-        match x.cmp(&y) {
-            Ordering::Equal => 0,
-            Ordering::Greater => Location::dist_u16_wrapping(y, x, width),
-            Ordering::Less => {
-
-                let dist_via_middle = y - x;
-                let dist_via_wrap = x + width - y;
-
-                min(dist_via_middle, dist_via_wrap)
-            }
-        }
-    }
-}
 
 impl fmt::Debug for Location {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
     }
-}
-
-#[test]
-fn test_dist_u16_wrapping() {
-    let width = 5;
-    assert_eq!(Location::dist_u16_wrapping(1, 3, width), 2);
-    assert_eq!(Location::dist_u16_wrapping(3, 1, width), 2);
-    assert_eq!(Location::dist_u16_wrapping(0, 4, width), 1);
-    assert_eq!(Location::dist_u16_wrapping(4, 0, width), 1);
-    assert_eq!(Location::dist_u16_wrapping(0, 0, width), 0);
 }
