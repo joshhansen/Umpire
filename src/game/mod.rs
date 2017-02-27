@@ -151,7 +151,8 @@ impl Game {
     }
 
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<(),String> {
-        let shortest_paths = shortest_paths(&self.tiles, &src, &self.wrapping);
+        let unit_type = self.tiles[src].unit.unwrap().type_;
+        let shortest_paths = shortest_paths(&self.tiles, &src, unit_type, &self.wrapping);
 
         if let Some(distance) = shortest_paths.dist[dest] {
             println!("Dist: {}", distance);

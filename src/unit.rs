@@ -4,6 +4,7 @@ use std::fmt;
 
 use termion::color::AnsiValue;
 
+use map::Terrain;
 use util::Location;
 
 pub type PlayerNum = u8;
@@ -128,6 +129,21 @@ impl UnitType {
         }
         None
     }
+
+    pub fn can_move_on(&self, terrain: &Terrain) -> bool {
+        match *self {
+            UnitType::INFANTRY => *terrain==Terrain::LAND,
+            UnitType::ARMOR => *terrain==Terrain::LAND,
+            UnitType::FIGHTER => *terrain==Terrain::LAND || *terrain==Terrain::WATER,
+            UnitType::BOMBER => *terrain==Terrain::LAND || *terrain==Terrain::WATER,
+            UnitType::TRANSPORT => *terrain==Terrain::WATER,
+            UnitType::DESTROYER => *terrain==Terrain::WATER,
+            UnitType::SUBMARINE => *terrain==Terrain::WATER,
+            UnitType::CRUISER => *terrain==Terrain::WATER,
+            UnitType::BATTLESHIP => *terrain==Terrain::WATER,
+            UnitType::CARRIER => *terrain==Terrain::WATER
+        }
+    }
 }
 
 impl Named for UnitType {
@@ -149,7 +165,7 @@ impl Named for UnitType {
 
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub struct Unit {
-    type_: UnitType,
+    pub type_: UnitType,
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
