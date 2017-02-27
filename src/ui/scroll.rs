@@ -6,10 +6,8 @@ use std::io::{StdoutLock,Write};
 use termion::color::{Fg, AnsiValue};
 use termion::event::Key;
 
-use conf;
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
-use unit::PlayerNum;
 use util::{Direction,Rect,Vec2d};
 
 pub trait ScrollableComponent : Component {

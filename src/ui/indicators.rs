@@ -29,7 +29,7 @@ impl CurrentPlayer {
 }
 
 impl Draw for CurrentPlayer {
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         write!(*stdout,
             "{}Current Player: {}",
             self.goto(0, 0),
@@ -39,7 +39,7 @@ impl Draw for CurrentPlayer {
 }
 
 impl Keypress for CurrentPlayer {
-    fn keypress(&mut self, key: &Key, game: &mut Game) {
+    fn keypress(&mut self, _key: &Key, _game: &mut Game) {
         // do nothing
     }
 }
@@ -84,7 +84,7 @@ impl Redraw for Turn {
 }
 
 impl Keypress for Turn {
-    fn keypress(&mut self, key: &Key, game: &mut Game) {
+    fn keypress(&mut self, _key: &Key, _game: &mut Game) {
         // do nothing
     }
 }

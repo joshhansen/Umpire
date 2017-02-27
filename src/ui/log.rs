@@ -33,7 +33,7 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),
@@ -52,7 +52,7 @@ impl Draw for LogArea {
 }
 
 impl Keypress for LogArea {
-    fn keypress(&mut self, key: &Key, game: &mut Game) {
+    fn keypress(&mut self, _key: &Key, _game: &mut Game) {
         // do nothing
     }
 }

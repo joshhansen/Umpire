@@ -6,7 +6,6 @@ extern crate termion;
 
 use std::cell::RefCell;
 use std::convert::TryFrom;
-use std::process::exit;
 use std::io::{Write, stdin, StdoutLock};
 use std::rc::Rc;
 use std::thread;
@@ -29,23 +28,23 @@ pub enum Mode {
     General,
     SetProduction{loc:Location},
     MoveUnit{loc:Location},
-    PanMap,
-    Help
+    // PanMap,
+    // Help
 }
 
-trait Draw {
+pub trait Draw {
     fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
 }
 
-trait Redraw {
+pub trait Redraw {
     fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
 }
 
-trait Keypress {
+pub trait Keypress {
     fn keypress(&mut self, key: &Key, game: &mut Game);
 }
 
-trait Component : Draw+Redraw+Keypress {
+pub trait Component : Draw+Redraw+Keypress {
     fn set_rect(&mut self, rect: Rect);
 
     fn rect(&self) -> Rect;
@@ -214,10 +213,14 @@ impl Keypress for MoveUnit {
                     let src:  Vec2d<u16> = Vec2d::new(src.x as u16, src.y as u16);
                     let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
 
-                    game.move_unit(src, dest);
-                    thread::sleep(Duration::from_millis(350));
+                    match game.move_unit(src, dest) {
+                        Ok(()) => thread::sleep(Duration::from_millis(350)),
+                        Err(msg) => {
+                            println!("Error: {}", msg);
+                        }
+                    }
                 },
-                Err(msg) => {
+                Err(_msg) => {
                     // println!("Error: {}", msg);
                     // thread::sleep(Duration::from_millis(5000));
                 }

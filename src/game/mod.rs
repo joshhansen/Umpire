@@ -14,11 +14,11 @@ use util::{Dims,Location,Wrap,Wrap2d};
 pub type TurnNum = u32;
 
 /// What a particular player knows about a tile
-#[derive(Clone)]
-enum Obs {
-    OBSERVED{tile: Tile, turn: TurnNum},
-    UNOBSERVED
-}
+// #[derive(Clone)]
+// enum Obs {
+//     OBSERVED{tile: Tile, turn: TurnNum},
+//     UNOBSERVED
+// }
 
 pub struct Game {
     pub map_dims: Dims,

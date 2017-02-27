@@ -2,7 +2,7 @@ extern crate termion;
 
 use std::convert::TryFrom;
 use std::fmt;
-use std::iter::{Enumerate,FlatMap,FromIterator,Map};
+use std::iter::{FlatMap,FromIterator};
 use std::slice::Iter;
 use std::ops::{Index,IndexMut};
 
@@ -158,7 +158,7 @@ impl LocationGrid<Tile> {
     }
 }
 
-struct LocationGridIter<'a> {
+pub struct LocationGridIter<'a> {
     iter: FlatMap<Iter<'a, Vec<Tile>>, Iter<'a, Tile>, fn(&Vec<Tile>) -> Iter<Tile> >
 }
 

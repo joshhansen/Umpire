@@ -10,19 +10,11 @@ fn test_tile() {
 
     let tile = Tile::new(terrain, loc);
 
-    if let None = tile.unit {
-        assert!(true);
-    } else {
-        assert!(false);
-    }
+    assert_eq!(tile.unit, None);
 
     let mut tile = tile;
 
     let unit = Unit::new(UnitType::INFANTRY, Alignment::NEUTRAL);
     tile.set_unit(unit);
-    if let Some(unit2) = tile.unit {
-        assert_eq!(unit, unit2);
-    } else {
-        assert!(false);
-    }
+    assert_eq!(tile.unit, Some(unit));
 }

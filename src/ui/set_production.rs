@@ -12,7 +12,6 @@ use util::{Location,Rect};
 pub struct SetProduction {
     rect: Rect,
     loc: Location,
-    selected: u8,
     done: bool
 }
 
@@ -21,7 +20,6 @@ impl SetProduction {
         SetProduction{
             rect: rect,
             loc: loc,
-            selected: 0,
             done: false
         }
     }
@@ -60,7 +58,7 @@ impl Keypress for SetProduction {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
         if let Key::Char(c) = *key {
             if let Some(unit_type) = UnitType::from_key(&c) {
-                game.set_production(&self.loc, &unit_type);
+                game.set_production(&self.loc, &unit_type).unwrap();
                 self.done = true;
             }
         }

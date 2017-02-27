@@ -1,6 +1,5 @@
 extern crate termion;
 
-use std::convert::TryFrom;
 use std::io::{StdoutLock,Write};
 
 use termion::color::{Fg, Bg};
@@ -106,6 +105,20 @@ impl Map {
             y: (viewport_loc.y + viewport_offset.y) % self.map_dims.height // mod implements wrapping
         }
     }
+
+    fn key_to_dir(c: char) -> Result<Direction,String> {
+        match c {
+            conf::KEY_VIEWPORT_SHIFT_UP         => Ok(Direction::Up),
+            conf::KEY_VIEWPORT_SHIFT_DOWN       => Ok(Direction::Down),
+            conf::KEY_VIEWPORT_SHIFT_LEFT       => Ok(Direction::Left),
+            conf::KEY_VIEWPORT_SHIFT_RIGHT      => Ok(Direction::Right),
+            conf::KEY_VIEWPORT_SHIFT_UP_LEFT    => Ok(Direction::UpLeft),
+            conf::KEY_VIEWPORT_SHIFT_UP_RIGHT   => Ok(Direction::UpRight),
+            conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT  => Ok(Direction::DownLeft),
+            conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT => Ok(Direction::DownRight),
+            _                    => Err(format!("{} doesn't indicate a direction", c))
+        }
+    }
 }
 
 impl ScrollableComponent for Map {
@@ -161,9 +174,9 @@ impl Redraw for Map {
 }
 
 impl Keypress for Map {
-    fn keypress(&mut self, key: &Key, game: &mut Game) {
+    fn keypress(&mut self, key: &Key, _game: &mut Game) {
         if let Key::Char(c) = *key {
-            if let Ok(dir) = Direction::try_from(c) {
+            if let Ok(dir) = Map::key_to_dir(c) {
                 self.shift_viewport(dir.vec2d())
             }
         }

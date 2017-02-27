@@ -41,7 +41,7 @@ use unit::PlayerNum;
 /// The name of this application
 pub const APP_NAME: &'static str = "umpire";
 
-pub const USER_NAME: &'static str = "Jersh";
+// pub const USER_NAME: &'static str = "Jersh";
 
 /// The width of the game map
 pub const MAP_WIDTH: u16 = 180;
@@ -53,7 +53,7 @@ pub const MAP_HEIGHT: u16 = 90;
 pub const HEADER_HEIGHT: u16 = 1;
 
 /// The height of the footer
-pub const FOOTER_HEIGHT: u16 = 5;
+// pub const FOOTER_HEIGHT: u16 = 5;
 
 /// The number of landmasses to seed during map generation
 pub const LANDMASSES:u16 = 150;
@@ -70,9 +70,9 @@ pub const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
 pub const NEUTRAL_CITY_DENSITY : f32 = 0.05;
 
 /// The number of teams playing, including humans and AIs
-pub const NUM_PLAYERS: PlayerNum = 4;
+pub const NUM_PLAYERS: PlayerNum = 1;
 
-pub const HUMAN_PLAYER: PlayerNum = 0;
+// pub const HUMAN_PLAYER: PlayerNum = 0;
 
 // Key mappings
 pub const KEY_VIEWPORT_SIZE_ROTATE:      char = 'v';
