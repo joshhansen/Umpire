@@ -61,9 +61,12 @@ impl Game {
     /// turn wasn't done yet.
     pub fn begin_next_player_turn(&mut self) -> Result<PlayerNum,PlayerNum> {
         if self.production_set_requests.is_empty() && self.unit_move_requests.is_empty() {
-            // let player = self.next_player;
-            // self.next_player = (self.next_player + 1) % self.num_players;
             let next_player = self.next_player();
+
+            if !self.current_player.is_none() && next_player==0 {
+                self.turn += 1;
+            }
+
             self.current_player = Some(next_player);
             self.begin_player_turn(next_player);
             return Ok(next_player);
