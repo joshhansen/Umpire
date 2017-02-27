@@ -21,6 +21,8 @@
 
 mod conf;
 mod game;
+#[macro_use]
+mod macros;
 mod map;
 mod ui;
 mod unit;
