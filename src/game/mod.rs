@@ -22,7 +22,7 @@ pub type TurnNum = u32;
 
 pub struct Game {
     pub map_dims: Dims,
-    pub tiles: LocationGrid<Tile>, // tiles[col][row]
+    tiles: LocationGrid<Tile>, // tiles[col][row]
     // player_maps: HashMap<PlayerNum,Vec<Vec<Obs>>>,
     pub turn: TurnNum,
     num_players: PlayerNum,

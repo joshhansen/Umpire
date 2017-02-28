@@ -81,7 +81,7 @@ impl Map {
     fn draw_tile(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>,
             tile_loc: Location, viewport_x: u16, viewport_y: u16) {
 
-        let tile = &game.tiles[tile_loc];
+        let tile = &game.tile(tile_loc).unwrap();
 
         if tile.loc.y == game.map_dims.height - 1 {
             write!(stdout, "{}", termion::style::Underline).unwrap();
@@ -143,8 +143,8 @@ impl Redraw for Map {
                 let new_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.viewport_offset);
 
                 let should_draw_tile = {
-                    let old_tile = &game.tiles[old_map_loc];
-                    let new_tile = &game.tiles[new_map_loc];
+                    let old_tile = &game.tile(old_map_loc).unwrap();
+                    let new_tile = &game.tile(new_map_loc).unwrap();
 
                     let redraw_for_border =
                     old_map_loc.y != new_map_loc.y && (
