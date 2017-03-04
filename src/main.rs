@@ -33,13 +33,20 @@ extern crate rand;
 extern crate terminal_size;
 extern crate termion;
 
+extern crate portaudio as pa;
+extern crate sample;
+
 use std::io::stdout;
+use std::thread;
+use std::time::Duration;
 
 use terminal_size::{Width, Height, terminal_size};
 use termion::raw::IntoRawMode;
 
 use util::Dims;
 use game::Game;
+use unit::{Unit,UnitType,Alignment};
+use ui::sound::Noisy;
 
 // Derived configuration
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
@@ -52,10 +59,21 @@ fn main() {
     // println!("{}", shlvl.unwrap());
 
 
+    // audio::run().unwrap();
+
+    // let unit = Unit::new(UnitType::FIGHTER, Alignment::BELLIGERENT{player:0});
+    // let mut stream = unit.make_noise().unwrap();
+    //
+    // while let Ok(true) = stream.is_active() {
+    //     thread::sleep(Duration::from_millis(100));
+    // }
+    //
+    // stream.stop().unwrap();
+    // stream.close().unwrap();
 
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
 
-        let mut game = Game::new(MAP_DIMS, conf::NUM_PLAYERS);
+        let mut game = Game::new(MAP_DIMS, conf::NUM_PLAYERS, conf::FOG_OF_WAR);
 
         {
             let stdout_0 : std::io::Stdout = stdout();
@@ -74,7 +92,4 @@ fn main() {
     } else {
         println!("Unable to get terminal size");
     }
-
-
-
 }

@@ -39,7 +39,7 @@ impl fmt::Debug for Terrain {
     }
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Tile {
     pub terrain: Terrain,
     pub unit: Option<Unit>,
@@ -48,7 +48,7 @@ pub struct Tile {
 }
 
 impl Tile {
-    fn new(terrain: Terrain, loc: Location) -> Tile {
+    pub fn new(terrain: Terrain, loc: Location) -> Tile {
         Tile{ terrain: terrain, unit: None, city: None, loc: loc }
     }
 
@@ -98,7 +98,7 @@ impl Tile {
 }
 
 pub struct LocationGrid<T> {
-    grid: Vec<Vec<T>>,
+    grid: Vec<Vec<T>>,//grid[col i.e. x][row i.e. y]
     dims: Dims
 }
 
@@ -107,7 +107,7 @@ impl<T> LocationGrid<T> {
         LocationGrid{ grid: grid, dims: *dims }
     }
 
-    fn new<I>(dims: &Dims, initializer: I) -> Self
+    pub fn new<I>(dims: &Dims, initializer: I) -> Self
         where I : Fn(&Location) -> T {
         let mut grid: Vec<Vec<T>> = Vec::new();
 
@@ -144,6 +144,10 @@ impl<T> LocationGrid<T> {
             None
         }
     }
+
+    pub fn dims(&self) -> Dims {
+        self.dims
+    }
 }
 
 impl LocationGrid<Tile> {
@@ -151,11 +155,21 @@ impl LocationGrid<Tile> {
         item.iter()
     }
 
+    // fn map2(item: & mut Vec<Tile>) -> Iter<&mut Tile> {
+    //     item.iter()
+    // }
+
     pub fn iter(&self) -> LocationGridIter {
         LocationGridIter {
             iter: self.grid.iter().flat_map(LocationGrid::map1)
         }
     }
+
+    // pub fn iter_mut(&mut self) -> LocationGridIterMut {
+    //     LocationGridIterMut {
+    //         iter: self.grid.iter_mut().flat_map(LocationGrid::map2)
+    //     }
+    // }
 }
 
 pub struct LocationGridIter<'a> {
@@ -168,6 +182,10 @@ impl <'b> Iterator for LocationGridIter<'b> {
         self.iter.next()
     }
 }
+
+// struct LocationGridIterMut<'a> {
+//     iter: FlatMap<IterMut<'a, Vec<Tile>>, Iter<'a, &'a mut Tile>, fn(&mut Vec<Tile>) -> Iter<'a, &mut Tile> >
+// }
 
 impl<T> Index<Location> for LocationGrid<T> {
     type Output = T;
@@ -216,22 +234,22 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
 ///
 /// Error if there are no lines or if the lines aren't of equal length
 impl TryFrom<&'static str> for LocationGrid<Tile> {
-    type Err = &'static str;
-    fn try_from(str: &'static str) -> Result<LocationGrid<Tile>,&'static str> {
+    type Err = String;
+    fn try_from(str: &'static str) -> Result<LocationGrid<Tile>,String> {
         let lines = Vec::from_iter( str.lines().map(|line| Vec::from_iter( line.chars() )) );
         if lines.is_empty() {
-            return Err("String contained no lines");
+            return Err(String::from("String contained no lines"));
         }
 
         let width = lines[0].len();
 
         if lines.len() == 1 && width == 0 {
-            return Err("No map was provided (the string was empty)");
+            return Err(String::from("No map was provided (the string was empty)"));
         }
 
         for line in &lines {
             if line.len() != width {
-                return Err("Lines aren't all the same width");
+                return Err(format!("Lines aren't all the same width. Expected {}, found {}", width, line.len()));
             }
         }
 
@@ -256,6 +274,15 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
 fn test_str_to_map() {
     if let Ok(_map) = LocationGrid::try_from("") {
         assert!(false, "Empty string should be an error");
+    }
+
+    match LocationGrid::try_from("   \n   ") {
+        Err(_) => {
+            assert!(false, "String should have parsed");
+        },
+        Ok(map) => {
+            assert_eq!(map.dims, Dims{width: 3, height: 2});
+        }
     }
 
     match LocationGrid::try_from(

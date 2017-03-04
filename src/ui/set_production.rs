@@ -27,7 +27,8 @@ impl SetProduction {
 
 impl Draw for SetProduction {
     fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        let ref tile = game.tile(self.loc).unwrap();
+        // let ref tile = game.tile(self.loc).unwrap();
+        let ref tile = game.current_player_tile(self.loc).unwrap();
 
         if let Some(ref city) = tile.city {
             // self.center_viewport(loc);

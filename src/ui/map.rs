@@ -81,22 +81,29 @@ impl Map {
     fn draw_tile(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>,
             tile_loc: Location, viewport_x: u16, viewport_y: u16) {
 
-        let tile = &game.tile(tile_loc).unwrap();
-
-        if tile.loc.y == game.map_dims.height - 1 {
+        if tile_loc.y == game.map_dims.height - 1 {
             write!(stdout, "{}", termion::style::Underline).unwrap();
         }
 
-        if let Some(fg_color) = tile.fg_color() {
-            write!(stdout, "{}", Fg(fg_color)).unwrap();
+        write!(stdout, "{}", self.goto(viewport_x, viewport_y)).unwrap();
+
+        match game.current_player_tile(tile_loc) {
+            Some(tile) => {
+                if let Some(fg_color) = tile.fg_color() {
+                    write!(stdout, "{}", Fg(fg_color)).unwrap();
+                }
+
+                write!(stdout, "{}{}",
+                    Bg(tile.bg_color()),
+                    tile.sym()
+                ).unwrap();
+            },
+            None => {
+                write!(stdout, " ").unwrap();
+            }
         }
 
-        write!(stdout, "{}{}{}{}",
-            self.goto(viewport_x, viewport_y),
-            Bg(tile.bg_color()),
-            tile.sym(),
-            termion::style::Reset
-        ).unwrap();
+        write!(stdout, "{}", termion::style::Reset).unwrap();
     }
 
     fn viewport_to_map_coords(&self, viewport_loc: &Location, viewport_offset: &Vec2d<u16>) -> Location {
@@ -142,28 +149,62 @@ impl Redraw for Map {
                 let old_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.old_viewport_offset);
                 let new_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.viewport_offset);
 
-                let should_draw_tile = {
-                    let old_tile = &game.tile(old_map_loc).unwrap();
-                    let new_tile = &game.tile(new_map_loc).unwrap();
+                // let old_tile = &game.tile(old_map_loc).unwrap();
+                // let new_tile = &game.tile(new_map_loc).unwrap();
+                let old_tile = &game.current_player_tile(old_map_loc);
+                let new_tile = &game.current_player_tile(new_map_loc);
 
-                    let redraw_for_border =
-                    old_map_loc.y != new_map_loc.y && (
-                        old_map_loc.y == game.map_dims.height - 1 ||
-                        new_map_loc.y == game.map_dims.height - 1
-                    );
+                // let should_draw_tile =
+                //     (old_tile.is_some() && new_tile.is_none()) ||
+                //     (old_tile.is_none() && new_tile.is_some()) ||
+                //     (old_tile.is_some() && new_tile.is_some() && {
+                //         let old = old_tile.unwrap();
+                //         let new = new_tile.unwrap();
+                //         let redraw_for_mismatch = !(
+                //             old.terrain==new.terrain &&
+                //             old.sym() == new.sym() &&
+                //             old.alignment() == new.alignment()
+                //         );
+                //         redraw_for_mismatch
+                //     }) || {
+                //         let redraw_for_border =
+                //         old_map_loc.y != new_map_loc.y && (
+                //             old_map_loc.y == game.map_dims.height - 1 ||
+                //             new_map_loc.y == game.map_dims.height - 1
+                //         );
+                //         redraw_for_border
+                //     };
 
-                    let redraw_for_mismatch = !(
-                        old_tile.terrain==new_tile.terrain &&
-                        old_tile.sym() == new_tile.sym() &&
-                        old_tile.alignment() == new_tile.alignment()
-                    );
+                // If old is None and new is Some
+                // If old is Some and new is None
+                // If old is Some and new is Some but they're different
+                // If located on the border
 
-                    redraw_for_border || redraw_for_mismatch
-                };
 
-                if should_draw_tile {
+                // let should_draw_tile = {
+                //
+                //
+                //
+                //
+                //
+                //     let redraw_for_border =
+                //     old_map_loc.y != new_map_loc.y && (
+                //         old_map_loc.y == game.map_dims.height - 1 ||
+                //         new_map_loc.y == game.map_dims.height - 1
+                //     );
+                //
+                //     let redraw_for_mismatch = !(
+                //         old_tile.terrain==new_tile.terrain &&
+                //         old_tile.sym() == new_tile.sym() &&
+                //         old_tile.alignment() == new_tile.alignment()
+                //     );
+                //
+                //     redraw_for_border || redraw_for_mismatch
+                // };
+
+                // if should_draw_tile {
                     self.draw_tile(game, stdout, new_map_loc, viewport_x, viewport_y);
-                }
+                // }
 
             }
         }

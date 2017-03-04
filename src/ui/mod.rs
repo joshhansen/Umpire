@@ -24,13 +24,13 @@ pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
     termion::cursor::Goto(x + 1, y + 1)
 }
 
-pub enum Mode {
-    General,
-    SetProduction{loc:Location},
-    MoveUnit{loc:Location},
-    // PanMap,
-    // Help
-}
+// pub enum Mode {
+//     General,
+//     SetProduction{loc:Location},
+//     MoveUnit{loc:Location},
+//     // PanMap,
+//     // Help
+// }
 
 pub trait Draw {
     fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
@@ -77,13 +77,14 @@ mod indicators;
 mod log;
 mod map;
 mod set_production;
+pub mod sound;
 
 use self::scroll::Scroller;
 use self::indicators::{CurrentPlayer,Turn};
 use self::log::LogArea;
 use self::map::Map;
 use self::set_production::SetProduction;
-
+use self::sound::Noisy;
 
 enum ViewportSize {
     REGULAR,
@@ -214,7 +215,11 @@ impl Keypress for MoveUnit {
                     let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
 
                     match game.move_unit(src, dest) {
-                        Ok(()) => thread::sleep(Duration::from_millis(350)),
+                        Ok(()) => {
+
+
+                            thread::sleep(Duration::from_millis(350));
+                        },
                         Err(msg) => {
                             println!("Error: {}", msg);
                         }
@@ -241,7 +246,7 @@ impl Component for MoveUnit {
 
 
 pub struct UI<'a> {
-    mode: Mode,
+    // mode: Mode,
     stdout: termion::raw::RawTerminal<StdoutLock<'a>>,
     term_dims: Dims,
     viewport_size: ViewportSize,
@@ -281,7 +286,7 @@ impl<'b> UI<'b> {
 
         let mut ui = UI {
             // game: game,
-            mode: Mode::General,
+            // mode: Mode::General,
             stdout: stdout,
             term_dims: term_dims,
             viewport_size: viewport_size,
@@ -358,7 +363,7 @@ impl<'b> UI<'b> {
 
             self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
 
-            self.mode = Mode::SetProduction{loc:loc};
+            // self.mode = Mode::SetProduction{loc:loc};
             let viewport_rect = self.viewport_rect();
 
             {
@@ -392,7 +397,7 @@ impl<'b> UI<'b> {
 
             self.map_scroller.borrow_mut().scrollable.center_viewport(&loc);
 
-            self.mode = Mode::MoveUnit{loc:loc};
+            // self.mode = Mode::MoveUnit{loc:loc};
             let viewport_rect = self.viewport_rect();
 
             {
@@ -401,6 +406,22 @@ impl<'b> UI<'b> {
                     None => panic!(format!("Unit not at {}", loc))
                 };
                 self.log_message(game, format!("Requesting orders for unit {} at {}", unit, loc));
+
+                // let freq = unit.freq();
+                // let amp = unit.amp();
+                //
+                // thread::spawn(move || {
+                //     loop {
+                //         let mut stream = sound::make_noise(amp, freq).unwrap();
+                //
+                //         while let Ok(true) = stream.is_active() {
+                //             thread::sleep(Duration::from_millis(100));
+                //         }
+                //
+                //         stream.stop().unwrap();
+                //         stream.close().unwrap();
+                //     }
+                // });
             }
 
             self.scene.push(Rc::new(RefCell::new(MoveUnit::new(
@@ -410,26 +431,22 @@ impl<'b> UI<'b> {
 
             self.draw(game);
             self.take_input(game);
+            self.draw(game);
         }
     }
 
     pub fn run(&mut self, game: &mut Game) {
         // loop through endless game turns
         while self.keep_going {
-            let player_num = match game.begin_next_player_turn() {
-                Ok(player_num) => player_num,
-                Err(player_num) => player_num
-            };
+
 
             {
                 let mut cp = self.current_player.borrow_mut();
-                cp.player = Some(player_num);
+                cp.player = Some(game.current_player());
                 cp.redraw(game, &mut self.stdout);
             }
 
-
-
-            self.log_message(game, format!("Turn {}, player {} go!", game.turn, player_num));
+            self.log_message(game, format!("\nTurn {}, player {} go!", game.turn(), game.current_player()));
 
             // Process production set requests
             if !game.production_set_requests().is_empty() {
@@ -438,6 +455,11 @@ impl<'b> UI<'b> {
             if !game.unit_move_requests().is_empty() {
                 self.move_units_for_player(game);
             }
+
+            let _player_num = match game.end_turn() {
+                Ok(player_num) => player_num,
+                Err(player_num) => player_num
+            };
         }
 
         self.cleanup();

@@ -70,7 +70,9 @@ pub const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
 pub const NEUTRAL_CITY_DENSITY : f32 = 0.05;
 
 /// The number of teams playing, including humans and AIs
-pub const NUM_PLAYERS: PlayerNum = 1;
+pub const NUM_PLAYERS: PlayerNum = 4;
+
+pub const FOG_OF_WAR: bool = true;
 
 // pub const HUMAN_PLAYER: PlayerNum = 0;
 

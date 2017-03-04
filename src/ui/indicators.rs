@@ -73,7 +73,7 @@ impl Turn {
 
 impl Draw for Turn {
     fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn).unwrap();
+        write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
     }
 }
 

@@ -4,8 +4,10 @@ use std::fmt;
 
 use termion::color::AnsiValue;
 
-use map::Terrain;
-use util::Location;
+use game::TurnNum;
+use game::obs::ObsTracker;
+use map::{LocationGrid,Terrain,Tile};
+use util::{Location,Vec2d,Wrap2d,wrapped_add};
 
 pub type PlayerNum = u8;
 
@@ -44,6 +46,30 @@ pub trait Named {
 
 pub trait Sym {
     fn sym(&self) -> char;
+}
+
+pub trait Observer {
+    fn sight_distance(&self) -> u16;
+    fn observe(&self, observer_loc: Location, tiles: &LocationGrid<Tile>, turn: TurnNum, wrapping: &Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
+        let sight = self.sight_distance() as i16;
+
+        for i in (-sight)..(sight+1) {
+            for j in (-sight)..(sight+1) {
+                let dist = ((i.pow(2) + j.pow(2)) as f64).sqrt();
+
+                // println!("{},{} dist {} sight {}", i, j, dist, sight);
+
+                if dist <= sight as f64 {
+                    let inc = Vec2d::new(i, j);
+                    if let Some(loc) = wrapped_add(&observer_loc, &inc, &tiles.dims(), &wrapping) {
+
+                        // println!("\t{}", loc);
+                        obs_tracker.observe(loc, &tiles[loc], turn);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
@@ -118,6 +144,21 @@ impl UnitType {
             UnitType::CRUISER => 'c',
             UnitType::BATTLESHIP => 'B',
             UnitType::CARRIER => 'C'
+        }
+    }
+
+    pub fn sight_distance(&self) -> u16 {
+        match *self {
+            UnitType::INFANTRY => 2,
+            UnitType::ARMOR => 2,
+            UnitType::FIGHTER => 4,
+            UnitType::BOMBER => 4,
+            UnitType::TRANSPORT => 2,
+            UnitType::DESTROYER => 3,
+            UnitType::SUBMARINE => 3,
+            UnitType::CRUISER => 3,
+            UnitType::BATTLESHIP => 4,
+            UnitType::CARRIER => 4
         }
     }
 
@@ -232,6 +273,12 @@ impl Aligned for Unit {
     fn alignment(&self) -> Alignment { self.alignment }
 }
 
+impl Observer for Unit {
+    fn sight_distance(&self) -> u16 {
+        self.type_.sight_distance()
+    }
+}
+
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.type_.name())
@@ -273,10 +320,118 @@ impl Aligned for City {
     fn alignment(&self) -> Alignment { self.alignment }
 }
 
+impl Observer for City {
+    fn sight_distance(&self) -> u16 {
+        3
+    }
+}
+
 impl Sym for City {
     fn sym(&self) -> char { '#' }
 }
 
 impl Named for City {
     fn name(&self) -> &'static str { "City "}
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashSet;
+    use std::convert::TryFrom;
+    use std::iter::FromIterator;
+
+    use game::obs::{FogOfWarTracker,Obs,ObsTracker};
+    use map::{LocationGrid,Tile};
+    use unit::{Alignment,Observer,Unit,UnitType};
+    use util::{Dims,Location,WRAP_BOTH};
+
+
+    #[test]
+    fn test_observations() {
+        let map_s = "\
+x   o    x
+x  ooo   x
+x ooioo  x
+x  ooo   x
+x   o    x";
+
+        match LocationGrid::try_from(map_s) {
+            Err(err) => {
+                assert!(false, "Error parsing map: {}", err);
+            },
+            Ok(map) => {
+                assert_eq!(map.dims(), Dims{width:10, height:5});
+
+                let width = map_s.lines().map(|line| line.len()).max();
+                let height = map_s.lines().count();
+
+                let infantry_loc = Location{x:4, y:2};
+
+                let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+
+                let mut obs_tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
+
+                for tile in map.iter() {
+                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), Obs::UNOBSERVED);
+                }
+
+                let turn = 0;
+
+                infantry.observe(infantry_loc, &map, turn, &WRAP_BOTH, &mut obs_tracker);
+
+                let observed_locs_arr = [
+                    Location{x:4, y:0},
+                    Location{x:3, y:1},
+                    Location{x:4, y:1},
+                    Location{x:5, y:1},
+                    Location{x:2, y:2},
+                    Location{x:3, y:2},
+                    Location{x:4, y:2},
+                    Location{x:5, y:2},
+                    Location{x:6, y:2},
+                    Location{x:3, y:3},
+                    Location{x:4, y:3},
+                    Location{x:5, y:3},
+                    Location{x:4, y:4}
+                ];
+                let observed_locs: HashSet<&Location> = HashSet::from_iter(observed_locs_arr.iter());
+
+                for tile in map.iter() {
+                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) {
+                        Obs::OBSERVED{ tile: map[tile.loc].clone(), turn: turn }
+                    } else {
+                        Obs::UNOBSERVED
+                    });
+                }
+
+                /*
+                x   oo   x
+                x  oooo  x
+                x ooiioo x
+                x  oooo  x
+                x   oo   x"
+                */
+                let infantry_loc_2 = Location{x:5, y:2};
+
+                infantry.observe(infantry_loc_2, &map, turn, &WRAP_BOTH, &mut obs_tracker);
+
+                let observed_locs_arr_2 = [
+                    Location{x:5, y:0},
+                    Location{x:6, y:1},
+                    Location{x:7, y:2},
+                    Location{x:6, y:3},
+                    Location{x:5, y:4}
+                ];
+                let observed_locs_2: HashSet<&Location> = HashSet::from_iter(observed_locs_arr_2.iter());
+
+                for tile in map.iter() {
+                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) || observed_locs_2.contains(&tile.loc) {
+                        Obs::OBSERVED{ tile: map[tile.loc].clone(), turn: turn }
+                    } else {
+                        Obs::UNOBSERVED
+                    });
+                }
+            }
+        }
+    }
 }

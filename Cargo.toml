@@ -5,6 +5,8 @@ authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
 
 [dependencies]
 csv = "0.15.0"
+portaudio = "0.7.0"
+sample = "0.6.2"
 termion = "1.0.3"
 rand = "0.3.14"
 terminal_size = "0.1.5"

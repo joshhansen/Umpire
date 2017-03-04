@@ -17,6 +17,7 @@ use std::fmt;
 use std::ops::Add;
 
 use conf;
+use map::dijkstra::RELATIVE_NEIGHBORS;
 
 #[derive(Clone,Copy)]
 pub struct Rect {
@@ -35,7 +36,7 @@ impl Rect {
     pub fn height(&self) -> u16 { self.height }
 }
 
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone,Copy,Debug,PartialEq)]
 pub struct Dims {
     pub width: u16,
     pub height: u16
@@ -145,6 +146,130 @@ pub static WRAP_NEITHER: Wrap2d = Wrap2d {
     horiz: Wrap::NonWrapping,
     vert: Wrap::NonWrapping
 };
+
+///
+/// Add `inc` to `loc` respecting the specified wrapping rules in a space defined by `dims`
+/// If the result is out of bounds, return None
+///
+pub fn wrapped_add(loc: &Location, inc: &Vec2d<i16>, dims: &Dims, wrapping: &Wrap2d) -> Option<Location> {
+    let mut new_x: i32 = loc.x as i32 + inc.x as i32;
+    if let Wrap::Wrapping = wrapping.horiz {
+        new_x = if new_x < 0 { dims.width as i32 + new_x } else { new_x % dims.width as i32 };
+    } else if new_x >= dims.width as i32 {
+        return None;
+    }
+
+    let mut new_y: i32 = loc.y as i32 + inc.y as i32;
+    if let Wrap::Wrapping = wrapping.vert {
+        new_y = if new_y < 0 { dims.height as i32 + new_y } else { new_y % dims.height as i32 };
+    } else if new_y >= dims.height as i32 {
+        return None;
+    }
+
+    Some(Location {
+        x: new_x as u16,
+        y: new_y as u16
+    })
+}
+
+#[test]
+fn test_wrapped_add() {
+/*
+    xxxx* 5
+    xxxxx 4
+    xxxxx 3
+    xxxxx 2
+    xxxxx 1
+    xxxxx 0
+
+    01234
+*/
+    let dims = Dims{width: 5, height: 6};
+    let loc = Location{x: 4, y: 5};
+
+    let results_both: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        Some(Location{x:3, y:0}),
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        Some(Location{x:4, y:0}),
+    // Vec2d { x:  1, y: -1 },
+        Some(Location{x:0, y:4}),
+    // Vec2d { x:  1, y:  0 },
+        Some(Location{x:0, y:5}),
+    // Vec2d { x:  1, y:  1}
+        Some(Location{x:0, y:0})
+    ];
+
+    let results_horiz: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        None,
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        None,
+    // Vec2d { x:  1, y: -1 },
+        Some(Location{x:0, y:4}),
+    // Vec2d { x:  1, y:  0 },
+        Some(Location{x:0, y:5}),
+    // Vec2d { x:  1, y:  1}
+        None
+    ];
+
+    let results_vert: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        Some(Location{x:3, y:0}),
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        Some(Location{x:4, y:0}),
+    // Vec2d { x:  1, y: -1 },
+        None,
+    // Vec2d { x:  1, y:  0 },
+        None,
+    // Vec2d { x:  1, y:  1}
+        None
+    ];
+
+    let results_neither: [Option<Location>; 8] = [
+    // Vec2d { x: -1, y: -1 },
+        Some(Location{x:3, y:4}),
+    // Vec2d { x: -1, y:  0 },
+        Some(Location{x:3, y:5}),
+    // Vec2d { x: -1, y:  1 },
+        None,
+    // Vec2d { x:  0, y: -1 },
+        Some(Location{x:4, y:4}),
+    // Vec2d { x:  0, y:  1 },
+        None,
+    // Vec2d { x:  1, y: -1 },
+        None,
+    // Vec2d { x:  1, y:  0 },
+        None,
+    // Vec2d { x:  1, y:  1}
+        None
+    ];
+
+    for (i, rel_neighb) in RELATIVE_NEIGHBORS.iter().enumerate() {
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_BOTH),    results_both   [i] );
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_HORIZ),   results_horiz  [i] );
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_VERT),    results_vert   [i] );
+        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_NEITHER), results_neither[i] );
+    }
+}
 
 pub type Location = Vec2d<u16>;
 
