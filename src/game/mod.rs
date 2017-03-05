@@ -38,14 +38,14 @@ impl Game {
     /// A map with the specified dimensions will be generated
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observtions growing stale over time.
-    pub fn new(map_dims: Dims, num_players: PlayerNum, fog_of_war: bool) -> Self {
+    pub fn new<L:FnMut(String)>(map_dims: Dims, num_players: PlayerNum, fog_of_war: bool, log_listener: &mut L) -> Self {
         let mut map_generator = MapGenerator::new();
         let map = map_generator.generate(map_dims);
 
-        Game::new_with_map(map, num_players, fog_of_war)
+        Game::new_with_map(map, num_players, fog_of_war, log_listener)
     }
 
-    fn new_with_map(map: LocationGrid<Tile>, num_players: PlayerNum, fog_of_war: bool) -> Self {
+    fn new_with_map<L:FnMut(String)>(map: LocationGrid<Tile>, num_players: PlayerNum, fog_of_war: bool, log_listener: &mut L) -> Self {
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
             let tracker: Box<ObsTracker> = if fog_of_war {
@@ -67,11 +67,11 @@ impl Game {
             unit_move_requests: HashSet::new(),
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping}
         };
-        game.begin_turn();
+        game.begin_turn(log_listener);
         game
     }
 
-    fn begin_turn(&mut self) {
+    fn begin_turn<L:FnMut(String)>(&mut self, log_listener: &mut L) {
         for x in 0..self.map_dims.width {
             for y in 0..self.map_dims.height {
                 let loc = Location{x:x, y:y};
@@ -87,6 +87,7 @@ impl Game {
                                     let new_unit = Unit::new(*unit_under_production, city.alignment);
                                     tile.unit = Some(new_unit);
                                     city.production_progress = 0;
+                                    log_listener(format!("{} produced {}", city, &tile.unit.unwrap()));
                                 }
                             } else {
                                 self.production_set_requests.insert(loc);
@@ -122,14 +123,14 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn(&mut self) -> Result<PlayerNum,PlayerNum> {
+    pub fn end_turn<L:FnMut(String)>(&mut self, log_listener: &mut L) -> Result<PlayerNum,PlayerNum> {
         if self.production_set_requests.is_empty() && self.unit_move_requests.is_empty() {
             self.current_player = (self.current_player + 1) % self.num_players;
             if self.current_player == 0 {
                 self.turn += 1;
             }
 
-            self.begin_turn();
+            self.begin_turn(log_listener);
 
             Ok(self.current_player)
         } else {
@@ -344,35 +345,36 @@ mod test {
 
     #[test]
     fn test_game() {
+        let mut log_listener = |msg:String| println!("{}", msg);
         let players = 2;
         let fog_of_war = true;
-        let mut game = Game::new(Dims{width:10, height:10}, players, fog_of_war);
+        let mut game = Game::new(Dims{width:10, height:10}, players, fog_of_war, &mut log_listener);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
 
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(&loc, &UnitType::INFANTRY).unwrap();
 
-        let player = game.end_turn().unwrap();
+        let player = game.end_turn(&mut log_listener).unwrap();
         assert_eq!(player, 1);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(&loc, &UnitType::INFANTRY).unwrap();
 
-        let player = game.end_turn().unwrap();
+        let player = game.end_turn(&mut log_listener).unwrap();
         assert_eq!(player, 0);
 
 
 
         for _ in 0..5 {
-            let player = game.end_turn().unwrap();
+            let player = game.end_turn(&mut log_listener).unwrap();
             assert_eq!(player, 1);
-            let player = game.end_turn().unwrap();
+            let player = game.end_turn(&mut log_listener).unwrap();
             assert_eq!(player, 0);
         }
 
-        assert_eq!(game.end_turn(), Err(0));
-        assert_eq!(game.end_turn(), Err(0));
+        assert_eq!(game.end_turn(&mut log_listener), Err(0));
+        assert_eq!(game.end_turn(&mut log_listener), Err(0));
     }
 }

@@ -30,10 +30,13 @@ impl LogArea {
             self.messages.pop_front();
         }
     }
-}
 
-impl Draw for LogArea {
-    fn draw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    pub fn redraw_lite(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.clear(stdout);
+        self.draw_lite(stdout);
+    }
+
+    fn draw_lite(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),
@@ -48,6 +51,12 @@ impl Draw for LogArea {
         for (i, message) in self.messages.iter().enumerate() {
             write!(*stdout, "{}{}", self.goto(2, i as u16+1), message).unwrap();
         }
+    }
+}
+
+impl Draw for LogArea {
+    fn draw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.draw_lite(stdout);
     }
 }
 

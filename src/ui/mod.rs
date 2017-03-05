@@ -347,15 +347,16 @@ impl<'b> UI<'b> {
         }
     }
 
-    fn log_message(&mut self, game: &Game, message: String) {
+    fn log_message(&mut self, message: String) {
         self.log.borrow_mut().log_message(message);
-        self.log.borrow_mut().redraw(game, &mut self.stdout);
+        // self.log.borrow_mut().redraw(game, &mut self.stdout);
+        self.log.borrow_mut().redraw_lite(&mut self.stdout);
     }
 
     fn set_productions_for_player(&mut self, game: &mut Game) {
         while self.keep_going {
             if game.production_set_requests().is_empty() {
-                self.log_message(game, "Productions set.".to_string());
+                self.log_message("Productions set.".to_string());
                 break;
             }
 
@@ -368,7 +369,7 @@ impl<'b> UI<'b> {
 
             {
                 let city = game.city(loc).unwrap();
-                self.log_message(game, format!("Requesting production target for {}", city ));
+                self.log_message(format!("Requesting production target for {}", city ));
             }
 
             self.scene.push(Rc::new(RefCell::new(SetProduction::new(
@@ -389,7 +390,7 @@ impl<'b> UI<'b> {
     fn move_units_for_player(&mut self, game: &mut Game) {
         while self.keep_going {
             if game.unit_move_requests().len() < 1 {
-                self.log_message(game, "Units moved.".to_string());
+                self.log_message("Units moved.".to_string());
                 break;
             }
 
@@ -405,7 +406,7 @@ impl<'b> UI<'b> {
                     Some(unit) => unit,
                     None => panic!(format!("Unit not at {}", loc))
                 };
-                self.log_message(game, format!("Requesting orders for unit {} at {}", unit, loc));
+                self.log_message(format!("Requesting orders for unit {} at {}", unit, loc));
 
                 // let freq = unit.freq();
                 // let amp = unit.amp();
@@ -446,7 +447,7 @@ impl<'b> UI<'b> {
                 cp.redraw(game, &mut self.stdout);
             }
 
-            self.log_message(game, format!("\nTurn {}, player {} go!", game.turn(), game.current_player()));
+            self.log_message(format!("\nTurn {}, player {} go!", game.turn(), game.current_player()));
 
             // Process production set requests
             if !game.production_set_requests().is_empty() {
@@ -456,7 +457,11 @@ impl<'b> UI<'b> {
                 self.move_units_for_player(game);
             }
 
-            let _player_num = match game.end_turn() {
+            let mut log_listener = |msg:String| {
+                self.log_message(msg);
+            };
+
+            let _player_num = match game.end_turn(&mut log_listener) {
                 Ok(player_num) => player_num,
                 Err(player_num) => player_num
             };

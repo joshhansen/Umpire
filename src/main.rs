@@ -72,8 +72,10 @@ fn main() {
     // stream.close().unwrap();
 
     if let Some((Width(term_width), Height(term_height))) = terminal_size() {
-
-        let mut game = Game::new(MAP_DIMS, conf::NUM_PLAYERS, conf::FOG_OF_WAR);
+        let mut log_listener = |msg:String| {
+            println!("{}", msg);
+        };
+        let mut game = Game::new(MAP_DIMS, conf::NUM_PLAYERS, conf::FOG_OF_WAR, &mut log_listener);
 
         {
             let stdout_0 : std::io::Stdout = stdout();
