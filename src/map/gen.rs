@@ -2,8 +2,6 @@
 //! Map generation
 //!
 
-extern crate rand;
-
 // use std::num::Zero;
 
 use std::path::Path;
@@ -151,7 +149,7 @@ impl MapGenerator {
 
 
 
-        let mut rng = rand::thread_rng();
+        let mut rng = thread_rng();
 
         // Seed the continents/islands
         for _ in 0..conf::LANDMASSES {

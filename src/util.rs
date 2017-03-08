@@ -42,6 +42,14 @@ pub struct Dims {
     pub height: u16
 }
 
+impl fmt::Display for Dims {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.width.fmt(f)
+        .and(write!(f, "x"))
+        .and(self.height.fmt(f))
+    }
+}
+
 #[derive(Clone,Copy,Eq,PartialEq,Hash)]
 pub struct Vec2d<T> {
     pub x: T,

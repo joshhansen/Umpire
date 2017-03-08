@@ -215,8 +215,8 @@ impl Keypress for MoveUnit {
                     let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
 
                     match game.move_unit(src, dest) {
-                        Ok(()) => {
-
+                        Ok(_combat_outcomes) => {
+                            //FIXME do something with these combat outcomes
 
                             thread::sleep(Duration::from_millis(350));
                         },

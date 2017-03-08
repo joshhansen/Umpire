@@ -37,16 +37,16 @@ extern crate portaudio as pa;
 extern crate sample;
 
 use std::io::stdout;
-use std::thread;
-use std::time::Duration;
+// use std::thread;
+// use std::time::Duration;
 
 use terminal_size::{Width, Height, terminal_size};
 use termion::raw::IntoRawMode;
 
 use util::Dims;
 use game::Game;
-use unit::{Unit,UnitType,Alignment};
-use ui::sound::Noisy;
+use unit::{UnitType,Alignment};
+// use ui::sound::Noisy;
 
 // Derived configuration
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };

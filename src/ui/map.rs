@@ -146,13 +146,13 @@ impl Redraw for Map {
             for viewport_y in 0_u16..(self.rect.height+1) {
                 viewport_loc.y = viewport_y;
 
-                let old_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.old_viewport_offset);
+                // let old_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.old_viewport_offset);
                 let new_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.viewport_offset);
 
                 // let old_tile = &game.tile(old_map_loc).unwrap();
                 // let new_tile = &game.tile(new_map_loc).unwrap();
-                let old_tile = &game.current_player_tile(old_map_loc);
-                let new_tile = &game.current_player_tile(new_map_loc);
+                // let old_tile = &game.current_player_tile(old_map_loc);
+                // let new_tile = &game.current_player_tile(new_map_loc);
 
                 // let should_draw_tile =
                 //     (old_tile.is_some() && new_tile.is_none()) ||

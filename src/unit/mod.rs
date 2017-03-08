@@ -1,4 +1,4 @@
-extern crate termion;
+pub mod combat;
 
 use std::fmt;
 
@@ -29,11 +29,6 @@ impl Alignment {
 
 pub trait Located {
     fn loc(&self) -> Location;
-}
-
-pub trait CombatCapable {
-    fn hp(&self) -> u16;
-    fn max_hp(&self) -> u16;
 }
 
 pub trait Aligned {
@@ -245,6 +240,24 @@ impl Unit {
             UnitType::CARRIER => 1
         }
     }
+
+    pub fn can_move_on(&self, tile: &Tile) -> bool {
+        if !self.type_.can_move_on(&tile.terrain) {
+            return false;
+        }
+
+        // If the destination tile contains no unit, we're free to go as we please
+
+        // If it contains an enemy or neutral unit, we can in theory go there (if we defeat them in combat)
+
+        // If it contains one of our units, we can't go there
+
+        if let Some(unit) = tile.unit {
+            return self.alignment != unit.alignment;
+        }
+
+        return true;
+    }
 }
 
 impl Sym for Unit {
@@ -262,11 +275,6 @@ impl Sym for Unit {
             UnitType::CARRIER => 'C'
         }
     }
-}
-
-impl CombatCapable for Unit {
-    fn hp(&self) -> u16 { self.hp }
-    fn max_hp(&self) -> u16 { self.max_hp }
 }
 
 impl Aligned for Unit {
@@ -295,13 +303,13 @@ pub struct City {
 }
 
 impl City {
-    pub fn new(name: String, alignment: Alignment, loc: Location) -> City {
+    pub fn new<N:Into<String>>(name: N, alignment: Alignment, loc: Location) -> City {
         City {
             loc: loc,
             alignment: alignment,
             unit_under_production: None,
             production_progress: 0,
-            name: name
+            name: name.into()
         }
     }
 }
