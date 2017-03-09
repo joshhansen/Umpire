@@ -40,7 +40,7 @@ impl Game {
     /// The Game that is returned will already have begun with the first player's turn
     /// A map with the specified dimensions will be generated
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
-    /// observed, with observtions growing stale over time.
+    /// observed, with observations growing stale over time.
     pub fn new<L:FnMut(String)>(map_dims: Dims, num_players: PlayerNum, fog_of_war: bool, log_listener: &mut L) -> Self {
         let mut map_generator = MapGenerator::new();
         let map = map_generator.generate(map_dims, num_players);
