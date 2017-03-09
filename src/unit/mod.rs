@@ -349,7 +349,7 @@ mod test {
     use std::iter::FromIterator;
 
     use game::obs::{FogOfWarTracker,Obs,ObsTracker};
-    use map::{LocationGrid,Tile};
+    use map::{LocationGrid,Terrain,Tile};
     use unit::{Alignment,Observer,Unit,UnitType};
     use util::{Dims,Location,WRAP_BOTH};
 
@@ -441,5 +441,29 @@ x   o    x";
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_mobility() {
+        let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+        let friendly_unit = Unit::new(UnitType::ARMOR, Alignment::BELLIGERENT{player:0});
+        let enemy_unit = Unit::new(UnitType::ARMOR, Alignment::BELLIGERENT{player:1});
+
+        let loc = Location{x:5, y:5};
+        
+        let tile1 = Tile::new(Terrain::LAND, loc);
+        assert!(infantry.can_move_on(&tile1));
+
+        let tile2 = Tile::new(Terrain::WATER, loc);
+        assert!(!infantry.can_move_on(&tile2));
+
+        let mut tile3 = Tile::new(Terrain::LAND, loc);
+        tile3.unit = Some(friendly_unit);
+        assert!(!infantry.can_move_on(&tile3));
+
+        let mut tile4 = Tile::new(Terrain::LAND, loc);
+        tile4.unit = Some(enemy_unit);
+        assert!(infantry.can_move_on(&tile4));
+
     }
 }

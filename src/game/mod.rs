@@ -101,6 +101,7 @@ impl Game {
                                     log_listener(format!("{} produced {}", city, &tile.unit.unwrap()));
                                 }
                             } else {
+                                log_listener(format!("Queueing production set request for {}", city));
                                 self.production_set_requests.insert(loc);
                             }
                         }
@@ -108,9 +109,14 @@ impl Game {
                 }
 
                 if let Some(ref mut unit) = tile.unit {
-                    unit.moves_remaining = unit.movement_per_turn();
-                    if !unit.sentry {
-                        self.unit_move_requests.insert(loc);
+                    if let Alignment::BELLIGERENT{player} = unit.alignment {
+                        if player==self.current_player {
+                            unit.moves_remaining = unit.movement_per_turn();
+                            if !unit.sentry {
+                                log_listener(format!("Queueing unit move request for {}", unit));
+                                self.unit_move_requests.insert(loc);
+                            }
+                        }
                     }
                 }
             }
@@ -331,8 +337,7 @@ impl Game {
                             }
                         }
                     }
-
-
+                    
                     self.unit_move_requests.remove(&src);
 
                     if !destroyed {
@@ -443,6 +448,7 @@ mod test {
         assert_eq!(game.end_turn(&mut log_listener), Err(0));
 
         for player in 0..2 {
+            assert_eq!(game.unit_move_requests().len(), 1);
             let loc = *game.unit_move_requests().iter().next().unwrap();
             let new_x = (loc.x + 1) % game.tiles().dims().width;
             let new_loc = Location{x:new_x, y:loc.y};
