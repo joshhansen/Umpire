@@ -28,6 +28,7 @@ mod ui;
 mod unit;
 mod util;
 
+extern crate clap;
 extern crate csv;
 extern crate rand;
 extern crate terminal_size;
@@ -40,12 +41,13 @@ use std::io::stdout;
 // use std::thread;
 // use std::time::Duration;
 
+use clap::{Arg, App};
 use terminal_size::{Width, Height, terminal_size};
 use termion::raw::IntoRawMode;
 
 use util::Dims;
 use game::Game;
-use unit::{UnitType,Alignment};
+use unit::{PlayerNum,UnitType,Alignment};
 // use ui::sound::Noisy;
 
 // Derived configuration
@@ -53,6 +55,35 @@ const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT }
 
 
 fn main() {
+    let matches = App::new(conf::APP_NAME)
+        .version("0.1")
+        .author("Josh Hansen <hansen.joshuaa@gmail.com>")
+        .about("Combat Quest of the Millennium")
+        .arg(Arg::with_name("fog")
+          .short("f")
+          .long("fog")
+          .help("Enable or disable fog of war")
+          .takes_value(true)
+          .default_value(conf::FOG_OF_WAR)
+          .possible_values(&["on","off"])
+        )
+        .arg(Arg::with_name("players")
+            .short("p")
+            .long("players")
+            .help("Number of players")
+            .takes_value(true)
+            .required(true)
+            .default_value(conf::NUM_PLAYERS)
+            .validator(|s| {
+                let players: Result<PlayerNum,_> = s.trim().parse();
+                players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
+            })
+        )
+    .get_matches();
+
+    let fog_of_war = matches.value_of("fog").unwrap() == "on";
+    let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
+
     // let home:Result<String,()> = conf::get("HOME");
     // println!("{}", home.unwrap());
     // let shlvl:Result<u16,()> = conf::get("SHLVL");
@@ -75,7 +106,7 @@ fn main() {
         let mut log_listener = |msg:String| {
             println!("{}", msg);
         };
-        let mut game = Game::new(MAP_DIMS, conf::NUM_PLAYERS, conf::FOG_OF_WAR, &mut log_listener);
+        let mut game = Game::new(MAP_DIMS, num_players, fog_of_war, &mut log_listener);
 
         {
             let stdout_0 : std::io::Stdout = stdout();

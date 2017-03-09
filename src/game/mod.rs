@@ -43,7 +43,7 @@ impl Game {
     /// observed, with observtions growing stale over time.
     pub fn new<L:FnMut(String)>(map_dims: Dims, num_players: PlayerNum, fog_of_war: bool, log_listener: &mut L) -> Self {
         let mut map_generator = MapGenerator::new();
-        let map = map_generator.generate(map_dims);
+        let map = map_generator.generate(map_dims, num_players);
 
         Game::new_with_map(map, num_players, fog_of_war, log_listener)
     }

@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
 
 [dependencies]
+clap = "2.20.5"
 csv = "0.15.0"
 portaudio = "0.7.0"
 sample = "0.6.2"

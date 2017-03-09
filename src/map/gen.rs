@@ -12,7 +12,7 @@ use rand::{thread_rng, Rng};
 
 use conf;
 use map::{Terrain,Tile,LocationGrid};
-use unit::{Alignment,City};
+use unit::{Alignment,City,PlayerNum};
 use util::{Dims,Location};
 
 fn is_land(tiles: &Vec<Vec<Tile>>, x:u16, y:u16) -> bool {
@@ -135,7 +135,7 @@ impl MapGenerator {
         }
     }
 
-    pub fn generate(&mut self, map_dims: Dims) -> LocationGrid<Tile> {
+    pub fn generate(&mut self, map_dims: Dims, num_players: PlayerNum) -> LocationGrid<Tile> {
         let mut tiles = Vec::new();
 
         for x in 0..map_dims.width {
@@ -210,7 +210,7 @@ impl MapGenerator {
 
         // Populate player cities
         let mut player_num = 0;
-        while player_num < conf::NUM_PLAYERS {
+        while player_num < num_players {
             let loc = Location{
                 x: rng.gen_range(0, map_dims.width),
                 y: rng.gen_range(0, map_dims.height)
