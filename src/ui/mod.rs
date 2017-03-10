@@ -82,7 +82,6 @@ use self::indicators::{CurrentPlayer,Turn};
 use self::log::LogArea;
 use self::map::Map;
 use self::set_production::SetProduction;
-use self::sound::Noisy;
 
 enum ViewportSize {
     REGULAR,
