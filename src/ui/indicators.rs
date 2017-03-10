@@ -11,29 +11,23 @@ use unit::PlayerNum;
 use util::Rect;
 
 pub struct CurrentPlayer {
-    rect: Rect,
-    pub player: Option<PlayerNum>
+    rect: Rect
 }
 
 impl CurrentPlayer {
-    pub fn new(rect: Rect, player: Option<PlayerNum>) -> Self {
+    pub fn new(rect: Rect) -> Self {
         CurrentPlayer {
-            rect: rect,
-            player: player
+            rect: rect
         }
-    }
-
-    pub fn set_player(&mut self, player_num: PlayerNum) {
-        self.player = Some(player_num);
     }
 }
 
 impl Draw for CurrentPlayer {
-    fn draw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         write!(*stdout,
-            "{}Current Player: {}",
+            "{}Current Player: {}  ",
             self.goto(0, 0),
-            if let Some(player) = self.player { player.to_string() } else { "None".to_string() }
+            game.current_player()
         ).unwrap();
     }
 }

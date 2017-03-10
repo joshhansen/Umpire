@@ -282,7 +282,7 @@ impl<'b> UI<'b> {
         let log = Rc::new(RefCell::new(LogArea::new(&log_rect)));
 
         let cp_rect = current_player_rect();
-        let current_player = Rc::new(RefCell::new(CurrentPlayer::new(cp_rect, None)));
+        let current_player = Rc::new(RefCell::new(CurrentPlayer::new(cp_rect)));
 
         let mut ui = UI {
             // game: game,
@@ -442,8 +442,7 @@ impl<'b> UI<'b> {
 
 
             {
-                let mut cp = self.current_player.borrow_mut();
-                cp.player = Some(game.current_player());
+                let cp = self.current_player.borrow_mut();
                 cp.redraw(game, &mut self.stdout);
             }
 
