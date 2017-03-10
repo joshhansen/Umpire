@@ -395,10 +395,7 @@ impl<'b> UI<'b> {
             let viewport_rect = self.viewport_rect();
 
             {
-                let unit = match game.unit(loc) {
-                    Some(unit) => unit,
-                    None => panic!(format!("Unit not at {}", loc))
-                };
+                let unit = game.unit(loc).unwrap();
                 self.log_message(format!("Requesting orders for unit {} at {}", unit, loc));
 
                 // let freq = unit.freq();
