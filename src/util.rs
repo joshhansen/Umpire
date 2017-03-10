@@ -15,6 +15,8 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Add;
+use std::thread::sleep;
+use std::time::Duration;
 
 use conf;
 use map::dijkstra::RELATIVE_NEIGHBORS;
@@ -285,4 +287,8 @@ impl fmt::Debug for Location {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
     }
+}
+
+pub fn sleep_millis(millis: u64) {
+    sleep(Duration::from_millis(millis));
 }

@@ -3,13 +3,12 @@
 //! A rusty adaptation of the official PortAudio C "paex_sine.c" example by Phil Burk and Ross
 //! Bencina.
 
-use std;
-
 use pa;
 use sample::{Frame, Sample, Signal, ToFrameSliceMut};
 use sample::signal;
 
 use unit::{Unit,UnitType};
+use util::sleep_millis;
 
 const FRAMES_PER_BUFFER: u32 = 512;
 const NUM_CHANNELS: i32 = 1;
@@ -58,7 +57,7 @@ pub fn run() -> Result<(), pa::Error> {
     try!(stream.start());
 
     while let Ok(true) = stream.is_active() {
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        sleep_millis(100);
     }
 
     try!(stream.stop());
@@ -105,7 +104,7 @@ pub trait Noisy {
         make_noise(self.amp(), self.freq())
 
         // while let Ok(true) = stream.is_active() {
-        //     std::thread::sleep(std::time::Duration::from_millis(100));
+        //     sleep_millis(100);
         // }
         //
         // try!(stream.stop());

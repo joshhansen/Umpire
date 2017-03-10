@@ -8,8 +8,6 @@ use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::io::{Write, stdin, StdoutLock};
 use std::rc::Rc;
-use std::thread;
-use std::time::Duration;
 
 use termion::event::Key;
 use termion::input::TermRead;
@@ -17,7 +15,7 @@ use termion::input::TermRead;
 use conf;
 use conf::HEADER_HEIGHT;
 use game::Game;
-use util::{Dims,Direction,Rect,Location,Vec2d};
+use util::{Dims,Direction,Rect,Location,Vec2d,sleep_millis};
 
 /// 0-indexed variant of Goto
 pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
@@ -217,8 +215,7 @@ impl Keypress for MoveUnit {
                     match game.move_unit(src, dest) {
                         Ok(_combat_outcomes) => {
                             //FIXME do something with these combat outcomes
-
-                            thread::sleep(Duration::from_millis(350));
+                            sleep_millis(350);
                         },
                         Err(msg) => {
                             println!("Error: {}", msg);
@@ -227,7 +224,7 @@ impl Keypress for MoveUnit {
                 },
                 Err(_msg) => {
                     // println!("Error: {}", msg);
-                    // thread::sleep(Duration::from_millis(5000));
+                    // sleep_millis(5000);
                 }
             }
         }
@@ -416,7 +413,7 @@ impl<'b> UI<'b> {
                 //         let mut stream = sound::make_noise(amp, freq).unwrap();
                 //
                 //         while let Ok(true) = stream.is_active() {
-                //             thread::sleep(Duration::from_millis(100));
+                //             sleep_millis(100);
                 //         }
                 //
                 //         stream.stop().unwrap();
