@@ -52,10 +52,10 @@ impl Tile {
         Tile{ terrain: terrain, unit: None, city: None, loc: loc }
     }
 
-    pub fn sym(&self) -> char {
+    pub fn sym(&self) -> &'static str {
         match self.unit {
             None => match self.city {
-                None => ' ',
+                None => " ",
                 Some(ref city) => city.sym()
             },
             Some(ref unit) => unit.sym()

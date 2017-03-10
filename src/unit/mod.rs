@@ -40,7 +40,7 @@ pub trait Named {
 }
 
 pub trait Sym {
-    fn sym(&self) -> char;
+    fn sym(&self) -> &'static str;
 }
 
 pub trait Observer {
@@ -261,18 +261,18 @@ impl Unit {
 }
 
 impl Sym for Unit {
-    fn sym(&self) -> char {
+    fn sym(&self) -> &'static str {
         match self.type_ {
-            UnitType::INFANTRY => 'i',
-            UnitType::ARMOR => 'A',
-            UnitType::FIGHTER => '✈',
-            UnitType::BOMBER => 'b',
-            UnitType::TRANSPORT => 't',
-            UnitType::DESTROYER => 'd',
-            UnitType::SUBMARINE => '—',
-            UnitType::CRUISER => 'c',
-            UnitType::BATTLESHIP => 'B',
-            UnitType::CARRIER => 'C'
+            UnitType::INFANTRY => "i",
+            UnitType::ARMOR => "A",
+            UnitType::FIGHTER => "✈",
+            UnitType::BOMBER => "b",
+            UnitType::TRANSPORT => "t",
+            UnitType::DESTROYER => "d",
+            UnitType::SUBMARINE => "—",
+            UnitType::CRUISER => "c",
+            UnitType::BATTLESHIP => "B",
+            UnitType::CARRIER => "C"
         }
     }
 }
@@ -335,7 +335,7 @@ impl Observer for City {
 }
 
 impl Sym for City {
-    fn sym(&self) -> char { '#' }
+    fn sym(&self) -> &'static str { "#" }
 }
 
 impl Named for City {
