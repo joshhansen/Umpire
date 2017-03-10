@@ -385,11 +385,7 @@ impl<'b> UI<'b> {
     }
 
     fn move_units_for_player(&mut self, game: &mut Game) {
-        while self.keep_going {
-            if game.unit_move_requests().len() < 1 {
-                self.log_message("Units moved.".to_string());
-                break;
-            }
+        while self.keep_going && !game.unit_move_requests().is_empty() {
 
             let loc = *game.unit_move_requests().iter().next().unwrap();
 
