@@ -185,8 +185,9 @@ impl MoveUnit {
 }
 
 impl Draw for MoveUnit {
-    fn draw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        write!(*stdout, "{}Move Unit", self.goto(0, 0)).unwrap();
+    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        let unit = game.unit(self.loc).unwrap();
+        write!(*stdout, "{}Move {} at {}", self.goto(0, 0), unit, self.loc).unwrap();
     }
 }
 
