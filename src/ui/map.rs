@@ -1,9 +1,10 @@
-extern crate termion;
-
 use std::io::{StdoutLock,Write};
 
 use termion::color::{Fg, Bg};
+use termion::cursor::Hide;
 use termion::event::Key;
+use termion::raw::RawTerminal;
+use termion::style::{Reset,Underline};
 
 use conf;
 use game::Game;
@@ -78,11 +79,11 @@ impl Map {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    fn draw_tile(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>,
+    fn draw_tile(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>,
             tile_loc: Location, viewport_x: u16, viewport_y: u16) {
 
         if tile_loc.y == game.map_dims.height - 1 {
-            write!(stdout, "{}", termion::style::Underline).unwrap();
+            write!(stdout, "{}", Underline).unwrap();
         }
 
         write!(stdout, "{}", self.goto(viewport_x, viewport_y)).unwrap();
@@ -103,7 +104,7 @@ impl Map {
             }
         }
 
-        write!(stdout, "{}", termion::style::Reset).unwrap();
+        write!(stdout, "{}", Reset).unwrap();
     }
 
     fn viewport_to_map_coords(&self, viewport_loc: &Location, viewport_offset: &Vec2d<u16>) -> Location {
@@ -139,7 +140,7 @@ impl ScrollableComponent for Map {
 impl Redraw for Map {
     /// Update the map to reflect the current viewport offset
     // fn update_map(&mut self, old_viewport_offset: Vec2d<u16>, new_viewport_offset: Vec2d<u16>) {
-    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn redraw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0_u16..self.rect.width {
             viewport_loc.x = viewport_x;
@@ -209,7 +210,7 @@ impl Redraw for Map {
             }
         }
 
-        write!(stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
+        write!(stdout, "{}{}", Reset, Hide).unwrap();
         stdout.flush().unwrap();
     }
 }
@@ -237,7 +238,7 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0_u16..self.rect.width {
             viewport_loc.x = viewport_x;
