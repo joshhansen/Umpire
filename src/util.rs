@@ -283,6 +283,16 @@ fn test_wrapped_add() {
 
 pub type Location = Vec2d<u16>;
 
+impl Location {
+    pub fn shift(&self, dir: Direction) -> Location {
+        let src_i32: Vec2d<i32> = Vec2d::new(self.x as i32, self.y as i32);
+        let dest = src_i32 + dir.vec2d();
+
+        let dest: Location = Location::new(dest.x as u16, dest.y as u16);
+        dest
+    }
+}
+
 impl fmt::Debug for Location {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)

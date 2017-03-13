@@ -7,7 +7,6 @@ use termion::event::Key;
 
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
-use unit::PlayerNum;
 use util::Rect;
 
 pub struct CurrentPlayer {

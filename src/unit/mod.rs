@@ -252,6 +252,9 @@ impl Unit {
 
         // If it contains one of our units, we can't go there
 
+        // But, if it contains any city we can go there---either as a visitor to our own city, or
+        // attacking an enemy or neutral city
+
         if let Some(unit) = tile.unit {
             return self.alignment != unit.alignment;
         }
@@ -293,10 +296,13 @@ impl fmt::Display for Unit {
     }
 }
 
+const CITY_MAX_HP: u16 = 4;
+
 #[derive(Clone,Debug,Hash,PartialEq,Eq)]
 pub struct City {
     pub loc: Location,
     pub alignment: Alignment,
+    hp: u16,
     pub unit_under_production: Option<UnitType>,
     pub production_progress: u16,
     name: String
@@ -307,6 +313,7 @@ impl City {
         City {
             loc: loc,
             alignment: alignment,
+            hp: CITY_MAX_HP,
             unit_under_production: None,
             production_progress: 0,
             name: name.into()

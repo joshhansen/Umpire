@@ -7,8 +7,6 @@ pub mod obs;
 
 use std::collections::{HashMap,HashSet};
 
-use rand::{thread_rng, Rng};
-
 use game::obs::{FogOfWarTracker,Obs,ObsTracker,UniversalVisibilityTracker};
 use map::{Tile,LocationGrid};
 use map::gen::MapGenerator;
@@ -21,6 +19,67 @@ use util::{Dims,Location,Wrap,Wrap2d};
 
 pub type TurnNum = u32;
 
+pub struct MoveResult {
+    unit: Unit,
+    starting_loc: Location,
+    moves: Vec<MoveComponent>
+}
+
+impl MoveResult {
+    pub fn unit(&self) -> &Unit {
+        &self.unit
+    }
+
+    pub fn moves(&self) -> &Vec<MoveComponent> {
+        &self.moves
+    }
+
+    pub fn starting_loc(&self) -> Location {
+        self.starting_loc
+    }
+}
+pub struct MoveComponent {
+    loc: Location,
+    unit_combat: Option<CombatOutcome<Unit,Unit>>,
+    city_combat: Option<CombatOutcome<Unit,City>>
+}
+
+impl MoveComponent {
+    fn new(loc: Location) -> Self {
+        MoveComponent {
+            loc: loc,
+            unit_combat: None,
+            city_combat: None
+        }
+    }
+
+    pub fn moved_successfully(&self) -> bool {
+        if let Some(ref combat) = self.unit_combat {
+            if *combat.victor() != CombatParticipant::Attacker {
+                return false;
+            }
+        }
+        if let Some(ref combat) = self.city_combat {
+            if *combat.victor() != CombatParticipant::Attacker {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn unit_combat(&self) -> &Option<CombatOutcome<Unit,Unit>> {
+        &self.unit_combat
+    }
+
+    pub fn city_combat(&self) -> &Option<CombatOutcome<Unit,City>> {
+        &self.city_combat
+    }
+
+    pub fn loc(&self) -> Location {
+        self.loc
+    }
+}
+
 pub struct Game {
     pub map_dims: Dims,
     tiles: LocationGrid<Tile>, // tiles[col][row]
@@ -32,6 +91,7 @@ pub struct Game {
     unit_move_requests: HashSet<Location>,
     wrapping: Wrap2d
 }
+
 
 impl Game {
     /// Creates a new game instance
@@ -155,67 +215,6 @@ impl Game {
         }
     }
 
-    // fn next_player(&self) -> PlayerNum {
-    //     if let Some(current_player) = self.current_player {
-    //         (current_player + 1) % self.num_players
-    //     } else {
-    //         0
-    //     }
-    // }
-    //
-    // /// Returns the number of the player whose turn has just begun, or an error if the previous
-    // /// turn wasn't done yet.
-    // pub fn begin_next_player_turn(&mut self) -> Result<PlayerNum,PlayerNum> {
-    //     if self.production_set_requests.is_empty() && self.unit_move_requests.is_empty() {
-    //         let next_player = self.next_player();
-    //
-    //         if !self.current_player.is_none() && next_player==0 {
-    //             self.turn += 1;
-    //         }
-    //
-    //         self.current_player = Some(next_player);
-    //         self.begin_player_turn(next_player);
-    //         return Ok(next_player);
-    //     }
-    //     Err(self.current_player.unwrap())
-    // }
-
-    // fn begin_player_turn(&mut self, player_num: PlayerNum) {
-    //     for x in 0..self.map_dims.width {
-    //         for y in 0..self.map_dims.height {
-    //             let loc = Location{x:x, y:y};
-    //             let tile: &mut Tile = &mut self.tiles[loc];
-    //
-    //             if let Some(ref mut city) = tile.city {
-    //                 if let Alignment::BELLIGERENT{player} = city.alignment {
-    //                     if player==player_num {
-    //
-    //                         if let Some(ref unit_under_production) = city.unit_under_production {
-    //                             city.production_progress += 1;
-    //                             if city.production_progress >= unit_under_production.cost() {
-    //                                 let new_unit = Unit::new(*unit_under_production, city.alignment);
-    //                                 tile.unit = Some(new_unit);
-    //                                 city.production_progress = 0;
-    //                             }
-    //                         } else {
-    //                             self.production_set_requests.insert(loc);
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //
-    //             if let Some(ref mut unit) = tile.unit {
-    //                 unit.moves_remaining += unit.movement_per_turn();
-    //                 if !unit.sentry {
-    //                     self.unit_move_requests.insert(loc);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //
-    //     self.update_current_player_observations();
-    // }
-
     fn update_current_player_observations(&mut self) {
         let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
 
@@ -238,10 +237,6 @@ impl Game {
         }
     }
 
-    // fn current_player_obs_tracker_mut(&mut self) -> &mut Box<ObsTracker> {
-    //     self.player_observations.get_mut(&self.current_player.unwrap()).unwrap()
-    // }
-
     fn tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
         self.tiles.get(&loc)
     }
@@ -257,10 +252,6 @@ impl Game {
             Obs::UNOBSERVED => None
         }
     }
-
-    // pub fn tile_mut<'a>(&'a mut self, loc: Location) -> Option<&'a mut Tile> {
-    //     self.tiles.get_mut(&loc)
-    // }
 
     pub fn city<'b>(&'b self, loc: Location) -> Option<&'b City> {
         if let Some(tile) = self.tile(loc) {
@@ -288,16 +279,11 @@ impl Game {
         &self.unit_move_requests
     }
 
-    // fn request_unit_move(&mut self, location: Location) {
-    //     self.unit_move_requests.insert(location);
-    // }
-
-    pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<Vec<CombatOutcome>,String> {
+    pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let unit = self.tiles[src].unit.unwrap();
         let shortest_paths = shortest_paths(&self.tiles, &src, &unit, &self.wrapping);
 
         if let Some(distance) = shortest_paths.dist[dest] {
-            println!("Dist: {}", distance);
             let unit = self.tiles[src].pop_unit();
             if let Some(mut unit) = unit {
                 if distance > unit.moves_remaining {
@@ -309,8 +295,7 @@ impl Game {
 
                     let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
 
-
-                    let mut combat_outcomes = Vec::new();
+                    let mut moves = Vec::new();
 
                     // Move along the shortest path to the destination
                     // At each tile along the path, check if there's a unit there
@@ -323,21 +308,35 @@ impl Game {
                     // will be destroyed somewhere along the way. There will be no stopping midway.
 
                     let mut destroyed = false;
-                    for _loc in shortest_path.iter().skip(1) {// skip the source location
-                        if let Some(other_unit) = self.tiles[dest].unit {
-
+                    for loc in shortest_path.iter().skip(1) {// skip the source location
+                        let mut move_ = MoveComponent::new(*loc);
+                        let mut tile = &mut self.tiles[dest];
+                        if let Some(other_unit) = tile.unit {
                             let outcome = unit.fight(&other_unit);
-
                             destroyed |= *outcome.victor() != CombatParticipant::Attacker;
-
-                            combat_outcomes.push(outcome);
-
+                            move_.unit_combat = Some(outcome);
                             if destroyed {
                                 break;
+                            } else {
+                                tile.unit = None;
                             }
                         }
+
+                        if let Some(ref mut city) = tile.city {
+                            if city.alignment != unit.alignment {
+                                let outcome = unit.fight(city);
+                                destroyed |= *outcome.victor() != CombatParticipant::Attacker;
+                                move_.city_combat = Some(outcome);
+                                if destroyed {
+                                    break;
+                                } else {
+                                    city.alignment = unit.alignment;
+                                }
+                            }
+                        }
+                        moves.push(move_);
                     }
-                    
+
                     self.unit_move_requests.remove(&src);
 
                     if !destroyed {
@@ -353,7 +352,7 @@ impl Game {
                         let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
                         unit.observe(dest, &self.tiles, self.turn, &self.wrapping, obs_tracker);
                     }
-                    Ok(combat_outcomes)
+                    Ok(MoveResult{ unit: unit, moves: moves, starting_loc: src })
                 }
             } else {
                 Err(format!("No unit found at source location {}", src))
@@ -383,10 +382,6 @@ but there is no city at that location",
 
     pub fn current_player(&self) -> PlayerNum {
         self.current_player
-    }
-
-    pub fn tiles(&self) -> &LocationGrid<Tile> {
-        &self.tiles
     }
 }
 
@@ -457,8 +452,5 @@ mod test {
             assert!(game.move_unit(loc, new_loc).is_ok());
             assert_eq!(game.end_turn(&mut log_listener), Ok(1-player));
         }
-
-        assert!(false);
-
     }
 }

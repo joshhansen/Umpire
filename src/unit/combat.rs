@@ -1,6 +1,6 @@
 use rand::{thread_rng,Rng};
 
-use unit::Unit;
+use unit::{City,Unit,CITY_MAX_HP};
 
 #[derive(PartialEq)]
 pub enum CombatParticipant {
@@ -8,19 +8,19 @@ pub enum CombatParticipant {
     Defender
 }
 
-pub struct CombatOutcome {
+pub struct CombatOutcome<A:CombatCapable,D:CombatCapable> {
     victor: CombatParticipant,
-    attacker_initial_hp: u16,
-    defender_initial_hp: u16,
+    attacker: A,
+    defender: D,
     received_damage_sequence: Vec<CombatParticipant>
 }
 
-impl CombatOutcome {
-    fn new(victor: CombatParticipant, attacker_initial_hp: u16, defender_initial_hp: u16, received_damage_sequence: Vec<CombatParticipant>) -> Self {
+impl <A:CombatCapable,D:CombatCapable> CombatOutcome<A,D> {
+    fn new(victor: CombatParticipant, attacker: A, defender: D, received_damage_sequence: Vec<CombatParticipant>) -> Self {
         CombatOutcome {
             victor: victor,
-            attacker_initial_hp: attacker_initial_hp,
-            defender_initial_hp: defender_initial_hp,
+            attacker: attacker,
+            defender: defender,
             received_damage_sequence: received_damage_sequence
         }
     }
@@ -28,16 +28,26 @@ impl CombatOutcome {
     pub fn victor(&self) -> &CombatParticipant {
         &self.victor
     }
+
+    pub fn received_damage_sequence(&self) -> &Vec<CombatParticipant> {
+        &self.received_damage_sequence
+    }
+
+    pub fn attacker(&self) -> &A {
+        &self.attacker
+    }
+
+    pub fn defender(&self) -> &D {
+        &self.defender
+    }
 }
 
 pub trait CombatCapable {
     fn hp(&self) -> u16;
     fn max_hp(&self) -> u16;
 
-    fn fight<D:CombatCapable>(&self, defender: &D) -> CombatOutcome {
-
-        // let attacker = self.tiles[attacker_loc].unit.unwrap();
-        // let defender = self.tiles[defender_loc].unit.unwrap();
+    fn fight<D:CombatCapable+Clone>(&self, defender: &D) -> CombatOutcome<Self,D>
+            where Self: Clone+Sized {
 
         let mut damage_received: Vec<CombatParticipant> = Vec::new();
 
@@ -61,13 +71,8 @@ pub trait CombatCapable {
             if attacker_hp == 0 || defender_hp == 0 {
                 let victor = if attacker_hp == 0 { CombatParticipant::Defender } else { CombatParticipant::Attacker };
 
-                // log_listener(format!("Unit {} initiated combat with unit {} and was {}",
-                //                         self,
-                //                         defender,
-                //                         if victor==CombatParticipant::Attacker {"victorious"} else {"vanquished"}
-                // ));
-
-                return CombatOutcome::new(victor, attacker_initial_hp, defender_initial_hp, damage_received);
+                //FIXME These clones could be pretty expensive
+                return CombatOutcome::new(victor, self.clone(), defender.clone(), damage_received);
             }
         }
 
@@ -78,4 +83,9 @@ pub trait CombatCapable {
 impl CombatCapable for Unit {
     fn hp(&self) -> u16 { self.hp }
     fn max_hp(&self) -> u16 { self.max_hp }
+}
+
+impl CombatCapable for City {
+    fn hp(&self) -> u16 { self.hp }
+    fn max_hp(&self) -> u16 { CITY_MAX_HP }
 }

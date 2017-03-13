@@ -96,3 +96,5 @@ pub const KEY_VIEWPORT_SHIFT_DOWN_LEFT: char = 'B';//KEY_DOWN_LEFT;
 pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';//KEY_DOWN_RIGHT;
 
 pub const KEY_QUIT: char = 'q';
+
+pub const KEY_EXAMINE: char = 'x';

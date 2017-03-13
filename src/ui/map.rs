@@ -4,12 +4,12 @@ use termion::color::{Fg, Bg};
 use termion::cursor::Hide;
 use termion::event::Key;
 use termion::raw::RawTerminal;
-use termion::style::{Reset,Underline};
+use termion::style::{Invert,Reset,Underline};
 
 use conf;
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
-use ui::scroll::ScrollableComponent;
+use ui::scroll::{ScrollableComponent};
 use util::{Dims,Direction,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
@@ -20,6 +20,100 @@ fn nonnegative_mod(x: i32, max: u16) -> u16 {
     }
 
     return (result % max as i32) as u16;
+}
+
+pub fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
+    Location {
+        x: (viewport_loc.x + viewport_offset.x) % map_dims.width, // mod implements wrapping,
+        y: (viewport_loc.y + viewport_offset.y) % map_dims.height // mod implements wrapping
+    }
+}
+
+/*
+
+map_coord: 0
+viewport_offset: 0
+viewport_width: 4
+map_width: 10
+
+..>..<....
+
+
+*/
+fn map_to_viewport_coord(map_coord: u16, viewport_offset: u16, viewport_width: u16, map_dimension_width: u16) -> Result<Option<u16>,String> {
+    if viewport_width > map_dimension_width {
+        return Err(String::from("Viewport width is larger than map width"));
+    }
+
+    if map_coord >= map_dimension_width {
+        return Err(format!("Map coordinate {} is larger than map dimension size {}", map_coord, map_dimension_width));
+    }
+
+    let unoffset_coord: i32 = map_coord as i32 - viewport_offset as i32;
+    let wrapped_coord = if unoffset_coord < 0 {
+        map_dimension_width as i32 + unoffset_coord
+    } else {
+        unoffset_coord
+    } as u16;
+
+    Ok(if wrapped_coord < viewport_width {
+        Some(wrapped_coord)
+    } else {
+        None
+    })
+}
+
+/// Returns None if the map location is not currently in the viewport
+/// Otherwise, it returns the coordinates at which that location is plotted
+/*
+In one dimension, there are two cases. First, the viewport covers a contiguous region of the
+dimension:
+
+..xxx.....
+
+Second, the viewport covers two disjoint regions of the dimension:
+
+xx......xx
+
+In two dimensions, these two cases combine into four cases. First, both dimensions cover
+contiguous regions:
+..........
+..xxxx....
+..x..x....
+..xxxx....
+..........
+
+Second, the viewport covers two disjoint regions, split horizontally:
+..........
+xx......xx
+.x......x.
+xx......xx
+..........
+
+Third, the viewport covers two disjoint regions, split vertically:
+..xxxx....
+..........
+..........
+..xxxx....
+..x..x....
+
+Fourth, the viewport covers four disjoint regions, split horizontally and vertically:
+xx......xx
+..........
+..........
+xx......xx
+.x......x.
+*/
+pub fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, viewport_dims: Dims, map_dims: Dims) -> Option<Location> {
+    if let Some(viewport_x) = map_to_viewport_coord(map_loc.x, viewport_offset.x, viewport_dims.width, map_dims.width).unwrap() {
+        if let Some(viewport_y) = map_to_viewport_coord(map_loc.y, viewport_offset.y, viewport_dims.height, map_dims.height).unwrap() {
+            return Some(Location {
+                x: viewport_x,
+                y: viewport_y
+            });
+        }
+    }
+    None
 }
 
 pub struct Map {
@@ -63,8 +157,11 @@ impl Map {
         self.viewport_offset = new_viewport_offset;
     }
 
+    pub fn map_to_viewport_coords(&self, map_loc: Location, viewport_dims: Dims) -> Option<Location> {
+        map_to_viewport_coords(map_loc, self.viewport_offset, viewport_dims, self.map_dims)
+    }
 
-    pub fn center_viewport(&mut self, map_location: &Location) {
+    pub fn center_viewport(&mut self, map_location: Location) {
         let new_viewport_offset = Vec2d {
             x: nonnegative_mod(
                 map_location.x as i32 - (self.rect.width as i32 / 2),
@@ -79,39 +176,35 @@ impl Map {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    fn draw_tile(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>,
-            tile_loc: Location, viewport_x: u16, viewport_y: u16) {
+    pub fn draw_tile(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>,
+            viewport_loc: Location, invert: bool, symbol: Option<&'static str>) {
+
+        let tile_loc = viewport_to_map_coords(game.map_dims, viewport_loc, self.viewport_offset);
+
+        if invert {
+            write!(stdout, "{}", Invert).unwrap();
+        }
 
         if tile_loc.y == game.map_dims.height - 1 {
             write!(stdout, "{}", Underline).unwrap();
         }
 
-        write!(stdout, "{}", self.goto(viewport_x, viewport_y)).unwrap();
+        write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
 
-        match game.current_player_tile(tile_loc) {
-            Some(tile) => {
-                if let Some(fg_color) = tile.fg_color() {
-                    write!(stdout, "{}", Fg(fg_color)).unwrap();
-                }
-
-                write!(stdout, "{}{}",
-                    Bg(tile.bg_color()),
-                    tile.sym()
-                ).unwrap();
-            },
-            None => {
-                write!(stdout, " ").unwrap();
+        if let Some(tile) = game.current_player_tile(tile_loc) {
+            if let Some(fg_color) = tile.fg_color() {
+                write!(stdout, "{}", Fg(fg_color)).unwrap();
             }
+
+            write!(stdout, "{}{}",
+                Bg(tile.bg_color()),
+                symbol.unwrap_or(tile.sym())
+            ).unwrap();
+        } else {
+            write!(stdout, " ").unwrap();
         }
 
         write!(stdout, "{}", Reset).unwrap();
-    }
-
-    fn viewport_to_map_coords(&self, viewport_loc: &Location, viewport_offset: &Vec2d<u16>) -> Location {
-        Location {
-            x: (viewport_loc.x + viewport_offset.x) % self.map_dims.width, // mod implements wrapping,
-            y: (viewport_loc.y + viewport_offset.y) % self.map_dims.height // mod implements wrapping
-        }
     }
 
     fn key_to_dir(c: char) -> Result<Direction,String> {
@@ -148,7 +241,7 @@ impl Redraw for Map {
                 viewport_loc.y = viewport_y;
 
                 // let old_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.old_viewport_offset);
-                let new_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.viewport_offset);
+                // let new_map_loc = viewport_to_map_coords(game.map_dims, viewport_loc, self.viewport_offset);
 
                 // let old_tile = &game.tile(old_map_loc).unwrap();
                 // let new_tile = &game.tile(new_map_loc).unwrap();
@@ -204,7 +297,7 @@ impl Redraw for Map {
                 // };
 
                 // if should_draw_tile {
-                    self.draw_tile(game, stdout, new_map_loc, viewport_x, viewport_y);
+                    self.draw_tile(game, stdout, viewport_loc, false, None);
                 // }
 
             }
@@ -216,7 +309,7 @@ impl Redraw for Map {
 }
 
 impl Keypress for Map {
-    fn keypress(&mut self, key: &Key, _game: &mut Game) {
+    fn keypress<'a>(&mut self, key: &Key, _game: &mut Game) {
         if let Key::Char(c) = *key {
             if let Ok(dir) = Map::key_to_dir(c) {
                 self.shift_viewport(dir.vec2d())
@@ -245,10 +338,43 @@ impl Draw for Map {
             for viewport_y in 0_u16..(self.rect.height+1) {
                 viewport_loc.y = viewport_y;
 
-                let map_location = self.viewport_to_map_coords(&viewport_loc, &self.viewport_offset);
-
-                self.draw_tile(game, stdout, map_location, viewport_x, viewport_y);
+                self.draw_tile(game, stdout, viewport_loc, false, None);
             }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use ui::map::map_to_viewport_coord;
+
+    #[test]
+    fn test_map_to_viewport_coord() {
+        assert_eq!(map_to_viewport_coord(0, 0, 10, 100), Ok(Some(0)));
+        assert_eq!(map_to_viewport_coord(5, 0, 10, 100), Ok(Some(5)));
+        assert_eq!(map_to_viewport_coord(9, 0, 10, 100), Ok(Some(9)));
+        assert_eq!(map_to_viewport_coord(10, 0, 10, 100), Ok(None));
+
+        assert_eq!(map_to_viewport_coord(0, 5, 10, 100), Ok(None));
+        assert_eq!(map_to_viewport_coord(4, 5, 10, 100), Ok(None));
+        assert_eq!(map_to_viewport_coord(5, 5, 10, 100), Ok(Some(0)));
+        assert_eq!(map_to_viewport_coord(10, 5, 10, 100), Ok(Some(5)));
+        assert_eq!(map_to_viewport_coord(14, 5, 10, 100), Ok(Some(9)));
+        assert_eq!(map_to_viewport_coord(15, 5, 10, 100), Ok(None));
+
+        assert_eq!(map_to_viewport_coord(0, 90, 10, 100), Ok(None));
+        assert_eq!(map_to_viewport_coord(89, 90, 10, 100), Ok(None));
+        assert_eq!(map_to_viewport_coord(90, 90, 10, 100), Ok(Some(0)));
+        assert_eq!(map_to_viewport_coord(95, 90, 10, 100), Ok(Some(5)));
+        assert_eq!(map_to_viewport_coord(99, 90, 10, 100), Ok(Some(9)));
+        assert_eq!(map_to_viewport_coord(100, 90, 10, 100), Err(String::from("Map coordinate 100 is larger than map dimension size 100")));
+
+        assert_eq!(map_to_viewport_coord(94, 95, 10, 100), Ok(None));
+        assert_eq!(map_to_viewport_coord(95, 95, 10, 100), Ok(Some(0)));
+        assert_eq!(map_to_viewport_coord(100, 95, 10, 100), Err(String::from("Map coordinate 100 is larger than map dimension size 100")));
+        assert_eq!(map_to_viewport_coord(0, 95, 10, 100), Ok(Some(5)));
+        assert_eq!(map_to_viewport_coord(4, 95, 10, 100), Ok(Some(9)));
+        assert_eq!(map_to_viewport_coord(5, 95, 10, 100), Ok(None));
     }
 }

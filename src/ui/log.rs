@@ -32,7 +32,6 @@ impl LogArea {
     }
 
     pub fn redraw_lite(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        self.clear(stdout);
         self.draw_lite(stdout);
     }
 
@@ -45,12 +44,13 @@ impl LogArea {
         ).unwrap();
 
         for i in 0..self.rect.height() {
-            write!(*stdout, "{}┃", self.goto(0, i as u16+1)).unwrap();
+            let empty = String::from("");
+            let message = self.messages.get(i as usize).unwrap_or(&empty);
+            let spaces = (0..(self.rect.width - 2)).map(|_| " ").collect::<String>();
+            write!(*stdout, "{}┃ {}{}", self.goto(0, i as u16+1), message, spaces).unwrap();
         }
 
-        for (i, message) in self.messages.iter().enumerate() {
-            write!(*stdout, "{}{}", self.goto(2, i as u16+1), message).unwrap();
-        }
+        stdout.flush().unwrap();
     }
 }
 
@@ -67,9 +67,8 @@ impl Keypress for LogArea {
 }
 
 impl Redraw for LogArea {
-    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        self.clear(stdout);
-        self.draw(game, stdout);
+    fn redraw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+        self.redraw_lite(stdout);
     }
 }
 

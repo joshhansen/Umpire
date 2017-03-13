@@ -8,7 +8,7 @@ use termion::event::Key;
 
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
-use util::{Direction,Rect,Vec2d};
+use util::{Dims,Direction,Rect,Vec2d};
 
 pub trait ScrollableComponent : Component {
     fn offset(&self) -> Vec2d<u16>;
@@ -83,6 +83,13 @@ impl<C:ScrollableComponent> Scroller<C> {
         self.old_v_scroll_y = Some(self.v_scroll_y(game.map_dims.height));
         self.scrollable.scroll_relative(offset);
 
+    }
+
+    pub fn viewport_dims(&self) -> Dims {
+        Dims {
+            width: self.rect.width - 1,
+            height: self.rect.height - 1
+        }
     }
 }
 

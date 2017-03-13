@@ -53,22 +53,14 @@ impl Tile {
     }
 
     pub fn sym(&self) -> &'static str {
-        match self.unit {
-            None => match self.city {
-                None => " ",
-                Some(ref city) => city.sym()
-            },
-            Some(ref unit) => unit.sym()
-        }
-    }
-
-    pub fn alignment(&self) -> Option<Alignment> {
-        match self.unit {
-            None => match self.city {
-                None => None,
-                Some(ref city) => Some(city.alignment())
-            },
-            Some(ref unit) => Some(unit.alignment)
+        if let Some(ref unit) = self.unit {
+            unit.sym()
+        } else {
+            if let Some(ref city) = self.city {
+                city.sym()
+            } else {
+                " "
+            }
         }
     }
 
@@ -322,6 +314,7 @@ fn test_str_to_map() {
 
 pub mod dijkstra;
 pub mod gen;
+#[cfg(test)]
 mod test;
 
 #[test]
