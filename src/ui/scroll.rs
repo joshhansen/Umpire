@@ -42,7 +42,7 @@ impl<C:ScrollableComponent> Scroller<C> {
 
     fn draw_scroll_bars(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
         let viewport_rect = self.scrollable.rect();
-        let h_scroll_x: u16 = self.h_scroll_x(game.map_dims.width);
+        let h_scroll_x: u16 = self.h_scroll_x(game.map_dims().width);
         let h_scroll_y = viewport_rect.bottom();
 
         //FIXME There must be a cleaner way to do this
@@ -56,7 +56,7 @@ impl<C:ScrollableComponent> Scroller<C> {
         }
 
         let v_scroll_x = viewport_rect.right();
-        let v_scroll_y: u16 = self.v_scroll_y(game.map_dims.height);
+        let v_scroll_y: u16 = self.v_scroll_y(game.map_dims().height);
 
         //FIXME There must be a cleaner way to do this
         if let Some(old_v_scroll_y) = self.old_v_scroll_y {
@@ -79,8 +79,8 @@ impl<C:ScrollableComponent> Scroller<C> {
     }
 
     fn scroll_relative(&mut self, game: &Game, offset: Vec2d<i32>) {
-        self.old_h_scroll_x = Some(self.h_scroll_x(game.map_dims.width));
-        self.old_v_scroll_y = Some(self.v_scroll_y(game.map_dims.height));
+        self.old_h_scroll_x = Some(self.h_scroll_x(game.map_dims().width));
+        self.old_v_scroll_y = Some(self.v_scroll_y(game.map_dims().height));
         self.scrollable.scroll_relative(offset);
 
     }

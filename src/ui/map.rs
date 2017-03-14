@@ -179,13 +179,13 @@ impl Map {
     pub fn draw_tile(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>,
             viewport_loc: Location, invert: bool, symbol: Option<&'static str>) {
 
-        let tile_loc = viewport_to_map_coords(game.map_dims, viewport_loc, self.viewport_offset);
+        let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
         if invert {
             write!(stdout, "{}", Invert).unwrap();
         }
 
-        if tile_loc.y == game.map_dims.height - 1 {
+        if tile_loc.y == game.map_dims().height - 1 {
             write!(stdout, "{}", Underline).unwrap();
         }
 

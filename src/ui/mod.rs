@@ -271,7 +271,7 @@ impl<'b> UI<'b> {
 
     fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
         self.viewport_size = viewport_size;
-        self.map_scroller.borrow_mut().set_rect(self.viewport_size.rect(&game.map_dims));
+        self.map_scroller.borrow_mut().set_rect(self.viewport_size.rect(&game.map_dims()));
         self.draw(game);
     }
 

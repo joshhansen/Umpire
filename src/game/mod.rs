@@ -81,7 +81,6 @@ impl MoveComponent {
 }
 
 pub struct Game {
-    pub map_dims: Dims,
     tiles: LocationGrid<Tile>, // tiles[col][row]
     player_observations: HashMap<PlayerNum,Box<ObsTracker>>,
     turn: TurnNum,
@@ -125,7 +124,6 @@ impl Game {
         ));
 
         let mut game = Game {
-            map_dims: map.dims(),
             tiles: map,
             player_observations: player_observations,
             turn: 0,
@@ -143,8 +141,8 @@ impl Game {
     fn begin_turn<L:FnMut(String)>(&mut self, log_listener: &mut L) {
         log_listener(format!("Beginning turn {} for player {}", self.turn, self.current_player));
 
-        for x in 0..self.map_dims.width {
-            for y in 0..self.map_dims.height {
+        for x in 0..self.map_dims().width {
+            for y in 0..self.map_dims().height {
                 let loc = Location{x:x, y:y};
                 let tile: &mut Tile = &mut self.tiles[loc];
 
@@ -383,6 +381,10 @@ but there is no city at that location",
     pub fn current_player(&self) -> PlayerNum {
         self.current_player
     }
+
+    pub fn map_dims(&self) -> Dims {
+        self.tiles.dims()
+    }
 }
 
 
@@ -445,7 +447,7 @@ mod test {
         for player in 0..2 {
             assert_eq!(game.unit_move_requests().len(), 1);
             let loc = *game.unit_move_requests().iter().next().unwrap();
-            let new_x = (loc.x + 1) % game.tiles().dims().width;
+            let new_x = (loc.x + 1) % game.map_dims().width;
             let new_loc = Location{x:new_x, y:loc.y};
             println!("Moving unit from {} to {}", loc, new_loc);
 

@@ -100,7 +100,7 @@ fn main() {
         let mut game = Game::new(MAP_DIMS, num_players, fog_of_war, &mut log_listener);
 
         let mut ui = ui::UI::new(
-            &game.map_dims,
+            &game.map_dims(),
             Dims{ width: term_width, height: term_height },
             stdout_1,
         );
