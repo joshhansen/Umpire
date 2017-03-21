@@ -52,25 +52,38 @@ impl Mode {
     }
 }
 
+#[derive(PartialEq)]
+enum StateDisposition {
+    Next,
+    Quit
+}
 
+enum KeyStatus {
+    Handled(StateDisposition),
+    Unhandled(Key)
+}
 
 trait IMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool;
-    fn get_key<'a>(&self, _game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> Option<Key> {
+
+    fn get_key<'a>(&self, _game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> KeyStatus {
         let key = get_key();
         if let Key::Char(c) = key {
             if c == conf::KEY_QUIT {
                 *mode = Mode::Quit;
-                return None;
+                return KeyStatus::Handled(StateDisposition::Quit);
             }
             if c == conf::KEY_EXAMINE {
+                ui.log_message(String::from("Entering examine mode"));
                 if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(*mode) {
                     *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc};
-                    return None;
+                    return KeyStatus::Handled(StateDisposition::Next);
+                } else {
+                    ui.log_message(String::from("Couldn't get cursor loc"));
                 }
             }
         }
-        Some(key)
+        KeyStatus::Unhandled(key)
     }
 
     fn map_loc_to_viewport_loc<'a>(ui: &mut UI<'a>, map_loc: Location) -> Option<Location> {
@@ -196,19 +209,21 @@ impl IMode for SetProductionMode {
         self.draw(game, &mut ui.stdout);
 
         loop {
-            if let Some(key) = self.get_key(game, ui, mode) {
-                if let Key::Char(c) = key {
-                    if let Some(unit_type) = UnitType::from_key(&c) {
-                        game.set_production(&self.loc, &unit_type).unwrap();
-                        *mode = Mode::TurnStart;
-                        return true;
+            match self.get_key(game, ui, mode) {
+                KeyStatus::Unhandled(key) => {
+                    if let Key::Char(c) = key {
+                        if let Some(unit_type) = UnitType::from_key(&c) {
+                            game.set_production(&self.loc, &unit_type).unwrap();
+                            *mode = Mode::TurnStart;
+                            return true;
+                        }
                     }
+                },
+                KeyStatus::Handled(state_disposition) => {
+                    return state_disposition != StateDisposition::Quit;
                 }
-            } else {
-                return false;
             }
         }
-
     }
 }
 
@@ -253,43 +268,46 @@ impl IMode for MoveUnitMode {
         }
 
         loop {
-            if let Some(key) = self.get_key(game, ui, mode) {
+            match self.get_key(game, ui, mode) {
+                KeyStatus::Unhandled(key) => {
 
-                if let Key::Char(c) = key {
-                    match Direction::try_from(c) {
-                        Ok(dir) => {
+                    if let Key::Char(c) = key {
+                        match Direction::try_from(c) {
+                            Ok(dir) => {
 
-                            // ui.log_message(format!("Moving {}", c));
+                                // ui.log_message(format!("Moving {}", c));
 
-                            // let src: Vec2d<i32> = Vec2d::new(self.loc.x as i32, self.loc.y as i32);
-                            // let dest = src + dir.vec2d();
-                            //
-                            // let src:  Vec2d<u16> = Vec2d::new(src.x as u16, src.y as u16);
-                            // let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
+                                // let src: Vec2d<i32> = Vec2d::new(self.loc.x as i32, self.loc.y as i32);
+                                // let dest = src + dir.vec2d();
+                                //
+                                // let src:  Vec2d<u16> = Vec2d::new(src.x as u16, src.y as u16);
+                                // let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
 
-                            let dest = self.loc.shift(dir);
+                                let dest = self.loc.shift(dir);
 
-                            match game.move_unit(self.loc, dest) {
-                                Ok(move_result) => {
+                                match game.move_unit(self.loc, dest) {
+                                    Ok(move_result) => {
 
-                                    ui.animate_move(game, move_result);
+                                        ui.animate_move(game, move_result);
 
-                                    *mode = Mode::MoveUnits;
-                                    return true;
-                                },
-                                Err(msg) => {
-                                    ui.log_message(format!("Error: {}", msg));
+                                        *mode = Mode::MoveUnits;
+                                        return true;
+                                    },
+                                    Err(msg) => {
+                                        ui.log_message(format!("Error: {}", msg));
+                                    }
                                 }
+                            },
+                            Err(_msg) => {
+                                // println!("Error: {}", msg);
+                                // sleep_millis(5000);
                             }
-                        },
-                        Err(_msg) => {
-                            // println!("Error: {}", msg);
-                            // sleep_millis(5000);
                         }
                     }
+                },
+                KeyStatus::Handled(state_disposition) => {
+                    return state_disposition != StateDisposition::Quit
                 }
-            } else {
-                return false;
             }
         }
     }
@@ -313,29 +331,30 @@ impl IMode for ExamineMode {
             let ref map = scroller.scrollable;
 
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, None);
+            ui.stdout.flush().unwrap();
         }
 
-        if let Some(key) = self.get_key(game, ui, mode) {
-            if let Key::Char(c) = key {
-                match Direction::try_from(c) {
-                    Ok(dir) => {
+        return match self.get_key(game, ui, mode) {
+            KeyStatus::Unhandled(key) => {
+                if key==Key::Esc {
+                    *mode = Mode::TurnStart;
+                } else if let Key::Char(c) = key {
+                    if let Ok(dir) = Direction::try_from(c) {
                         *mode = Mode::Examine{cursor_viewport_loc: self.cursor_viewport_loc.shift(dir)};
-                    },
-                    Err(_) => {
-
-                        if key==Key::Esc {
-
-                            *mode = Mode::TurnStart;
-
-                        }
-
                     }
                 }
-            }
+
+                {
+                    let scroller = ui.map_scroller.borrow_mut();
+                    let ref map = scroller.scrollable;
+
+                    map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, None);
+                    ui.stdout.flush().unwrap();
+                }
+
+                true
+            },
+            KeyStatus::Handled(state_disposition) => state_disposition != StateDisposition::Quit
         }
-
-        true
-
-
     }
 }
