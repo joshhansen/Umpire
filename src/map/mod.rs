@@ -127,14 +127,6 @@ impl<T> LocationGrid<T> {
         }
     }
 
-    pub fn get_mut<'a>(&'a mut self, loc: &Location) -> Option<&'a mut T> {
-        if let Some(col) = self.grid.get_mut(loc.x as usize) {
-            col.get_mut(loc.y as usize)
-        } else {
-            None
-        }
-    }
-
     pub fn dims(&self) -> Dims {
         self.dims
     }

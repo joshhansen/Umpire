@@ -20,8 +20,6 @@ fn get_key() -> Key {
 
 #[derive(Clone,Copy,Debug)]
 pub enum Mode {
-    // Run{mode:RunMode},
-    // MoveUnit{mode:MoveUnitMode}
     TurnStart,
     SetProductions,
     SetProduction{loc:Location},
