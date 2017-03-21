@@ -74,7 +74,6 @@ trait IMode {
                 return KeyStatus::Handled(StateDisposition::Quit);
             }
             if c == conf::KEY_EXAMINE {
-                ui.log_message(String::from("Entering examine mode"));
                 if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(*mode) {
                     *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc};
                     return KeyStatus::Handled(StateDisposition::Next);
@@ -326,11 +325,17 @@ struct ExamineMode {
 }
 impl IMode for ExamineMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
-        {
+        if let Some(tile) = {
             let scroller = ui.map_scroller.borrow_mut();
             let ref map = scroller.scrollable;
 
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, None);
+
+
+
+            map.tile(game, self.cursor_viewport_loc)
+        } {
+            ui.log_message(format!("{:?}", tile));
             ui.stdout.flush().unwrap();
         }
 

@@ -8,6 +8,7 @@ use termion::style::{Invert,Reset,Underline};
 
 use conf;
 use game::Game;
+use map::Tile;
 use ui::{Component,Draw,Keypress,Redraw};
 use ui::scroll::{ScrollableComponent};
 use util::{Dims,Direction,Location,Rect,Vec2d};
@@ -205,6 +206,11 @@ impl Map {
         }
 
         write!(stdout, "{}", Reset).unwrap();
+    }
+
+    pub fn tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
+        let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
+        game.current_player_tile(tile_loc)
     }
 
     fn key_to_dir(c: char) -> Result<Direction,String> {
