@@ -1,10 +1,9 @@
-extern crate termion;
-
 use std::collections::VecDeque;
 use std::io::{StdoutLock,Write};
 
 use termion::event::Key;
-
+use termion::raw::RawTerminal;
+use termion::style::{Reset,Underline};
 
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
@@ -31,16 +30,16 @@ impl LogArea {
         }
     }
 
-    pub fn redraw_lite(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    pub fn redraw_lite(&self, stdout: &mut RawTerminal<StdoutLock>) {
         self.draw_lite(stdout);
     }
 
-    fn draw_lite(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw_lite(&self, stdout: &mut RawTerminal<StdoutLock>) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),
-            termion::style::Underline,
-            termion::style::Reset
+            Underline,
+            Reset
         ).unwrap();
 
         for i in 0..self.rect.height() {
@@ -55,7 +54,7 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw(&self, _game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
         self.draw_lite(stdout);
     }
 }
@@ -67,7 +66,7 @@ impl Keypress for LogArea {
 }
 
 impl Redraw for LogArea {
-    fn redraw(&self, _game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn redraw(&self, _game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
         self.redraw_lite(stdout);
     }
 }

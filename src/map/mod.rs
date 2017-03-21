@@ -1,5 +1,3 @@
-extern crate termion;
-
 use std::convert::TryFrom;
 use std::fmt;
 use std::iter::{FlatMap,FromIterator};
@@ -8,7 +6,7 @@ use std::ops::{Index,IndexMut};
 
 use termion::color::AnsiValue;
 
-use unit::{Alignment,City,Unit,Aligned,Sym};
+use unit::{City,Unit,Aligned,Sym};
 use util::{Dims,Location};
 
 

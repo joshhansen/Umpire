@@ -2,12 +2,11 @@
 //! The user interface.
 //!
 //! Making use of the abstract game engine, implement a user interface for the game.
-extern crate termion;
-
 use std::cell::RefCell;
 use std::io::{Write, StdoutLock};
 use std::rc::Rc;
 
+use termion;
 use termion::clear;
 use termion::event::Key;
 
