@@ -220,7 +220,7 @@ impl Game {
             if let Some(ref city) = tile.city {
                 if let Alignment::BELLIGERENT{player} = city.alignment {
                     if player==self.current_player {
-                        city.observe(tile.loc, &self.tiles, self.turn, &self.wrapping, obs_tracker);
+                        city.observe(tile.loc, &self.tiles, self.turn, self.wrapping, obs_tracker);
                     }
                 }
             }
@@ -228,7 +228,7 @@ impl Game {
             if let Some(ref unit) = tile.unit {
                 if let Alignment::BELLIGERENT{player} = unit.alignment {
                     if player==self.current_player {
-                        unit.observe(tile.loc, &self.tiles, self.turn, &self.wrapping, obs_tracker);
+                        unit.observe(tile.loc, &self.tiles, self.turn, self.wrapping, obs_tracker);
                     }
                 }
             }
@@ -279,7 +279,7 @@ impl Game {
 
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let unit = self.tiles[src].unit.unwrap();
-        let shortest_paths = shortest_paths(&self.tiles, &src, &unit, &self.wrapping);
+        let shortest_paths = shortest_paths(&self.tiles, &src, &unit, self.wrapping);
 
         if let Some(distance) = shortest_paths.dist[dest] {
             let unit = self.tiles[src].pop_unit();
@@ -348,7 +348,7 @@ impl Game {
 
 
                         let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
-                        unit.observe(dest, &self.tiles, self.turn, &self.wrapping, obs_tracker);
+                        unit.observe(dest, &self.tiles, self.turn, self.wrapping, obs_tracker);
                     }
                     Ok(MoveResult{ unit: unit, moves: moves, starting_loc: src })
                 }

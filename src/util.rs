@@ -127,11 +127,13 @@ impl TryFrom<char> for Direction {
     }
 }
 
+#[derive(Clone,Copy)]
 pub enum Wrap {
     Wrapping,
     NonWrapping
 }
 
+#[derive(Clone,Copy)]
 pub struct Wrap2d {
     pub horiz: Wrap,
     pub vert: Wrap
@@ -161,7 +163,7 @@ pub static WRAP_NEITHER: Wrap2d = Wrap2d {
 /// Add `inc` to `loc` respecting the specified wrapping rules in a space defined by `dims`
 /// If the result is out of bounds, return None
 ///
-pub fn wrapped_add(loc: &Location, inc: &Vec2d<i16>, dims: &Dims, wrapping: &Wrap2d) -> Option<Location> {
+pub fn wrapped_add(loc: Location, inc: Vec2d<i16>, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
     let mut new_x: i32 = loc.x as i32 + inc.x as i32;
     if let Wrap::Wrapping = wrapping.horiz {
         new_x = if new_x < 0 { dims.width as i32 + new_x } else { new_x % dims.width as i32 };

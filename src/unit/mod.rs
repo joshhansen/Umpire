@@ -45,7 +45,7 @@ pub trait Sym {
 
 pub trait Observer {
     fn sight_distance(&self) -> u16;
-    fn observe(&self, observer_loc: Location, tiles: &LocationGrid<Tile>, turn: TurnNum, wrapping: &Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
+    fn observe(&self, observer_loc: Location, tiles: &LocationGrid<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
         let sight = self.sight_distance() as i16;
 
         for i in (-sight)..(sight+1) {
@@ -56,7 +56,7 @@ pub trait Observer {
 
                 if dist <= sight as f64 {
                     let inc = Vec2d::new(i, j);
-                    if let Some(loc) = wrapped_add(&observer_loc, &inc, &tiles.dims(), &wrapping) {
+                    if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
 
                         // println!("\t{}", loc);
                         obs_tracker.observe(loc, &tiles[loc], turn);

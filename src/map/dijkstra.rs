@@ -85,10 +85,10 @@ pub static RELATIVE_NEIGHBORS: [Vec2d<i16>; 8] = [
 //     neighbs
 // }
 
-fn neighbors(tiles: &LocationGrid<Tile>, loc: &Location, unit: &Unit, wrapping: &Wrap2d) -> HashSet<Location> {
+fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
     let mut neighbs = HashSet::new();
     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
-        if let Some(neighb_loc) = wrapped_add(loc, &rel_neighb, &tiles.dims, wrapping) {
+        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims, wrapping) {
             if let Some(tile) = tiles.get(&neighb_loc) {
                 if unit.can_move_on(&tile) {
                     neighbs.insert(neighb_loc);
@@ -118,7 +118,7 @@ impl PartialOrd for State {
     }
 }
 
-pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: &Location, unit: &Unit, wrapping: &Wrap2d) -> ShortestPaths {
+pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: &Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 
     let mut dist = LocationGrid::new(&tiles.dims, |_loc| None);
@@ -135,7 +135,7 @@ pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: &Location, unit: &Unit
 
 
         // for neighb_loc in neighbors_with_same_terrain(tiles, &loc, wrapping) {
-        for neighb_loc in neighbors(tiles, &loc, unit, wrapping) {
+        for neighb_loc in neighbors(tiles, loc, unit, wrapping) {
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
 
