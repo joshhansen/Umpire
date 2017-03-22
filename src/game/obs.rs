@@ -88,6 +88,6 @@ mod test {
 
 
         let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
-        infantry.observe(loc, &map, turn, &WRAP_BOTH, &mut tracker);
+        infantry.observe(loc, &map, turn, WRAP_BOTH, &mut tracker);
     }
 }

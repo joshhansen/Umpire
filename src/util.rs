@@ -278,10 +278,10 @@ fn test_wrapped_add() {
     ];
 
     for (i, rel_neighb) in RELATIVE_NEIGHBORS.iter().enumerate() {
-        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_BOTH),    results_both   [i] );
-        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_HORIZ),   results_horiz  [i] );
-        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_VERT),    results_vert   [i] );
-        assert_eq!( wrapped_add(&loc, &rel_neighb, &dims, &WRAP_NEITHER), results_neither[i] );
+        assert_eq!( wrapped_add(loc, *rel_neighb, dims, WRAP_BOTH),    results_both   [i] );
+        assert_eq!( wrapped_add(loc, *rel_neighb, dims, WRAP_HORIZ),   results_horiz  [i] );
+        assert_eq!( wrapped_add(loc, *rel_neighb, dims, WRAP_VERT),    results_vert   [i] );
+        assert_eq!( wrapped_add(loc, *rel_neighb, dims, WRAP_NEITHER), results_neither[i] );
     }
 }
 
