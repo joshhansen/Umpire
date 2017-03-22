@@ -2,9 +2,7 @@
 //! The user interface.
 //!
 //! Making use of the abstract game engine, implement a user interface for the game.
-use std::cell::RefCell;
 use std::io::{Write, StdoutLock};
-use std::rc::Rc;
 
 use termion;
 use termion::clear;
@@ -145,33 +143,15 @@ fn sidebar_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
-type Scene = Vec<Rc<RefCell<Component>>>;
-impl Draw for Scene {
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        for component in self.iter() {
-            component.borrow().draw(game, stdout);
-        }
-    }
-}
-
-impl Redraw for Scene {
-    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-        for component in self.iter() {
-            component.borrow().redraw(game, stdout);
-        }
-    }
-}
-
 pub struct UI<'a> {
     stdout: termion::raw::RawTerminal<StdoutLock<'a>>,
     term_dims: Dims,
     viewport_size: ViewportSize,
 
-    map_scroller: Rc<RefCell<Scroller<Map>>>,
-    log: Rc<RefCell<LogArea>>,
-    current_player: Rc<RefCell<CurrentPlayer>>,
-
-    scene: Scene
+    map_scroller: Scroller<Map>,
+    log: LogArea,
+    current_player: CurrentPlayer,
+    turn: Turn
 }
 
 impl<'b> UI<'b> {
@@ -191,34 +171,26 @@ impl<'b> UI<'b> {
             width: viewport_rect.width + 1,
             height: viewport_rect.height + 1
         };
-        let map_scroller = Rc::new(RefCell::new( Scroller::new( &map_scroller_rect, map ) ));
-        map_scroller.borrow_mut().set_rect(viewport_size.rect(&map_dims));
+        let mut map_scroller = Scroller::new(&map_scroller_rect, map);
+        map_scroller.set_rect(viewport_size.rect(&map_dims));
 
         let log_rect = log_area_rect(&viewport_rect, &term_dims);
-        let log = Rc::new(RefCell::new(LogArea::new(&log_rect)));
+        let log = LogArea::new(&log_rect);
 
         let cp_rect = current_player_rect();
-        let current_player = Rc::new(RefCell::new(CurrentPlayer::new(cp_rect)));
+        let current_player = CurrentPlayer::new(cp_rect);
 
         let mut ui = UI {
             stdout: stdout,
             term_dims: term_dims,
             viewport_size: viewport_size,
 
-            map_scroller: map_scroller.clone(),
-            log: log.clone(),
-            current_player: current_player.clone(),
+            map_scroller: map_scroller,
+            log: log,
+            current_player: current_player,
 
-            scene: Scene::new()
+            turn: Turn::new(&turn_rect(&cp_rect))
         };
-
-        // ui.scene.push(map.clone());
-        ui.scene.push(map_scroller.clone());
-        ui.scene.push(log.clone());
-        ui.scene.push(current_player.clone());
-
-        let turn_rect = turn_rect(&cp_rect);
-        ui.scene.push(Rc::new(RefCell::new(Turn::new(&turn_rect))));
 
         write!(ui.stdout, "{}", clear::All).unwrap();
 
@@ -264,13 +236,13 @@ impl<'b> UI<'b> {
     // }
 
     pub fn log_message(&mut self, message: String) {
-        self.log.borrow_mut().log_message(message);
-        self.log.borrow_mut().redraw_lite(&mut self.stdout);
+        self.log.log_message(message);
+        self.log.redraw_lite(&mut self.stdout);
     }
 
     fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
         self.viewport_size = viewport_size;
-        self.map_scroller.borrow_mut().set_rect(self.viewport_size.rect(&game.map_dims()));
+        self.map_scroller.set_rect(self.viewport_size.rect(&game.map_dims()));
         self.draw(game);
     }
 
@@ -283,7 +255,10 @@ impl<'b> UI<'b> {
             termion::style::Reset
         ).unwrap();
 
-        self.scene.draw(game, &mut self.stdout);
+        self.log.draw_lite(&mut self.stdout);
+        self.current_player.draw(game, &mut self.stdout);
+        self.map_scroller.draw(game, &mut self.stdout);
+        self.turn.draw(game, &mut self.stdout);
 
         write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
@@ -306,10 +281,9 @@ impl<'b> UI<'b> {
 
             self.log_message(format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {"victorious"} else {"destroyed"}));
 
-
-            let scroller = self.map_scroller.borrow_mut();
-            let viewport_dims = scroller.viewport_dims();
-            let ref map = scroller.scrollable;
+;
+            let viewport_dims = self.map_scroller.viewport_dims();
+            let ref map = self.map_scroller.scrollable;
 
             // Erase the unit's symbol at its old location
             if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
@@ -336,9 +310,8 @@ impl<'b> UI<'b> {
     fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(&mut self, game: &Game, outcome: &CombatOutcome<A,D>, attacker_loc: Location,
                 defender_loc: Location) {
 
-        let scroller = self.map_scroller.borrow_mut();
-        let viewport_dims = scroller.viewport_dims();
-        let ref map = scroller.scrollable;
+        let viewport_dims = self.map_scroller.viewport_dims();
+        let ref map = self.map_scroller.scrollable;
 
         let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc, viewport_dims);
         let defender_viewport_loc = map.map_to_viewport_coords(defender_loc, viewport_dims);
@@ -374,9 +347,8 @@ impl<'b> UI<'b> {
     }
 
     pub fn cursor_viewport_loc(&self, mode: Mode) -> Option<Location> {
-        let scroller = self.map_scroller.borrow_mut();
-        let viewport_dims = scroller.viewport_dims();
-        let ref map = scroller.scrollable;
+        let viewport_dims = self.map_scroller.viewport_dims();
+        let ref map = self.map_scroller.scrollable;
 
         match mode {
             Mode::SetProduction{loc} => map.map_to_viewport_coords(loc, viewport_dims),

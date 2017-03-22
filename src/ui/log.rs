@@ -34,7 +34,7 @@ impl LogArea {
         self.draw_lite(stdout);
     }
 
-    fn draw_lite(&self, stdout: &mut RawTerminal<StdoutLock>) {
+    pub fn draw_lite(&self, stdout: &mut RawTerminal<StdoutLock>) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),

@@ -86,9 +86,8 @@ trait IMode {
     }
 
     fn map_loc_to_viewport_loc<'a>(ui: &mut UI<'a>, map_loc: Location) -> Option<Location> {
-        let scroller = ui.map_scroller.borrow_mut();
-        let viewport_dims = scroller.viewport_dims();
-        let ref map = scroller.scrollable;
+        let viewport_dims = ui.map_scroller.viewport_dims();
+        let ref map = ui.map_scroller.scrollable;
         map.map_to_viewport_coords(map_loc, viewport_dims)
     }
 }
@@ -114,8 +113,9 @@ pub struct TurnStartMode {}
 impl IMode for TurnStartMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
         {
-            let cp = ui.current_player.borrow_mut();
-            cp.redraw(game, &mut ui.stdout);
+            // let cp = ui.current_player.borrow_mut();
+            // cp.redraw(game, &mut ui.stdout);
+            ui.current_player.redraw(game, &mut ui.stdout);
         }
 
         ui.log_message(format!("\nTurn {}, player {} go!", game.turn(), game.current_player()));
@@ -196,7 +196,7 @@ impl SetProductionMode {
 
 impl IMode for SetProductionMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
-        ui.map_scroller.borrow_mut().scrollable.center_viewport(self.loc);
+        ui.map_scroller.scrollable.center_viewport(self.loc);
 
         ui.draw(game);
 
@@ -252,7 +252,7 @@ struct MoveUnitMode{
 }
 impl IMode for MoveUnitMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
-        ui.map_scroller.borrow_mut().scrollable.center_viewport(self.loc);
+        ui.map_scroller.scrollable.center_viewport(self.loc);
 
         {
             let unit = game.unit(self.loc).unwrap();
@@ -326,8 +326,7 @@ struct ExamineMode {
 impl IMode for ExamineMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
         if let Some(tile) = {
-            let scroller = ui.map_scroller.borrow_mut();
-            let ref map = scroller.scrollable;
+            let ref map = ui.map_scroller.scrollable;
 
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, None);
 
@@ -350,8 +349,7 @@ impl IMode for ExamineMode {
                 }
 
                 {
-                    let scroller = ui.map_scroller.borrow_mut();
-                    let ref map = scroller.scrollable;
+                    let ref map = ui.map_scroller.scrollable;
 
                     map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, None);
                     ui.stdout.flush().unwrap();
