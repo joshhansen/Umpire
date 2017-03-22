@@ -7,7 +7,7 @@ use termion::style::{Reset,Underline};
 
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
-use util::Rect;
+use util::{Rect,grapheme_len,grapheme_substr};
 
 pub struct LogArea {
     rect: Rect,
@@ -44,9 +44,12 @@ impl LogArea {
 
         for i in 0..self.rect.height() {
             let empty = String::from("");
-            let message = self.messages.get(i as usize).unwrap_or(&empty);
-            let spaces = (0..(self.rect.width - 2)).map(|_| " ").collect::<String>();
-            write!(*stdout, "{}┃ {}{}", self.goto(0, i as u16+1), message, spaces).unwrap();
+            let mut message = grapheme_substr( &self.messages.get(i as usize).unwrap_or(&empty), self.rect.width as usize);
+            let num_spaces = self.rect.width as usize - grapheme_len(&message);
+            for _ in 0..num_spaces {
+                message.push(' ');
+            }
+            write!(*stdout, "{}┃ {}", self.goto(0, i as u16+1), message).unwrap();
         }
 
         stdout.flush().unwrap();

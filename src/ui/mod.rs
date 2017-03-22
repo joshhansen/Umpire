@@ -129,7 +129,7 @@ fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
         left: 0,
         top: viewport_rect.bottom() + 2,
         width: viewport_rect.width,
-        height: term_dims.height - viewport_rect.height - 2
+        height: term_dims.height - viewport_rect.height - 3
     }
 }
 

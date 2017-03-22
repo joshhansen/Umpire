@@ -33,6 +33,7 @@ extern crate csv;
 extern crate rand;
 extern crate terminal_size;
 extern crate termion;
+extern crate unicode_segmentation;
 
 extern crate portaudio as pa;
 extern crate sample;

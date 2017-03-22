@@ -18,6 +18,8 @@ use std::ops::Add;
 use std::thread::sleep;
 use std::time::Duration;
 
+use unicode_segmentation::UnicodeSegmentation;
+
 use conf;
 use map::dijkstra::RELATIVE_NEIGHBORS;
 
@@ -303,4 +305,18 @@ impl fmt::Debug for Location {
 
 pub fn sleep_millis(millis: u64) {
     sleep(Duration::from_millis(millis));
+}
+
+pub fn grapheme_substr(s: &String, len: usize) -> String {
+    let mut substr = String::with_capacity(len);
+
+    for grapheme in UnicodeSegmentation::graphemes(s.as_str(), true).take(len) {
+        substr.push_str(grapheme);
+    }
+
+    substr
+}
+
+pub fn grapheme_len(s: &String) -> usize {
+    UnicodeSegmentation::graphemes(s.as_str(), true).count()
 }
