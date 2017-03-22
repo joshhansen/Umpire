@@ -54,6 +54,7 @@ impl Mode {
 
 #[derive(PartialEq)]
 enum StateDisposition {
+    Stay,
     Next,
     Quit
 }
@@ -66,20 +67,33 @@ enum KeyStatus {
 trait IMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool;
 
-    fn get_key<'a>(&self, _game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> KeyStatus {
+    fn get_key<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> KeyStatus {
         let key = get_key();
         if let Key::Char(c) = key {
-            if c == conf::KEY_QUIT {
-                *mode = Mode::Quit;
-                return KeyStatus::Handled(StateDisposition::Quit);
+            if let Ok(dir) = Direction::try_from(c) {
+                ui.map_scroller.scrollable.shift_viewport(dir.vec2d());
+                ui.map_scroller.redraw(game, &mut ui.stdout);
+                return KeyStatus::Handled(StateDisposition::Stay);
             }
-            if c == conf::KEY_EXAMINE {
-                if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(*mode) {
-                    *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc};
-                    return KeyStatus::Handled(StateDisposition::Next);
-                } else {
-                    ui.log_message(String::from("Couldn't get cursor loc"));
-                }
+
+            match c {
+                conf::KEY_QUIT => {
+                    *mode = Mode::Quit;
+                    return KeyStatus::Handled(StateDisposition::Quit);
+                },
+                conf::KEY_EXAMINE => {
+                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(*mode) {
+                        *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc};
+                        return KeyStatus::Handled(StateDisposition::Next);
+                    } else {
+                        ui.log_message(String::from("Couldn't get cursor loc"));
+                    }
+                },
+                conf::KEY_VIEWPORT_SIZE_ROTATE => {
+                    ui.rotate_viewport_size(game);
+                    return KeyStatus::Handled(StateDisposition::Stay);
+                },
+                _ => {}
             }
         }
         KeyStatus::Unhandled(key)
@@ -219,7 +233,11 @@ impl IMode for SetProductionMode {
                     }
                 },
                 KeyStatus::Handled(state_disposition) => {
-                    return state_disposition != StateDisposition::Quit;
+                    match state_disposition {
+                        StateDisposition::Quit => return false,
+                        StateDisposition::Next => return true,
+                        StateDisposition::Stay => {}
+                    }
                 }
             }
         }
@@ -305,7 +323,11 @@ impl IMode for MoveUnitMode {
                     }
                 },
                 KeyStatus::Handled(state_disposition) => {
-                    return state_disposition != StateDisposition::Quit
+                    match state_disposition {
+                        StateDisposition::Quit => return false,
+                        StateDisposition::Next => return true,
+                        StateDisposition::Stay => {}
+                    }
                 }
             }
         }
@@ -357,7 +379,13 @@ impl IMode for ExamineMode {
 
                 true
             },
-            KeyStatus::Handled(state_disposition) => state_disposition != StateDisposition::Quit
+            KeyStatus::Handled(state_disposition) => {
+                match state_disposition {
+                    StateDisposition::Quit => return false,
+                    StateDisposition::Next => return true,
+                    StateDisposition::Stay => return true//examine mode doesn't loop, so just move on to the next state
+                }
+            }
         }
     }
 }

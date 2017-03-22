@@ -86,14 +86,14 @@ pub const KEY_UP_LEFT:    char = 'y';
 pub const KEY_UP_RIGHT:   char = 'u';
 pub const KEY_DOWN_LEFT:  char = 'b';
 pub const KEY_DOWN_RIGHT: char = 'n';
-pub const KEY_VIEWPORT_SHIFT_LEFT: char = 'H';//KEY_LEFT;
-pub const KEY_VIEWPORT_SHIFT_RIGHT: char = 'L';// KEY_RIGHT;
-pub const KEY_VIEWPORT_SHIFT_UP: char = 'K';// KEY_UP;
-pub const KEY_VIEWPORT_SHIFT_DOWN: char = 'J';// KEY_DOWN;
-pub const KEY_VIEWPORT_SHIFT_UP_LEFT: char = 'Y';//KEY_UP_LEFT;
-pub const KEY_VIEWPORT_SHIFT_UP_RIGHT: char = 'U';//KEY_UP_RIGHT;
-pub const KEY_VIEWPORT_SHIFT_DOWN_LEFT: char = 'B';//KEY_DOWN_LEFT;
-pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';//KEY_DOWN_RIGHT;
+pub const KEY_VIEWPORT_SHIFT_LEFT: char = 'H';
+pub const KEY_VIEWPORT_SHIFT_RIGHT: char = 'L';
+pub const KEY_VIEWPORT_SHIFT_UP: char = 'K';
+pub const KEY_VIEWPORT_SHIFT_DOWN: char = 'J';
+pub const KEY_VIEWPORT_SHIFT_UP_LEFT: char = 'Y';
+pub const KEY_VIEWPORT_SHIFT_UP_RIGHT: char = 'U';
+pub const KEY_VIEWPORT_SHIFT_DOWN_LEFT: char = 'B';
+pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';
 
 pub const KEY_QUIT: char = 'q';
 

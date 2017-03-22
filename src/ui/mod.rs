@@ -246,6 +246,17 @@ impl<'b> UI<'b> {
         self.draw(game);
     }
 
+    pub fn rotate_viewport_size(&mut self, game: &Game) {
+        let new_size = match self.viewport_size {
+            ViewportSize::REGULAR => ViewportSize::THEATER,
+            ViewportSize::THEATER => ViewportSize::FULLSCREEN,
+            ViewportSize::FULLSCREEN => ViewportSize::REGULAR
+        };
+
+        self.set_viewport_size(game, new_size);
+        self.redraw(game);
+    }
+
     pub fn draw(&mut self, game: &Game) {
         write!(self.stdout, "{}{}{}{}{}",
             termion::clear::All,
@@ -262,6 +273,13 @@ impl<'b> UI<'b> {
 
         write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
+    }
+
+    fn redraw(&mut self, game: &Game) {
+        self.log.redraw_lite(&mut self.stdout);
+        self.current_player.redraw(game, &mut self.stdout);
+        self.map_scroller.redraw(game, &mut self.stdout);
+        self.turn.redraw(game, &mut self.stdout);
     }
 
     fn animate_move(&mut self, game: &Game, move_result: MoveResult) {

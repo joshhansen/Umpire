@@ -116,14 +116,22 @@ impl TryFrom<char> for Direction {
     type Err = String;
     fn try_from(c: char) -> Result<Direction,String> {
         match c {
-            conf::KEY_UP         => Ok(Direction::Up),
-            conf::KEY_DOWN       => Ok(Direction::Down),
-            conf::KEY_LEFT       => Ok(Direction::Left),
-            conf::KEY_RIGHT      => Ok(Direction::Right),
-            conf::KEY_UP_LEFT    => Ok(Direction::UpLeft),
-            conf::KEY_UP_RIGHT   => Ok(Direction::UpRight),
-            conf::KEY_DOWN_LEFT  => Ok(Direction::DownLeft),
-            conf::KEY_DOWN_RIGHT => Ok(Direction::DownRight),
+            conf::KEY_UP                        => Ok(Direction::Up),
+            conf::KEY_DOWN                      => Ok(Direction::Down),
+            conf::KEY_LEFT                      => Ok(Direction::Left),
+            conf::KEY_RIGHT                     => Ok(Direction::Right),
+            conf::KEY_UP_LEFT                   => Ok(Direction::UpLeft),
+            conf::KEY_UP_RIGHT                  => Ok(Direction::UpRight),
+            conf::KEY_DOWN_LEFT                 => Ok(Direction::DownLeft),
+            conf::KEY_DOWN_RIGHT                => Ok(Direction::DownRight),
+            conf::KEY_VIEWPORT_SHIFT_UP         => Ok(Direction::Up),
+            conf::KEY_VIEWPORT_SHIFT_DOWN       => Ok(Direction::Down),
+            conf::KEY_VIEWPORT_SHIFT_LEFT       => Ok(Direction::Left),
+            conf::KEY_VIEWPORT_SHIFT_RIGHT      => Ok(Direction::Right),
+            conf::KEY_VIEWPORT_SHIFT_UP_LEFT    => Ok(Direction::UpLeft),
+            conf::KEY_VIEWPORT_SHIFT_UP_RIGHT   => Ok(Direction::UpRight),
+            conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT  => Ok(Direction::DownLeft),
+            conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT => Ok(Direction::DownRight),
             _                    => Err(format!("{} doesn't indicate a direction", c))
         }
     }

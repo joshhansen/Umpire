@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::io::{StdoutLock,Write};
 
 use termion::color::{Fg, Bg};
@@ -6,7 +7,6 @@ use termion::event::Key;
 use termion::raw::RawTerminal;
 use termion::style::{Invert,Reset,Underline};
 
-use conf;
 use game::Game;
 use map::Tile;
 use ui::{Component,Draw,Keypress,Redraw};
@@ -212,20 +212,6 @@ impl Map {
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
         game.current_player_tile(tile_loc)
     }
-
-    fn key_to_dir(c: char) -> Result<Direction,String> {
-        match c {
-            conf::KEY_VIEWPORT_SHIFT_UP         => Ok(Direction::Up),
-            conf::KEY_VIEWPORT_SHIFT_DOWN       => Ok(Direction::Down),
-            conf::KEY_VIEWPORT_SHIFT_LEFT       => Ok(Direction::Left),
-            conf::KEY_VIEWPORT_SHIFT_RIGHT      => Ok(Direction::Right),
-            conf::KEY_VIEWPORT_SHIFT_UP_LEFT    => Ok(Direction::UpLeft),
-            conf::KEY_VIEWPORT_SHIFT_UP_RIGHT   => Ok(Direction::UpRight),
-            conf::KEY_VIEWPORT_SHIFT_DOWN_LEFT  => Ok(Direction::DownLeft),
-            conf::KEY_VIEWPORT_SHIFT_DOWN_RIGHT => Ok(Direction::DownRight),
-            _                    => Err(format!("{} doesn't indicate a direction", c))
-        }
-    }
 }
 
 impl ScrollableComponent for Map {
@@ -317,7 +303,7 @@ impl Redraw for Map {
 impl Keypress for Map {
     fn keypress<'a>(&mut self, key: &Key, _game: &mut Game) {
         if let Key::Char(c) = *key {
-            if let Ok(dir) = Map::key_to_dir(c) {
+            if let Ok(dir) = Direction::try_from(c) {
                 self.shift_viewport(dir.vec2d())
             }
         }
