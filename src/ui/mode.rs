@@ -187,16 +187,12 @@ struct SetProductionMode {
 
 impl SetProductionMode {
     fn draw<'a>(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
-
-        // let ref tile = game.tile(self.loc).unwrap();
         let ref tile = game.current_player_tile(self.loc).unwrap();
 
         if let Some(ref city) = tile.city {
-            // self.center_viewport(loc);
             write!(*stdout, "{}Set Production for {}", self.goto(0, 0), city).unwrap();
 
-            let unit_types = UnitType::values();
-            for (i, unit_type) in unit_types.iter().enumerate() {
+            for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
                 write!(*stdout, "{}{} - {}",
                     self.goto(1, i as u16 + 2),
                     unit_type.key(),
