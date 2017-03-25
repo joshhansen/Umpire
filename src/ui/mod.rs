@@ -299,7 +299,6 @@ impl<'b> UI<'b> {
 
             self.log_message(format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {"victorious"} else {"destroyed"}));
 
-;
             let viewport_dims = self.map_scroller.viewport_dims();
             let ref map = self.map_scroller.scrollable;
 

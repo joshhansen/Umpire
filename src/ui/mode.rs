@@ -345,18 +345,14 @@ impl IMode for ExamineMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
         if let Some(tile) = {
             let ref map = ui.map_scroller.scrollable;
-
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, None);
-
-
-
             map.tile(game, self.cursor_viewport_loc)
         } {
             ui.log_message(format!("{:?}", tile));
             ui.stdout.flush().unwrap();
         }
 
-        return match self.get_key(game, ui, mode) {
+        match self.get_key(game, ui, mode) {
             KeyStatus::Unhandled(key) => {
                 if key==Key::Esc {
                     *mode = Mode::TurnStart;
@@ -369,20 +365,17 @@ impl IMode for ExamineMode {
                     }
                 }
 
-                {
-                    let ref map = ui.map_scroller.scrollable;
-
-                    map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, None);
-                    ui.stdout.flush().unwrap();
-                }
+                let ref map = ui.map_scroller.scrollable;
+                map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, None);
+                ui.stdout.flush().unwrap();
 
                 true
             },
             KeyStatus::Handled(state_disposition) => {
                 match state_disposition {
-                    StateDisposition::Quit => return false,
-                    StateDisposition::Next => return true,
-                    StateDisposition::Stay => return true//examine mode doesn't loop, so just move on to the next state
+                    StateDisposition::Quit => false,
+                    StateDisposition::Next => true,
+                    StateDisposition::Stay => true//examine mode doesn't loop, so just move on to the next state
                 }
             }
         }
