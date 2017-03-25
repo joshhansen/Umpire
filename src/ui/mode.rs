@@ -362,7 +362,10 @@ impl IMode for ExamineMode {
                     *mode = Mode::TurnStart;
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
-                        *mode = Mode::Examine{cursor_viewport_loc: self.cursor_viewport_loc.shift(dir)};
+                        let new_loc = self.cursor_viewport_loc.shift(dir);
+                        if ui.viewport_rect().contains(new_loc) {
+                            *mode = Mode::Examine{cursor_viewport_loc: new_loc};
+                        }
                     }
                 }
 

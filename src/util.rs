@@ -34,6 +34,13 @@ pub struct Rect {
 impl Rect {
     pub fn right(&self) -> u16 { self.left + self.width }
     pub fn bottom(&self) -> u16 { self.top + self.height }
+
+    pub fn contains(&self, loc: Location) -> bool {
+        loc.x > self.left &&
+        loc.x < self.right() &&
+        loc.y > self.top &&
+        loc.y < self.bottom()
+    }
 }
 
 #[derive(Clone,Copy,Debug,PartialEq)]
