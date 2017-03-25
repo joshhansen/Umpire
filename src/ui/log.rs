@@ -20,7 +20,7 @@ impl LogArea {
     }
 
     fn max_messages(&self) -> u16 {
-        self.rect.height() - 1
+        self.rect.height - 1
     }
 
     pub fn log_message(&mut self, message: String) {
@@ -42,7 +42,7 @@ impl LogArea {
             Reset
         ).unwrap();
 
-        for i in 0..self.rect.height() {
+        for i in 0..self.rect.height {
             let empty = String::from("");
             let mut message = grapheme_substr( &self.messages.get(i as usize).unwrap_or(&empty), self.rect.width as usize);
             let num_spaces = self.rect.width as usize - grapheme_len(&message);

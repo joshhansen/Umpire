@@ -9,7 +9,7 @@ use std::ops::{Index,IndexMut};
 
 use map::{LocationGrid,Tile};
 use unit::Unit;
-use util::{Location,Vec2d,Wrap,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER,wrapped_add};
+use util::{Location,Vec2d,Wrap2d,wrapped_add};
 
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
@@ -160,7 +160,7 @@ mod test {
     use map::LocationGrid;
     use map::dijkstra::{neighbors,shortest_paths};
     use unit::{Alignment,Unit,UnitType};
-    use util::{Location,Vec2d,Wrap,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER,wrapped_add};
+    use util::{Location,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
 
     #[test]

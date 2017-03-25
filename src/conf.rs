@@ -36,8 +36,6 @@
 //     }
 // }
 
-use unit::PlayerNum;
-
 /// The name of this application
 pub const APP_NAME: &'static str = "umpire";
 

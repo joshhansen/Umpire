@@ -380,6 +380,9 @@ x   o    x";
                 let width = map_s.lines().map(|line| line.len()).max();
                 let height = map_s.lines().count();
 
+                assert_eq!(width, Some(10));
+                assert_eq!(height, 5);
+
                 let infantry_loc = Location{x:4, y:2};
 
                 let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
