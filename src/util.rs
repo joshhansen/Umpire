@@ -127,6 +127,14 @@ impl TryFrom<char> for Direction {
             conf::KEY_UP_RIGHT                  => Ok(Direction::UpRight),
             conf::KEY_DOWN_LEFT                 => Ok(Direction::DownLeft),
             conf::KEY_DOWN_RIGHT                => Ok(Direction::DownRight),
+            _                    => Err(format!("{} doesn't indicate a direction", c))
+        }
+    }
+}
+
+impl Direction {
+    pub fn try_from_viewport_shift(c: char) -> Result<Direction,String> {
+        match c {
             conf::KEY_VIEWPORT_SHIFT_UP         => Ok(Direction::Up),
             conf::KEY_VIEWPORT_SHIFT_DOWN       => Ok(Direction::Down),
             conf::KEY_VIEWPORT_SHIFT_LEFT       => Ok(Direction::Left),

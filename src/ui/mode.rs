@@ -70,7 +70,7 @@ trait IMode {
     fn get_key<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> KeyStatus {
         let key = get_key();
         if let Key::Char(c) = key {
-            if let Ok(dir) = Direction::try_from(c) {
+            if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 ui.map_scroller.scrollable.shift_viewport(dir.vec2d());
                 ui.map_scroller.redraw(game, &mut ui.stdout);
                 return KeyStatus::Handled(StateDisposition::Stay);

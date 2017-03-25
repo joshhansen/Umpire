@@ -109,7 +109,7 @@ impl<C:ScrollableComponent> Redraw for Scroller<C> {
 impl<C:ScrollableComponent> Keypress for Scroller<C> {
     fn keypress(&mut self, key: &Key, game: &mut Game) {
         if let Key::Char(c) = *key {
-            if let Ok(dir) = Direction::try_from(c) {
+            if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 self.scroll_relative(game, dir.vec2d())
             }
         }

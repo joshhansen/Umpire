@@ -303,7 +303,7 @@ impl Redraw for Map {
 impl Keypress for Map {
     fn keypress<'a>(&mut self, key: &Key, _game: &mut Game) {
         if let Key::Char(c) = *key {
-            if let Ok(dir) = Direction::try_from(c) {
+            if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 self.shift_viewport(dir.vec2d())
             }
         }
