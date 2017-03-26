@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::io::{StdoutLock,Write};
 
 use termion;
