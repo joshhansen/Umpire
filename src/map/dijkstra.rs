@@ -8,7 +8,7 @@ use std::ops::{Index,IndexMut};
 
 
 use map::{LocationGrid,Tile};
-use unit::{UnitType};
+use unit::{Unit,UnitType};
 use util::{Location,Vec2d,Wrap2d,wrapped_add};
 
 impl Index<Location> for Vec<Vec<u16>> {
@@ -85,12 +85,27 @@ pub static RELATIVE_NEIGHBORS: [Vec2d<i16>; 8] = [
 //     neighbs
 // }
 
-pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
+pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
     let mut neighbs = HashSet::new();
     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
         if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims, wrapping) {
             if let Some(tile) = tiles.get(&neighb_loc) {
-                if unit_type.can_move_on(&tile.terrain) {
+                if unit.can_move_on_tile(&tile) {
+                    neighbs.insert(neighb_loc);
+                }
+            }
+        }
+    }
+
+    neighbs
+}
+
+pub fn neighbors_terrain_only(tiles: &LocationGrid<Tile>, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
+    let mut neighbs = HashSet::new();
+    for rel_neighb in RELATIVE_NEIGHBORS.iter() {
+        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims, wrapping) {
+            if let Some(tile) = tiles.get(&neighb_loc) {
+                if unit_type.can_move_on_terrain(&tile.terrain) {
                     neighbs.insert(neighb_loc);
                 }
             }
@@ -118,7 +133,7 @@ impl PartialOrd for State {
     }
 }
 
-pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: Location, unit_type: UnitType, wrapping: Wrap2d) -> ShortestPaths {
+pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 
     let mut dist = LocationGrid::new(&tiles.dims, |_loc| None);
@@ -135,7 +150,7 @@ pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: Location, unit_type: U
 
 
         // for neighb_loc in neighbors_with_same_terrain(tiles, &loc, wrapping) {
-        for neighb_loc in neighbors(tiles, loc, unit_type, wrapping) {
+        for neighb_loc in neighbors(tiles, loc, unit, wrapping) {
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
 

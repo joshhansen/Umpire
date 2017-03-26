@@ -10,7 +10,7 @@ use std::collections::{HashMap,HashSet};
 use game::obs::{FogOfWarTracker,Obs,ObsTracker,UniversalVisibilityTracker};
 use map::{Tile,LocationGrid};
 use map::gen::MapGenerator;
-use map::dijkstra::{neighbors,shortest_paths};
+use map::dijkstra::{neighbors,neighbors_terrain_only,shortest_paths};
 use unit::{Alignment,City,Observer,PlayerNum,Unit,UnitType};
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Location,Wrap,Wrap2d};
@@ -279,7 +279,7 @@ impl Game {
 
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let unit = self.tiles[src].unit.unwrap();
-        let shortest_paths = shortest_paths(&self.tiles, src, unit.type_, self.wrapping);
+        let shortest_paths = shortest_paths(&self.tiles, src, &unit, self.wrapping);
 
         if let Some(distance) = shortest_paths.dist[dest] {
             let unit = self.tiles[src].pop_unit();
@@ -394,9 +394,9 @@ but there is no city at that location",
 
             // pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
 
-            for neighb_loc in neighbors(&self.tiles, loc, *unit_type, self.wrapping) {
+            for neighb_loc in neighbors_terrain_only(&self.tiles, loc, *unit_type, self.wrapping) {
                 let ref neighb_tile = self.tiles[neighb_loc];
-                if unit_type.can_move_on( &neighb_tile.terrain ) {
+                if unit_type.can_move_on_terrain( &neighb_tile.terrain ) {
                     return true;
                 }
             }

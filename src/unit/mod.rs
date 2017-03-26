@@ -166,7 +166,7 @@ impl UnitType {
         None
     }
 
-    pub fn can_move_on(&self, terrain: &Terrain) -> bool {
+    pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
         match *self {
             UnitType::INFANTRY => *terrain==Terrain::LAND,
             UnitType::ARMOR => *terrain==Terrain::LAND,
@@ -241,8 +241,8 @@ impl Unit {
         }
     }
 
-    pub fn can_move_on(&self, tile: &Tile) -> bool {
-        if !self.type_.can_move_on(&tile.terrain) {
+    pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
+        if !self.type_.can_move_on_terrain(&tile.terrain) {
             return false;
         }
 
