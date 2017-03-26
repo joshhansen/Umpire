@@ -26,7 +26,7 @@ pub enum Mode {
     MoveUnits,
     MoveUnit{loc:Location},
     Quit,
-    Examine{cursor_viewport_loc:Location}
+    Examine{cursor_viewport_loc:Location, first: bool}
 }
 
 impl Mode {
@@ -47,7 +47,8 @@ impl Mode {
             Mode::MoveUnits =>          MoveUnitsMode{}.run(game, ui, self),
             Mode::MoveUnit{loc} =>      MoveUnitMode{loc:loc}.run(game, ui, self),
             Mode::Quit =>               QuitMode{}.run(game, ui, self),
-            Mode::Examine{cursor_viewport_loc}       => ExamineMode{cursor_viewport_loc:cursor_viewport_loc}.run(game, ui, self)
+            Mode::Examine{cursor_viewport_loc, first} =>
+                ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first}.run(game, ui, self)
         }
     }
 }
@@ -83,7 +84,7 @@ trait IMode {
                 },
                 conf::KEY_EXAMINE => {
                     if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(*mode) {
-                        *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc};
+                        *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc, first: true};
                         return KeyStatus::Handled(StateDisposition::Next);
                     } else {
                         ui.log_message(String::from("Couldn't get cursor loc"));
@@ -339,18 +340,28 @@ impl IMode for QuitMode {
 }
 
 struct ExamineMode {
-    cursor_viewport_loc: Location
+    cursor_viewport_loc: Location,
+    first: bool
 }
 impl IMode for ExamineMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
-        if let Some(tile) = {
+        let examined_thing = if let Some(tile) = {
             let ref map = ui.map_scroller.scrollable;
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, None);
             map.tile(game, self.cursor_viewport_loc)
         } {
-            ui.log_message(format!("{:?}", tile));
-            ui.stdout.flush().unwrap();
+            format!("{}", tile)
+        } else {
+            "the horrifying void of the unknown (hic sunt dracones)".to_string()
+        };
+
+        let message = format!("Examining: {}", examined_thing);
+        if self.first {
+            ui.log_message(message);
+        } else {
+            ui.replace_message(message);
         }
+        ui.stdout.flush().unwrap();
 
         match self.get_key(game, ui, mode) {
             KeyStatus::Unhandled(key) => {
@@ -360,7 +371,7 @@ impl IMode for ExamineMode {
                     if let Ok(dir) = Direction::try_from(c) {
                         let new_loc = self.cursor_viewport_loc.shift(dir);
                         if ui.viewport_rect().contains(new_loc) {
-                            *mode = Mode::Examine{cursor_viewport_loc: new_loc};
+                            *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false};
                         }
                     }
                 }

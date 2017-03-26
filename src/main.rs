@@ -108,7 +108,11 @@ fn main() {
 
         let mut mode = ui::mode::Mode::TurnStart;
         while mode.run(&mut game, &mut ui) {
-            ui.log_message(format!("Mode: {:?}", mode));
+            if let ui::mode::Mode::Examine{cursor_viewport_loc:_, first:_} = mode {
+                // don't bother
+            } else {
+                ui.log_message(format!("Mode: {:?}", mode));
+            }
         }
 
         println!("Thanks for playing {}!\n", conf::APP_NAME);

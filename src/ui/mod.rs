@@ -235,8 +235,13 @@ impl<'b> UI<'b> {
     //     }
     // }
 
-    pub fn log_message(&mut self, message: String) {
-        self.log.log_message(message);
+    pub fn log_message<S: Into<String>>(&mut self, message: S) {
+        self.log.log_message(message.into());
+        self.log.redraw_lite(&mut self.stdout);
+    }
+
+    pub fn replace_message<S: Into<String>>(&mut self, message: S) {
+        self.log.replace_message(message.into());
         self.log.redraw_lite(&mut self.stdout);
     }
 

@@ -30,6 +30,14 @@ impl LogArea {
         }
     }
 
+    pub fn replace_message(&mut self, message: String) {
+        if let Some(item) = self.messages.back_mut() {
+            *item = message;
+            return;// TODO maybe when non-lexical lifetimes arrive we can get rid of this awkward return construct
+        }
+        self.log_message(message);
+    }
+
     pub fn redraw_lite(&self, stdout: &mut RawTerminal<StdoutLock>) {
         self.draw_lite(stdout);
     }

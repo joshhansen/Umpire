@@ -28,12 +28,18 @@ impl Terrain {
     }
 }
 
-impl fmt::Debug for Terrain {
+impl fmt::Display for Terrain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match *self {
             Terrain::WATER => "Water",
             Terrain::LAND => "Land"
         })
+    }
+}
+
+impl fmt::Debug for Terrain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -84,6 +90,20 @@ impl Tile {
 
     pub fn set_unit(&mut self, unit: Unit) {
         self.unit = Some(unit);
+    }
+}
+
+impl fmt::Display for Tile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref city) = self.city {
+            if let Some(ref unit) = self.unit {
+                write!(f, "{} with {} garrisoned", city, unit)
+            } else {
+                write!(f, "{}", city)
+            }
+        } else {
+            write!(f, "{}", self.terrain)
+        }
     }
 }
 

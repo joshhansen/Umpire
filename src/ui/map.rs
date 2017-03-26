@@ -1,7 +1,6 @@
-use std::convert::TryFrom;
 use std::io::{StdoutLock,Write};
 
-use termion::color::{Fg, Bg};
+use termion::color::{Fg, Bg, White};
 use termion::cursor::Hide;
 use termion::event::Key;
 use termion::raw::RawTerminal;
@@ -178,13 +177,9 @@ impl Map {
     }
 
     pub fn draw_tile(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>,
-            viewport_loc: Location, invert: bool, symbol: Option<&'static str>) {
+            viewport_loc: Location, highlight: bool, symbol: Option<&'static str>) {
 
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
-
-        if invert {
-            write!(stdout, "{}", Invert).unwrap();
-        }
 
         if tile_loc.y == game.map_dims().height - 1 {
             write!(stdout, "{}", Underline).unwrap();
@@ -193,6 +188,10 @@ impl Map {
         write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
 
         if let Some(tile) = game.current_player_tile(tile_loc) {
+            if highlight {
+                write!(stdout, "{}", Invert).unwrap();
+            }
+
             if let Some(fg_color) = tile.fg_color() {
                 write!(stdout, "{}", Fg(fg_color)).unwrap();
             }
@@ -202,10 +201,14 @@ impl Map {
                 symbol.unwrap_or(tile.sym())
             ).unwrap();
         } else {
+            if highlight {
+                write!(stdout, "{}", Bg(White)).unwrap();
+            }
             write!(stdout, " ").unwrap();
         }
 
         write!(stdout, "{}", Reset).unwrap();
+        stdout.flush().unwrap();
     }
 
     pub fn tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {

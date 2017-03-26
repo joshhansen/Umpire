@@ -298,7 +298,7 @@ impl fmt::Display for Unit {
 
 const CITY_MAX_HP: u16 = 4;
 
-#[derive(Clone,Debug,Hash,PartialEq,Eq)]
+#[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
     pub loc: Location,
     pub alignment: Alignment,
@@ -322,6 +322,12 @@ impl City {
 }
 
 impl fmt::Display for City {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "City \"{}\"", self.name)
+    }
+}
+
+impl fmt::Debug for City {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "City \"{}\"@{}", self.name, self.loc)
     }
