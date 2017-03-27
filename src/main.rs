@@ -16,6 +16,14 @@
 // * vegemon
 // * perator
 // * metropole
+// * Fort Fumble
+// * Grid Squares
+// * Hudson High
+// * armiya
+// * Other Means [War is politics by other means]
+// * containment
+// * ozymandias
+// * uzimandias
 
 #![feature(try_from)]
 
