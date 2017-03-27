@@ -35,10 +35,6 @@ pub trait Aligned {
     fn alignment(&self) -> Alignment;
 }
 
-pub trait Named {
-    fn name(&self) -> &'static str;
-}
-
 pub trait Sym {
     fn sym(&self) -> &'static str;
 }
@@ -180,10 +176,8 @@ impl UnitType {
             UnitType::CARRIER => *terrain==Terrain::WATER
         }
     }
-}
 
-impl Named for UnitType {
-    fn name(&self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         match *self {
             UnitType::INFANTRY => "Infantry",
             UnitType::ARMOR => "Armor",
@@ -199,6 +193,12 @@ impl Named for UnitType {
     }
 }
 
+impl fmt::Display for UnitType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub struct Unit {
     pub type_: UnitType,
@@ -208,10 +208,6 @@ pub struct Unit {
     pub sentry: bool,
     pub moves_remaining: u16
 }
-
-
-
-
 
 impl Unit {
     pub fn new(type_: UnitType, alignment: Alignment) -> Self {
@@ -292,7 +288,7 @@ impl Observer for Unit {
 
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.type_.name())
+        self.type_.fmt(f)
     }
 }
 
@@ -318,6 +314,10 @@ impl City {
             production_progress: 0,
             name: name.into()
         }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
     }
 }
 
@@ -349,10 +349,6 @@ impl Observer for City {
 
 impl Sym for City {
     fn sym(&self) -> &'static str { "#" }
-}
-
-impl Named for City {
-    fn name(&self) -> &'static str { "City "}
 }
 
 #[cfg(test)]

@@ -9,7 +9,8 @@ use termion::raw::RawTerminal;
 use conf;
 use game::Game;
 use ui::{Redraw,UI,V_SCROLLBAR_WIDTH,HEADER_HEIGHT};
-use unit::{Named,UnitType};
+use ui::log::{Message,MessageSource};
+use unit::{UnitType};
 use util::{Direction,Location,Rect};
 
 fn get_key() -> Key {
@@ -21,6 +22,7 @@ fn get_key() -> Key {
 #[derive(Clone,Copy,Debug)]
 pub enum Mode {
     TurnStart,
+    TurnResume,
     SetProductions,
     SetProduction{loc:Location},
     MoveUnits,
@@ -33,6 +35,7 @@ impl Mode {
     pub fn run<'a>(&mut self, game: &mut Game, ui: &mut UI<'a>) -> bool {
         match *self {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self),
+            Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self),
             Mode::SetProductions =>     SetProductionsMode{}.run(game, ui, self),
             Mode::SetProduction{loc} => {
                 let viewport_rect = ui.viewport_rect();
@@ -127,38 +130,50 @@ trait IVisibleMode: IMode {
 pub struct TurnStartMode {}
 impl IMode for TurnStartMode {
     fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
-        {
-            // let cp = ui.current_player.borrow_mut();
-            // cp.redraw(game, &mut ui.stdout);
-            ui.current_player.redraw(game, &mut ui.stdout);
-        }
+        ui.current_player.redraw(game, &mut ui.stdout);
 
-        ui.log_message(format!("\nTurn {}, player {} go!", game.turn(), game.current_player()));
+        ui.log_message(Message {
+            text: format!("Turn {}, player {} go!", game.turn(), game.current_player()),
+            mark: Some('_'),
+            fg_color: None,
+            bg_color: None,
+            source: Some(MessageSource::Mode)
+        });
 
+        *mode = Mode::TurnResume;
 
+        true
+    }
+}
+
+struct TurnResumeMode{}
+impl IMode for TurnResumeMode {
+    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
 
 
         // Process production set requests
         if !game.production_set_requests().is_empty() {
-            // ui.set_productions_for_player(game);
-
             *mode = Mode::SetProductions;
             return true;
         }
         if !game.unit_move_requests().is_empty() {
-            // ui.move_units_for_player(game);
             *mode = Mode::MoveUnits;
             return true;
         }
 
         let mut log_listener = |msg:String| {
-            ui.log_message(msg);
+            ui.log_message(Message {
+                text: msg,
+                mark: None,
+                bg_color: None,
+                fg_color: None,
+                source: Some(MessageSource::Game)
+            });
         };
 
-        let _player_num = match game.end_turn(&mut log_listener) {
-            Ok(player_num) => player_num,
-            Err(player_num) => player_num
-        };
+        if let Ok(_player_num) = game.end_turn(&mut log_listener) {
+            *mode = Mode::TurnStart;
+        }
 
         true
     }
@@ -170,7 +185,7 @@ impl IMode for SetProductionsMode {
 
         if game.production_set_requests().is_empty() {
             ui.log_message("Productions set.".to_string());
-            *mode = Mode::TurnStart;
+            *mode = Mode::TurnResume;
             return true;
         }
 
@@ -224,7 +239,17 @@ impl IMode for SetProductionMode {
                     if let Key::Char(c) = key {
                         if let Some(unit_type) = UnitType::from_key(&c) {
                             game.set_production(&self.loc, &unit_type).unwrap();
-                            *mode = Mode::TurnStart;
+
+                            let ref city = game.city(self.loc).unwrap();
+                            ui.replace_message(Message {
+                                text: format!("Set {}'s production to {}", city.name(), unit_type),
+                                mark: Some('·'),
+                                bg_color: None,
+                                fg_color: None,
+                                source: Some(MessageSource::Mode)
+                            });
+
+                            *mode = Mode::TurnResume;
                             return true;
                         }
                     }
@@ -257,7 +282,7 @@ impl IMode for MoveUnitsMode {
             *mode = Mode::MoveUnit{loc:loc};
             return true;
         }
-        *mode = Mode::TurnStart;
+        *mode = Mode::TurnResume;
         true
     }
 }
@@ -366,7 +391,7 @@ impl IMode for ExamineMode {
         match self.get_key(game, ui, mode) {
             KeyStatus::Unhandled(key) => {
                 if key==Key::Esc {
-                    *mode = Mode::TurnStart;
+                    *mode = Mode::TurnResume;
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
                         let new_loc = self.cursor_viewport_loc.shift(dir);

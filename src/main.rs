@@ -42,8 +42,10 @@ use std::io::stdout;
 
 use clap::{Arg, App};
 use terminal_size::{Width, Height, terminal_size};
+use termion::color::Rgb;
 use termion::raw::IntoRawMode;
 
+use ui::log::{Message,MessageSource};
 use util::Dims;
 use game::Game;
 use unit::PlayerNum;
@@ -111,7 +113,13 @@ fn main() {
             if let ui::mode::Mode::Examine{cursor_viewport_loc:_, first:_} = mode {
                 // don't bother
             } else {
-                ui.log_message(format!("Mode: {:?}", mode));
+                ui.log_message(Message {
+                    text: format!("Mode: {:?}", mode),
+                    mark: None,
+                    fg_color: Some(Rgb(255,140,0)),
+                    bg_color: None,
+                    source: Some(MessageSource::Main)
+                });
             }
         }
 

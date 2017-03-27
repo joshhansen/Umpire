@@ -6,11 +6,13 @@ use std::io::{Write, StdoutLock};
 
 use termion;
 use termion::clear;
+use termion::color::Rgb;
 use termion::event::Key;
 
 use conf;
 use conf::HEADER_HEIGHT;
 use game::{Game,MoveResult};
+use ui::log::{Message,MessageSource};
 use unit::{Sym};
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Rect,Location,sleep_millis};
@@ -62,7 +64,7 @@ pub trait Component : Draw+Redraw+Keypress {
 mod scroll;
 
 mod indicators;
-mod log;
+pub mod log;
 mod map;
 pub mod mode;
 // pub mod sound;
@@ -235,13 +237,13 @@ impl<'b> UI<'b> {
     //     }
     // }
 
-    pub fn log_message<S: Into<String>>(&mut self, message: S) {
-        self.log.log_message(message.into());
+    pub fn log_message<T>(&mut self, message: T) where Message:From<T> {
+        self.log.log(Message::from(message));
         self.log.redraw_lite(&mut self.stdout);
     }
 
-    pub fn replace_message<S: Into<String>>(&mut self, message: S) {
-        self.log.replace_message(message.into());
+    pub fn replace_message<T>(&mut self, message: T) where Message:From<T> {
+        self.log.replace(Message::from(message));
         self.log.redraw_lite(&mut self.stdout);
     }
 
@@ -302,7 +304,13 @@ impl<'b> UI<'b> {
                 self.animate_combat(game, combat, current_loc, target_loc);
             }
 
-            self.log_message(format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {"victorious"} else {"destroyed"}));
+            self.log_message(Message {
+                text: format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {"victorious"} else {"destroyed"}),
+                mark: Some('*'),
+                fg_color: Some(Rgb(240, 5, 5)),
+                bg_color: None,
+                source: Some(MessageSource::UI)
+            });
 
             let viewport_dims = self.map_scroller.viewport_dims();
             let ref map = self.map_scroller.scrollable;
