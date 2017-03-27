@@ -173,20 +173,20 @@ mod test {
     use std::convert::TryFrom;
 
     use map::LocationGrid;
-    use map::dijkstra::{neighbors,shortest_paths};
-    use unit::UnitType;
+    use map::dijkstra::{neighbors,neighbors_terrain_only,shortest_paths};
+    use unit::{Alignment,Unit,UnitType};
     use util::{Location,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
 
     #[test]
-    fn test_neighbors() {
+    fn test_neighbors_terrain_only() {
         if let Ok(map) = LocationGrid::try_from("*xx\n\
                                                  x x\n\
                                                  xxx") {
 
             let loc = Location{x:0, y:2};
 
-            let neighbs_both = neighbors(&map, loc, UnitType::INFANTRY, WRAP_BOTH);
+            let neighbs_both = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_BOTH);
             assert!(neighbs_both.contains(&Location{x:0, y:0}));
             assert!(neighbs_both.contains(&Location{x:0, y:1}));
             assert!(neighbs_both.contains(&Location{x:1, y:0}));
@@ -195,7 +195,7 @@ mod test {
             assert!(neighbs_both.contains(&Location{x:2, y:1}));
             assert!(neighbs_both.contains(&Location{x:2, y:2}));
 
-            let neighbs_horiz = neighbors(&map, loc, UnitType::INFANTRY, WRAP_HORIZ);
+            let neighbs_horiz = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_HORIZ);
             assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
             assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
             assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
@@ -204,7 +204,7 @@ mod test {
             assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
             assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
 
-            let neighbs_vert = neighbors(&map, loc, UnitType::INFANTRY, WRAP_VERT);
+            let neighbs_vert = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_VERT);
             assert!( neighbs_vert.contains(&Location{x:0, y:0}));
             assert!( neighbs_vert.contains(&Location{x:0, y:1}));
             assert!( neighbs_vert.contains(&Location{x:1, y:0}));
@@ -213,7 +213,55 @@ mod test {
             assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
             assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
 
-            let neighbs_neither = neighbors(&map, loc, UnitType::INFANTRY, WRAP_NEITHER);
+            let neighbs_neither = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_NEITHER);
+            assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
+            assert!( neighbs_neither.contains(&Location{x:0, y:1}));
+            assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
+            assert!( neighbs_neither.contains(&Location{x:1, y:2}));
+            assert!(!neighbs_neither.contains(&Location{x:2, y:0}));
+            assert!(!neighbs_neither.contains(&Location{x:2, y:1}));
+            assert!(!neighbs_neither.contains(&Location{x:2, y:2}));
+        } else {
+            assert!(false, "This map should have converted to a LocationGrid<Tile>");
+        }
+    }
+
+    #[test]
+    fn test_neighbors() {
+        if let Ok(map) = LocationGrid::try_from("*xx\n\
+                                                 x x\n\
+                                                 xxx") {
+
+            let loc = Location{x:0, y:2};
+            let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+            let neighbs_both = neighbors(&map, loc, &infantry, WRAP_BOTH);
+            assert!(neighbs_both.contains(&Location{x:0, y:0}));
+            assert!(neighbs_both.contains(&Location{x:0, y:1}));
+            assert!(neighbs_both.contains(&Location{x:1, y:0}));
+            assert!(neighbs_both.contains(&Location{x:1, y:2}));
+            assert!(neighbs_both.contains(&Location{x:2, y:0}));
+            assert!(neighbs_both.contains(&Location{x:2, y:1}));
+            assert!(neighbs_both.contains(&Location{x:2, y:2}));
+
+            let neighbs_horiz = neighbors(&map, loc, &infantry, WRAP_HORIZ);
+            assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
+            assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
+            assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
+            assert!( neighbs_horiz.contains(&Location{x:1, y:2}));
+            assert!(!neighbs_horiz.contains(&Location{x:2, y:0}));
+            assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
+            assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
+
+            let neighbs_vert = neighbors(&map, loc, &infantry, WRAP_VERT);
+            assert!( neighbs_vert.contains(&Location{x:0, y:0}));
+            assert!( neighbs_vert.contains(&Location{x:0, y:1}));
+            assert!( neighbs_vert.contains(&Location{x:1, y:0}));
+            assert!( neighbs_vert.contains(&Location{x:1, y:2}));
+            assert!(!neighbs_vert.contains(&Location{x:2, y:0}));
+            assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
+            assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
+
+            let neighbs_neither = neighbors(&map, loc, &infantry, WRAP_NEITHER);
             assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
             assert!( neighbs_neither.contains(&Location{x:0, y:1}));
             assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
@@ -238,7 +286,8 @@ mod test {
             },
             Ok(map) => {
                 let loc = Location{x:0, y:0};
-                let shortest_neither = shortest_paths(&map, loc, UnitType::INFANTRY, WRAP_NEITHER);
+                let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+                let shortest_neither = shortest_paths(&map, loc, &infantry, WRAP_NEITHER);
                 println!("{:?}", shortest_neither);
                 assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
                 assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
@@ -253,7 +302,7 @@ mod test {
                 assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(3));
 
 
-                let shortest_horiz = shortest_paths(&map, loc, UnitType::INFANTRY, WRAP_HORIZ);
+                let shortest_horiz = shortest_paths(&map, loc, &infantry, WRAP_HORIZ);
                 println!("{:?}", shortest_horiz);
                 assert_eq!(shortest_horiz.dist[Location{x:0, y:0}], Some(0));
                 assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], Some(1));
@@ -267,7 +316,7 @@ mod test {
                 assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], Some(2));
                 assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], Some(2));
 
-                let shortest_vert = shortest_paths(&map, loc, UnitType::INFANTRY, WRAP_VERT);
+                let shortest_vert = shortest_paths(&map, loc, &infantry, WRAP_VERT);
                 assert_eq!(shortest_vert.dist[Location{x:0, y:0}], Some(0));
                 assert_eq!(shortest_vert.dist[Location{x:1, y:0}], Some(1));
                 assert_eq!(shortest_vert.dist[Location{x:2, y:0}], Some(2));
@@ -280,7 +329,7 @@ mod test {
                 assert_eq!(shortest_vert.dist[Location{x:1, y:2}], Some(1));
                 assert_eq!(shortest_vert.dist[Location{x:2, y:2}], Some(2));
 
-                let shortest_both = shortest_paths(&map, loc, UnitType::INFANTRY, WRAP_BOTH);
+                let shortest_both = shortest_paths(&map, loc, &infantry, WRAP_BOTH);
                 assert_eq!(shortest_both.dist[Location{x:0, y:0}], Some(0));
                 assert_eq!(shortest_both.dist[Location{x:1, y:0}], Some(1));
                 assert_eq!(shortest_both.dist[Location{x:2, y:0}], Some(1));

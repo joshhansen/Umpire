@@ -133,14 +133,14 @@ fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
     }
 }
 
-fn sidebar_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
-    Rect {
-        left: viewport_rect.right() + 1,
-        top: viewport_rect.top,
-        width: term_dims.width - viewport_rect.left - viewport_rect.width,
-        height: term_dims.height
-    }
-}
+// fn sidebar_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
+//     Rect {
+//         left: viewport_rect.right() + 1,
+//         top: viewport_rect.top,
+//         width: term_dims.width - viewport_rect.left - viewport_rect.width,
+//         height: term_dims.height
+//     }
+// }
 
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;

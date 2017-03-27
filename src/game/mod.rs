@@ -10,7 +10,7 @@ use std::collections::{HashMap,HashSet};
 use game::obs::{FogOfWarTracker,Obs,ObsTracker,UniversalVisibilityTracker};
 use map::{Tile,LocationGrid};
 use map::gen::MapGenerator;
-use map::dijkstra::{neighbors,neighbors_terrain_only,shortest_paths};
+use map::dijkstra::{neighbors_terrain_only,shortest_paths};
 use unit::{Alignment,City,Observer,PlayerNum,Unit,UnitType};
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Location,Wrap,Wrap2d};

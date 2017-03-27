@@ -464,18 +464,17 @@ x   o    x";
         let loc = Location{x:5, y:5};
 
         let tile1 = Tile::new(Terrain::LAND, loc);
-        assert!(infantry.can_move_on(&tile1));
+        assert!(infantry.can_move_on_tile(&tile1));
 
         let tile2 = Tile::new(Terrain::WATER, loc);
-        assert!(!infantry.can_move_on(&tile2));
+        assert!(!infantry.can_move_on_tile(&tile2));
 
         let mut tile3 = Tile::new(Terrain::LAND, loc);
         tile3.unit = Some(friendly_unit);
-        assert!(!infantry.can_move_on(&tile3));
+        assert!(!infantry.can_move_on_tile(&tile3));
 
         let mut tile4 = Tile::new(Terrain::LAND, loc);
         tile4.unit = Some(enemy_unit);
-        assert!(infantry.can_move_on(&tile4));
-
+        assert!(infantry.can_move_on_tile(&tile4));
     }
 }
