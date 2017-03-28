@@ -39,7 +39,6 @@ mod util;
 extern crate clap;
 extern crate csv;
 extern crate rand;
-extern crate terminal_size;
 extern crate termion;
 extern crate unicode_segmentation;
 
@@ -49,9 +48,9 @@ extern crate sample;
 use std::io::stdout;
 
 use clap::{Arg, App};
-use terminal_size::{Width, Height, terminal_size};
 use termion::color::Rgb;
 use termion::raw::IntoRawMode;
+use termion::terminal_size;
 
 use ui::log::{Message,MessageSource};
 use util::Dims;
@@ -63,7 +62,7 @@ const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT }
 
 
 fn main() {
-    if let Some((Width(term_width), Height(term_height))) = terminal_size() {
+    if let Ok((term_width,term_height)) = terminal_size() {
         let stdout_0 : std::io::Stdout = stdout();
         let stdout_1 = stdout_0.lock().into_raw_mode().unwrap();
 
