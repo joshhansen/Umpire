@@ -2,14 +2,13 @@ use std::io::Write;
 
 use termion::color::{Fg, Bg, White};
 use termion::cursor::Hide;
-use termion::event::Key;
 use termion::style::{Invert,Reset,Underline};
 
 use game::Game;
 use map::Tile;
-use ui::{Component,Draw,Keypress,Redraw};
+use ui::{Component,Draw,Redraw};
 use ui::scroll::{ScrollableComponent};
-use util::{Dims,Direction,Location,Rect,Vec2d};
+use util::{Dims,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
     let mut result = x;
@@ -299,16 +298,6 @@ impl Redraw for Map {
 
         write!(stdout, "{}{}", Reset, Hide).unwrap();
         stdout.flush().unwrap();
-    }
-}
-
-impl Keypress for Map {
-    fn keypress<'a>(&mut self, key: &Key, _game: &mut Game) {
-        if let Key::Char(c) = *key {
-            if let Ok(dir) = Direction::try_from_viewport_shift(c) {
-                self.shift_viewport(dir.vec2d())
-            }
-        }
     }
 }
 

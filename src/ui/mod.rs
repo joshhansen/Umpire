@@ -7,7 +7,6 @@ use std::io::Write;
 use termion;
 use termion::clear;
 use termion::color::Rgb;
-use termion::event::Key;
 use termion::screen::ToMainScreen;
 
 use conf;
@@ -31,11 +30,11 @@ pub trait Redraw {
     fn redraw<W:Write>(&self, game: &Game, stdout: &mut W);
 }
 
-pub trait Keypress {
-    fn keypress(&mut self, key: &Key, game: &mut Game);
-}
+// pub trait Keypress {
+//     fn keypress(&mut self, key: &Key, game: &mut Game);
+// }
 
-pub trait Component : Draw+Redraw+Keypress {
+pub trait Component : Draw+Redraw {
     fn set_rect(&mut self, rect: Rect);
 
     fn rect(&self) -> Rect;

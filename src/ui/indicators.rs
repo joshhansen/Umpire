@@ -1,9 +1,7 @@
 use std::io::Write;
 
-use termion::event::Key;
-
 use game::Game;
-use ui::{Component,Draw,Keypress,Redraw};
+use ui::{Component,Draw,Redraw};
 use util::Rect;
 
 pub struct CurrentPlayer {
@@ -25,12 +23,6 @@ impl Draw for CurrentPlayer {
             self.goto(0, 0),
             game.current_player()
         ).unwrap();
-    }
-}
-
-impl Keypress for CurrentPlayer {
-    fn keypress(&mut self, _key: &Key, _game: &mut Game) {
-        // do nothing
     }
 }
 
@@ -70,12 +62,6 @@ impl Draw for Turn {
 impl Redraw for Turn {
     fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
         self.draw(game, stdout);
-    }
-}
-
-impl Keypress for Turn {
-    fn keypress(&mut self, _key: &Key, _game: &mut Game) {
-        // do nothing
     }
 }
 

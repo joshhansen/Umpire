@@ -2,11 +2,10 @@ use std::io::Write;
 
 use termion;
 use termion::color::{Fg, AnsiValue};
-use termion::event::Key;
 
 use game::Game;
-use ui::{Component,Draw,Keypress,Redraw};
-use util::{Dims,Direction,Rect,Vec2d};
+use ui::{Component,Draw,Redraw};
+use util::{Dims,Rect,Vec2d};
 
 pub trait ScrollableComponent : Component {
     fn offset(&self) -> Vec2d<u16>;
@@ -95,16 +94,6 @@ impl<C:ScrollableComponent> Redraw for Scroller<C> {
     fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
         self.draw_scroll_bars(game, stdout);
         self.scrollable.redraw(game, stdout);
-    }
-}
-
-impl<C:ScrollableComponent> Keypress for Scroller<C> {
-    fn keypress(&mut self, key: &Key, game: &mut Game) {
-        if let Key::Char(c) = *key {
-            if let Ok(dir) = Direction::try_from_viewport_shift(c) {
-                self.scroll_relative(game, dir.vec2d())
-            }
-        }
     }
 }
 

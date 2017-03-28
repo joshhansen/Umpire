@@ -2,11 +2,10 @@ use std::collections::VecDeque;
 use std::io::Write;
 
 use termion::color::{Bg,Fg,Rgb};
-use termion::event::Key;
 use termion::style::{Reset,Underline};
 
 use game::Game;
-use ui::{Component,Draw,Keypress,Redraw};
+use ui::{Component,Draw,Redraw};
 use util::{Rect,grapheme_len,grapheme_substr};
 
 #[derive(PartialEq)]
@@ -123,12 +122,6 @@ impl LogArea {
 impl Draw for LogArea {
     fn draw<W:Write>(&self, _game: &Game, stdout: &mut W) {
         self.draw_lite(stdout);
-    }
-}
-
-impl Keypress for LogArea {
-    fn keypress(&mut self, _key: &Key, _game: &mut Game) {
-        // do nothing
     }
 }
 
