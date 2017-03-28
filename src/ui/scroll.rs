@@ -43,26 +43,20 @@ impl<C:ScrollableComponent> Scroller<C> {
         let h_scroll_x: u16 = self.h_scroll_x(game.map_dims().width);
         let h_scroll_y = viewport_rect.bottom();
 
-        //FIXME There must be a cleaner way to do this
-        if let Some(old_h_scroll_x) = self.old_h_scroll_x {
-            if h_scroll_x != old_h_scroll_x {
+        if self.old_h_scroll_x != Some(h_scroll_x) {
+            if let Some(old_h_scroll_x) = self.old_h_scroll_x {
                 self.erase(stdout, old_h_scroll_x, h_scroll_y);
-                self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^');
             }
-        } else {
             self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^');
         }
 
         let v_scroll_x = viewport_rect.right();
         let v_scroll_y: u16 = self.v_scroll_y(game.map_dims().height);
 
-        //FIXME There must be a cleaner way to do this
-        if let Some(old_v_scroll_y) = self.old_v_scroll_y {
-            if v_scroll_y != old_v_scroll_y {
+        if self.old_v_scroll_y != Some(v_scroll_y) {
+            if let Some(old_v_scroll_y) = self.old_v_scroll_y {
                 self.erase(stdout, v_scroll_x, old_v_scroll_y);
-                self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<');
             }
-        } else {
             self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<');
         }
     }
@@ -76,11 +70,10 @@ impl<C:ScrollableComponent> Scroller<C> {
         write!(*stdout, "{}{} ", termion::style::Reset, self.goto(x,y)).unwrap();
     }
 
-    fn scroll_relative(&mut self, game: &Game, offset: Vec2d<i32>) {
+    pub fn scroll_relative(&mut self, game: &Game, offset: Vec2d<i32>) {
         self.old_h_scroll_x = Some(self.h_scroll_x(game.map_dims().width));
         self.old_v_scroll_y = Some(self.v_scroll_y(game.map_dims().height));
         self.scrollable.scroll_relative(offset);
-
     }
 
     pub fn viewport_dims(&self) -> Dims {
