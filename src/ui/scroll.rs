@@ -1,4 +1,4 @@
-use std::io::{StdoutLock,Write};
+use std::io::Write;
 
 use termion;
 use termion::color::{Fg, AnsiValue};
@@ -38,7 +38,7 @@ impl<C:ScrollableComponent> Scroller<C> {
         (self.rect.height as f32 * (self.scrollable.offset().y as f32 / map_height as f32)) as u16
     }
 
-    fn draw_scroll_bars(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw_scroll_bars<W:Write>(&self, game: &Game, stdout: &mut W) {
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(game.map_dims().width);
         let h_scroll_y = viewport_rect.bottom();
@@ -68,11 +68,11 @@ impl<C:ScrollableComponent> Scroller<C> {
     }
 
     // Utility methods
-    fn draw_scroll_mark(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>, x: u16, y: u16, sym: char) {
+    fn draw_scroll_mark<W:Write>(&self, stdout: &mut W, x: u16, y: u16, sym: char) {
         write!(*stdout, "{}{}{}{}", termion::style::Reset, self.goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
     }
 
-    fn erase(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>, x: u16, y: u16) {
+    fn erase<W:Write>(&self, stdout: &mut W, x: u16, y: u16) {
         write!(*stdout, "{}{} ", termion::style::Reset, self.goto(x,y)).unwrap();
     }
 
@@ -92,14 +92,14 @@ impl<C:ScrollableComponent> Scroller<C> {
 }
 
 impl<C:ScrollableComponent> Draw for Scroller<C> {
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
         self.draw_scroll_bars(game, stdout);
         self.scrollable.draw(game, stdout);
     }
 }
 
 impl<C:ScrollableComponent> Redraw for Scroller<C> {
-    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
         self.draw_scroll_bars(game, stdout);
         self.scrollable.redraw(game, stdout);
     }

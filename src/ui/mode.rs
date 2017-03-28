@@ -32,7 +32,7 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub fn run<'a>(&mut self, game: &mut Game, ui: &mut UI<'a>) -> bool {
+    pub fn run<W:Write>(&mut self, game: &mut Game, ui: &mut UI<W>) -> bool {
         match *self {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self),
             Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self),
@@ -69,9 +69,9 @@ enum KeyStatus {
 }
 
 trait IMode {
-    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool;
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool;
 
-    fn get_key<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> KeyStatus {
+    fn get_key<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> KeyStatus {
         let key = get_key();
         if let Key::Char(c) = key {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
@@ -103,7 +103,7 @@ trait IMode {
         KeyStatus::Unhandled(key)
     }
 
-    fn map_loc_to_viewport_loc<'a>(ui: &mut UI<'a>, map_loc: Location) -> Option<Location> {
+    fn map_loc_to_viewport_loc<W:Write>(ui: &mut UI<W>, map_loc: Location) -> Option<Location> {
         let viewport_dims = ui.map_scroller.viewport_dims();
         let ref map = ui.map_scroller.scrollable;
         map.map_to_viewport_coords(map_loc, viewport_dims)
@@ -129,7 +129,7 @@ trait IVisibleMode: IMode {
 
 pub struct TurnStartMode {}
 impl IMode for TurnStartMode {
-    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
         ui.current_player.redraw(game, &mut ui.stdout);
 
         ui.log_message(Message {
@@ -148,7 +148,7 @@ impl IMode for TurnStartMode {
 
 struct TurnResumeMode{}
 impl IMode for TurnResumeMode {
-    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
 
 
         // Process production set requests
@@ -181,7 +181,7 @@ impl IMode for TurnResumeMode {
 
 struct SetProductionsMode{}
 impl IMode for SetProductionsMode {
-    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
 
         if game.production_set_requests().is_empty() {
             ui.log_message("Productions set.".to_string());
@@ -202,7 +202,7 @@ struct SetProductionMode {
 }
 
 impl SetProductionMode {
-    fn draw<'a>(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
         let ref tile = game.current_player_tile(self.loc).unwrap();
 
         if let Some(ref city) = tile.city {
@@ -221,7 +221,7 @@ impl SetProductionMode {
 }
 
 impl IMode for SetProductionMode {
-    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
         ui.draw(game);
@@ -274,7 +274,7 @@ impl IVisibleMode for SetProductionMode {
 
 struct MoveUnitsMode {}
 impl IMode for MoveUnitsMode {
-    fn run<'a>(&self, game: &mut Game, _ui: &mut UI<'a>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, _ui: &mut UI<W>, mode: &mut Mode) -> bool {
         if !game.unit_move_requests().is_empty() {
 
             let loc = *game.unit_move_requests().iter().next().unwrap();
@@ -291,7 +291,7 @@ struct MoveUnitMode{
     loc: Location
 }
 impl IMode for MoveUnitMode {
-    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
         {
@@ -358,7 +358,7 @@ impl IMode for MoveUnitMode {
 
 struct QuitMode {}
 impl IMode for QuitMode {
-    fn run<'a>(&self, _game: &mut Game, ui: &mut UI<'a>, _mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, _game: &mut Game, ui: &mut UI<W>, _mode: &mut Mode) -> bool {
         ui.cleanup();
         false
     }
@@ -369,7 +369,7 @@ struct ExamineMode {
     first: bool
 }
 impl IMode for ExamineMode {
-    fn run<'a>(&self, game: &mut Game, ui: &mut UI<'a>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
         let examined_thing = if let Some(tile) = {
             let ref map = ui.map_scroller.scrollable;
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, None);

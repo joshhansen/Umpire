@@ -1,9 +1,8 @@
 use std::collections::VecDeque;
-use std::io::{StdoutLock,Write};
+use std::io::Write;
 
 use termion::color::{Bg,Fg,Rgb};
 use termion::event::Key;
-use termion::raw::RawTerminal;
 use termion::style::{Reset,Underline};
 
 use game::Game;
@@ -89,11 +88,11 @@ impl LogArea {
         self.replace(Message::from(message));
     }
 
-    pub fn redraw_lite(&self, stdout: &mut RawTerminal<StdoutLock>) {
+    pub fn redraw_lite<W:Write>(&self, stdout: &mut W) {
         self.draw_lite(stdout);
     }
 
-    pub fn draw_lite(&self, stdout: &mut RawTerminal<StdoutLock>) {
+    pub fn draw_lite<W:Write>(&self, stdout: &mut W) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),
@@ -122,7 +121,7 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw(&self, _game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn draw<W:Write>(&self, _game: &Game, stdout: &mut W) {
         self.draw_lite(stdout);
     }
 }
@@ -134,7 +133,7 @@ impl Keypress for LogArea {
 }
 
 impl Redraw for LogArea {
-    fn redraw(&self, _game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn redraw<W:Write>(&self, _game: &Game, stdout: &mut W) {
         self.redraw_lite(stdout);
     }
 }

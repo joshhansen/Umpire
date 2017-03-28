@@ -2,12 +2,13 @@
 //! The user interface.
 //!
 //! Making use of the abstract game engine, implement a user interface for the game.
-use std::io::{Write, StdoutLock};
+use std::io::Write;
 
 use termion;
 use termion::clear;
 use termion::color::Rgb;
 use termion::event::Key;
+use termion::screen::ToMainScreen;
 
 use conf;
 use conf::HEADER_HEIGHT;
@@ -23,11 +24,11 @@ pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
 }
 
 pub trait Draw {
-    fn draw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W);
 }
 
 pub trait Redraw {
-    fn redraw(&self, game: &Game, stdout: &mut termion::raw::RawTerminal<StdoutLock>);
+    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W);
 }
 
 pub trait Keypress {
@@ -48,7 +49,7 @@ pub trait Component : Draw+Redraw+Keypress {
         goto(rect.left + x, rect.top + y)
     }
 
-    fn clear(&self, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
+    fn clear<W:Write>(&self, stdout: &mut W) {
         let rect = self.rect();
         let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
         for y in 0..rect.height {
@@ -145,8 +146,8 @@ fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
-pub struct UI<'a> {
-    stdout: termion::raw::RawTerminal<StdoutLock<'a>>,
+pub struct UI<W:Write> {
+    stdout: W,
     term_dims: Dims,
     viewport_size: ViewportSize,
 
@@ -156,11 +157,11 @@ pub struct UI<'a> {
     turn: Turn
 }
 
-impl<'b> UI<'b> {
+impl<W:Write> UI<W> {
     pub fn new(
         map_dims: &Dims,
         term_dims: Dims,
-        stdout: termion::raw::RawTerminal<StdoutLock<'b>>,
+        stdout: W,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(&term_dims);
@@ -373,7 +374,7 @@ impl<'b> UI<'b> {
     }
 
     fn cleanup(&mut self) {
-        write!(self.stdout, "{}{}", goto(0, self.term_dims.height), termion::style::Reset).unwrap();
+        write!(self.stdout, "{}", ToMainScreen).unwrap();
     }
 
     pub fn cursor_viewport_loc(&self, mode: Mode) -> Option<Location> {

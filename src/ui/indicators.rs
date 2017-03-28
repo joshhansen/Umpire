@@ -1,7 +1,6 @@
-use std::io::{StdoutLock,Write};
+use std::io::Write;
 
 use termion::event::Key;
-use termion::raw::RawTerminal;
 
 use game::Game;
 use ui::{Component,Draw,Keypress,Redraw};
@@ -20,7 +19,7 @@ impl CurrentPlayer {
 }
 
 impl Draw for CurrentPlayer {
-    fn draw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
         write!(*stdout,
             "{}Current Player: {}  ",
             self.goto(0, 0),
@@ -36,7 +35,7 @@ impl Keypress for CurrentPlayer {
 }
 
 impl Redraw for CurrentPlayer {
-    fn redraw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
         self.clear(stdout);
         self.draw(game, stdout);
     }
@@ -63,13 +62,13 @@ impl Turn {
 }
 
 impl Draw for Turn {
-    fn draw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
         write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
     }
 }
 
 impl Redraw for Turn {
-    fn redraw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
         self.draw(game, stdout);
     }
 }

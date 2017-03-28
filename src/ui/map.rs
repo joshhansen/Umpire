@@ -1,9 +1,8 @@
-use std::io::{StdoutLock,Write};
+use std::io::Write;
 
 use termion::color::{Fg, Bg, White};
 use termion::cursor::Hide;
 use termion::event::Key;
-use termion::raw::RawTerminal;
 use termion::style::{Invert,Reset,Underline};
 
 use game::Game;
@@ -176,7 +175,7 @@ impl Map {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    pub fn draw_tile(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>,
+    pub fn draw_tile<W:Write>(&self, game: &Game, stdout: &mut W,
             viewport_loc: Location, highlight: bool, symbol: Option<&'static str>) {
 
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
@@ -228,7 +227,7 @@ impl ScrollableComponent for Map {
 impl Redraw for Map {
     /// Update the map to reflect the current viewport offset
     // fn update_map(&mut self, old_viewport_offset: Vec2d<u16>, new_viewport_offset: Vec2d<u16>) {
-    fn redraw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0_u16..self.rect.width {
             viewport_loc.x = viewport_x;
@@ -326,7 +325,7 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    fn draw(&self, game: &Game, stdout: &mut RawTerminal<StdoutLock>) {
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0_u16..self.rect.width {
             viewport_loc.x = viewport_x;
