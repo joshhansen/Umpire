@@ -200,44 +200,6 @@ impl<W:Write> UI<W> {
         ui
     }
 
-    // fn take_input(&mut self, game: &mut Game) {
-    //     let stdin = stdin();
-    //     let c = stdin.keys().next().unwrap().unwrap();
-    //
-    //     let mut component_is_done = false;
-    //
-    //     if let Some(component) = self.scene.last_mut() {
-    //         component.borrow_mut().keypress(&c, game);
-    //         component_is_done |= component.borrow().is_done();
-    //
-    //         if component_is_done {
-    //             component.borrow().clear(&mut self.stdout);
-    //         }
-    //     }
-    //
-    //     if component_is_done {
-    //         self.scene.pop();
-    //     }
-    //
-    //     self.map_scroller.borrow_mut().keypress(&c, game);
-    //     self.map_scroller.borrow().redraw(game, &mut self.stdout);
-    //
-    //     match c {
-    //         Key::Char(conf::KEY_QUIT) => self.keep_going = false,
-    //         Key::Char(conf::KEY_VIEWPORT_SIZE_ROTATE) => {
-    //             let new_size = match self.viewport_size {
-    //                 ViewportSize::REGULAR => ViewportSize::THEATER,
-    //                 ViewportSize::THEATER => ViewportSize::FULLSCREEN,
-    //                 ViewportSize::FULLSCREEN => ViewportSize::REGULAR
-    //             };
-    //
-    //             self.set_viewport_size(game, new_size);
-    //             self.scene.redraw(game, &mut self.stdout);
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
     pub fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
         self.log.redraw_lite(&mut self.stdout);
