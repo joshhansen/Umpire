@@ -11,7 +11,7 @@ use game::Game;
 use ui::{Redraw,UI,V_SCROLLBAR_WIDTH,HEADER_HEIGHT};
 use ui::log::{Message,MessageSource};
 use unit::{UnitType};
-use util::{Direction,Location,Rect};
+use util::{Direction,Location,Rect,WRAP_BOTH};
 
 fn get_key() -> Key {
     let stdin = stdin();
@@ -313,27 +313,18 @@ impl IMode for MoveUnitMode {
                     if let Key::Char(c) = key {
                         match Direction::try_from(c) {
                             Ok(dir) => {
+                                if let Some(dest) = self.loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
+                                    match game.move_unit(self.loc, dest) {
+                                        Ok(move_result) => {
 
-                                // ui.log_message(format!("Moving {}", c));
+                                            ui.animate_move(game, move_result);
 
-                                // let src: Vec2d<i32> = Vec2d::new(self.loc.x as i32, self.loc.y as i32);
-                                // let dest = src + dir.vec2d();
-                                //
-                                // let src:  Vec2d<u16> = Vec2d::new(src.x as u16, src.y as u16);
-                                // let dest: Vec2d<u16> = Vec2d::new(dest.x as u16, dest.y as u16);
-
-                                let dest = self.loc.shift(dir);
-
-                                match game.move_unit(self.loc, dest) {
-                                    Ok(move_result) => {
-
-                                        ui.animate_move(game, move_result);
-
-                                        *mode = Mode::MoveUnits;
-                                        return true;
-                                    },
-                                    Err(msg) => {
-                                        ui.log_message(format!("Error: {}", msg));
+                                            *mode = Mode::MoveUnits;
+                                            return true;
+                                        },
+                                        Err(msg) => {
+                                            ui.log_message(format!("Error: {}", msg));
+                                        }
                                     }
                                 }
                             },
@@ -394,8 +385,9 @@ impl IMode for ExamineMode {
                     *mode = Mode::TurnResume;
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
-                        let new_loc = self.cursor_viewport_loc.shift(dir);
-                        if ui.viewport_rect().contains(new_loc) {
+                        let new_loc = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_BOTH).unwrap();
+                        let viewport_rect = ui.viewport_rect();
+                        if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
                             *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false};
                         }
                     }

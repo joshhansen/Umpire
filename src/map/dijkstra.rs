@@ -57,7 +57,7 @@ impl ShortestPaths {
     }
 }
 
-pub static RELATIVE_NEIGHBORS: [Vec2d<i16>; 8] = [
+pub static RELATIVE_NEIGHBORS: [Vec2d<i32>; 8] = [
     Vec2d { x: -1, y: -1 },
     Vec2d { x: -1, y:  0 },
     Vec2d { x: -1, y:  1 },

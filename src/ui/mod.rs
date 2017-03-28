@@ -82,7 +82,7 @@ enum ViewportSize {
 }
 
 impl ViewportSize {
-    fn rect(&self, term_dims: &Dims) -> Rect {
+    fn rect(&self, term_dims: Dims) -> Rect {
         match *self {
             ViewportSize::REGULAR => Rect {
                 left: 0,
@@ -163,7 +163,7 @@ impl<W:Write> UI<W> {
         stdout: W,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
-        let viewport_rect = viewport_size.rect(&term_dims);
+        let viewport_rect = viewport_size.rect(term_dims);
 
         let map = Map::new(&viewport_rect, map_dims);
 
@@ -173,8 +173,8 @@ impl<W:Write> UI<W> {
             width: viewport_rect.width + 1,
             height: viewport_rect.height + 1
         };
-        let mut map_scroller = Scroller::new(&map_scroller_rect, map);
-        map_scroller.set_rect(viewport_size.rect(&map_dims));
+        let mut map_scroller = Scroller::new(map_scroller_rect, map);
+        map_scroller.set_rect(viewport_rect);
 
         let log_rect = log_area_rect(&viewport_rect, &term_dims);
         let log = LogArea::new(&log_rect);
@@ -211,7 +211,7 @@ impl<W:Write> UI<W> {
 
     fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
         self.viewport_size = viewport_size;
-        self.map_scroller.set_rect(self.viewport_size.rect(&game.map_dims()));
+        self.map_scroller.set_rect(self.viewport_size.rect(self.term_dims));
         self.draw(game);
     }
 
@@ -331,7 +331,7 @@ impl<W:Write> UI<W> {
     }
 
     fn viewport_rect(&self) -> Rect {
-        self.viewport_size.rect(&self.term_dims)
+        self.viewport_size.rect(self.term_dims)
     }
 
     fn cleanup(&mut self) {

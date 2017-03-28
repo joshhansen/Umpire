@@ -20,9 +20,9 @@ pub struct Scroller<C:ScrollableComponent> {
 }
 
 impl<C:ScrollableComponent> Scroller<C> {
-    pub fn new(rect: &Rect, scrollable: C) -> Self {
+    pub fn new(rect: Rect, scrollable: C) -> Self {
         Scroller {
-            rect: *rect,
+            rect: rect,
             scrollable: scrollable,
             old_h_scroll_x: None,
             old_v_scroll_y: None

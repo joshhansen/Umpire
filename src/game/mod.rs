@@ -386,6 +386,10 @@ but there is no city at that location",
         self.tiles.dims()
     }
 
+    pub fn wrapping(&self) -> Wrap2d {
+        self.wrapping
+    }
+
     /// Units that could be produced by a city located at the given location
     pub fn valid_productions(&self, loc: Location) -> HashSet<UnitType> {
         UnitType::values().iter()

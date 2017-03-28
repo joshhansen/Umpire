@@ -40,6 +40,10 @@ impl Rect {
         loc.y > self.top &&
         loc.y < self.bottom()
     }
+
+    pub fn dims(&self) -> Dims {
+        Dims{ width: self.width, height: self.height }
+    }
 }
 
 #[derive(Clone,Copy,Debug,PartialEq)]
@@ -187,7 +191,7 @@ pub static WRAP_NEITHER: Wrap2d = Wrap2d {
 /// Add `inc` to `loc` respecting the specified wrapping rules in a space defined by `dims`
 /// If the result is out of bounds, return None
 ///
-pub fn wrapped_add(loc: Location, inc: Vec2d<i16>, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
+pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
     let mut new_x: i32 = loc.x as i32 + inc.x as i32;
     if let Wrap::Wrapping = wrapping.horiz {
         new_x = if new_x < 0 { dims.width as i32 + new_x } else { new_x % dims.width as i32 };
@@ -211,12 +215,8 @@ pub fn wrapped_add(loc: Location, inc: Vec2d<i16>, dims: Dims, wrapping: Wrap2d)
 pub type Location = Vec2d<u16>;
 
 impl Location {
-    pub fn shift(&self, dir: Direction) -> Location {
-        let src_i32: Vec2d<i32> = Vec2d::new(self.x as i32, self.y as i32);
-        let dest = src_i32 + dir.vec2d();
-
-        let dest: Location = Location::new(dest.x as u16, dest.y as u16);
-        dest
+    pub fn shift_wrapped(&self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
+        wrapped_add(*self, dir.vec2d(), dims, wrapping)
     }
 }
 

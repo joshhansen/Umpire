@@ -51,7 +51,7 @@ pub trait Observer {
                 // println!("{},{} dist {} sight {}", i, j, dist, sight);
 
                 if dist <= sight as f64 {
-                    let inc = Vec2d::new(i, j);
+                    let inc: Vec2d<i32> = Vec2d::new(i as i32, j as i32);
                     if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
 
                         // println!("\t{}", loc);
