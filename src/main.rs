@@ -25,6 +25,7 @@
 // * ozymandias
 // * uzimandias
 
+#![feature(conservative_impl_trait)]
 #![feature(try_from)]
 
 mod conf;

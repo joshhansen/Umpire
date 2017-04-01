@@ -5,6 +5,7 @@ use termion::cursor::Goto;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::RawTerminal;
+use termion::style::Bold;
 
 use conf;
 use game::Game;
@@ -149,8 +150,6 @@ impl IMode for TurnStartMode {
 struct TurnResumeMode{}
 impl IMode for TurnResumeMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
-
-
         // Process production set requests
         if !game.production_set_requests().is_empty() {
             *mode = Mode::SetProductions;
@@ -292,19 +291,17 @@ struct MoveUnitMode{
 }
 impl IMode for MoveUnitMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
-        ui.map_scroller.scrollable.center_viewport(self.loc);
-
         {
             let unit = game.unit(self.loc).unwrap();
             ui.log_message(format!("Requesting orders for unit {} at {}", unit, self.loc));
         }
 
+        ui.map_scroller.scrollable.center_viewport(self.loc);
         ui.draw(game);
 
-        {
-            let unit = game.unit(self.loc).unwrap();
-            ui.log_message(format!("Moving unit {}", unit));
-        }
+        write!(ui.stdout, "{}", Bold).unwrap();
+        let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(self.loc, ui.viewport_rect().dims()).unwrap();
+        ui.map_scroller.scrollable.draw_tile(game, &mut ui.stdout, viewport_loc, false, None);
 
         loop {
             match self.get_key(game, ui, mode) {

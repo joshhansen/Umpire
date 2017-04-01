@@ -13,9 +13,9 @@ use conf;
 use conf::HEADER_HEIGHT;
 use game::{Game,MoveResult};
 use ui::log::{Message,MessageSource};
-use unit::{Sym};
+use unit::{Observer,Sym,visible_coords_iter};
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
-use util::{Dims,Rect,Location,sleep_millis};
+use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
 
 /// 0-indexed variant of Goto
 pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
@@ -129,7 +129,7 @@ fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
         left: 0,
         top: viewport_rect.bottom() + 2,
         width: viewport_rect.width,
-        height: term_dims.height - viewport_rect.height - 3
+        height: term_dims.height - viewport_rect.height - 10
     }
 }
 
@@ -244,6 +244,18 @@ impl<W:Write> UI<W> {
         self.stdout.flush().unwrap();
     }
 
+    fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location) {
+        let unit = game.unit(unit_loc).unwrap();
+        for inc in visible_coords_iter(unit.sight_distance()) {
+            if let Some(loc) = wrapped_add(unit_loc, inc, game.map_dims(), game.wrapping()) {
+
+                if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
+                    self.map_scroller.scrollable.draw_tile(game, &mut self.stdout, viewport_loc, false, None);
+                }
+            }
+        }
+    }
+
     fn redraw(&mut self, game: &Game) {
         self.log.redraw_lite(&mut self.stdout);
         self.current_player.redraw(game, &mut self.stdout);
@@ -252,41 +264,44 @@ impl<W:Write> UI<W> {
     }
 
     fn animate_move(&mut self, game: &Game, move_result: MoveResult) {
-        let unit_symbol = move_result.unit().sym();
         let mut current_loc = move_result.starting_loc();
 
         for move_ in move_result.moves() {
             let target_loc = move_.loc();
 
+            let mut was_combat = false;
             if let Some(ref combat) = *move_.unit_combat() {
                 self.animate_combat(game, combat, current_loc, target_loc);
+                was_combat = true;
             }
 
             if let Some(ref combat) = *move_.city_combat() {
                 self.animate_combat(game, combat, current_loc, target_loc);
+                was_combat = true;
             }
 
             self.log_message(Message {
-                text: format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {"victorious"} else {"destroyed"}),
+                text: format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {
+                    if was_combat {"victorious"} else {"moved successfully"}
+                } else {"destroyed"}),
                 mark: Some('*'),
                 fg_color: Some(Rgb(240, 5, 5)),
                 bg_color: None,
                 source: Some(MessageSource::UI)
             });
 
-            let viewport_dims = self.map_scroller.viewport_dims();
-            let ref map = self.map_scroller.scrollable;
+            {
+                let viewport_dims = self.map_scroller.viewport_dims();
+                let ref map = self.map_scroller.scrollable;
 
-            // Erase the unit's symbol at its old location
-            if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
-                map.draw_tile(game, &mut self.stdout, current_viewport_loc, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
+                // Erase the unit's symbol at its old location
+                if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
+                    map.draw_tile(game, &mut self.stdout, current_viewport_loc, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
+                }
             }
 
             if move_.moved_successfully() {
-                // Draw the unit's symbol at its new location
-                if let Some(target_viewport_loc) = map.map_to_viewport_coords(target_loc, viewport_dims) {
-                    map.draw_tile(game, &mut self.stdout, target_viewport_loc, false, Some(unit_symbol));
-                }
+                self.draw_unit_observations(game, target_loc);
             }
 
             current_loc = target_loc;

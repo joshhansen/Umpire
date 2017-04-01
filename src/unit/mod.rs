@@ -39,25 +39,22 @@ pub trait Sym {
     fn sym(&self) -> &'static str;
 }
 
+pub fn visible_coords_iter(sight_distance: u16) -> impl Iterator<Item=Vec2d<i32>>  {
+    let sight_distance = sight_distance as i32;
+    (-sight_distance..sight_distance+1).flat_map(move |x| {
+        let y_max = sight_distance - x.abs();
+        (-y_max..y_max+1).map(move |y| {
+            Vec2d::new(x,y)
+        })
+    } )
+}
+
 pub trait Observer {
     fn sight_distance(&self) -> u16;
     fn observe(&self, observer_loc: Location, tiles: &LocationGrid<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
-        let sight = self.sight_distance() as i16;
-
-        for i in (-sight)..(sight+1) {
-            for j in (-sight)..(sight+1) {
-                let dist = ((i.pow(2) + j.pow(2)) as f64).sqrt();
-
-                // println!("{},{} dist {} sight {}", i, j, dist, sight);
-
-                if dist <= sight as f64 {
-                    let inc: Vec2d<i32> = Vec2d::new(i as i32, j as i32);
-                    if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
-
-                        // println!("\t{}", loc);
-                        obs_tracker.observe(loc, &tiles[loc], turn);
-                    }
-                }
+        for inc in visible_coords_iter(self.sight_distance()) {
+            if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
+                obs_tracker.observe(loc, &tiles[loc], turn);
             }
         }
     }
