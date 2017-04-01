@@ -1,13 +1,15 @@
 use std::io::Write;
 
-use termion::color::{Fg, Bg, White};
+use termion::color::{Fg, Bg};
 use termion::cursor::Hide;
-use termion::style::{Invert,Reset,Underline};
+use termion::style::{Blink,Bold,Invert,Underline};
 
 use game::Game;
 use map::Tile;
 use ui::{Component,Draw,Redraw};
+use ui::color::{BLACK,WHITE};
 use ui::scroll::{ScrollableComponent};
+use ui::style::StrongReset;
 use util::{Dims,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
@@ -175,7 +177,10 @@ impl Map {
     }
 
     pub fn draw_tile<W:Write>(&self, game: &Game, stdout: &mut W,
-            viewport_loc: Location, highlight: bool, symbol: Option<&'static str>) {
+            viewport_loc: Location,
+            highlight: bool,// Highlighting as for a cursor
+            unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+            symbol: Option<&'static str>) {
 
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
@@ -190,6 +195,10 @@ impl Map {
                 write!(stdout, "{}", Invert).unwrap();
             }
 
+            if unit_active {
+                write!(stdout, "{}{}", Blink, Bold).unwrap();
+            }
+
             if let Some(fg_color) = tile.fg_color() {
                 write!(stdout, "{}", Fg(fg_color)).unwrap();
             }
@@ -199,13 +208,10 @@ impl Map {
                 symbol.unwrap_or(tile.sym())
             ).unwrap();
         } else {
-            if highlight {
-                write!(stdout, "{}", Bg(White)).unwrap();
-            }
-            write!(stdout, " ").unwrap();
+            write!(stdout, "{} ", Bg(if highlight{ WHITE } else { BLACK })).unwrap();
         }
 
-        write!(stdout, "{}", Reset).unwrap();
+        write!(stdout, "{}", StrongReset).unwrap();
         stdout.flush().unwrap();
     }
 
@@ -290,13 +296,13 @@ impl Redraw for Map {
                 // };
 
                 // if should_draw_tile {
-                    self.draw_tile(game, stdout, viewport_loc, false, None);
+                    self.draw_tile(game, stdout, viewport_loc, false, false, None);
                 // }
 
             }
         }
 
-        write!(stdout, "{}{}", Reset, Hide).unwrap();
+        write!(stdout, "{}{}", StrongReset, Hide).unwrap();
         stdout.flush().unwrap();
     }
 }
@@ -321,7 +327,7 @@ impl Draw for Map {
             for viewport_y in 0_u16..(self.rect.height+1) {
                 viewport_loc.y = viewport_y;
 
-                self.draw_tile(game, stdout, viewport_loc, false, None);
+                self.draw_tile(game, stdout, viewport_loc, false, false, None);
             }
         }
     }

@@ -2,10 +2,11 @@ use std::collections::VecDeque;
 use std::io::Write;
 
 use termion::color::{Bg,Fg,Rgb};
-use termion::style::{Reset,Underline};
+use termion::style::Underline;
 
 use game::Game;
 use ui::{Component,Draw,Redraw};
+use ui::style::StrongReset;
 use util::{Rect,grapheme_len,grapheme_substr};
 
 #[derive(PartialEq)]
@@ -96,7 +97,7 @@ impl LogArea {
             "{}{}Message Log{}",
             self.goto(0, 0),
             Underline,
-            Reset
+            StrongReset
         ).unwrap();
 
         for i in 0..self.rect.height {

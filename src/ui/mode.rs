@@ -5,7 +5,6 @@ use termion::cursor::Goto;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::RawTerminal;
-use termion::style::Bold;
 
 use conf;
 use game::Game;
@@ -299,9 +298,8 @@ impl IMode for MoveUnitMode {
         ui.map_scroller.scrollable.center_viewport(self.loc);
         ui.draw(game);
 
-        write!(ui.stdout, "{}", Bold).unwrap();
         let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(self.loc, ui.viewport_rect().dims()).unwrap();
-        ui.map_scroller.scrollable.draw_tile(game, &mut ui.stdout, viewport_loc, false, None);
+        ui.map_scroller.scrollable.draw_tile(game, &mut ui.stdout, viewport_loc, false, true, None);
 
         loop {
             match self.get_key(game, ui, mode) {
@@ -360,7 +358,7 @@ impl IMode for ExamineMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
         let examined_thing = if let Some(tile) = {
             let ref map = ui.map_scroller.scrollable;
-            map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, None);
+            map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
             map.tile(game, self.cursor_viewport_loc)
         } {
             format!("{}", tile)
@@ -391,7 +389,7 @@ impl IMode for ExamineMode {
                 }
 
                 let ref map = ui.map_scroller.scrollable;
-                map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, None);
+                map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
                 ui.stdout.flush().unwrap();
 
                 true

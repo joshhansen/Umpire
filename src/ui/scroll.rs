@@ -1,10 +1,10 @@
 use std::io::Write;
 
-use termion;
 use termion::color::{Fg, AnsiValue};
 
 use game::Game;
 use ui::{Component,Draw,Redraw};
+use ui::style::StrongReset;
 use util::{Dims,Rect,Vec2d};
 
 pub trait ScrollableComponent : Component {
@@ -62,11 +62,11 @@ impl<C:ScrollableComponent> Scroller<C> {
 
     // Utility methods
     fn draw_scroll_mark<W:Write>(&self, stdout: &mut W, x: u16, y: u16, sym: char) {
-        write!(*stdout, "{}{}{}{}", termion::style::Reset, self.goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
+        write!(*stdout, "{}{}{}{}", StrongReset, self.goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
     }
 
     fn erase<W:Write>(&self, stdout: &mut W, x: u16, y: u16) {
-        write!(*stdout, "{}{} ", termion::style::Reset, self.goto(x,y)).unwrap();
+        write!(*stdout, "{}{} ", StrongReset, self.goto(x,y)).unwrap();
     }
 
     pub fn scroll_relative(&mut self, game: &Game, offset: Vec2d<i32>) {

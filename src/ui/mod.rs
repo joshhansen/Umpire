@@ -6,13 +6,14 @@ use std::io::Write;
 
 use termion;
 use termion::clear;
-use termion::color::Rgb;
+use termion::color::{Bg,Rgb};
 use termion::screen::ToMainScreen;
 
 use conf;
 use conf::HEADER_HEIGHT;
 use game::{Game,MoveResult};
 use ui::log::{Message,MessageSource};
+use ui::style::StrongReset;
 use unit::{Observer,Sym,visible_coords_iter};
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
@@ -63,11 +64,13 @@ pub trait Component : Draw+Redraw {
 
 mod scroll;
 
+mod color;
 mod indicators;
 pub mod log;
 mod map;
 pub mod mode;
 // pub mod sound;
+mod style;
 
 use self::scroll::Scroller;
 use self::indicators::{CurrentPlayer,Turn};
@@ -194,9 +197,19 @@ impl<W:Write> UI<W> {
             turn: Turn::new(&turn_rect(&cp_rect))
         };
 
-        write!(ui.stdout, "{}", clear::All).unwrap();
+        ui.clear();
 
         ui
+    }
+
+    fn clear(&mut self) {
+        write!(self.stdout, "{}", clear::All).unwrap();
+
+        for x in 0..self.term_dims.width {
+            for y in 0..self.term_dims.height {
+                write!(self.stdout, "{}{} ", goto(x,y), Bg(Rgb(0,0,0))).unwrap();
+            }
+        }
     }
 
     pub fn log_message<T>(&mut self, message: T) where Message:From<T> {
@@ -232,7 +245,7 @@ impl<W:Write> UI<W> {
             goto(0,0),
             termion::style::Underline,
             conf::APP_NAME,
-            termion::style::Reset
+            StrongReset
         ).unwrap();
 
         self.log.draw_lite(&mut self.stdout);
@@ -240,7 +253,7 @@ impl<W:Write> UI<W> {
         self.map_scroller.draw(game, &mut self.stdout);
         self.turn.draw(game, &mut self.stdout);
 
-        write!(self.stdout, "{}{}", termion::style::Reset, termion::cursor::Hide).unwrap();
+        write!(self.stdout, "{}{}", StrongReset, termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
     }
 
@@ -250,7 +263,7 @@ impl<W:Write> UI<W> {
             if let Some(loc) = wrapped_add(unit_loc, inc, game.map_dims(), game.wrapping()) {
 
                 if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
-                    self.map_scroller.scrollable.draw_tile(game, &mut self.stdout, viewport_loc, false, None);
+                    self.map_scroller.scrollable.draw_tile(game, &mut self.stdout, viewport_loc, false, false, None);
                 }
             }
         }
@@ -296,7 +309,7 @@ impl<W:Write> UI<W> {
 
                 // Erase the unit's symbol at its old location
                 if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
-                    map.draw_tile(game, &mut self.stdout, current_viewport_loc, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
+                    map.draw_tile(game, &mut self.stdout, current_viewport_loc, false, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
                 }
             }
 
@@ -336,9 +349,9 @@ impl<W:Write> UI<W> {
             };
 
             if let Some(viewport_loc) = viewport_loc {
-                map.draw_tile(game, &mut self.stdout, viewport_loc, true, Some(sym));
+                map.draw_tile(game, &mut self.stdout, viewport_loc, true, false, Some(sym));
                 sleep_millis(100);
-                map.draw_tile(game, &mut self.stdout, viewport_loc, false, Some(sym));
+                map.draw_tile(game, &mut self.stdout, viewport_loc, false, false, Some(sym));
             } else {
                 sleep_millis(100);
             }
