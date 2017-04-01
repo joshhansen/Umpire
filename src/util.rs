@@ -34,13 +34,6 @@ impl Rect {
     pub fn right(&self) -> u16 { self.left + self.width }
     pub fn bottom(&self) -> u16 { self.top + self.height }
 
-    pub fn contains(&self, loc: Location) -> bool {
-        loc.x > self.left &&
-        loc.x < self.right() &&
-        loc.y > self.top &&
-        loc.y < self.bottom()
-    }
-
     pub fn dims(&self) -> Dims {
         Dims{ width: self.width, height: self.height }
     }

@@ -13,16 +13,16 @@ pub type PlayerNum = u8;
 
 #[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
 pub enum Alignment {
-    NEUTRAL,
-    BELLIGERENT { player: PlayerNum }
+    Neutral,
+    Belligerent { player: PlayerNum }
     // active neutral, chaotic, etc.
 }
 
 impl Alignment {
     pub fn color(&self) -> AnsiValue {
         match *self {
-            Alignment::NEUTRAL => AnsiValue(8),
-            Alignment::BELLIGERENT{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
+            Alignment::Neutral => AnsiValue(8),
+            Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
         }
     }
 }
@@ -62,91 +62,91 @@ pub trait Observer {
 
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
 pub enum UnitType {
-    INFANTRY,
-    ARMOR,
-    FIGHTER,
-    BOMBER,
-    TRANSPORT,
-    DESTROYER,
-    SUBMARINE,
-    CRUISER,
-    BATTLESHIP,
-    CARRIER
+    Infantry,
+    Armor,
+    Fighter,
+    Bomber,
+    Transport,
+    Destroyer,
+    Submarine,
+    Cruiser,
+    Battleship,
+    Carrier
 }
 
 impl UnitType {
     pub fn values() -> Vec<UnitType> {
         vec![
-            UnitType::INFANTRY,
-            UnitType::ARMOR,
-            UnitType::FIGHTER,
-            UnitType::BOMBER,
-            UnitType::TRANSPORT,
-            UnitType::DESTROYER,
-            UnitType::SUBMARINE,
-            UnitType::CRUISER,
-            UnitType::BATTLESHIP,
-            UnitType::CARRIER
+            UnitType::Infantry,
+            UnitType::Armor,
+            UnitType::Fighter,
+            UnitType::Bomber,
+            UnitType::Transport,
+            UnitType::Destroyer,
+            UnitType::Submarine,
+            UnitType::Cruiser,
+            UnitType::Battleship,
+            UnitType::Carrier
         ]
     }
 
     fn max_hp(&self) -> u16 {
         match *self {
-            UnitType::INFANTRY => 1,
-            UnitType::ARMOR => 2,
-            UnitType::FIGHTER => 1,
-            UnitType::BOMBER => 1,
-            UnitType::TRANSPORT => 3,
-            UnitType::DESTROYER => 2,
-            UnitType::SUBMARINE => 2,
-            UnitType::CRUISER => 4,
-            UnitType::BATTLESHIP => 8,
-            UnitType::CARRIER => 6
+            UnitType::Infantry => 1,
+            UnitType::Armor => 2,
+            UnitType::Fighter => 1,
+            UnitType::Bomber => 1,
+            UnitType::Transport => 3,
+            UnitType::Destroyer => 2,
+            UnitType::Submarine => 2,
+            UnitType::Cruiser => 4,
+            UnitType::Battleship => 8,
+            UnitType::Carrier => 6
         }
     }
 
     pub fn cost(&self) -> u16 {
         match *self {
-            UnitType::INFANTRY => 6,
-            UnitType::ARMOR => 12,//?
-            UnitType::FIGHTER => 12,
-            UnitType::BOMBER => 12,//?
-            UnitType::TRANSPORT => 30,
-            UnitType::DESTROYER => 24,
-            UnitType::SUBMARINE => 24,
-            UnitType::CRUISER => 36,
-            UnitType::BATTLESHIP => 60,
-            UnitType::CARRIER => 48
+            UnitType::Infantry => 6,
+            UnitType::Armor => 12,//?
+            UnitType::Fighter => 12,
+            UnitType::Bomber => 12,//?
+            UnitType::Transport => 30,
+            UnitType::Destroyer => 24,
+            UnitType::Submarine => 24,
+            UnitType::Cruiser => 36,
+            UnitType::Battleship => 60,
+            UnitType::Carrier => 48
         }
     }
 
     pub fn key(&self) -> char {
         match *self {
-            UnitType::INFANTRY => 'i',
-            UnitType::ARMOR => 'a',
-            UnitType::FIGHTER => 'f',
-            UnitType::BOMBER => 'b',
-            UnitType::TRANSPORT => 't',
-            UnitType::DESTROYER => 'd',
-            UnitType::SUBMARINE => 's',
-            UnitType::CRUISER => 'c',
-            UnitType::BATTLESHIP => 'B',
-            UnitType::CARRIER => 'C'
+            UnitType::Infantry => 'i',
+            UnitType::Armor => 'a',
+            UnitType::Fighter => 'f',
+            UnitType::Bomber => 'b',
+            UnitType::Transport => 't',
+            UnitType::Destroyer => 'd',
+            UnitType::Submarine => 's',
+            UnitType::Cruiser => 'c',
+            UnitType::Battleship => 'B',
+            UnitType::Carrier => 'C'
         }
     }
 
     pub fn sight_distance(&self) -> u16 {
         match *self {
-            UnitType::INFANTRY => 2,
-            UnitType::ARMOR => 2,
-            UnitType::FIGHTER => 4,
-            UnitType::BOMBER => 4,
-            UnitType::TRANSPORT => 2,
-            UnitType::DESTROYER => 3,
-            UnitType::SUBMARINE => 3,
-            UnitType::CRUISER => 3,
-            UnitType::BATTLESHIP => 4,
-            UnitType::CARRIER => 4
+            UnitType::Infantry => 2,
+            UnitType::Armor => 2,
+            UnitType::Fighter => 4,
+            UnitType::Bomber => 4,
+            UnitType::Transport => 2,
+            UnitType::Destroyer => 3,
+            UnitType::Submarine => 3,
+            UnitType::Cruiser => 3,
+            UnitType::Battleship => 4,
+            UnitType::Carrier => 4
         }
     }
 
@@ -161,31 +161,31 @@ impl UnitType {
 
     pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
         match *self {
-            UnitType::INFANTRY => *terrain==Terrain::LAND,
-            UnitType::ARMOR => *terrain==Terrain::LAND,
-            UnitType::FIGHTER => *terrain==Terrain::LAND || *terrain==Terrain::WATER,
-            UnitType::BOMBER => *terrain==Terrain::LAND || *terrain==Terrain::WATER,
-            UnitType::TRANSPORT => *terrain==Terrain::WATER,
-            UnitType::DESTROYER => *terrain==Terrain::WATER,
-            UnitType::SUBMARINE => *terrain==Terrain::WATER,
-            UnitType::CRUISER => *terrain==Terrain::WATER,
-            UnitType::BATTLESHIP => *terrain==Terrain::WATER,
-            UnitType::CARRIER => *terrain==Terrain::WATER
+            UnitType::Infantry => *terrain==Terrain::Land,
+            UnitType::Armor => *terrain==Terrain::Land,
+            UnitType::Fighter => *terrain==Terrain::Land || *terrain==Terrain::Water,
+            UnitType::Bomber => *terrain==Terrain::Land || *terrain==Terrain::Water,
+            UnitType::Transport => *terrain==Terrain::Water,
+            UnitType::Destroyer => *terrain==Terrain::Water,
+            UnitType::Submarine => *terrain==Terrain::Water,
+            UnitType::Cruiser => *terrain==Terrain::Water,
+            UnitType::Battleship => *terrain==Terrain::Water,
+            UnitType::Carrier => *terrain==Terrain::Water
         }
     }
 
     pub fn name(&self) -> &'static str {
         match *self {
-            UnitType::INFANTRY => "Infantry",
-            UnitType::ARMOR => "Armor",
-            UnitType::FIGHTER => "Fighter",
-            UnitType::BOMBER => "Bomber",
-            UnitType::TRANSPORT => "Transport",
-            UnitType::DESTROYER => "Destroyer",
-            UnitType::SUBMARINE => "Submarine",
-            UnitType::CRUISER => "Cruiser",
-            UnitType::BATTLESHIP => "Battleship",
-            UnitType::CARRIER => "Carrier"
+            UnitType::Infantry => "Infantry",
+            UnitType::Armor => "Armor",
+            UnitType::Fighter => "Fighter",
+            UnitType::Bomber => "Bomber",
+            UnitType::Transport => "Transport",
+            UnitType::Destroyer => "Destroyer",
+            UnitType::Submarine => "Submarine",
+            UnitType::Cruiser => "Cruiser",
+            UnitType::Battleship => "Battleship",
+            UnitType::Carrier => "Carrier"
         }
     }
 }
@@ -221,32 +221,28 @@ impl Unit {
 
     pub fn movement_per_turn(&self) -> u16 {
         match self.type_ {
-            UnitType::INFANTRY => 1,
-            UnitType::ARMOR => 2,//?
-            UnitType::FIGHTER => 5,
-            UnitType::BOMBER => 5,//?
-            UnitType::TRANSPORT => 2,
-            UnitType::DESTROYER => 3,
-            UnitType::SUBMARINE => 2,
-            UnitType::CRUISER => 2,
-            UnitType::BATTLESHIP => 1,
-            UnitType::CARRIER => 1
+            UnitType::Infantry => 1,
+            UnitType::Armor => 2,//?
+            UnitType::Fighter => 5,
+            UnitType::Bomber => 5,//?
+            UnitType::Transport => 2,
+            UnitType::Destroyer => 3,
+            UnitType::Submarine => 2,
+            UnitType::Cruiser => 2,
+            UnitType::Battleship => 1,
+            UnitType::Carrier => 1
         }
     }
 
+    /// Indicate whether this unit can move (if only theoretically) onto a given tile
+    /// Basically, the unit can (attempt to) move to any tile that is an appropriate terrain for
+    /// its unit type and that does not already contain a friendly unit.
+    /// The presence of cities makes no difference, because either we'll go as a visitor to our own
+    /// city, or attempt to capture a hostile city.
     pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
         if !self.type_.can_move_on_terrain(&tile.terrain) {
             return false;
         }
-
-        // If the destination tile contains no unit, we're free to go as we please
-
-        // If it contains an enemy or neutral unit, we can in theory go there (if we defeat them in combat)
-
-        // If it contains one of our units, we can't go there
-
-        // But, if it contains any city we can go there---either as a visitor to our own city, or
-        // attacking an enemy or neutral city
 
         if let Some(unit) = tile.unit {
             return self.alignment != unit.alignment;
@@ -259,16 +255,16 @@ impl Unit {
 impl Sym for Unit {
     fn sym(&self) -> &'static str {
         match self.type_ {
-            UnitType::INFANTRY => "i",
-            UnitType::ARMOR => "A",
-            UnitType::FIGHTER => "✈",
-            UnitType::BOMBER => "b",
-            UnitType::TRANSPORT => "t",
-            UnitType::DESTROYER => "d",
-            UnitType::SUBMARINE => "—",
-            UnitType::CRUISER => "c",
-            UnitType::BATTLESHIP => "B",
-            UnitType::CARRIER => "C"
+            UnitType::Infantry => "i",
+            UnitType::Armor => "A",
+            UnitType::Fighter => "✈",
+            UnitType::Bomber => "b",
+            UnitType::Transport => "t",
+            UnitType::Destroyer => "d",
+            UnitType::Submarine => "—",
+            UnitType::Cruiser => "c",
+            UnitType::Battleship => "B",
+            UnitType::Carrier => "C"
         }
     }
 }
@@ -300,7 +296,6 @@ pub struct City {
     pub production_progress: u16,
     name: String
 }
-
 impl City {
     pub fn new<N:Into<String>>(name: N, alignment: Alignment, loc: Location) -> City {
         City {
@@ -384,12 +379,12 @@ x   o    x";
 
                 let infantry_loc = Location{x:4, y:2};
 
-                let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
 
                 let mut obs_tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
 
                 for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), Obs::UNOBSERVED);
+                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), Obs::Unobserved);
                 }
 
                 let turn = 0;
@@ -415,9 +410,9 @@ x   o    x";
 
                 for tile in map.iter() {
                     assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) {
-                        Obs::OBSERVED{ tile: map[tile.loc].clone(), turn: turn }
+                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn }
                     } else {
-                        Obs::UNOBSERVED
+                        Obs::Unobserved
                     });
                 }
 
@@ -443,9 +438,9 @@ x   o    x";
 
                 for tile in map.iter() {
                     assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) || observed_locs_2.contains(&tile.loc) {
-                        Obs::OBSERVED{ tile: map[tile.loc].clone(), turn: turn }
+                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn }
                     } else {
-                        Obs::UNOBSERVED
+                        Obs::Unobserved
                     });
                 }
             }
@@ -454,23 +449,23 @@ x   o    x";
 
     #[test]
     fn test_mobility() {
-        let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
-        let friendly_unit = Unit::new(UnitType::ARMOR, Alignment::BELLIGERENT{player:0});
-        let enemy_unit = Unit::new(UnitType::ARMOR, Alignment::BELLIGERENT{player:1});
+        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
+        let friendly_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:0});
+        let enemy_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:1});
 
         let loc = Location{x:5, y:5};
 
-        let tile1 = Tile::new(Terrain::LAND, loc);
+        let tile1 = Tile::new(Terrain::Land, loc);
         assert!(infantry.can_move_on_tile(&tile1));
 
-        let tile2 = Tile::new(Terrain::WATER, loc);
+        let tile2 = Tile::new(Terrain::Water, loc);
         assert!(!infantry.can_move_on_tile(&tile2));
 
-        let mut tile3 = Tile::new(Terrain::LAND, loc);
+        let mut tile3 = Tile::new(Terrain::Land, loc);
         tile3.unit = Some(friendly_unit);
         assert!(!infantry.can_move_on_tile(&tile3));
 
-        let mut tile4 = Tile::new(Terrain::LAND, loc);
+        let mut tile4 = Tile::new(Terrain::Land, loc);
         tile4.unit = Some(enemy_unit);
         assert!(infantry.can_move_on_tile(&tile4));
     }

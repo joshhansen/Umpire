@@ -92,13 +92,6 @@ fn main() {
                         players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
                     })
                 )
-                // .arg(Arg::with_name("clear")
-                //     .short("c")
-                //     .long("clear")
-                //     .help("Reset the terminal")
-                //     .takes_value(false)
-                //     .required(false)
-                // )
             .get_matches();
 
             let fog_of_war = matches.value_of("fog").unwrap() == "on";

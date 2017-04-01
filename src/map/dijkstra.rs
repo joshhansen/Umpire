@@ -68,23 +68,6 @@ pub static RELATIVE_NEIGHBORS: [Vec2d<i32>; 8] = [
     Vec2d { x:  1, y:  1}
 ];
 
-// fn neighbors_with_same_terrain(tiles: &LocationGrid<Tile>, loc: &Location, wrapping: &Wrap2d) -> HashSet<Location> {
-//     let source_terrain = & tiles[*loc].terrain;
-//
-//     let mut neighbs = HashSet::new();
-//     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
-//         if let Some(neighb_loc) = wrapped_add(loc, &rel_neighb, &tiles.dims, wrapping) {
-//             if let Some(tile) = tiles.get(&neighb_loc) {
-//                 if tile.terrain == *source_terrain {
-//                     neighbs.insert(neighb_loc);
-//                 }
-//             }
-//         }
-//     }
-//
-//     neighbs
-// }
-
 pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
     let mut neighbs = HashSet::new();
     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
@@ -148,7 +131,6 @@ pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: Location, unit: &Unit,
         // Quit early since we're already doing worse than the best known route
         if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
 
-
         // for neighb_loc in neighbors_with_same_terrain(tiles, &loc, wrapping) {
         for neighb_loc in neighbors(tiles, loc, unit, wrapping) {
             let new_dist = dist_ + 1;
@@ -186,7 +168,7 @@ mod test {
 
             let loc = Location{x:0, y:2};
 
-            let neighbs_both = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_BOTH);
+            let neighbs_both = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_BOTH);
             assert!(neighbs_both.contains(&Location{x:0, y:0}));
             assert!(neighbs_both.contains(&Location{x:0, y:1}));
             assert!(neighbs_both.contains(&Location{x:1, y:0}));
@@ -195,7 +177,7 @@ mod test {
             assert!(neighbs_both.contains(&Location{x:2, y:1}));
             assert!(neighbs_both.contains(&Location{x:2, y:2}));
 
-            let neighbs_horiz = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_HORIZ);
+            let neighbs_horiz = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_HORIZ);
             assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
             assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
             assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
@@ -204,7 +186,7 @@ mod test {
             assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
             assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
 
-            let neighbs_vert = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_VERT);
+            let neighbs_vert = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_VERT);
             assert!( neighbs_vert.contains(&Location{x:0, y:0}));
             assert!( neighbs_vert.contains(&Location{x:0, y:1}));
             assert!( neighbs_vert.contains(&Location{x:1, y:0}));
@@ -213,7 +195,7 @@ mod test {
             assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
             assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
 
-            let neighbs_neither = neighbors_terrain_only(&map, loc, UnitType::INFANTRY, WRAP_NEITHER);
+            let neighbs_neither = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_NEITHER);
             assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
             assert!( neighbs_neither.contains(&Location{x:0, y:1}));
             assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
@@ -233,7 +215,7 @@ mod test {
                                                  xxx") {
 
             let loc = Location{x:0, y:2};
-            let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+            let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
             let neighbs_both = neighbors(&map, loc, &infantry, WRAP_BOTH);
             assert!(neighbs_both.contains(&Location{x:0, y:0}));
             assert!(neighbs_both.contains(&Location{x:0, y:1}));
@@ -286,7 +268,7 @@ mod test {
             },
             Ok(map) => {
                 let loc = Location{x:0, y:0};
-                let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
                 let shortest_neither = shortest_paths(&map, loc, &infantry, WRAP_NEITHER);
                 println!("{:?}", shortest_neither);
                 assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
@@ -341,7 +323,6 @@ mod test {
                 assert_eq!(shortest_both.dist[Location{x:0, y:2}], Some(1));
                 assert_eq!(shortest_both.dist[Location{x:1, y:2}], Some(1));
                 assert_eq!(shortest_both.dist[Location{x:2, y:2}], Some(1));
-
             }
         }
     }

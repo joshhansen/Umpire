@@ -122,7 +122,6 @@ pub struct Map {
     old_viewport_offset: Vec2d<u16>,
     viewport_offset: Vec2d<u16>
 }
-
 impl Map {
     pub fn new(rect: &Rect, map_dims: &Dims) -> Self {
         Map{
@@ -229,6 +228,7 @@ impl ScrollableComponent for Map {
     fn offset(&self) -> Vec2d<u16> { self.viewport_offset }
 }
 
+//FIXME Make map redraw either mean something or just defer to draw
 impl Redraw for Map {
     /// Update the map to reflect the current viewport offset
     // fn update_map(&mut self, old_viewport_offset: Vec2d<u16>, new_viewport_offset: Vec2d<u16>) {

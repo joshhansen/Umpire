@@ -12,8 +12,8 @@ use util::{Dims,Location};
 
 #[derive(Clone,PartialEq)]
 pub enum Terrain {
-    WATER,
-    LAND,
+    Water,
+    Land,
     // CITY
     //ice, lava, river, deep sea vs shallow, etc.
 }
@@ -21,8 +21,8 @@ pub enum Terrain {
 impl Terrain {
     pub fn color(&self) -> AnsiValue {
         match *self {
-            Terrain::WATER => AnsiValue(12),
-            Terrain::LAND => AnsiValue(10),
+            Terrain::Water => AnsiValue(12),
+            Terrain::Land => AnsiValue(10),
             // Terrain::CITY => AnsiValue(245)
         }
     }
@@ -31,8 +31,8 @@ impl Terrain {
 impl fmt::Display for Terrain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match *self {
-            Terrain::WATER => "Water",
-            Terrain::LAND => "Land"
+            Terrain::Water => "Water",
+            Terrain::Land => "Land"
         })
     }
 }
@@ -70,11 +70,11 @@ impl Tile {
 
     pub fn fg_color(&self) -> Option<AnsiValue> {
         match self.unit {
+            Some(ref last_unit) => Some(last_unit.alignment.color()),
             None => match self.city {
-                None => None,
-                Some(ref city) => Some(city.alignment().color())
-            },
-            Some(ref last_unit) => Some(last_unit.alignment.color())
+                Some(ref city) => Some(city.alignment().color()),
+                None => None
+            }
         }
     }
 
@@ -157,37 +157,22 @@ impl LocationGrid<Tile> {
         item.iter()
     }
 
-    // fn map2(item: & mut Vec<Tile>) -> Iter<&mut Tile> {
-    //     item.iter()
-    // }
-
     pub fn iter(&self) -> LocationGridIter {
         LocationGridIter {
             iter: self.grid.iter().flat_map(LocationGrid::map1)
         }
     }
-
-    // pub fn iter_mut(&mut self) -> LocationGridIterMut {
-    //     LocationGridIterMut {
-    //         iter: self.grid.iter_mut().flat_map(LocationGrid::map2)
-    //     }
-    // }
 }
 
 pub struct LocationGridIter<'a> {
     iter: FlatMap<Iter<'a, Vec<Tile>>, Iter<'a, Tile>, fn(&Vec<Tile>) -> Iter<Tile> >
 }
-
 impl <'b> Iterator for LocationGridIter<'b> {
     type Item = &'b Tile;
     fn next(&mut self) -> Option<&'b Tile> {
         self.iter.next()
     }
 }
-
-// struct LocationGridIterMut<'a> {
-//     iter: FlatMap<IterMut<'a, Vec<Tile>>, Iter<'a, &'a mut Tile>, fn(&mut Vec<Tile>) -> Iter<'a, &mut Tile> >
-// }
 
 impl<T> Index<Location> for LocationGrid<T> {
     type Output = T;
@@ -260,9 +245,9 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
                 &Dims{width: width as u16, height: lines.len() as u16 },
                 |loc| Tile::new(
                     if lines[loc.y as usize][loc.x as usize]==' ' {
-                        Terrain::WATER
+                        Terrain::Water
                     } else {
-                        Terrain::LAND
+                        Terrain::Land
                     },
                     *loc
                 )
@@ -298,26 +283,26 @@ fn test_str_to_map() {
             assert_eq!(map.dims.width, 6);
             assert_eq!(map.dims.height, 3);
 
-            assert_eq!(map[Location{x:0,y:0}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:1,y:0}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:2,y:0}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:3,y:0}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:4,y:0}].terrain, Terrain::WATER);
-            assert_eq!(map[Location{x:5,y:0}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:0,y:0}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:1,y:0}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:2,y:0}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:3,y:0}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:4,y:0}].terrain, Terrain::Water);
+            assert_eq!(map[Location{x:5,y:0}].terrain, Terrain::Land);
 
-            assert_eq!(map[Location{x:0,y:1}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:1,y:1}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:2,y:1}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:3,y:1}].terrain, Terrain::WATER);
-            assert_eq!(map[Location{x:4,y:1}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:5,y:1}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:0,y:1}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:1,y:1}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:2,y:1}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:3,y:1}].terrain, Terrain::Water);
+            assert_eq!(map[Location{x:4,y:1}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:5,y:1}].terrain, Terrain::Land);
 
-            assert_eq!(map[Location{x:0,y:2}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:1,y:2}].terrain, Terrain::LAND);
-            assert_eq!(map[Location{x:2,y:2}].terrain, Terrain::WATER);
-            assert_eq!(map[Location{x:3,y:2}].terrain, Terrain::WATER);
-            assert_eq!(map[Location{x:4,y:2}].terrain, Terrain::WATER);
-            assert_eq!(map[Location{x:5,y:2}].terrain, Terrain::LAND);
+            assert_eq!(map[Location{x:0,y:2}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:1,y:2}].terrain, Terrain::Land);
+            assert_eq!(map[Location{x:2,y:2}].terrain, Terrain::Water);
+            assert_eq!(map[Location{x:3,y:2}].terrain, Terrain::Water);
+            assert_eq!(map[Location{x:4,y:2}].terrain, Terrain::Water);
+            assert_eq!(map[Location{x:5,y:2}].terrain, Terrain::Land);
         }
     }
 }
@@ -330,9 +315,9 @@ mod test;
 #[test]
 fn test_iter() {
     let terrains: [Terrain; 9] = [
-        Terrain::LAND, Terrain::LAND, Terrain::LAND,
-        Terrain::LAND, Terrain::WATER, Terrain::LAND,
-        Terrain::LAND, Terrain::LAND, Terrain::LAND
+        Terrain::Land, Terrain::Land, Terrain::Land,
+        Terrain::Land, Terrain::Water, Terrain::Land,
+        Terrain::Land, Terrain::Land, Terrain::Land
     ];
     let locs: [Location; 9] = [
         Location{x:0,y:0}, Location{x:0,y:1}, Location{x:0,y:2},

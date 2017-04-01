@@ -6,7 +6,7 @@ use util::Location;
 #[test]
 fn test_tile() {
     let loc = Location{x: 10, y: 10};
-    let terrain = Terrain::LAND;
+    let terrain = Terrain::Land;
 
     let tile = Tile::new(terrain, loc);
 
@@ -14,7 +14,7 @@ fn test_tile() {
 
     let mut tile = tile;
 
-    let unit = Unit::new(UnitType::INFANTRY, Alignment::NEUTRAL);
+    let unit = Unit::new(UnitType::Infantry, Alignment::Neutral);
     tile.set_unit(unit);
     assert_eq!(tile.unit, Some(unit));
 }

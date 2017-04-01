@@ -31,18 +31,12 @@ pub trait Redraw {
     fn redraw<W:Write>(&self, game: &Game, stdout: &mut W);
 }
 
-// pub trait Keypress {
-//     fn keypress(&mut self, key: &Key, game: &mut Game);
-// }
-
 pub trait Component : Draw+Redraw {
     fn set_rect(&mut self, rect: Rect);
 
     fn rect(&self) -> Rect;
 
     fn is_done(&self) -> bool;
-
-
 
     fn goto(&self, x: u16, y: u16) -> termion::cursor::Goto {
         let rect = self.rect();

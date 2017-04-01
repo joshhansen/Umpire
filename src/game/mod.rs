@@ -16,7 +16,6 @@ use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Location,Wrap,Wrap2d};
 
 
-
 pub type TurnNum = u32;
 
 pub struct MoveResult {
@@ -24,7 +23,6 @@ pub struct MoveResult {
     starting_loc: Location,
     moves: Vec<MoveComponent>
 }
-
 impl MoveResult {
     pub fn unit(&self) -> &Unit {
         &self.unit
@@ -38,12 +36,12 @@ impl MoveResult {
         self.starting_loc
     }
 }
+
 pub struct MoveComponent {
     loc: Location,
     unit_combat: Option<CombatOutcome<Unit,Unit>>,
     city_combat: Option<CombatOutcome<Unit,City>>
 }
-
 impl MoveComponent {
     fn new(loc: Location) -> Self {
         MoveComponent {
@@ -90,8 +88,6 @@ pub struct Game {
     unit_move_requests: HashSet<Location>,
     wrapping: Wrap2d
 }
-
-
 impl Game {
     /// Creates a new game instance
     ///
@@ -147,7 +143,7 @@ impl Game {
                 let tile: &mut Tile = &mut self.tiles[loc];
 
                 if let Some(ref mut city) = tile.city {
-                    if let Alignment::BELLIGERENT{player} = city.alignment {
+                    if let Alignment::Belligerent{player} = city.alignment {
                         if player==self.current_player {
 
                             if let Some(ref unit_under_production) = city.unit_under_production {
@@ -167,7 +163,7 @@ impl Game {
                 }
 
                 if let Some(ref mut unit) = tile.unit {
-                    if let Alignment::BELLIGERENT{player} = unit.alignment {
+                    if let Alignment::Belligerent{player} = unit.alignment {
                         if player==self.current_player {
                             unit.moves_remaining = unit.movement_per_turn();
                             if !unit.sentry {
@@ -218,7 +214,7 @@ impl Game {
 
         for tile in self.tiles.iter() {
             if let Some(ref city) = tile.city {
-                if let Alignment::BELLIGERENT{player} = city.alignment {
+                if let Alignment::Belligerent{player} = city.alignment {
                     if player==self.current_player {
                         city.observe(tile.loc, &self.tiles, self.turn, self.wrapping, obs_tracker);
                     }
@@ -226,7 +222,7 @@ impl Game {
             }
 
             if let Some(ref unit) = tile.unit {
-                if let Alignment::BELLIGERENT{player} = unit.alignment {
+                if let Alignment::Belligerent{player} = unit.alignment {
                     if player==self.current_player {
                         unit.observe(tile.loc, &self.tiles, self.turn, self.wrapping, obs_tracker);
                     }
@@ -245,13 +241,14 @@ impl Game {
         let obs: &Obs = obs_tracker.get(loc).unwrap();
 
         match *obs {
-            Obs::CURRENT => self.tile(loc),
-            Obs::OBSERVED{ref tile,turn:_turn} => Some(tile),
-            Obs::UNOBSERVED => None
+            Obs::Current => self.tile(loc),
+            Obs::Observed{ref tile,turn:_turn} => Some(tile),
+            Obs::Unobserved => None
         }
     }
 
     pub fn city<'b>(&'b self, loc: Location) -> Option<&'b City> {
+        //FIXME Tidy up Option handling
         if let Some(tile) = self.tile(loc) {
             if let Some(ref city) = tile.city {
                 return Some(city);
@@ -261,6 +258,7 @@ impl Game {
     }
 
     pub fn unit<'a>(&'a self, loc: Location) -> Option<&'a Unit> {
+        //FIXME Tidy up Option handling
         if let Some(tile) = self.tile(loc) {
             if let Some(ref unit) = tile.unit {
                 return Some(unit);
@@ -430,12 +428,12 @@ mod test {
         let fog_of_war = true;
 
         let map: LocationGrid<Tile> = LocationGrid::new(&dims, |loc| {
-            let mut tile = Tile::new(Terrain::LAND, *loc);
+            let mut tile = Tile::new(Terrain::Land, *loc);
             if loc.x == 0 {
                 if loc.y == 0 {
-                    tile.city = Some(City::new("Machang", Alignment::BELLIGERENT{player:0}, *loc));
+                    tile.city = Some(City::new("Machang", Alignment::Belligerent{player:0}, *loc));
                 } else if loc.y == 1 {
-                    tile.city = Some(City::new("Zanzibar", Alignment::BELLIGERENT{player:1}, *loc));
+                    tile.city = Some(City::new("Zanzibar", Alignment::Belligerent{player:1}, *loc));
                 }
             }
             tile
@@ -445,18 +443,17 @@ mod test {
         let loc = *game.production_set_requests().iter().next().unwrap();
 
         println!("Setting production at {:?} to infantry", loc);
-        game.set_production(&loc, &UnitType::INFANTRY).unwrap();
+        game.set_production(&loc, &UnitType::Infantry).unwrap();
 
         let player = game.end_turn(&mut log_listener).unwrap();
         assert_eq!(player, 1);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
         println!("Setting production at {:?} to infantry", loc);
-        game.set_production(&loc, &UnitType::INFANTRY).unwrap();
+        game.set_production(&loc, &UnitType::Infantry).unwrap();
 
         let player = game.end_turn(&mut log_listener).unwrap();
         assert_eq!(player, 0);
-
 
 
         for _ in 0..5 {

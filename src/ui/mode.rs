@@ -198,7 +198,6 @@ struct SetProductionMode {
     loc: Location,
     rect: Rect
 }
-
 impl SetProductionMode {
     fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
         let ref tile = game.current_player_tile(self.loc).unwrap();

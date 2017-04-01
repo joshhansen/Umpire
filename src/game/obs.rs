@@ -6,11 +6,13 @@ use util::{Dims,Location};
 #[derive(Debug,PartialEq)]
 pub enum Obs {
     /// They're observing the tile now
-    CURRENT,
+    Current,
+
     /// The tile was observed on the specified turn
-    OBSERVED{tile: Tile, turn: TurnNum},
+    Observed{tile: Tile, turn: TurnNum},
+
     /// The tile has not been observed
-    UNOBSERVED
+    Unobserved
 }
 
 pub trait ObsTracker {
@@ -25,7 +27,7 @@ pub struct FogOfWarTracker {
 impl FogOfWarTracker {
     pub fn new(dims: Dims) -> Self {
         FogOfWarTracker {
-            observations: LocationGrid::new(&dims, |_loc: &Location| Obs::UNOBSERVED)
+            observations: LocationGrid::new(&dims, |_loc: &Location| Obs::Unobserved)
         }
     }
 }
@@ -36,7 +38,7 @@ impl ObsTracker for FogOfWarTracker {
     }
 
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) {
-        self.observations[loc] = Obs::OBSERVED{tile:tile.clone(), turn:turn};
+        self.observations[loc] = Obs::Observed{tile:tile.clone(), turn:turn};
     }
 }
 
@@ -46,7 +48,7 @@ pub struct UniversalVisibilityTracker {
 impl UniversalVisibilityTracker {
     pub fn new() -> Self {
         UniversalVisibilityTracker {
-            obs: Obs::CURRENT
+            obs: Obs::Current
         }
     }
 }
@@ -61,7 +63,6 @@ impl ObsTracker for UniversalVisibilityTracker {
 }
 
 
-
 #[cfg(test)]
 mod test {
     use game::obs::{FogOfWarTracker,Obs,ObsTracker};
@@ -71,23 +72,21 @@ mod test {
     #[test]
     fn test_fog_of_war_tracker() {
         let dims = Dims{width: 10, height: 20};
-        let map: LocationGrid<Tile> = LocationGrid::new(&dims, |loc| -> Tile { Tile::new(Terrain::LAND, *loc) });
+        let map: LocationGrid<Tile> = LocationGrid::new(&dims, |loc| -> Tile { Tile::new(Terrain::Land, *loc) });
         let mut tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(dims));
         let loc = Location{x: 5, y: 10};
-        assert_eq!(tracker.get(loc), Some(&Obs::UNOBSERVED));
+        assert_eq!(tracker.get(loc), Some(&Obs::Unobserved));
         assert_eq!(tracker.get(Location{x:1000, y: 2000}), None);
 
-        let tile = Tile::new(Terrain::LAND, loc);
+        let tile = Tile::new(Terrain::Land, loc);
 
         let turn = 0;
 
         tracker.observe(loc, &tile, turn);
 
-        assert_eq!(tracker.get(loc), Some(&Obs::OBSERVED{tile: tile, turn: turn}));
+        assert_eq!(tracker.get(loc), Some(&Obs::Observed{tile: tile, turn: turn}));
 
-
-
-        let infantry = Unit::new(UnitType::INFANTRY, Alignment::BELLIGERENT{player:0});
+        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
         infantry.observe(loc, &map, turn, WRAP_BOTH, &mut tracker);
     }
 }
