@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use termion::color::{Fg, Bg};
+use termion::color::{Fg, Bg, White, Black};
 use termion::cursor::Hide;
 use termion::style::{Blink,Bold,Invert,Underline};
 
@@ -207,7 +207,12 @@ impl Map {
                 symbol.unwrap_or(tile.sym())
             ).unwrap();
         } else {
-            write!(stdout, "{} ", Bg(if highlight{ WHITE } else { BLACK })).unwrap();
+            if highlight {
+                write!(stdout, "{}{}", Bg(White), Bg(WHITE)).unwrap();// Use ansi white AND rgb white. Terminals supporting rgb will get a brighter white
+            } else {
+                write!(stdout, "{}{}", Bg(Black), Bg(BLACK)).unwrap();
+            }
+            write!(stdout, " ").unwrap();
         }
 
         write!(stdout, "{}", StrongReset).unwrap();
