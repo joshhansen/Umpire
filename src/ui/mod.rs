@@ -12,9 +12,10 @@ use termion::screen::ToMainScreen;
 use conf;
 use conf::HEADER_HEIGHT;
 use game::{Game,MoveResult};
+use game::obs::{Observer,visible_coords_iter};
 use ui::log::{Message,MessageSource};
 use ui::style::StrongReset;
-use unit::{Observer,Sym,visible_coords_iter};
+use unit::Sym;
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
 

@@ -4,10 +4,9 @@ use std::fmt;
 
 use termion::color::AnsiValue;
 
-use game::TurnNum;
-use game::obs::ObsTracker;
-use map::{LocationGrid,Terrain,Tile};
-use util::{Location,Vec2d,Wrap2d,wrapped_add};
+use game::obs::Observer;
+use map::{Terrain,Tile};
+use util::Location;
 
 pub type PlayerNum = u8;
 
@@ -37,27 +36,6 @@ pub trait Aligned {
 
 pub trait Sym {
     fn sym(&self) -> &'static str;
-}
-
-pub fn visible_coords_iter(sight_distance: u16) -> impl Iterator<Item=Vec2d<i32>>  {
-    let sight_distance = sight_distance as i32;
-    (-sight_distance..sight_distance+1).flat_map(move |x| {
-        let y_max = sight_distance - x.abs();
-        (-y_max..y_max+1).map(move |y| {
-            Vec2d::new(x,y)
-        })
-    } )
-}
-
-pub trait Observer {
-    fn sight_distance(&self) -> u16;
-    fn observe(&self, observer_loc: Location, tiles: &LocationGrid<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
-        for inc in visible_coords_iter(self.sight_distance()) {
-            if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
-                obs_tracker.observe(loc, &tiles[loc], turn);
-            }
-        }
-    }
 }
 
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
