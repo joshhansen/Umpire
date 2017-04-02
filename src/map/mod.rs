@@ -102,7 +102,11 @@ impl fmt::Display for Tile {
                 write!(f, "{}", city)
             }
         } else {
-            write!(f, "{}", self.terrain)
+            if let Some(ref unit) = self.unit {
+                write!(f, "{} on {}", unit, self.terrain)
+            } else {
+                write!(f, "{}", self.terrain)
+            }
         }
     }
 }
