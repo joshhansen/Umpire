@@ -2,29 +2,6 @@
 //! Umpire: a game of world conquest
 //!
 
-//Wishlist:
-// Copy is implemented for Rgb, Bg, Fg
-
-// Name ideas:
-// * ocracy
-// * emp
-// * umpire
-// * pire
-// * perium
-// * shmempire
-// * hegemon
-// * vegemon
-// * perator
-// * metropole
-// * Fort Fumble
-// * Grid Squares
-// * Hudson High
-// * armiya
-// * Other Means [War is politics by other means]
-// * containment
-// * ozymandias
-// * uzimandias
-
 #![feature(conservative_impl_trait)]
 #![feature(try_from)]
 
