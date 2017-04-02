@@ -1,5 +1,5 @@
 //!
-//! Umpire: a game of world conquest
+//! The Battaliad: a quest of outrageous combat
 //!
 
 #![feature(conservative_impl_trait)]
@@ -23,7 +23,7 @@ extern crate unicode_segmentation;
 extern crate portaudio as pa;
 extern crate sample;
 
-use std::io::stdout;
+use std::io::{Write,stdout};
 
 use clap::{Arg, App};
 use termion::color::Rgb;
@@ -42,45 +42,44 @@ const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT }
 
 fn main() {
     if let Ok((term_width,term_height)) = terminal_size() {
+        let matches = App::new(conf::APP_NAME)
+            .version("0.1")
+            .author("Josh Hansen <hansen.joshuaa@gmail.com>")
+            .about(conf::APP_SUBTITLE)
+            .arg(Arg::with_name("fog")
+              .short("f")
+              .long("fog")
+              .help("Enable or disable fog of war")
+              .takes_value(true)
+              .default_value(conf::FOG_OF_WAR)
+              .possible_values(&["on","off"])
+            )
+            .arg(Arg::with_name("players")
+                .short("p")
+                .long("players")
+                .help("Number of players")
+                .takes_value(true)
+                .required(true)
+                .default_value(conf::NUM_PLAYERS)
+                .validator(|s| {
+                    let players: Result<PlayerNum,_> = s.trim().parse();
+                    players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
+                })
+            )
+        .get_matches();
+
+        print!("Loading {}...", conf::APP_NAME);
+        stdout().flush().unwrap();
+
+        let fog_of_war = matches.value_of("fog").unwrap() == "on";
+        let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
+
+        let mut game = Game::new(MAP_DIMS, num_players, fog_of_war, &mut |msg:String| {
+            println!("{}", msg);
+        });
+
         {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
             let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-
-            let matches = App::new(conf::APP_NAME)
-                .version("0.1")
-                .author("Josh Hansen <hansen.joshuaa@gmail.com>")
-                .about("Combat Quest of the Millennium")
-                .arg(Arg::with_name("fog")
-                  .short("f")
-                  .long("fog")
-                  .help("Enable or disable fog of war")
-                  .takes_value(true)
-                  .default_value(conf::FOG_OF_WAR)
-                  .possible_values(&["on","off"])
-                )
-                .arg(Arg::with_name("players")
-                    .short("p")
-                    .long("players")
-                    .help("Number of players")
-                    .takes_value(true)
-                    .required(true)
-                    .default_value(conf::NUM_PLAYERS)
-                    .validator(|s| {
-                        let players: Result<PlayerNum,_> = s.trim().parse();
-                        players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
-                    })
-                )
-            .get_matches();
-
-            let fog_of_war = matches.value_of("fog").unwrap() == "on";
-            let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
-
-
-            let mut log_listener = |msg:String| {
-                println!("{}", msg);
-            };
-
-            let mut game = Game::new(MAP_DIMS, num_players, fog_of_war, &mut log_listener);
-
             let mut ui = ui::UI::new(
                 &game.map_dims(),
                 Dims{ width: term_width, height: term_height },
@@ -103,7 +102,17 @@ fn main() {
             }
         }
 
-        println!("Thanks for playing {}!\n", conf::APP_NAME);
+        println!("\n\n\t\tThe Battaliad\n
+\tO Muse! the causes and the crimes relate;
+\tWhat goddess was provok'd, and whence her hate;
+\tFor what offense the Queen of Heav'n began
+\tTo persecute so brave, so just a man;
+\tInvolv'd his anxious life in endless cares,
+\tExpos'd to wants, and hurried into wars!
+\tCan heav'nly minds such high resentment show,
+\tOr exercise Their spite in human woe?");
+
+        println!("\nThe quest awaits you.");
     } else {
         println!("Unable to get terminal size");
     }
