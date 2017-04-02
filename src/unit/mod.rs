@@ -257,7 +257,7 @@ impl Sym for Unit {
         match self.type_ {
             UnitType::Infantry => "i",
             UnitType::Armor => "A",
-            UnitType::Fighter => "✈",
+            UnitType::Fighter => "f",//"✈",
             UnitType::Bomber => "b",
             UnitType::Transport => "t",
             UnitType::Destroyer => "d",
