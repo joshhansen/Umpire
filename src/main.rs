@@ -10,6 +10,7 @@ mod game;
 #[macro_use]
 mod macros;
 mod map;
+mod name;
 mod ui;
 mod unit;
 mod util;
@@ -31,6 +32,7 @@ use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use termion::terminal_size;
 
+use name::{city_namer,unit_namer};
 use ui::log::{Message,MessageSource};
 use util::Dims;
 use game::Game;
@@ -74,45 +76,61 @@ fn main() {
         let fog_of_war = matches.value_of("fog").unwrap() == "on";
         let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
 
-        let mut game = Game::new(MAP_DIMS, num_players, fog_of_war, &mut |msg:String| {
-            println!("{}", msg);
-        });
+        match city_namer() {
+            Ok(city_namer) => {
+                match unit_namer() {
+                    Ok(unit_namer) => {
 
-        {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
-            let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-            let mut ui = ui::UI::new(
-                &game.map_dims(),
-                Dims{ width: term_width, height: term_height },
-                screen,
-            );
+                        let mut game = Game::new(MAP_DIMS, city_namer, num_players, fog_of_war, unit_namer, &mut |msg:String| {
+                            println!("{}", msg);
+                        });
 
-            let mut mode = ui::mode::Mode::TurnStart;
-            while mode.run(&mut game, &mut ui) {
-                if let ui::mode::Mode::Examine{cursor_viewport_loc:_, first:_} = mode {
-                    // don't bother
-                } else {
-                    ui.log_message(Message {
-                        text: format!("Mode: {:?}", mode),
-                        mark: None,
-                        fg_color: Some(Rgb(255,140,0)),
-                        bg_color: None,
-                        source: Some(MessageSource::Main)
-                    });
+                        {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
+                            let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
+                            let mut ui = ui::UI::new(
+                                &game.map_dims(),
+                                Dims{ width: term_width, height: term_height },
+                                screen,
+                            );
+
+                            let mut mode = ui::mode::Mode::TurnStart;
+                            while mode.run(&mut game, &mut ui) {
+                                if let ui::mode::Mode::Examine{cursor_viewport_loc:_, first:_} = mode {
+                                    // don't bother
+                                } else {
+                                    ui.log_message(Message {
+                                        text: format!("Mode: {:?}", mode),
+                                        mark: None,
+                                        fg_color: Some(Rgb(255,140,0)),
+                                        bg_color: None,
+                                        source: Some(MessageSource::Main)
+                                    });
+                                }
+                            }
+                        }
+
+                        println!("\n\n\t\tThe Battaliad\n
+                        \tO Muse! the causes and the crimes relate;
+                        \tWhat goddess was provok'd, and whence her hate;
+                        \tFor what offense the Queen of Heav'n began
+                        \tTo persecute so brave, so just a man;
+                        \tInvolv'd his anxious life in endless cares,
+                        \tExpos'd to wants, and hurried into wars!
+                        \tCan heav'nly minds such high resentment show,
+                        \tOr exercise Their spite in human woe?");
+
+                        println!("\nThe quest awaits you.");
+
+                    },
+                    Err(err) => {
+                        println!("Error loading unit namer: {}", err);
+                    }
                 }
+            },
+            Err(msg) => {
+                println!("Error loading city names: {}", msg);
             }
         }
-
-        println!("\n\n\t\tThe Battaliad\n
-\tO Muse! the causes and the crimes relate;
-\tWhat goddess was provok'd, and whence her hate;
-\tFor what offense the Queen of Heav'n began
-\tTo persecute so brave, so just a man;
-\tInvolv'd his anxious life in endless cares,
-\tExpos'd to wants, and hurried into wars!
-\tCan heav'nly minds such high resentment show,
-\tOr exercise Their spite in human woe?");
-
-        println!("\nThe quest awaits you.");
     } else {
         println!("Unable to get terminal size");
     }

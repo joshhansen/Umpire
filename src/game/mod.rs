@@ -11,6 +11,7 @@ use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTrack
 use map::{Tile,LocationGrid};
 use map::gen::MapGenerator;
 use map::dijkstra::{neighbors_terrain_only,shortest_paths};
+use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Location,Wrap,Wrap2d};
@@ -86,7 +87,8 @@ pub struct Game {
     current_player: PlayerNum,
     production_set_requests: HashSet<Location>,
     unit_move_requests: HashSet<Location>,
-    wrapping: Wrap2d
+    wrapping: Wrap2d,
+    unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>
 }
 impl Game {
     /// Creates a new game instance
@@ -95,14 +97,23 @@ impl Game {
     /// A map with the specified dimensions will be generated
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observations growing stale over time.
-    pub fn new<L:FnMut(String)>(map_dims: Dims, num_players: PlayerNum, fog_of_war: bool, log_listener: &mut L) -> Self {
-        let mut map_generator = MapGenerator::new();
-        let map = map_generator.generate(map_dims, num_players);
+    pub fn new<L:FnMut(String)>(
+            map_dims: Dims,
+            city_namer: ListNamer,
+            num_players: PlayerNum,
+            fog_of_war: bool,
+            unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+            log_listener: &mut L) -> Self {
 
-        Game::new_with_map(map, num_players, fog_of_war, log_listener)
+        let mut map_generator = MapGenerator::new(city_namer);
+        let map = map_generator.generate(map_dims, num_players);
+        Game::new_with_map(map, num_players, fog_of_war, unit_namer, log_listener)
     }
 
-    fn new_with_map<L:FnMut(String)>(map: LocationGrid<Tile>, num_players: PlayerNum, fog_of_war: bool, log_listener: &mut L) -> Self {
+    fn new_with_map<L:FnMut(String)>(map: LocationGrid<Tile>, num_players: PlayerNum,
+            fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+            log_listener: &mut L) -> Self {
+
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
             let tracker: Box<ObsTracker> = if fog_of_war {
@@ -127,7 +138,8 @@ impl Game {
             current_player: 0,
             production_set_requests: HashSet::new(),
             unit_move_requests: HashSet::new(),
-            wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping}
+            wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
+            unit_namer: unit_namer
         };
 
         game.begin_turn(log_listener);
@@ -149,10 +161,10 @@ impl Game {
                             if let Some(ref unit_under_production) = city.unit_under_production {
                                 city.production_progress += 1;
                                 if city.production_progress >= unit_under_production.cost() {
-                                    let new_unit = Unit::new(*unit_under_production, city.alignment);
+                                    let new_unit = Unit::new(*unit_under_production, city.alignment, self.unit_namer.name());
+                                    log_listener(format!("{} produced {}", city, new_unit));
                                     tile.unit = Some(new_unit);
                                     city.production_progress = 0;
-                                    log_listener(format!("{} produced {}", city, &tile.unit.unwrap()));
                                 }
                             } else {
                                 log_listener(format!("Queueing production set request for {}", city));
@@ -276,9 +288,10 @@ impl Game {
     }
 
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
-        let unit = self.tiles[src].unit.unwrap();
-        let shortest_paths = shortest_paths(&self.tiles, src, &unit, self.wrapping);
-
+        let shortest_paths = {
+            let unit = self.tiles[src].unit.as_ref().unwrap();
+            shortest_paths(&self.tiles, src, &unit, self.wrapping)
+        };
         if let Some(distance) = shortest_paths.dist[dest] {
             let unit = self.tiles[src].pop_unit();
             if let Some(mut unit) = unit {
@@ -307,15 +320,15 @@ impl Game {
                     for loc in shortest_path.iter().skip(1) {// skip the source location
                         let mut move_ = MoveComponent::new(*loc);
                         let mut tile = &mut self.tiles[dest];
-                        if let Some(other_unit) = tile.unit {
-                            let outcome = unit.fight(&other_unit);
+                        if let Some(ref other_unit) = tile.unit {
+                            let outcome = unit.fight(other_unit);
                             destroyed |= *outcome.victor() != CombatParticipant::Attacker;
                             move_.unit_combat = Some(outcome);
-                            if destroyed {
-                                break;
-                            } else {
-                                tile.unit = None;
-                            }
+                        }
+                        if destroyed {
+                            break;
+                        } else {
+                            tile.unit = None;
                         }
 
                         if let Some(ref mut city) = tile.city {
@@ -342,7 +355,7 @@ impl Game {
                             self.unit_move_requests.insert(dest);
                         }
 
-                        self.tiles[dest].set_unit(unit);
+                        self.tiles[dest].set_unit(unit.clone());
 
 
                         let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();

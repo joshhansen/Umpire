@@ -174,18 +174,19 @@ impl fmt::Display for UnitType {
     }
 }
 
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Unit {
     pub type_: UnitType,
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
     pub sentry: bool,
-    pub moves_remaining: u16
+    pub moves_remaining: u16,
+    name: String
 }
 
 impl Unit {
-    pub fn new(type_: UnitType, alignment: Alignment) -> Self {
+    pub fn new(type_: UnitType, alignment: Alignment, name: String) -> Self {
         let max_hp =type_.max_hp();
         Unit {
             type_: type_,
@@ -193,7 +194,8 @@ impl Unit {
             hp: max_hp,
             max_hp: max_hp,
             sentry: false,
-            moves_remaining: 0
+            moves_remaining: 0,
+            name: name
         }
     }
 
@@ -222,7 +224,7 @@ impl Unit {
             return false;
         }
 
-        if let Some(unit) = tile.unit {
+        if let Some(ref unit) = tile.unit {
             return self.alignment != unit.alignment;
         }
 
@@ -259,7 +261,7 @@ impl Observer for Unit {
 
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.type_.fmt(f)
+        write!(f, "{} \"{}\"", self.type_, self.name)
     }
 }
 

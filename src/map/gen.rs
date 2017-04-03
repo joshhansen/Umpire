@@ -4,14 +4,11 @@
 
 // use std::num::Zero;
 
-use std::path::Path;
-use std::process;
-
-use csv;
 use rand::{thread_rng, Rng};
 
 use conf;
 use map::{Terrain,Tile,LocationGrid};
+use name::{ListNamer,Namer};
 use unit::{Alignment,City,PlayerNum};
 use util::{Dims,Location};
 
@@ -79,60 +76,13 @@ fn land_diagonal_neighbors(tiles: &Vec<Vec<Tile>>, loc: Location, map_dims: Dims
 //     land_nearby
 // }
 
-struct CityNamer {
-    names: Vec<String>,
-    next_name: usize
-}
-
-/// From Geonames schema
-static CITY_NAME_COL: usize = 1;
-impl CityNamer {
-    fn new() -> Self {
-        let mut names = Vec::new();
-
-        let path = Path::new("data/geonames_cities1000_2017-02-27_02:01.tsv");
-
-        match csv::Reader::from_file(path) {
-            Ok(reader) => {
-                let mut reader = reader.has_headers(false).delimiter(b'\t');
-                for row in reader.records() {
-                    let row = row.unwrap();
-                    // println!("{}, {}: {}", n1, n2, dist);
-                    // println!("{:?}", row);
-                    names.push(row[CITY_NAME_COL].clone());
-                }
-            },
-            Err(err) => {
-                printerr!("Error reading cities data file: {}", err);
-                process::exit(1);
-            }
-        }
-
-        println!("Cities loaded.");
-
-
-        let mut rng = thread_rng();
-        rng.shuffle(&mut names);
-
-        CityNamer{names: names, next_name: 0}
-    }
-
-    fn name(&mut self) -> String {
-        let name = self.names[self.next_name % self.names.len()].clone();
-        self.next_name += 1;
-        name
-    }
-}
-
 pub struct MapGenerator {
-    namer: CityNamer
+    city_namer: ListNamer
 }
 
 impl MapGenerator {
-    pub fn new() -> Self {
-        MapGenerator {
-            namer: CityNamer::new()
-        }
+    pub fn new(city_namer: ListNamer) -> Self {
+        MapGenerator{ city_namer: city_namer }
     }
 
     pub fn generate(&mut self, map_dims: Dims, num_players: PlayerNum) -> LocationGrid<Tile> {
@@ -197,7 +147,7 @@ impl MapGenerator {
                 let tile = &mut tiles[loc.x as usize][loc.y as usize];
                 if tile.terrain == Terrain::Land {
                     if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                        tile.city = Some(City::new(self.namer.name(), Alignment::Neutral, loc));
+                        tile.city = Some(City::new(self.city_namer.name(), Alignment::Neutral, loc));
                     }
                 }
             }
@@ -215,7 +165,7 @@ impl MapGenerator {
 
             if tile.terrain == Terrain::Land {
                 if tile.city.is_none() {
-                    tile.city = Some(City::new(self.namer.name(), Alignment::Belligerent{ player: player_num }, loc));
+                    tile.city = Some(City::new(self.city_namer.name(), Alignment::Belligerent{ player: player_num }, loc));
                     player_num += 1;
                 }
             }
