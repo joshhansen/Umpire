@@ -265,7 +265,7 @@ impl fmt::Display for Unit {
     }
 }
 
-const CITY_MAX_HP: u16 = 4;
+const CITY_MAX_HP: u16 = 1;
 
 #[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
