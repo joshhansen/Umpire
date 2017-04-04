@@ -215,7 +215,7 @@ mod test {
                                                  xxx") {
 
             let loc = Location{x:0, y:2};
-            let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
+            let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
             let neighbs_both = neighbors(&map, loc, &infantry, WRAP_BOTH);
             assert!(neighbs_both.contains(&Location{x:0, y:0}));
             assert!(neighbs_both.contains(&Location{x:0, y:1}));
@@ -268,7 +268,7 @@ mod test {
             },
             Ok(map) => {
                 let loc = Location{x:0, y:0};
-                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
+                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
                 let shortest_neither = shortest_paths(&map, loc, &infantry, WRAP_NEITHER);
                 println!("{:?}", shortest_neither);
                 assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));

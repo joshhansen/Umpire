@@ -38,7 +38,7 @@ pub struct WeightedNamer<N:Default> {
     rng: ThreadRng
 }
 impl <N: Copy+Default+PartialOrd+SampleRange> WeightedNamer<N> {
-    fn new(cumulatively_weighted_names: Vec<CumWeight<String,N>>) -> Self {
+    pub fn new(cumulatively_weighted_names: Vec<CumWeight<String,N>>) -> Self {
         // let total_weight = weighted_names.iter().fold(0, |acc, &weighted| acc + weighted.weight);
         let zero: N = Default::default();
         let weight_range = Range::new(zero, cumulatively_weighted_names[cumulatively_weighted_names.len()-1].cum_weight);
@@ -89,7 +89,7 @@ fn load_list(filename: &'static str) -> std::io::Result<Vec<String>> {
     Ok(items)
 }
 
-struct CumWeight<T,N> {
+pub struct CumWeight<T,N> {
     item: T,
     cum_weight: N
 }
@@ -186,8 +186,6 @@ impl<N1:Namer,N2:Namer> Namer for CompoundNamer<N1,N2> {
 }
 
 pub fn unit_namer() -> Result<CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>, String> {
-    // let givennames = load_list("data/givennames.txt")?;
-    // let surnames = load_list("data/surnames.txt")?;
     let givennames = load_cumulative_weights("data/us-census/1990/givenname_rel_freqs.csv")?;
     let surnames = load_cumulative_weights("data/us-census/2010/surname_freqs.csv")?;
     Ok(CompoundNamer::new(
@@ -195,8 +193,15 @@ pub fn unit_namer() -> Result<CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32
         WeightedNamer::new(givennames),
         WeightedNamer::new(surnames)
     ))
-    // load_list("data/givennames.txt").map(|givennames|{
-    //     load_list("data/surnames.txt").map(|)
-    // })
-    // let given_namer = ListNamer::new(shuffle(load_list("data/givennames.txt")));
+}
+
+#[allow(dead_code)]
+pub fn test_unit_namer() -> Result<CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>, String> {
+    let givennames = load_cumulative_weights("data/us-census/1990/givenname_rel_freqs-test.csv")?;
+    let surnames = load_cumulative_weights("data/us-census/2010/surname_freqs-test.csv")?;
+    Ok(CompoundNamer::new(
+        " ",
+        WeightedNamer::new(givennames),
+        WeightedNamer::new(surnames)
+    ))
 }

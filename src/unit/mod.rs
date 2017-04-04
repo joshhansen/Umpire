@@ -186,7 +186,7 @@ pub struct Unit {
 }
 
 impl Unit {
-    pub fn new(type_: UnitType, alignment: Alignment, name: String) -> Self {
+    pub fn new<S:Into<String>>(type_: UnitType, alignment: Alignment, name: S) -> Self {
         let max_hp =type_.max_hp();
         Unit {
             type_: type_,
@@ -195,7 +195,7 @@ impl Unit {
             max_hp: max_hp,
             sentry: false,
             moves_remaining: 0,
-            name: name
+            name: name.into()
         }
     }
 
@@ -269,15 +269,15 @@ const CITY_MAX_HP: u16 = 4;
 
 #[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
-    pub loc: Location,
     pub alignment: Alignment,
+    pub loc: Location,
     hp: u16,
     pub unit_under_production: Option<UnitType>,
     pub production_progress: u16,
     name: String
 }
 impl City {
-    pub fn new<N:Into<String>>(name: N, alignment: Alignment, loc: Location) -> City {
+    pub fn new<S:Into<String>>(alignment: Alignment, loc: Location, name: S) -> City {
         City {
             loc: loc,
             alignment: alignment,
@@ -359,7 +359,7 @@ x   o    x";
 
                 let infantry_loc = Location{x:4, y:2};
 
-                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
+                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
 
                 let mut obs_tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
 
@@ -429,9 +429,9 @@ x   o    x";
 
     #[test]
     fn test_mobility() {
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
-        let friendly_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:0});
-        let enemy_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:1});
+        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
+        let friendly_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:0}, "Lynn Stone");
+        let enemy_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:1}, "James Lindsey");
 
         let loc = Location{x:5, y:5};
 

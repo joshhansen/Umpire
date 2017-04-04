@@ -14,7 +14,8 @@ fn test_tile() {
 
     let mut tile = tile;
 
-    let unit = Unit::new(UnitType::Infantry, Alignment::Neutral);
+    let unit = Unit::new(UnitType::Infantry, Alignment::Neutral, "Mordai Nowhere");
+    let unit2 = unit.clone();
     tile.set_unit(unit);
-    assert_eq!(tile.unit, Some(unit));
+    assert_eq!(tile.unit, Some(unit2));
 }

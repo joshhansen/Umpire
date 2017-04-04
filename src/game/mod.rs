@@ -429,8 +429,11 @@ but there is no city at that location",
 mod test {
     use game::Game;
     use map::{LocationGrid,Terrain,Tile};
+    use name::{test_unit_namer};
     use unit::{Alignment,City,UnitType};
     use util::{Dims,Location};
+
+
 
     #[test]
     fn test_game() {
@@ -444,14 +447,15 @@ mod test {
             let mut tile = Tile::new(Terrain::Land, *loc);
             if loc.x == 0 {
                 if loc.y == 0 {
-                    tile.city = Some(City::new("Machang", Alignment::Belligerent{player:0}, *loc));
+                    tile.city = Some(City::new(Alignment::Belligerent{player:0}, *loc, "Machang"));
                 } else if loc.y == 1 {
-                    tile.city = Some(City::new("Zanzibar", Alignment::Belligerent{player:1}, *loc));
+                    tile.city = Some(City::new(Alignment::Belligerent{player:1}, *loc, "Zanzibar"));
                 }
             }
             tile
         });
-        let mut game = Game::new_with_map(map, players, fog_of_war, &mut log_listener);
+        let unit_namer = test_unit_namer().unwrap();
+        let mut game = Game::new_with_map(map, players, fog_of_war, unit_namer, &mut log_listener);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
 

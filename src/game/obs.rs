@@ -85,10 +85,10 @@ pub trait Observer {
 
 #[cfg(test)]
 mod test {
-    use game::obs::{FogOfWarTracker,Obs,ObsTracker};
+    use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker};
     use map::{LocationGrid,Terrain,Tile};
     use util::{Dims,Location,WRAP_BOTH};
-    use unit::{Alignment,Observer,Unit,UnitType};
+    use unit::{Alignment,Unit,UnitType};
     #[test]
     fn test_fog_of_war_tracker() {
         let dims = Dims{width: 10, height: 20};
@@ -106,7 +106,7 @@ mod test {
 
         assert_eq!(tracker.get(loc), Some(&Obs::Observed{tile: tile, turn: turn}));
 
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0});
+        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "George Glover");
         infantry.observe(loc, &map, turn, WRAP_BOTH, &mut tracker);
     }
 }

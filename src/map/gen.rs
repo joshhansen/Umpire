@@ -147,7 +147,7 @@ impl MapGenerator {
                 let tile = &mut tiles[loc.x as usize][loc.y as usize];
                 if tile.terrain == Terrain::Land {
                     if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                        tile.city = Some(City::new(self.city_namer.name(), Alignment::Neutral, loc));
+                        tile.city = Some(City::new(Alignment::Neutral, loc, self.city_namer.name()));
                     }
                 }
             }
@@ -165,7 +165,7 @@ impl MapGenerator {
 
             if tile.terrain == Terrain::Land {
                 if tile.city.is_none() {
-                    tile.city = Some(City::new(self.city_namer.name(), Alignment::Belligerent{ player: player_num }, loc));
+                    tile.city = Some(City::new(Alignment::Belligerent{ player: player_num }, loc, self.city_namer.name()));
                     player_num += 1;
                 }
             }
