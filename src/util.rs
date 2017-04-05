@@ -187,15 +187,33 @@ pub static WRAP_NEITHER: Wrap2d = Wrap2d {
 pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
     let mut new_x: i32 = loc.x as i32 + inc.x as i32;
     if let Wrap::Wrapping = wrapping.horiz {
-        new_x = if new_x < 0 { dims.width as i32 + new_x } else { new_x % dims.width as i32 };
-    } else if new_x >= dims.width as i32 {
+        if new_x < 0 {
+            loop {
+                new_x = dims.width as i32 + new_x;
+                if new_x >= 0 {
+                    break;
+                }
+            }
+        } else {
+            new_x = new_x % dims.width as i32
+        }
+    } else if new_x < 0 || new_x >= dims.width as i32 {
         return None;
     }
 
     let mut new_y: i32 = loc.y as i32 + inc.y as i32;
     if let Wrap::Wrapping = wrapping.vert {
-        new_y = if new_y < 0 { dims.height as i32 + new_y } else { new_y % dims.height as i32 };
-    } else if new_y >= dims.height as i32 {
+        if new_y < 0 {
+            loop {
+                new_y = dims.height as i32 + new_y;
+                if new_y >= 0 {
+                    break;
+                }
+            }
+        } else {
+            new_y = new_y % dims.height as i32
+        }
+    } else if new_y < 0 || new_y >= dims.height as i32 {
         return None;
     }
 
@@ -240,7 +258,7 @@ pub fn grapheme_len(s: &String) -> usize {
 #[cfg(test)]
 mod test {
     use map::dijkstra::RELATIVE_NEIGHBORS;
-    use util::{Dims,Location,wrapped_add,WRAP_NEITHER,WRAP_VERT,WRAP_HORIZ,WRAP_BOTH};
+    use util::{Dims,Location,Vec2d,wrapped_add,WRAP_NEITHER,WRAP_VERT,WRAP_HORIZ,WRAP_BOTH};
 
     #[test]
     fn test_wrapped_add() {
@@ -339,5 +357,19 @@ mod test {
             assert_eq!( wrapped_add(loc, *rel_neighb, dims, WRAP_VERT),    results_vert   [i] );
             assert_eq!( wrapped_add(loc, *rel_neighb, dims, WRAP_NEITHER), results_neither[i] );
         }
+
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-1, y:0}, Dims{width:5, height:1}, WRAP_HORIZ), Some(Location{x:4, y:0}));
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-10, y:0}, Dims{width:5, height:1}, WRAP_HORIZ), Some(Location{x:0, y:0}));
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-8, y:0}, Dims{width:5, height:1}, WRAP_HORIZ), Some(Location{x:2, y:0}));
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-1, y:0}, Dims{width:5, height:1}, WRAP_NEITHER), None);
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-10, y:0}, Dims{width:5, height:1}, WRAP_NEITHER), None);
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-8, y:0}, Dims{width:5, height:1}, WRAP_NEITHER), None);
+
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-1}, Dims{width:1, height:5}, WRAP_VERT), Some(Location{x:0, y:4}));
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-10}, Dims{width:1, height:5}, WRAP_VERT), Some(Location{x:0, y:0}));
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-8}, Dims{width:1, height:5}, WRAP_VERT), Some(Location{x:0, y:2}));
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-1}, Dims{width:1, height:5}, WRAP_NEITHER), None);
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-10}, Dims{width:1, height:5}, WRAP_NEITHER), None);
+        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-8}, Dims{width:1, height:5}, WRAP_NEITHER), None);
     }
 }
