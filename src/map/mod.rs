@@ -6,7 +6,7 @@ use std::ops::{Index,IndexMut};
 
 use termion::color::AnsiValue;
 
-use unit::{City,Unit,Aligned,Sym};
+use unit::{Aligned,Alignment,City,PlayerNum,Sym,Unit};
 use util::{Dims,Location};
 
 
@@ -220,8 +220,11 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
 ///  xx  xx\
 ///  x    x"
 /// )
-/// would yield a location grid with tiles populated such that each non-whitespace character
-/// corresponds to land and each whitespace character corresponds to ocean
+/// would yield a location grid with tiles populated thus:
+/// * numerals represent land terrain with a city belonging to the player of that number
+///   i.e. character "3" becomes a city belonging to player 3 located on land.
+/// * other non-whitespace characters correspond to land
+/// * whitespace characters correspond to water
 ///
 /// Error if there are no lines or if the lines aren't of equal length
 impl TryFrom<&'static str> for LocationGrid<Tile> {
@@ -233,7 +236,6 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
         }
 
         let width = lines[0].len();
-
         if lines.len() == 1 && width == 0 {
             return Err(String::from("No map was provided (the string was empty)"));
         }
@@ -247,15 +249,25 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
         Ok(
             LocationGrid::new(
                 Dims{width: width as u16, height: lines.len() as u16 },
-                |loc| Tile::new(
-                    if lines[loc.y as usize][loc.x as usize]==' ' {
-                        Terrain::Water
-                    } else {
-                        Terrain::Land
-                    },
-                    *loc
-                )
-
+                |loc| {
+                    let c = lines[loc.y as usize][loc.x as usize];
+                    let mut tile = Tile::new(
+                        if c==' ' {
+                            Terrain::Water
+                        } else {
+                            Terrain::Land
+                        },
+                        *loc
+                    );
+                    if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
+                        tile.city = Some(City::new(
+                            Alignment::Belligerent{player: player_num},
+                            *loc,
+                            format!("City_{}_{}", loc.x, loc.y)
+                        ));
+                    }
+                    tile
+                }
             )
         )
     }
