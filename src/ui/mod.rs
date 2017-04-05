@@ -314,12 +314,12 @@ impl<W:Write> UI<W> {
 
             current_loc = target_loc;
 
-
             self.stdout.flush().unwrap();
-            sleep_millis(400);
         }
 
-
+        if move_result.unit().moves_remaining == 0 {
+            sleep_millis(250);
+        }
     }
 
     fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(&mut self, game: &Game, outcome: &CombatOutcome<A,D>, attacker_loc: Location,
