@@ -371,16 +371,16 @@ impl Game {
         }
     }
 
-    pub fn set_production(&mut self, location: &Location, production: &UnitType) -> Result<(),String> {
-        if let Some(ref mut city) = self.tiles[*location].city {
-            city.unit_under_production = Some(*production);
-            self.production_set_requests.remove(location);
+    pub fn set_production(&mut self, location: Location, production: UnitType) -> Result<(),String> {
+        if let Some(ref mut city) = self.tiles[location].city {
+            city.unit_under_production = Some(production);
+            self.production_set_requests.remove(&location);
             Ok(())
         } else {
             Err(format!(
                 "Attempted to set production for city at location {}
 but there is no city at that location",
-                *location
+                location
             ))
         }
     }
@@ -460,14 +460,14 @@ mod test {
         let loc = *game.production_set_requests().iter().next().unwrap();
 
         println!("Setting production at {:?} to infantry", loc);
-        game.set_production(&loc, &UnitType::Infantry).unwrap();
+        game.set_production(loc, UnitType::Infantry).unwrap();
 
         let player = game.end_turn(&mut log_listener).unwrap();
         assert_eq!(player, 1);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
         println!("Setting production at {:?} to infantry", loc);
-        game.set_production(&loc, &UnitType::Infantry).unwrap();
+        game.set_production(loc, UnitType::Infantry).unwrap();
 
         let player = game.end_turn(&mut log_listener).unwrap();
         assert_eq!(player, 0);

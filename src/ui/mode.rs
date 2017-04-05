@@ -235,7 +235,7 @@ impl IMode for SetProductionMode {
                 KeyStatus::Unhandled(key) => {
                     if let Key::Char(c) = key {
                         if let Some(unit_type) = UnitType::from_key(&c) {
-                            game.set_production(&self.loc, &unit_type).unwrap();
+                            game.set_production(self.loc, unit_type).unwrap();
 
                             let ref city = game.city(self.loc).unwrap();
                             ui.replace_message(Message {
