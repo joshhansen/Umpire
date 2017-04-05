@@ -117,11 +117,11 @@ pub struct LocationGrid<T> {
 }
 
 impl<T> LocationGrid<T> {
-    fn new_from_vec(dims: &Dims, grid: Vec<Vec<T>>) -> Self {
-        LocationGrid{ grid: grid, dims: *dims }
+    fn new_from_vec(dims: Dims, grid: Vec<Vec<T>>) -> Self {
+        LocationGrid{ grid: grid, dims: dims }
     }
 
-    pub fn new<I>(dims: &Dims, initializer: I) -> Self
+    pub fn new<I>(dims: Dims, initializer: I) -> Self
         where I : Fn(&Location) -> T {
         let mut grid: Vec<Vec<T>> = Vec::new();
 
@@ -140,7 +140,7 @@ impl<T> LocationGrid<T> {
             grid.push(col);
         }
 
-        LocationGrid{ grid: grid, dims: *dims }
+        LocationGrid{ grid: grid, dims: dims }
     }
 
     pub fn get<'a>(&'a self, loc: &Location) -> Option<&'a T> {
@@ -246,7 +246,7 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
 
         Ok(
             LocationGrid::new(
-                &Dims{width: width as u16, height: lines.len() as u16 },
+                Dims{width: width as u16, height: lines.len() as u16 },
                 |loc| Tile::new(
                     if lines[loc.y as usize][loc.x as usize]==' ' {
                         Terrain::Water

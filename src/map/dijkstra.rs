@@ -119,8 +119,8 @@ impl PartialOrd for State {
 pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 
-    let mut dist = LocationGrid::new(&tiles.dims, |_loc| None);
-    let mut prev = LocationGrid::new(&tiles.dims, |_loc| None);
+    let mut dist = LocationGrid::new(tiles.dims, |_loc| None);
+    let mut prev = LocationGrid::new(tiles.dims, |_loc| None);
 
     q.push(State{ dist_: 0, loc: source });
 

@@ -171,6 +171,6 @@ impl MapGenerator {
             }
         }
 
-        LocationGrid::new_from_vec(&map_dims, tiles)
+        LocationGrid::new_from_vec(map_dims, tiles)
     }
 }

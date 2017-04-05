@@ -27,7 +27,7 @@ pub struct FogOfWarTracker {
 impl FogOfWarTracker {
     pub fn new(dims: Dims) -> Self {
         FogOfWarTracker {
-            observations: LocationGrid::new(&dims, |_loc: &Location| Obs::Unobserved)
+            observations: LocationGrid::new(dims, |_loc: &Location| Obs::Unobserved)
         }
     }
 }
@@ -92,7 +92,7 @@ mod test {
     #[test]
     fn test_fog_of_war_tracker() {
         let dims = Dims{width: 10, height: 20};
-        let map: LocationGrid<Tile> = LocationGrid::new(&dims, |loc| -> Tile { Tile::new(Terrain::Land, *loc) });
+        let map: LocationGrid<Tile> = LocationGrid::new(dims, |loc| -> Tile { Tile::new(Terrain::Land, *loc) });
         let mut tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(dims));
         let loc = Location{x: 5, y: 10};
         assert_eq!(tracker.get(loc), Some(&Obs::Unobserved));
