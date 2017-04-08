@@ -122,7 +122,7 @@ impl<T> LocationGrid<T> {
     }
 
     pub fn new<I>(dims: Dims, initializer: I) -> Self
-        where I : Fn(&Location) -> T {
+        where I : Fn(Location) -> T {
         let mut grid: Vec<Vec<T>> = Vec::new();
 
         let mut loc = Location{x:0, y:0};
@@ -134,7 +134,7 @@ impl<T> LocationGrid<T> {
             for y in 0..dims.height {
                 loc.y = y;
 
-                col.push(initializer(&loc));
+                col.push(initializer(loc));
             }
 
             grid.push(col);
@@ -257,12 +257,12 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
                         } else {
                             Terrain::Land
                         },
-                        *loc
+                        loc
                     );
                     if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                         tile.city = Some(City::new(
                             Alignment::Belligerent{player: player_num},
-                            *loc,
+                            loc,
                             format!("City_{}_{}", loc.x, loc.y)
                         ));
                     }

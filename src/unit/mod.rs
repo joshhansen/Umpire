@@ -270,7 +270,7 @@ const CITY_MAX_HP: u16 = 1;
 #[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
     pub alignment: Alignment,
-    pub loc: Location,
+    pub loc: Location,//NOTE City location is also reflected in the Game::grid matrix, so this could be stale
     hp: u16,
     pub unit_under_production: Option<UnitType>,
     pub production_progress: u16,

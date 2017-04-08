@@ -2,12 +2,13 @@ use rand::{thread_rng,Rng};
 
 use unit::{City,Unit,CITY_MAX_HP};
 
-#[derive(PartialEq)]
+#[derive(Debug,PartialEq)]
 pub enum CombatParticipant {
     Attacker,
     Defender
 }
 
+#[derive(Debug,PartialEq)]
 pub struct CombatOutcome<A:CombatCapable,D:CombatCapable> {
     victor: CombatParticipant,
     attacker: A,
@@ -39,6 +40,16 @@ impl <A:CombatCapable,D:CombatCapable> CombatOutcome<A,D> {
 
     pub fn defender(&self) -> &D {
         &self.defender
+    }
+
+    /// Was the unit initiating combat destroyed?
+    pub fn destroyed(&self) -> bool {
+        *self.victor() == CombatParticipant::Defender
+    }
+
+    /// Was the unit initiating combat victorious?
+    pub fn victorious(&self) -> bool {
+        *self.victor() == CombatParticipant::Attacker
     }
 }
 
