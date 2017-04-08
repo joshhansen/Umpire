@@ -44,6 +44,18 @@ impl MoveResult {
     pub fn starting_loc(&self) -> Location {
         self.starting_loc
     }
+
+    pub fn moved_successfully(&self) -> bool {
+        self.moves.iter().map(|move_| move_.moved_successfully()).fold(true, |acc, x| acc && x)
+    }
+
+    pub fn ending_loc(&self) -> Option<Location> {
+        if self.moved_successfully() {
+            Some(self.moves.last().unwrap().loc)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]

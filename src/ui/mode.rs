@@ -311,6 +311,13 @@ impl IMode for MoveUnitMode {
                                     Ok(move_result) => {
                                         ui.animate_move(game, &move_result);
 
+                                        if move_result.unit().moves_remaining > 0 {
+                                            if let Some(ending_loc) = move_result.ending_loc() {
+                                                *mode = Mode::MoveUnit{loc:ending_loc};
+                                                return true;
+                                            }
+                                        }
+
                                         *mode = Mode::MoveUnits;
                                         return true;
                                     },
