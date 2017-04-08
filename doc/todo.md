@@ -1,7 +1,11 @@
 # To do
 * AI
 * Unit identities
- - Name
+ x Name
+ - Nationality
+ - Strengths/weaknesses
+* City identities
+ x Name
  - Nationality
  - Strengths/weaknesses
 * Unit experience
