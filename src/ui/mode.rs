@@ -309,8 +309,7 @@ impl IMode for MoveUnitMode {
                             if let Some(dest) = self.loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
                                 match game.move_unit(self.loc, dest) {
                                     Ok(move_result) => {
-
-                                        ui.animate_move(game, move_result);
+                                        ui.animate_move(game, &move_result);
 
                                         *mode = Mode::MoveUnits;
                                         return true;

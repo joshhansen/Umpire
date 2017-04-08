@@ -271,7 +271,7 @@ impl<W:Write> UI<W> {
         self.turn.redraw(game, &mut self.stdout);
     }
 
-    fn animate_move(&mut self, game: &Game, move_result: MoveResult) {
+    fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
         let mut current_loc = move_result.starting_loc();
 
         for move_ in move_result.moves() {
