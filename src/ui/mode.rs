@@ -305,26 +305,20 @@ impl IMode for MoveUnitMode {
                 KeyStatus::Unhandled(key) => {
 
                     if let Key::Char(c) = key {
-                        match Direction::try_from(c) {
-                            Ok(dir) => {
-                                if let Some(dest) = self.loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
-                                    match game.move_unit(self.loc, dest) {
-                                        Ok(move_result) => {
+                        if let Ok(dir) = Direction::try_from(c) {
+                            if let Some(dest) = self.loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
+                                match game.move_unit(self.loc, dest) {
+                                    Ok(move_result) => {
 
-                                            ui.animate_move(game, move_result);
+                                        ui.animate_move(game, move_result);
 
-                                            *mode = Mode::MoveUnits;
-                                            return true;
-                                        },
-                                        Err(msg) => {
-                                            ui.log_message(format!("Error: {}", msg));
-                                        }
+                                        *mode = Mode::MoveUnits;
+                                        return true;
+                                    },
+                                    Err(msg) => {
+                                        ui.log_message(format!("Error: {}", msg));
                                     }
                                 }
-                            },
-                            Err(_msg) => {
-                                // println!("Error: {}", msg);
-                                // sleep_millis(5000);
                             }
                         }
                     }
