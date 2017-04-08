@@ -26,6 +26,13 @@ pub struct MoveResult {
     moves: Vec<MoveComponent>
 }
 impl MoveResult {
+    fn new(unit: Unit, starting_loc: Location, moves: Vec<MoveComponent>) -> Result<Self,String> {
+        if moves.is_empty() {
+            Err(String::from("Attempted to create MoveResult with no moves"))
+        } else {
+            Ok(MoveResult{unit:unit, starting_loc:starting_loc, moves:moves})
+        }
+    }
     pub fn unit(&self) -> &Unit {
         &self.unit
     }
@@ -377,7 +384,7 @@ impl Game {
                         }
                     }
 
-                    Ok(MoveResult{ unit: unit, moves: moves, starting_loc: src })
+                    MoveResult::new(unit, src, moves)
                 }
             } else {
                 Err(format!("No unit found at source location {}", src))
