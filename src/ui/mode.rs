@@ -1,10 +1,9 @@
 use std::convert::TryFrom;
-use std::io::{Write, stdin, StdoutLock};
+use std::io::{Write, stdin};
 
 use termion::cursor::Goto;
 use termion::event::Key;
 use termion::input::TermRead;
-use termion::raw::RawTerminal;
 
 use conf;
 use game::Game;
@@ -119,7 +118,7 @@ trait IVisibleMode: IMode {
         Goto(rect.left + x + 1, rect.top + y + 1)
     }
 
-    fn clear(&self, stdout: &mut RawTerminal<StdoutLock>) {
+    fn clear<W:Write>(&self, stdout: &mut W) {
         let rect = self.rect();
         let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
         for y in 0..rect.height {
@@ -201,17 +200,16 @@ struct SetProductionMode {
 }
 impl SetProductionMode {
     fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
-        let ref tile = game.current_player_tile(self.loc).unwrap();
+        let tile = &game.current_player_tile(self.loc).unwrap();
+        let city = tile.city.as_ref().unwrap();
 
-        if let Some(ref city) = tile.city {
-            write!(*stdout, "{}Set Production for {}", self.goto(0, 0), city).unwrap();
+        write!(*stdout, "{}Set Production for {}", self.goto(0, 0), city).unwrap();
 
-            for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
-                write!(*stdout, "{}{} - {}",
-                    self.goto(1, i as u16 + 2),
-                    unit_type.key(),
-                    unit_type.name()).unwrap();
-            }
+        for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
+            write!(*stdout, "{}{} - {}",
+                self.goto(1, i as u16 + 2),
+                unit_type.key(),
+                unit_type.name()).unwrap();
         }
 
         stdout.flush().unwrap();
@@ -246,6 +244,8 @@ impl IMode for SetProductionMode {
                                 fg_color: None,
                                 source: Some(MessageSource::Mode)
                             });
+
+                            self.clear(&mut ui.stdout);
 
                             *mode = Mode::TurnResume;
                             return true;
