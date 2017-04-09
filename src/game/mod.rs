@@ -391,10 +391,10 @@ impl Game {
                             }
 
                             self.tiles[dest].set_unit(unit.clone());
-
-                            let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
-                            unit.observe(dest, &self.tiles, self.turn, self.wrapping, obs_tracker);
                         }
+
+                        let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
+                        unit.observe(dest, &self.tiles, self.turn, self.wrapping, obs_tracker);
                     }
 
                     MoveResult::new(unit, src, moves)
