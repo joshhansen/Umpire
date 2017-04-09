@@ -6,7 +6,7 @@ use std::ops::{Index,IndexMut};
 
 use termion::color::AnsiValue;
 
-use unit::{Aligned,Alignment,City,PlayerNum,Sym,Unit};
+use unit::{Alignment,City,PlayerNum,Sym,Unit};
 use util::{Dims,Location};
 
 

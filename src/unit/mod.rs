@@ -30,10 +30,6 @@ pub trait Located {
     fn loc(&self) -> Location;
 }
 
-pub trait Aligned {
-    fn alignment(&self) -> Alignment;
-}
-
 pub trait Sym {
     fn sym(&self) -> &'static str;
 }
@@ -230,6 +226,8 @@ impl Unit {
 
         return true;
     }
+
+    pub fn alignment(&self) -> Alignment { self.alignment }
 }
 
 impl Sym for Unit {
@@ -247,10 +245,6 @@ impl Sym for Unit {
             UnitType::Carrier => "C"
         }
     }
-}
-
-impl Aligned for Unit {
-    fn alignment(&self) -> Alignment { self.alignment }
 }
 
 impl Observer for Unit {
@@ -291,6 +285,8 @@ impl City {
     pub fn name(&self) -> &String {
         &self.name
     }
+
+    pub fn alignment(&self) -> Alignment { self.alignment }
 }
 
 impl fmt::Display for City {
@@ -307,10 +303,6 @@ impl fmt::Debug for City {
 
 impl Located for City {
     fn loc(&self) -> Location { self.loc }
-}
-
-impl Aligned for City {
-    fn alignment(&self) -> Alignment { self.alignment }
 }
 
 impl Observer for City {
