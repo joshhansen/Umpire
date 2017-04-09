@@ -24,6 +24,8 @@
 // TODO Color console text announcing turn start to correspond to player colors
 // TODO Show unit stats in examine mode
 // TODO Show production cost / time when setting productions
+// TODO Show possible orders / shortcuts in move unit mode
+// TODO Zoomed-out map view?
 
 #![feature(conservative_impl_trait)]
 #![feature(try_from)]
