@@ -2,6 +2,12 @@
 //! The Battaliad: a quest of outrageous combat
 //!
 
+// FIXME Don't let units continue moving after they've conquered a city
+// FIXME Ask for production assignment immediately after city is conquered
+// TODO Implement transport functionality
+// TODO Implement carrier functionality
+
+
 #![feature(conservative_impl_trait)]
 #![feature(try_from)]
 
