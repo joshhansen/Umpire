@@ -16,7 +16,6 @@
 // TODO Auto-explore mode for units
 // TODO Fuel limits for aircraft
 // TODO Long-range movement from examine mode
-// TODO Allow changing city productions from examine mode
 // TODO Allow activation of a unit from examine mode
 // TODO Show owner of city or unit in examine mode
 // TODO Game save/load

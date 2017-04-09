@@ -1,5 +1,6 @@
 pub mod combat;
 
+use std::cmp::Ordering;
 use std::fmt;
 
 use termion::color::AnsiValue;
@@ -167,6 +168,23 @@ impl UnitType {
 impl fmt::Display for UnitType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name())
+    }
+}
+
+impl PartialOrd for UnitType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.cost().partial_cmp(&other.cost())
+    }
+}
+
+impl Ord for UnitType {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let cmp = self.cost().cmp(&other.cost());
+        if cmp == Ordering::Equal {
+            self.key().cmp(&other.key())
+        } else {
+            cmp
+        }
     }
 }
 

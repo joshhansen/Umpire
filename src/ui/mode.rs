@@ -10,7 +10,7 @@ use game::Game;
 use ui::{Draw,UI,V_SCROLLBAR_WIDTH,HEADER_HEIGHT};
 use ui::log::{Message,MessageSource};
 use ui::scroll::ScrollableComponent;
-use unit::{UnitType};
+use unit::{Alignment,UnitType};
 use util::{Direction,Location,Rect,WRAP_BOTH};
 
 fn get_key() -> Key {
@@ -71,7 +71,7 @@ enum KeyStatus {
 trait IMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool;
 
-    fn get_key<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> KeyStatus {
+    fn get_key<W:Write>(&self, game: &Game, ui: &mut UI<W>, mode: &mut Mode) -> KeyStatus {
         let key = get_key();
         if let Key::Char(c) = key {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
@@ -359,17 +359,20 @@ struct ExamineMode {
 }
 impl IMode for ExamineMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
-        let examined_thing = if let Some(tile) = {
+        let maybe_tile = {
             let ref mut map = ui.map_scroller.scrollable;
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
             map.tile(game, self.cursor_viewport_loc)
-        } {
+        };
+
+        let description =
+        if let Some(tile) = maybe_tile {
             format!("{}", tile)
         } else {
             "the horrifying void of the unknown (hic sunt dracones)".to_string()
         };
 
-        let message = format!("Examining: {}", examined_thing);
+        let message = format!("Examining: {}", description);
         if self.first {
             ui.log_message(message);
         } else {
@@ -381,6 +384,15 @@ impl IMode for ExamineMode {
             KeyStatus::Unhandled(key) => {
                 if key==Key::Esc {
                     *mode = Mode::TurnResume;
+                } else if key==Key::Char('\n') {
+                    if let Some(tile) = maybe_tile {
+                        if let Some(ref city) = tile.city {
+                            let current_alignment = Alignment::Belligerent{player: game.current_player()};
+                            if city.alignment() == current_alignment {
+                                *mode = Mode::SetProduction{loc:tile.loc};
+                            }
+                        }
+                    }
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
                         let new_loc = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_BOTH).unwrap();

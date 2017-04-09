@@ -5,7 +5,7 @@
 
 pub mod obs;
 
-use std::collections::{HashMap,HashSet};
+use std::collections::{BTreeSet,HashMap,HashSet};
 
 use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
 use map::{Tile,LocationGrid};
@@ -439,7 +439,7 @@ but there is no city at that location",
     }
 
     /// Units that could be produced by a city located at the given location
-    pub fn valid_productions(&self, loc: Location) -> HashSet<UnitType> {
+    pub fn valid_productions(&self, loc: Location) -> BTreeSet<UnitType> {
         UnitType::values().iter()
         .map(|unit_type| *unit_type)
         .filter(|unit_type| {
