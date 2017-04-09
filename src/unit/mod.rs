@@ -50,8 +50,8 @@ pub enum UnitType {
 }
 
 impl UnitType {
-    pub fn values() -> Vec<UnitType> {
-        vec![
+    pub fn values() -> [UnitType;10] {
+        [
             UnitType::Infantry,
             UnitType::Armor,
             UnitType::Fighter,
