@@ -156,14 +156,14 @@ pub struct UI<W:Write> {
 
 impl<W:Write> UI<W> {
     pub fn new(
-        map_dims: &Dims,
+        map_dims: Dims,
         term_dims: Dims,
         stdout: W,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
 
-        let map = Map::new(&viewport_rect, map_dims);
+        let map = Map::new(viewport_rect, map_dims);
 
         let map_scroller_rect = Rect {
             left: viewport_rect.left,

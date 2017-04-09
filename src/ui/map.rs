@@ -123,10 +123,10 @@ pub struct Map {
     viewport_offset: Vec2d<u16>
 }
 impl Map {
-    pub fn new(rect: &Rect, map_dims: &Dims) -> Self {
+    pub fn new(rect: Rect, map_dims: Dims) -> Self {
         Map{
-            rect: *rect,
-            map_dims: *map_dims,
+            rect: rect,
+            map_dims: map_dims,
             old_viewport_offset: Vec2d::new(0, 0),
             viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2)
         }

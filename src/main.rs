@@ -113,7 +113,7 @@ fn main() {
                         {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
                             let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
                             let mut ui = ui::UI::new(
-                                &game.map_dims(),
+                                game.map_dims(),
                                 Dims{ width: term_width, height: term_height },
                                 screen,
                             );
