@@ -5,7 +5,7 @@ use termion::color::{Bg,Fg,Rgb};
 use termion::style::Underline;
 
 use game::Game;
-use ui::{Component,Draw,Redraw};
+use ui::{Component,Draw};
 use ui::style::StrongReset;
 use util::{Rect,grapheme_len,grapheme_substr};
 
@@ -88,10 +88,6 @@ impl LogArea {
         self.replace(Message::from(message));
     }
 
-    pub fn redraw_lite<W:Write>(&self, stdout: &mut W) {
-        self.draw_lite(stdout);
-    }
-
     pub fn draw_lite<W:Write>(&self, stdout: &mut W) {
         write!(*stdout,
             "{}{}Message Log{}",
@@ -121,14 +117,8 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw<W:Write>(&self, _game: &Game, stdout: &mut W) {
+    fn draw<W:Write>(&mut self, _game: &Game, stdout: &mut W) {
         self.draw_lite(stdout);
-    }
-}
-
-impl Redraw for LogArea {
-    fn redraw<W:Write>(&self, _game: &Game, stdout: &mut W) {
-        self.redraw_lite(stdout);
     }
 }
 

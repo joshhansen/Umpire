@@ -5,10 +5,10 @@
 // FIXME Ask for production assignment immediately after city is conquered
 // FIXME Resolve conflict between movement b and bomber b
 // FIXME Don't let aircraft or naval vessels conquer cities
-// FIXME Eliminate flicker on map redraws
 // FIXME Require production to be re-set when a city is conquered from another player
 // FIXME Make it clear when a unit is inside a city
 // FIXME Don't let units have land or water color
+// FIXME Make Map::draw_tile faster, maybe by eliminating tile cloning
 // TODO Implement transport functionality
 // TODO Implement carrier functionality
 // TODO Allow sentry

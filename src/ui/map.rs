@@ -5,8 +5,8 @@ use termion::cursor::Hide;
 use termion::style::{Blink,Bold,Invert,Underline};
 
 use game::Game;
-use map::Tile;
-use ui::{Component,Draw,Redraw};
+use map::{LocationGrid,Tile};
+use ui::{Component,Draw};
 use ui::color::{BLACK,WHITE};
 use ui::scroll::{ScrollableComponent};
 use ui::style::StrongReset;
@@ -120,15 +120,18 @@ pub struct Map {
     rect: Rect,
     map_dims: Dims,
     old_viewport_offset: Vec2d<u16>,
-    viewport_offset: Vec2d<u16>
+    viewport_offset: Vec2d<u16>,
+    displayed_tiles: LocationGrid<Option<Tile>>
 }
 impl Map {
     pub fn new(rect: Rect, map_dims: Dims) -> Self {
+        let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
             rect: rect,
             map_dims: map_dims,
             old_viewport_offset: Vec2d::new(0, 0),
-            viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2)
+            viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2),
+            displayed_tiles: displayed_tiles
         }
     }
 
@@ -175,7 +178,7 @@ impl Map {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    pub fn draw_tile<W:Write>(&self, game: &Game, stdout: &mut W,
+    pub fn draw_tile<W:Write>(&mut self, game: &Game, stdout: &mut W,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -206,6 +209,8 @@ impl Map {
                 Bg(tile.bg_color()),
                 symbol.unwrap_or(tile.sym())
             ).unwrap();
+
+            self.displayed_tiles[viewport_loc] = Some(tile.clone());
         } else {
             if highlight {
                 write!(stdout, "{}{}", Bg(White), Bg(WHITE)).unwrap();// Use ansi white AND rgb white. Terminals supporting rgb will get a brighter white
@@ -213,6 +218,7 @@ impl Map {
                 write!(stdout, "{}{}", Bg(Black), Bg(BLACK)).unwrap();
             }
             write!(stdout, " ").unwrap();
+            self.displayed_tiles[viewport_loc] = None;
         }
 
         write!(stdout, "{}", StrongReset).unwrap();
@@ -233,85 +239,6 @@ impl ScrollableComponent for Map {
     fn offset(&self) -> Vec2d<u16> { self.viewport_offset }
 }
 
-//FIXME Make map redraw either mean something or just defer to draw
-impl Redraw for Map {
-    /// Update the map to reflect the current viewport offset
-    // fn update_map(&mut self, old_viewport_offset: Vec2d<u16>, new_viewport_offset: Vec2d<u16>) {
-    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
-        let mut viewport_loc = Location{x: 0, y: 0};
-        for viewport_x in 0_u16..self.rect.width {
-            viewport_loc.x = viewport_x;
-            for viewport_y in 0_u16..(self.rect.height+1) {
-                viewport_loc.y = viewport_y;
-
-                // let old_map_loc = self.viewport_to_map_coords(&viewport_loc, &self.old_viewport_offset);
-                // let new_map_loc = viewport_to_map_coords(game.map_dims, viewport_loc, self.viewport_offset);
-
-                // let old_tile = &game.tile(old_map_loc).unwrap();
-                // let new_tile = &game.tile(new_map_loc).unwrap();
-                // let old_tile = &game.current_player_tile(old_map_loc);
-                // let new_tile = &game.current_player_tile(new_map_loc);
-
-                // let should_draw_tile =
-                //     (old_tile.is_some() && new_tile.is_none()) ||
-                //     (old_tile.is_none() && new_tile.is_some()) ||
-                //     (old_tile.is_some() && new_tile.is_some() && {
-                //         let old = old_tile.unwrap();
-                //         let new = new_tile.unwrap();
-                //         let redraw_for_mismatch = !(
-                //             old.terrain==new.terrain &&
-                //             old.sym() == new.sym() &&
-                //             old.alignment() == new.alignment()
-                //         );
-                //         redraw_for_mismatch
-                //     }) || {
-                //         let redraw_for_border =
-                //         old_map_loc.y != new_map_loc.y && (
-                //             old_map_loc.y == game.map_dims.height - 1 ||
-                //             new_map_loc.y == game.map_dims.height - 1
-                //         );
-                //         redraw_for_border
-                //     };
-
-                // If old is None and new is Some
-                // If old is Some and new is None
-                // If old is Some and new is Some but they're different
-                // If located on the border
-
-
-                // let should_draw_tile = {
-                //
-                //
-                //
-                //
-                //
-                //     let redraw_for_border =
-                //     old_map_loc.y != new_map_loc.y && (
-                //         old_map_loc.y == game.map_dims.height - 1 ||
-                //         new_map_loc.y == game.map_dims.height - 1
-                //     );
-                //
-                //     let redraw_for_mismatch = !(
-                //         old_tile.terrain==new_tile.terrain &&
-                //         old_tile.sym() == new_tile.sym() &&
-                //         old_tile.alignment() == new_tile.alignment()
-                //     );
-                //
-                //     redraw_for_border || redraw_for_mismatch
-                // };
-
-                // if should_draw_tile {
-                    self.draw_tile(game, stdout, viewport_loc, false, false, None);
-                // }
-
-            }
-        }
-
-        write!(stdout, "{}{}", StrongReset, Hide).unwrap();
-        stdout.flush().unwrap();
-    }
-}
-
 impl Component for Map {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
@@ -325,16 +252,50 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
+    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
         let mut viewport_loc = Location{x: 0, y: 0};
-        for viewport_x in 0_u16..self.rect.width {
+        for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;
-            for viewport_y in 0_u16..(self.rect.height+1) {
+            for viewport_y in 0..self.rect.height {
                 viewport_loc.y = viewport_y;
 
-                self.draw_tile(game, stdout, viewport_loc, false, false, None);
+                let should_draw_tile = {
+                    let old_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.old_viewport_offset);
+                    let new_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
+
+                    let old_tile = self.displayed_tiles[viewport_loc].as_ref();
+                    let new_tile = &game.current_player_tile(new_map_loc);
+
+                    (old_tile.is_some() && new_tile.is_none()) ||
+                    (old_tile.is_none() && new_tile.is_some()) ||
+                    (old_tile.is_some() && new_tile.is_some() && {
+                        let old = old_tile.unwrap();
+                        let new = new_tile.unwrap();
+                        let redraw_for_mismatch = !(
+                            old.terrain==new.terrain &&
+                            old.sym() == new.sym() &&
+                            old.alignment() == new.alignment()
+                        );
+                        redraw_for_mismatch
+                    }) || {
+                        let redraw_for_border =
+                        old_map_loc.y != new_map_loc.y && (
+                            old_map_loc.y == game.map_dims().height - 1 ||
+                            new_map_loc.y == game.map_dims().height - 1
+                        );
+                        redraw_for_border
+                    }
+                };
+
+                if should_draw_tile {
+                    self.draw_tile(game, stdout, viewport_loc, false, false, None);
+                }
+
             }
         }
+
+        write!(stdout, "{}{}", StrongReset, Hide).unwrap();
+        stdout.flush().unwrap();
     }
 }
 

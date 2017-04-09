@@ -91,6 +91,16 @@ impl Tile {
     pub fn set_unit(&mut self, unit: Unit) {
         self.unit = Some(unit);
     }
+
+    pub fn alignment(&self) -> Option<Alignment> {
+        if let Some(ref city) = self.city {
+            Some(city.alignment())
+        } else if let Some(ref unit) = self.unit {
+            Some(unit.alignment())
+        } else {
+            None
+        }
+    }
 }
 
 impl fmt::Display for Tile {

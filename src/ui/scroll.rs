@@ -3,7 +3,7 @@ use std::io::Write;
 use termion::color::{Fg, AnsiValue};
 
 use game::Game;
-use ui::{Component,Draw,Redraw};
+use ui::{Component,Draw};
 use ui::style::StrongReset;
 use util::{Dims,Rect,Vec2d};
 
@@ -37,7 +37,7 @@ impl<C:ScrollableComponent> Scroller<C> {
         (self.rect.height as f32 * (self.scrollable.offset().y as f32 / map_height as f32)) as u16
     }
 
-    fn draw_scroll_bars<W:Write>(&self, game: &Game, stdout: &mut W) {
+    fn draw_scroll_bars<W:Write>(&mut self, game: &Game, stdout: &mut W) {
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(game.map_dims().width);
         let h_scroll_y = viewport_rect.bottom();
@@ -47,6 +47,8 @@ impl<C:ScrollableComponent> Scroller<C> {
                 self.erase(stdout, old_h_scroll_x, h_scroll_y);
             }
             self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^');
+
+            self.old_h_scroll_x = Some(h_scroll_x);
         }
 
         let v_scroll_x = viewport_rect.right();
@@ -57,22 +59,19 @@ impl<C:ScrollableComponent> Scroller<C> {
                 self.erase(stdout, v_scroll_x, old_v_scroll_y);
             }
             self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<');
+
+            self.old_v_scroll_y = Some(v_scroll_y);
         }
     }
 
-    // Utility methods
+    /// Utility method
     fn draw_scroll_mark<W:Write>(&self, stdout: &mut W, x: u16, y: u16, sym: char) {
         write!(*stdout, "{}{}{}{}", StrongReset, self.goto(x,y), Fg(AnsiValue(11)), sym).unwrap();
     }
 
+    /// Utility method
     fn erase<W:Write>(&self, stdout: &mut W, x: u16, y: u16) {
         write!(*stdout, "{}{} ", StrongReset, self.goto(x,y)).unwrap();
-    }
-
-    pub fn scroll_relative(&mut self, game: &Game, offset: Vec2d<i32>) {
-        self.old_h_scroll_x = Some(self.h_scroll_x(game.map_dims().width));
-        self.old_v_scroll_y = Some(self.v_scroll_y(game.map_dims().height));
-        self.scrollable.scroll_relative(offset);
     }
 
     pub fn viewport_dims(&self) -> Dims {
@@ -84,16 +83,9 @@ impl<C:ScrollableComponent> Scroller<C> {
 }
 
 impl<C:ScrollableComponent> Draw for Scroller<C> {
-    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
+    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
         self.draw_scroll_bars(game, stdout);
         self.scrollable.draw(game, stdout);
-    }
-}
-
-impl<C:ScrollableComponent> Redraw for Scroller<C> {
-    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
-        self.draw_scroll_bars(game, stdout);
-        self.scrollable.redraw(game, stdout);
     }
 }
 

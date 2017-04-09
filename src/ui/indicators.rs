@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use game::Game;
-use ui::{Component,Draw,Redraw};
+use ui::{Component,Draw};
 use util::Rect;
 
 pub struct CurrentPlayer {
@@ -17,19 +17,12 @@ impl CurrentPlayer {
 }
 
 impl Draw for CurrentPlayer {
-    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
+    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
         write!(*stdout,
             "{}Current Player: {}  ",
             self.goto(0, 0),
             game.current_player()
         ).unwrap();
-    }
-}
-
-impl Redraw for CurrentPlayer {
-    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
-        self.clear(stdout);
-        self.draw(game, stdout);
     }
 }
 
@@ -54,14 +47,8 @@ impl Turn {
 }
 
 impl Draw for Turn {
-    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
+    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
         write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
-    }
-}
-
-impl Redraw for Turn {
-    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W) {
-        self.draw(game, stdout);
     }
 }
 

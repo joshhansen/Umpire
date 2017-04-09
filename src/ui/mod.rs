@@ -25,14 +25,10 @@ pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
 }
 
 pub trait Draw {
-    fn draw<W:Write>(&self, game: &Game, stdout: &mut W);
+    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W);
 }
 
-pub trait Redraw {
-    fn redraw<W:Write>(&self, game: &Game, stdout: &mut W);
-}
-
-pub trait Component : Draw+Redraw {
+pub trait Component : Draw {
     fn set_rect(&mut self, rect: Rect);
 
     fn rect(&self) -> Rect;
@@ -151,7 +147,8 @@ pub struct UI<W:Write> {
     map_scroller: Scroller<Map>,
     log: LogArea,
     current_player: CurrentPlayer,
-    turn: Turn
+    turn: Turn,
+    first_draw: bool
 }
 
 impl<W:Write> UI<W> {
@@ -189,7 +186,9 @@ impl<W:Write> UI<W> {
             log: log,
             current_player: current_player,
 
-            turn: Turn::new(&turn_rect(&cp_rect))
+            turn: Turn::new(&turn_rect(&cp_rect)),
+
+            first_draw: true
         };
 
         ui.clear();
@@ -209,12 +208,12 @@ impl<W:Write> UI<W> {
 
     pub fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
-        self.log.redraw_lite(&mut self.stdout);
+        self.log.draw_lite(&mut self.stdout);
     }
 
     pub fn replace_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.replace(Message::from(message));
-        self.log.redraw_lite(&mut self.stdout);
+        self.log.draw_lite(&mut self.stdout);
     }
 
     fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
@@ -231,17 +230,20 @@ impl<W:Write> UI<W> {
         };
 
         self.set_viewport_size(game, new_size);
-        self.redraw(game);
+        self.draw(game);
     }
 
-    pub fn draw(&mut self, game: &Game) {
-        write!(self.stdout, "{}{}{}{}{}",
-            termion::clear::All,
-            goto(0,0),
-            termion::style::Underline,
-            conf::APP_NAME,
-            StrongReset
-        ).unwrap();
+    fn draw(&mut self, game: &Game) {
+        if self.first_draw {
+            write!(self.stdout, "{}{}{}{}",
+                // termion::clear::All,
+                goto(0,0),
+                termion::style::Underline,
+                conf::APP_NAME,
+                StrongReset
+            ).unwrap();
+            self.first_draw = false;
+        }
 
         self.log.draw_lite(&mut self.stdout);
         self.current_player.draw(game, &mut self.stdout);
@@ -262,13 +264,6 @@ impl<W:Write> UI<W> {
                 }
             }
         }
-    }
-
-    fn redraw(&mut self, game: &Game) {
-        self.log.redraw_lite(&mut self.stdout);
-        self.current_player.redraw(game, &mut self.stdout);
-        self.map_scroller.redraw(game, &mut self.stdout);
-        self.turn.redraw(game, &mut self.stdout);
     }
 
     fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
@@ -300,7 +295,7 @@ impl<W:Write> UI<W> {
 
             {
                 let viewport_dims = self.map_scroller.viewport_dims();
-                let ref map = self.map_scroller.scrollable;
+                let ref mut map = self.map_scroller.scrollable;
 
                 // Erase the unit's symbol at its old location
                 if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
@@ -326,7 +321,7 @@ impl<W:Write> UI<W> {
                 defender_loc: Location) {
 
         let viewport_dims = self.map_scroller.viewport_dims();
-        let ref map = self.map_scroller.scrollable;
+        let ref mut map = self.map_scroller.scrollable;
 
         let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc, viewport_dims);
         let defender_viewport_loc = map.map_to_viewport_coords(defender_loc, viewport_dims);
@@ -367,7 +362,7 @@ impl<W:Write> UI<W> {
 
         match mode {
             Mode::SetProduction{loc} => map.map_to_viewport_coords(loc, viewport_dims),
-            Mode::MoveUnit{loc}      => map.map_to_viewport_coords(loc, viewport_dims),
+            Mode::MoveUnit{loc,first_move:_}      => map.map_to_viewport_coords(loc, viewport_dims),
             _                        => None
         }
     }
