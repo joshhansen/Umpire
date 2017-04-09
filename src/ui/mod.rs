@@ -13,7 +13,7 @@ use conf;
 use conf::HEADER_HEIGHT;
 use game::{Game,MoveResult};
 use game::obs::{Observer,visible_coords_iter};
-use ui::log::{Message,MessageSource};
+use log::{LogTarget,Message,MessageSource};
 use ui::style::StrongReset;
 use unit::Sym;
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
@@ -206,16 +206,6 @@ impl<W:Write> UI<W> {
         }
     }
 
-    pub fn log_message<T>(&mut self, message: T) where Message:From<T> {
-        self.log.log(Message::from(message));
-        self.log.draw_lite(&mut self.stdout);
-    }
-
-    pub fn replace_message<T>(&mut self, message: T) where Message:From<T> {
-        self.log.replace(Message::from(message));
-        self.log.draw_lite(&mut self.stdout);
-    }
-
     fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
         self.viewport_size = viewport_size;
         self.map_scroller.set_rect(self.viewport_size.rect(self.term_dims));
@@ -365,5 +355,17 @@ impl<W:Write> UI<W> {
             Mode::MoveUnit{loc,first_move:_}      => map.map_to_viewport_coords(loc, viewport_dims),
             _                        => None
         }
+    }
+}
+
+impl <W:Write> LogTarget for UI<W> {
+    fn log_message<T>(&mut self, message: T) where Message:From<T> {
+        self.log.log(Message::from(message));
+        self.log.draw_lite(&mut self.stdout);
+    }
+
+    fn replace_message<T>(&mut self, message: T) where Message:From<T> {
+        self.log.replace(Message::from(message));
+        self.log.draw_lite(&mut self.stdout);
     }
 }

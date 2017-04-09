@@ -7,8 +7,8 @@ use termion::input::TermRead;
 
 use conf;
 use game::Game;
+use log::{LogTarget,Message,MessageSource};
 use ui::{Draw,UI,V_SCROLLBAR_WIDTH,HEADER_HEIGHT};
-use ui::log::{Message,MessageSource};
 use ui::scroll::ScrollableComponent;
 use unit::{Alignment,UnitType};
 use util::{Direction,Location,Rect,WRAP_BOTH};
@@ -159,17 +159,7 @@ impl IMode for TurnResumeMode {
             return true;
         }
 
-        let mut log_listener = |msg:String| {
-            ui.log_message(Message {
-                text: msg,
-                mark: None,
-                bg_color: None,
-                fg_color: None,
-                source: Some(MessageSource::Game)
-            });
-        };
-
-        if let Ok(_player_num) = game.end_turn(&mut log_listener) {
+        if let Ok(_player_num) = game.end_turn(ui) {
             *mode = Mode::TurnStart;
         }
 

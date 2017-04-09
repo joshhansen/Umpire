@@ -31,6 +31,7 @@
 
 mod conf;
 mod game;
+mod log;
 #[macro_use]
 mod macros;
 mod map;
@@ -51,20 +52,18 @@ extern crate sample;
 use std::io::{Write,stdout};
 
 use clap::{Arg, App};
-use termion::color::Rgb;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use termion::terminal_size;
 
-use name::{city_namer,unit_namer};
-use ui::log::{Message,MessageSource};
-use util::Dims;
 use game::Game;
+use log::DefaultLog;
+use name::{city_namer,unit_namer};
 use unit::PlayerNum;
+use util::Dims;
 
 // Derived configuration
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
-
 
 fn main() {
     if let Ok((term_width,term_height)) = terminal_size() {
@@ -105,9 +104,7 @@ fn main() {
                 match unit_namer() {
                     Ok(unit_namer) => {
 
-                        let mut game = Game::new(MAP_DIMS, city_namer, num_players, fog_of_war, unit_namer, &mut |msg:String| {
-                            println!("{}", msg);
-                        });
+                        let mut game = Game::new(MAP_DIMS, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultLog);
 
                         {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
                             let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
@@ -119,17 +116,7 @@ fn main() {
 
                             let mut mode = ui::mode::Mode::TurnStart;
                             while mode.run(&mut game, &mut ui) {
-                                if let ui::mode::Mode::Examine{cursor_viewport_loc:_, first:_} = mode {
-                                    // don't bother
-                                } else {
-                                    ui.log_message(Message {
-                                        text: format!("Mode: {:?}", mode),
-                                        mark: None,
-                                        fg_color: Some(Rgb(255,140,0)),
-                                        bg_color: None,
-                                        source: Some(MessageSource::Main)
-                                    });
-                                }
+                                // nothing here
                             }
                         }
 

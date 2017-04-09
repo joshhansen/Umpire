@@ -8,6 +8,7 @@ pub mod obs;
 use std::collections::{BTreeSet,HashMap,HashSet};
 
 use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
+use log::{LogTarget,Message,MessageSource,Rgb};
 use map::{Tile,LocationGrid};
 use map::gen::MapGenerator;
 use map::dijkstra::{neighbors_terrain_only,shortest_paths};
@@ -118,22 +119,22 @@ impl Game {
     /// A map with the specified dimensions will be generated
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observations growing stale over time.
-    pub fn new<L:FnMut(String)>(
+    pub fn new<L:LogTarget>(
             map_dims: Dims,
             city_namer: ListNamer,
             num_players: PlayerNum,
             fog_of_war: bool,
             unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
-            log_listener: &mut L) -> Self {
+            log: &mut L) -> Self {
 
         let mut map_generator = MapGenerator::new(city_namer);
         let map = map_generator.generate(map_dims, num_players);
-        Game::new_with_map(map, num_players, fog_of_war, unit_namer, log_listener)
+        Game::new_with_map(map, num_players, fog_of_war, unit_namer, log)
     }
 
-    fn new_with_map<L:FnMut(String)>(map: LocationGrid<Tile>, num_players: PlayerNum,
+    fn new_with_map<L:LogTarget>(map: LocationGrid<Tile>, num_players: PlayerNum,
             fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
-            log_listener: &mut L) -> Self {
+            log: &mut L) -> Self {
 
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
@@ -145,7 +146,7 @@ impl Game {
             player_observations.insert(player_num, tracker);
         }
 
-        log_listener(format!("Starting new game with {} players, grid size {}, and fog of war {}",
+        log.log_message(format!("Starting new game with {} players, grid size {}, and fog of war {}",
                                 num_players,
                                 map.dims(),
                                 if fog_of_war {"on"} else {"off"}
@@ -163,12 +164,18 @@ impl Game {
             unit_namer: unit_namer
         };
 
-        game.begin_turn(log_listener);
+        game.begin_turn(log);
         game
     }
 
-    fn begin_turn<L:FnMut(String)>(&mut self, log_listener: &mut L) {
-        log_listener(format!("Beginning turn {} for player {}", self.turn, self.current_player));
+    fn begin_turn<L:LogTarget>(&mut self, log: &mut L) {
+        log.log_message(Message {
+            text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
+            mark: None,
+            fg_color: Some(Rgb(255,140,0)),
+            bg_color: None,
+            source: Some(MessageSource::Game)
+        });
 
         for x in 0..self.map_dims().width {
             for y in 0..self.map_dims().height {
@@ -183,12 +190,12 @@ impl Game {
                                 city.production_progress += 1;
                                 if city.production_progress >= unit_under_production.cost() {
                                     let new_unit = Unit::new(*unit_under_production, city.alignment, self.unit_namer.name());
-                                    log_listener(format!("{} produced {}", city, new_unit));
+                                    log.log_message(format!("{} produced {}", city, new_unit));
                                     tile.unit = Some(new_unit);
                                     city.production_progress = 0;
                                 }
                             } else {
-                                log_listener(format!("Queueing production set request for {}", city));
+                                log.log_message(format!("Queueing production set request for {}", city));
                                 self.production_set_requests.insert(loc);
                             }
                         }
@@ -200,7 +207,7 @@ impl Game {
                         if player==self.current_player {
                             unit.moves_remaining = unit.movement_per_turn();
                             if !unit.sentry {
-                                log_listener(format!("Queueing unit move request for {}", unit));
+                                log.log_message(format!("Queueing unit move request for {}", unit));
                                 self.unit_move_requests.insert(loc);
                             }
                         }
@@ -227,14 +234,14 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn<L:FnMut(String)>(&mut self, log_listener: &mut L) -> Result<PlayerNum,PlayerNum> {
+    pub fn end_turn<L:LogTarget>(&mut self, log: &mut L) -> Result<PlayerNum,PlayerNum> {
         if self.production_set_requests.is_empty() && self.unit_move_requests.is_empty() {
             self.current_player = (self.current_player + 1) % self.num_players;
             if self.current_player == 0 {
                 self.turn += 1;
             }
 
-            self.begin_turn(log_listener);
+            self.begin_turn(log);
 
             Ok(self.current_player)
         } else {

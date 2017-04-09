@@ -5,37 +5,10 @@ use termion::color::{Bg,Fg,Rgb};
 use termion::style::Underline;
 
 use game::Game;
+use log::{Message,MessageSource};
 use ui::{Component,Draw};
 use ui::style::StrongReset;
 use util::{Rect,grapheme_len,grapheme_substr};
-
-#[derive(PartialEq)]
-pub enum MessageSource {
-    Main,
-    Game,
-    UI,
-    Mode
-}
-
-pub struct Message {
-    pub text: String,
-    pub mark: Option<char>,
-    pub fg_color: Option<Rgb>,
-    pub bg_color: Option<Rgb>,
-    pub source: Option<MessageSource>
-}
-
-impl From<String> for Message {
-    fn from(s: String) -> Self {
-        Message {
-            text: s,
-            mark: None,
-            fg_color: None,
-            bg_color: None,
-            source: None
-        }
-    }
-}
 
 pub struct LogArea {
     rect: Rect,
