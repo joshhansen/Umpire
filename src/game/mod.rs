@@ -304,11 +304,15 @@ impl Game {
         &self.production_set_requests
     }
 
+    //FIXME Make it easy for UI clients to process unit move requests in unit order by returning these locations in a consistent unit order
+    //      This means if unit A just moved and still has moves remaining, unit A will be the first in line to move again regardless of where
+    //      they are located
     pub fn unit_move_requests(&self) -> &HashSet<Location> {
         &self.unit_move_requests
     }
 
     //FIXME Make the unit observe at each point along its path
+    //FIXME This function checks two separate times whether a unit exists at src
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let shortest_paths = {
             let unit = self.tiles[src].unit.as_ref().unwrap();
