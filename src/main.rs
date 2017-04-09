@@ -3,9 +3,27 @@
 //!
 
 // FIXME Ask for production assignment immediately after city is conquered
+// FIXME Resolve conflict between movement b and bomber b
+// FIXME Don't let aircraft or naval vessels conquer cities
+// FIXME Eliminate flicker on map redraws
+// FIXME Require production to be re-set when a city is conquered from another player
+// FIXME Make it clear when a unit is inside a city
+// FIXME Don't let units have land or water color
 // TODO Implement transport functionality
 // TODO Implement carrier functionality
-
+// TODO Allow sentry
+// TODO Allow skipping a turn for a particular unit
+// TODO Auto-explore mode for units
+// TODO Fuel limits for aircraft
+// TODO Long-range movement from examine mode
+// TODO Allow changing city productions from examine mode
+// TODO Allow activation of a unit from examine mode
+// TODO Show owner of city or unit in examine mode
+// TODO Game save/load
+// TODO Announce new unit creation
+// TODO Color console text announcing turn start to correspond to player colors
+// TODO Show unit stats in examine mode
+// TODO Show production cost / time when setting productions
 
 #![feature(conservative_impl_trait)]
 #![feature(try_from)]
