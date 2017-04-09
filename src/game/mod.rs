@@ -376,7 +376,7 @@ impl Game {
                         }
                     }
 
-                    self.unit_move_requests.remove(&src);
+                    debug_assert!(self.unit_move_requests.remove(&src));
 
                     unit.moves_remaining -= moves.len() as u16;
 
