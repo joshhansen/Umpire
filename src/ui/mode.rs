@@ -206,10 +206,14 @@ impl SetProductionMode {
         write!(*stdout, "{}Set Production for {}", self.goto(0, 0), city).unwrap();
 
         for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
+            let y = i as u16 + 2;
             write!(*stdout, "{}{} - {}",
-                self.goto(1, i as u16 + 2),
+                self.goto(1, y),
                 unit_type.key(),
                 unit_type.name()).unwrap();
+            write!(*stdout, "{}[{}]",
+                self.goto(16, y),
+                unit_type.cost()).unwrap();
         }
 
         stdout.flush().unwrap();
