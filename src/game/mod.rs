@@ -315,8 +315,7 @@ impl Game {
             shortest_paths(&self.tiles, src, unit, self.wrapping)
         };
         if let Some(distance) = shortest_paths.dist[dest] {
-            let unit = self.tiles[src].pop_unit();
-            if let Some(mut unit) = unit {
+            if let Some(mut unit) = self.tiles[src].pop_unit() {
                 if distance > unit.moves_remaining {
                     Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
                                 unit, src, dest, distance, unit.moves_remaining))
@@ -338,14 +337,12 @@ impl Game {
                     // Observe that the unit will either make it all the way to its destination, or
                     // will be destroyed somewhere along the way. There will be no stopping midway.
 
-                    // let mut destroyed = false;
-
                     let mut conquered_city = false;
 
                     let mut it = shortest_path.iter();
-                    let first_loc = it.next().unwrap();
+                    let first_loc = it.next().unwrap();// skip the source location
                     debug_assert_eq!(src, *first_loc);
-                    for loc in it {// skip the source location
+                    for loc in it {
                         moves.push(MoveComponent::new(*loc));
                         let mut move_ = moves.last_mut().unwrap();
 
@@ -442,20 +439,14 @@ but there is no city at that location",
         UnitType::values().iter()
         .map(|unit_type| *unit_type)
         .filter(|unit_type| {
-
-            // pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
-
             for neighb_loc in neighbors_terrain_only(&self.tiles, loc, *unit_type, self.wrapping) {
                 let ref neighb_tile = self.tiles[neighb_loc];
                 if unit_type.can_move_on_terrain( &neighb_tile.terrain ) {
                     return true;
                 }
             }
-
             return false;
-
-        } )
-        .collect()
+        }).collect()
     }
 }
 
