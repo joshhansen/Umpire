@@ -1,7 +1,4 @@
-use std;
 use std::fmt::Debug;
-use std::fs::File;
-use std::io::{BufRead,BufReader};
 use std::path::Path;
 use std::ops::AddAssign;
 use std::str::FromStr;
@@ -78,16 +75,16 @@ fn shuffle(names: Vec<String>) -> Vec<String> {
     names
 }
 
-fn load_list(filename: &'static str) -> std::io::Result<Vec<String>> {
-    let f = File::open(filename)?;
-    let f = BufReader::new(f);
-
-    let mut items = Vec::new();
-    for line in f.lines() {
-        items.push(line.unwrap());
-    }
-    Ok(items)
-}
+// fn load_list(filename: &'static str) -> std::io::Result<Vec<String>> {
+//     let f = File::open(filename)?;
+//     let f = BufReader::new(f);
+//
+//     let mut items = Vec::new();
+//     for line in f.lines() {
+//         items.push(line.unwrap());
+//     }
+//     Ok(items)
+// }
 
 pub struct CumWeight<T,N> {
     item: T,
