@@ -46,8 +46,8 @@ extern crate rand;
 extern crate termion;
 extern crate unicode_segmentation;
 
-extern crate portaudio as pa;
-extern crate sample;
+// extern crate portaudio as pa;
+// extern crate sample;
 
 use std::io::{Write,stdout};
 
