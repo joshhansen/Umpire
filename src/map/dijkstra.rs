@@ -116,6 +116,13 @@ impl PartialOrd for State {
     }
 }
 
+/// An implementation of Dijkstra's algorithm.
+///
+/// Finds all paths emanating from a single source location that could be traversed by the
+/// referenced unit. The returned `ShortestPaths` object can then be queried for the shortest path
+/// to any particular destination.
+///
+/// The provided wrapping strategy is respected.
 pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 

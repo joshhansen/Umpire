@@ -1,3 +1,7 @@
+//! Abstract map representation
+//!
+//! Data structures and algorithms for representing and working with the game map.
+
 use std::convert::TryFrom;
 use std::fmt;
 use std::iter::{FlatMap,FromIterator};

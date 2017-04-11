@@ -29,16 +29,16 @@
 #![feature(conservative_impl_trait)]
 #![feature(try_from)]
 
-mod conf;
-mod game;
-mod log;
+pub mod conf;
+pub mod game;
+pub mod log;
 #[macro_use]
 mod macros;
-mod map;
-mod name;
-mod ui;
-mod unit;
-mod util;
+pub mod map;
+pub mod name;
+pub mod ui;
+pub mod unit;
+pub mod util;
 
 extern crate clap;
 extern crate csv;

@@ -1,3 +1,5 @@
+//! Name generation for units and cities.
+
 use std::fmt::Debug;
 use std::path::Path;
 use std::ops::AddAssign;
@@ -8,10 +10,12 @@ use rand::{thread_rng, Rng, ThreadRng};
 use rand::distributions::{IndependentSample, Range};
 use rand::distributions::range::SampleRange;
 
+/// Something that generates names.
 pub trait Namer {
     fn name(&mut self) -> String;
 }
 
+/// Generate names by drawing from a predefined list.
 pub struct ListNamer {
     names: Vec<String>,
     next_name: usize
@@ -29,6 +33,7 @@ impl Namer for ListNamer {
     }
 }
 
+/// Generate names by sampling from a weighted distribution of names.
 pub struct WeightedNamer<N:Default> {
     cumulatively_weighted_names: Vec<CumWeight<String,N>>,
     sample_range: Range<N>,
@@ -120,6 +125,10 @@ fn load_cumulative_weights<N>(filename: &'static str) -> Result<Vec<CumWeight<St
 
 /// From Geonames schema
 static CITY_NAME_COL: usize = 1;
+
+/// The default city namer.
+///
+/// Loads city names from the geonames 1000 cities database and returns them randomly.
 pub fn city_namer() -> Result<ListNamer,String> {
     let path = Path::new("data/geonames_cities1000_2017-02-27_02:01.tsv");
 
@@ -162,6 +171,7 @@ pub fn city_namer() -> Result<ListNamer,String> {
     // }
 }
 
+/// Generate names by deferring to two sub-namers and joining their output
 pub struct CompoundNamer<N1:Namer,N2:Namer> {
     join_str: &'static str,
     namer1: N1,
@@ -182,6 +192,10 @@ impl<N1:Namer,N2:Namer> Namer for CompoundNamer<N1,N2> {
     }
 }
 
+/// The default unit namer.
+///
+/// Loads given names and surnames from census data and combines them randomly in accordance with
+/// their prevalence in the American population.
 pub fn unit_namer() -> Result<CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>, String> {
     let givennames = load_cumulative_weights("data/us-census/1990/givenname_rel_freqs.csv")?;
     let surnames = load_cumulative_weights("data/us-census/2010/surname_freqs.csv")?;

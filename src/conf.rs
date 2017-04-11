@@ -1,3 +1,9 @@
+//! Configuration
+//!
+//! For now this is just a bunch of const's, but in the future I expect it will be something more
+//! sophisticated that allows configuration to be set through a combination of defaults, command
+//! line arguments, and configuration files.
+
 // use std::collections::HashMap;
 // use std::convert::AsRef;
 // use std::env;
@@ -39,6 +45,7 @@
 /// The name of this application
 pub const APP_NAME: &'static str = "battaliad";
 
+/// The subtitle. You know, for flavor.
 pub const APP_SUBTITLE: &'static str = "A quest of outrageous combat";
 
 // pub const USER_NAME: &'static str = "Jersh";

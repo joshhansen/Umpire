@@ -1,7 +1,9 @@
 //!
-//! The user interface.
+//! A text-based user interface implemented for Unix terminals.
 //!
-//! Making use of the abstract game engine, implement a user interface for the game.
+//! The abstract game logic is implemented in `game::Game`. This user interface references that
+//! game engine but is otherwise independent in realizing a user experience around the game.
+
 use std::io::Write;
 
 use termion;
@@ -139,6 +141,7 @@ fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
+/// The termion-based user interface.
 pub struct UI<W:Write> {
     stdout: W,
     term_dims: Dims,

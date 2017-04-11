@@ -1,6 +1,4 @@
-//!
 //! Utility functions and structs
-//!
 
 // pub fn safe_minus_one(x:u16) -> u16 {
 //     if x > 0 { x - 1}
