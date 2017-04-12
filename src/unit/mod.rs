@@ -1,7 +1,7 @@
 //! Abstract representation of units and cities and their interactions.
 
 pub mod combat;
-mod orders;
+pub mod orders;
 
 use std::cmp::Ordering;
 use std::fmt;
