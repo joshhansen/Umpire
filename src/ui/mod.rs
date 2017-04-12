@@ -129,14 +129,20 @@ fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
     }
 }
 
-// fn sidebar_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
-//     Rect {
-//         left: viewport_rect.right() + 1,
-//         top: viewport_rect.top,
-//         width: term_dims.width - viewport_rect.left - viewport_rect.width,
-//         height: term_dims.height
-//     }
-// }
+fn sidebar_rect(viewport_rect: Rect, term_dims: Dims) -> Rect {
+    // Rect {
+    //     left: viewport_rect.right() + 1,
+    //     top: viewport_rect.top,
+    //     width: term_dims.width - viewport_rect.width,
+    //     height: term_dims.height
+    // }
+    Rect {
+        left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
+        top: HEADER_HEIGHT + 1,
+        width: term_dims.width - viewport_rect.width - 2,
+        height: term_dims.height - HEADER_HEIGHT
+    }
+}
 
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
@@ -355,7 +361,7 @@ impl<W:Write> UI<W> {
 
         match mode {
             Mode::SetProduction{loc} => map.map_to_viewport_coords(loc, viewport_dims),
-            Mode::MoveUnit{loc,first_move:_}      => map.map_to_viewport_coords(loc, viewport_dims),
+            Mode::GetUnitOrders{loc,first_move:_}      => map.map_to_viewport_coords(loc, viewport_dims),
             _                        => None
         }
     }

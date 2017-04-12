@@ -1,6 +1,7 @@
 //! Abstract representation of units and cities and their interactions.
 
 pub mod combat;
+mod orders;
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -10,6 +11,7 @@ use termion::color::AnsiValue;
 use game::obs::Observer;
 use map::{Terrain,Tile};
 use util::Location;
+use self::orders::Orders;
 
 pub type PlayerNum = u8;
 
@@ -196,9 +198,9 @@ pub struct Unit {
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
-    pub sentry: bool,
     pub moves_remaining: u16,
-    name: String
+    name: String,
+    orders: Option<Orders>
 }
 
 impl Unit {
@@ -209,9 +211,9 @@ impl Unit {
             alignment: alignment,
             hp: max_hp,
             max_hp: max_hp,
-            sentry: false,
             moves_remaining: 0,
-            name: name.into()
+            name: name.into(),
+            orders: None
         }
     }
 
@@ -248,6 +250,8 @@ impl Unit {
     }
 
     pub fn alignment(&self) -> Alignment { self.alignment }
+
+    pub fn orders(&self) -> &Option<Orders> { &self.orders }
 }
 
 impl Sym for Unit {

@@ -8,7 +8,7 @@ use termion::input::TermRead;
 use conf;
 use game::Game;
 use log::{LogTarget,Message,MessageSource};
-use ui::{Draw,UI,V_SCROLLBAR_WIDTH,HEADER_HEIGHT};
+use ui::{Draw,UI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
 use unit::{Alignment,UnitType};
 use util::{Direction,Location,Rect,WRAP_BOTH};
@@ -25,8 +25,8 @@ pub enum Mode {
     TurnResume,
     SetProductions,
     SetProduction{loc:Location},
-    MoveUnits,
-    MoveUnit{loc:Location, first_move:bool},
+    GetOrders,
+    GetUnitOrders{loc:Location, first_move:bool},
     Quit,
     Examine{cursor_viewport_loc:Location, first: bool}
 }
@@ -39,16 +39,15 @@ impl Mode {
             Mode::SetProductions =>     SetProductionsMode{}.run(game, ui, self),
             Mode::SetProduction{loc} => {
                 let viewport_rect = ui.viewport_rect();
-                let rect = Rect {
-                    left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
-                    top: HEADER_HEIGHT + 1,
-                    width: ui.term_dims.width - viewport_rect.width - 2,
-                    height: ui.term_dims.height - HEADER_HEIGHT
-                };
-                SetProductionMode{loc:loc, rect:rect}.run(game, ui, self)
+                let rect = sidebar_rect(viewport_rect, ui.term_dims);
+                SetProductionMode{rect:rect, loc:loc}.run(game, ui, self)
             },
-            Mode::MoveUnits =>          MoveUnitsMode{}.run(game, ui, self),
-            Mode::MoveUnit{loc,first_move} =>      MoveUnitMode{loc:loc, first_move:first_move}.run(game, ui, self),
+            Mode::GetOrders =>          GetOrdersMode{}.run(game, ui, self),
+            Mode::GetUnitOrders{loc,first_move} =>      {
+                let viewport_rect = ui.viewport_rect();
+                let rect = sidebar_rect(viewport_rect, ui.term_dims);
+                GetUnitOrdersMode{rect:rect, loc:loc, first_move:first_move}.run(game, ui, self)
+            },
             Mode::Quit =>               QuitMode{}.run(game, ui, self),
             Mode::Examine{cursor_viewport_loc, first} =>
                 ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first}.run(game, ui, self)
@@ -154,8 +153,8 @@ impl IMode for TurnResumeMode {
             *mode = Mode::SetProductions;
             return true;
         }
-        if !game.unit_move_requests().is_empty() {
-            *mode = Mode::MoveUnits;
+        if !game.unit_orders_requests().is_empty() {
+            *mode = Mode::GetOrders;
             return true;
         }
 
@@ -193,12 +192,12 @@ impl SetProductionMode {
         let tile = &game.current_player_tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
-        write!(*stdout, "{}Set Production for {}", self.goto(0, 0), city).unwrap();
+        write!(*stdout, "{}Set Production for {}          ", self.goto(0, 0), city).unwrap();
 
         for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
             let y = i as u16 + 2;
-            write!(*stdout, "{}{} - {}",
-                self.goto(1, y),
+            write!(*stdout, " {}{} - {}",
+                self.goto(0, y),
                 unit_type.key(),
                 unit_type.name()).unwrap();
             write!(*stdout, "{}[{}]",
@@ -215,13 +214,12 @@ impl IMode for SetProductionMode {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
         ui.draw(game);
+        self.draw(game, &mut ui.stdout);
 
         {
             let city = game.city(self.loc).unwrap();
             ui.log_message(format!("Requesting production target for {}", city ));
         }
-
-        self.draw(game, &mut ui.stdout);
 
         loop {
             match self.get_key(game, ui, mode) {
@@ -264,14 +262,14 @@ impl IVisibleMode for SetProductionMode {
     }
 }
 
-struct MoveUnitsMode {}
-impl IMode for MoveUnitsMode {
+struct GetOrdersMode {}
+impl IMode for GetOrdersMode {
     fn run<W:Write>(&self, game: &mut Game, _ui: &mut UI<W>, mode: &mut Mode) -> bool {
-        if !game.unit_move_requests().is_empty() {
+        if !game.unit_orders_requests().is_empty() {
 
-            let loc = *game.unit_move_requests().iter().next().unwrap();
+            let loc = *game.unit_orders_requests().iter().next().unwrap();
 
-            *mode = Mode::MoveUnit{loc:loc, first_move:true};
+            *mode = Mode::GetUnitOrders{loc:loc, first_move:true};
             return true;
         }
         *mode = Mode::TurnResume;
@@ -279,11 +277,38 @@ impl IMode for MoveUnitsMode {
     }
 }
 
-struct MoveUnitMode{
+struct GetUnitOrdersMode{
+    rect: Rect,
     loc: Location,
     first_move: bool
 }
-impl IMode for MoveUnitMode {
+impl IVisibleMode for GetUnitOrdersMode {
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+}
+impl GetUnitOrdersMode {
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
+        let unit = game.unit(self.loc).unwrap();
+
+        write!(*stdout, "{}Get Orders for {}", self.goto(0, 0), unit).unwrap();
+        write!(*stdout,
+"\
+{}Move: ↖ ↗          {} {}
+{}       ← ↓ ↑ →      {} {} {} {}
+{}      ↙ ↘          {} {}",
+            self.goto(0, 2), conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT,
+            self.goto(0, 3), conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT,
+            self.goto(0, 4), conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT).unwrap();
+
+        write!(*stdout, "{}Examine:\t{}", self.goto(0, 6), conf::KEY_EXAMINE).unwrap();
+
+        write!(*stdout, "{}Quit:\t{}", self.goto(0, 8), conf::KEY_QUIT).unwrap();
+
+        stdout.flush().unwrap();
+    }
+}
+impl IMode for GetUnitOrdersMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut UI<W>, mode: &mut Mode) -> bool {
         {
             let unit = game.unit(self.loc).unwrap();
@@ -294,6 +319,8 @@ impl IMode for MoveUnitMode {
             ui.map_scroller.scrollable.center_viewport(self.loc);
         }
         ui.draw(game);
+
+        self.draw(game, &mut ui.stdout);
 
         let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(self.loc, ui.viewport_rect().dims()).unwrap();
         ui.map_scroller.scrollable.draw_tile(game, &mut ui.stdout, viewport_loc, false, true, None);
@@ -310,13 +337,13 @@ impl IMode for MoveUnitMode {
                                         ui.animate_move(game, &move_result);
 
                                         if let Some(ending_loc) = move_result.ending_loc() {
-                                            if game.unit_move_requests().contains(&ending_loc) {
-                                                *mode = Mode::MoveUnit{loc:ending_loc, first_move:false};
-                                                return true;
+                                            if game.unit_orders_requests().contains(&ending_loc) {
+                                                *mode = Mode::GetUnitOrders{loc:ending_loc, first_move:false};
                                             }
+                                        } else {
+                                            *mode = Mode::GetOrders;
                                         }
-
-                                        *mode = Mode::MoveUnits;
+                                        self.clear(&mut ui.stdout);
                                         return true;
                                     },
                                     Err(msg) => {

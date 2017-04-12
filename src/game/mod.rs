@@ -108,7 +108,7 @@ pub struct Game {
     num_players: PlayerNum,
     current_player: PlayerNum,
     production_set_requests: HashSet<Location>,
-    unit_move_requests: HashSet<Location>,
+    unit_orders_requests: HashSet<Location>,
     wrapping: Wrap2d,
     unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>
 }
@@ -159,7 +159,7 @@ impl Game {
             num_players: num_players,
             current_player: 0,
             production_set_requests: HashSet::new(),
-            unit_move_requests: HashSet::new(),
+            unit_orders_requests: HashSet::new(),
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
             unit_namer: unit_namer
         };
@@ -206,9 +206,9 @@ impl Game {
                     if let Alignment::Belligerent{player} = unit.alignment {
                         if player==self.current_player {
                             unit.moves_remaining = unit.movement_per_turn();
-                            if !unit.sentry {
-                                log.log_message(format!("Queueing unit move request for {}", unit));
-                                self.unit_move_requests.insert(loc);
+                            if unit.orders().is_none() {
+                                log.log_message(format!("Queueing unit orders request for {}", unit));
+                                self.unit_orders_requests.insert(loc);
                             }
                         }
                     }
@@ -235,7 +235,7 @@ impl Game {
     ///
     /// At the end of a turn, production counts will be incremented.
     pub fn end_turn<L:LogTarget>(&mut self, log: &mut L) -> Result<PlayerNum,PlayerNum> {
-        if self.production_set_requests.is_empty() && self.unit_move_requests.is_empty() {
+        if self.production_set_requests.is_empty() && self.unit_orders_requests.is_empty() {
             self.current_player = (self.current_player + 1) % self.num_players;
             if self.current_player == 0 {
                 self.turn += 1;
@@ -314,8 +314,8 @@ impl Game {
     //FIXME Make it easy for UI clients to process unit move requests in unit order by returning these locations in a consistent unit order
     //      This means if unit A just moved and still has moves remaining, unit A will be the first in line to move again regardless of where
     //      they are located
-    pub fn unit_move_requests(&self) -> &HashSet<Location> {
-        &self.unit_move_requests
+    pub fn unit_orders_requests(&self) -> &HashSet<Location> {
+        &self.unit_orders_requests
     }
 
     //FIXME Make the unit observe at each point along its path
@@ -387,14 +387,14 @@ impl Game {
                         }
                     }
 
-                    debug_assert!(self.unit_move_requests.remove(&src));
+                    debug_assert!(self.unit_orders_requests.remove(&src));
 
                     unit.moves_remaining -= moves.len() as u16;
 
                     if let Some(move_) = moves.last() {
                         if move_.moved_successfully() {
                             if !conquered_city && unit.moves_remaining > 0 {
-                                self.unit_move_requests.insert(dest);
+                                self.unit_orders_requests.insert(dest);
                             }
 
                             self.tiles[dest].set_unit(unit.clone());
