@@ -40,3 +40,22 @@ Name ideas:
 * sargiad
 * imperiad
 * martialad, martiad
+* soldat [taken]
+* soldado
+* voinik
+* guerrero
+* zulldot
+* souldot
+* souldawdough
+* voin / voyn
+* soldier
+* souljur / solejur / sulljur / suljur
+* zuljr
+* suljr
+* soldr
+* zulj
+* sulj
+* grunt [taken]
+* croot
+* rekrut
+* boi
