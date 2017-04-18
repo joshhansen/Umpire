@@ -51,7 +51,7 @@ impl fmt::Display for Dims {
     }
 }
 
-#[derive(Clone,Copy,Eq,PartialEq,Hash)]
+#[derive(Clone,Copy,Eq,PartialEq,Hash,PartialOrd,Ord)]
 pub struct Vec2d<T> {
     pub x: T,
     pub y: T
