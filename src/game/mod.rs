@@ -468,6 +468,7 @@ mod test {
     use std::convert::TryFrom;
 
     use game::Game;
+    use log::{DefaultLog,LogTarget};
     use map::{LocationGrid,Terrain,Tile};
     use name::{test_unit_namer};
     use unit::{Alignment,City,UnitType};
@@ -491,55 +492,55 @@ mod test {
         })
     }
 
-    fn game1<L:FnMut(String)>(log_listener: &mut L) -> Game {
+    fn game1<L:LogTarget>(log: &mut L) -> Game {
         let players = 2;
         let fog_of_war = true;
 
         let map = map1();
         let unit_namer = test_unit_namer().unwrap();
-        Game::new_with_map(map, players, fog_of_war, unit_namer, log_listener)
+        Game::new_with_map(map, players, fog_of_war, unit_namer, log)
     }
 
     #[test]
     fn test_game() {
-        let mut log_listener = |msg:String| println!("{}", msg);
-        let mut game = game1(&mut log_listener);
+        let mut log = DefaultLog;
+        let mut game = game1(&mut log);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
 
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn(&mut log_listener).unwrap();
+        let player = game.end_turn(&mut log).unwrap();
         assert_eq!(player, 1);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn(&mut log_listener).unwrap();
+        let player = game.end_turn(&mut log).unwrap();
         assert_eq!(player, 0);
 
 
         for _ in 0..5 {
-            let player = game.end_turn(&mut log_listener).unwrap();
+            let player = game.end_turn(&mut log).unwrap();
             assert_eq!(player, 1);
-            let player = game.end_turn(&mut log_listener).unwrap();
+            let player = game.end_turn(&mut log).unwrap();
             assert_eq!(player, 0);
         }
 
-        assert_eq!(game.end_turn(&mut log_listener), Err(0));
-        assert_eq!(game.end_turn(&mut log_listener), Err(0));
+        assert_eq!(game.end_turn(&mut log), Err(0));
+        assert_eq!(game.end_turn(&mut log), Err(0));
 
         for player in 0..2 {
-            assert_eq!(game.unit_move_requests().len(), 1);
-            let loc = *game.unit_move_requests().iter().next().unwrap();
+            assert_eq!(game.unit_orders_requests().len(), 1);
+            let loc = *game.unit_orders_requests().iter().next().unwrap();
             let new_x = (loc.x + 1) % game.map_dims().width;
             let new_loc = Location{x:new_x, y:loc.y};
             println!("Moving unit from {} to {}", loc, new_loc);
 
             assert!(game.move_unit(loc, new_loc).is_ok());
-            assert_eq!(game.end_turn(&mut log_listener), Ok(1-player));
+            assert_eq!(game.end_turn(&mut log), Ok(1-player));
         }
     }
 
@@ -563,27 +564,27 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut log_listener = |msg:String| println!("{}", msg);
-        let mut game = Game::new_with_map(map, 2, false, test_unit_namer().unwrap(), &mut log_listener);
+        let mut log = DefaultLog;
+        let mut game = Game::new_with_map(map, 2, false, test_unit_namer().unwrap(), &mut log);
 
         let loc = *game.production_set_requests().iter().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Armor), Ok(()));
-        assert_eq!(game.end_turn(&mut log_listener), Ok(1));
+        assert_eq!(game.end_turn(&mut log), Ok(1));
 
         let loc = *game.production_set_requests().iter().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Carrier), Ok(()));
-        assert_eq!(game.end_turn(&mut log_listener), Ok(0));
+        assert_eq!(game.end_turn(&mut log), Ok(0));
 
         for _ in 0..11 {
-            assert_eq!(game.end_turn(&mut log_listener), Ok(1));
-            assert_eq!(game.end_turn(&mut log_listener), Ok(0));
+            assert_eq!(game.end_turn(&mut log), Ok(1));
+            assert_eq!(game.end_turn(&mut log), Ok(0));
         }
-        assert_eq!(game.end_turn(&mut log_listener), Err(0));
+        assert_eq!(game.end_turn(&mut log), Err(0));
 
         // Move the armor unit to the right until it attacks the opposing city
         for round in 0..3 {
-            assert_eq!(game.unit_move_requests().len(), 1);
-            let loc = *game.unit_move_requests().iter().next().unwrap();
+            assert_eq!(game.unit_orders_requests().len(), 1);
+            let loc = *game.unit_orders_requests().iter().next().unwrap();
             let dest_loc = Location{x: loc.x+2, y:loc.y};
             println!("Moving from {} to {}", loc, dest_loc);
             let move_result = game.move_unit(loc, dest_loc).unwrap();
@@ -607,8 +608,8 @@ mod test {
                 assert!(move2.city_combat.is_some());
             }
 
-            assert_eq!(game.end_turn(&mut log_listener), Ok(1));
-            assert_eq!(game.end_turn(&mut log_listener), Ok(0));
+            assert_eq!(game.end_turn(&mut log), Ok(1));
+            assert_eq!(game.end_turn(&mut log), Ok(0));
         }
     }
 
