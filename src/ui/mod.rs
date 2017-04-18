@@ -148,7 +148,7 @@ const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
 /// The termion-based user interface.
-pub struct UI<W:Write> {
+pub struct TermUI<W:Write> {
     stdout: W,
     term_dims: Dims,
     viewport_size: ViewportSize,
@@ -160,7 +160,7 @@ pub struct UI<W:Write> {
     first_draw: bool
 }
 
-impl<W:Write> UI<W> {
+impl<W:Write> TermUI<W> {
     pub fn new(
         map_dims: Dims,
         term_dims: Dims,
@@ -186,7 +186,7 @@ impl<W:Write> UI<W> {
         let cp_rect = current_player_rect();
         let current_player = CurrentPlayer::new(cp_rect);
 
-        let mut ui = UI {
+        let mut ui = TermUI {
             stdout: stdout,
             term_dims: term_dims,
             viewport_size: viewport_size,
@@ -367,7 +367,7 @@ impl<W:Write> UI<W> {
     }
 }
 
-impl <W:Write> LogTarget for UI<W> {
+impl <W:Write> LogTarget for TermUI<W> {
     fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
         self.log.draw_lite(&mut self.stdout);
