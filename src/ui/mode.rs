@@ -339,6 +339,8 @@ impl IMode for GetUnitOrdersMode {
                                         if let Some(ending_loc) = move_result.ending_loc() {
                                             if game.unit_orders_requests().contains(&ending_loc) {
                                                 *mode = Mode::GetUnitOrders{loc:ending_loc, first_move:false};
+                                            } else {
+                                                *mode = Mode::GetOrders;
                                             }
                                         } else {
                                             *mode = Mode::GetOrders;
