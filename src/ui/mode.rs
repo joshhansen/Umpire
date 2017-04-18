@@ -407,7 +407,7 @@ impl IMode for ExamineMode {
             KeyStatus::Unhandled(key) => {
                 if key==Key::Esc {
                     *mode = Mode::TurnResume;
-                } else if key==Key::Char('\n') {
+                } else if key==Key::Char(conf::KEY_EXAMINE_SELECT) {
                     if let Some(tile) = maybe_tile {
                         if let Some(ref city) = tile.city {
                             let current_alignment = Alignment::Belligerent{player: game.current_player()};

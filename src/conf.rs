@@ -105,3 +105,4 @@ pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';
 pub const KEY_QUIT: char = 'q';
 
 pub const KEY_EXAMINE: char = 'x';
+pub const KEY_EXAMINE_SELECT: char = '\n';
