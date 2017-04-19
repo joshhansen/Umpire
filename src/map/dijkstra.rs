@@ -30,7 +30,7 @@ impl TileSource for LocationGrid<Tile> {
         self.get(loc)
     }
     fn dims(&self) -> Dims {
-        self.dims
+        self.dims()
     }
 }
 
