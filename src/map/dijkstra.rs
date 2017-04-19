@@ -6,33 +6,9 @@ use std::collections::{BinaryHeap,HashSet};
 use std::fmt;
 use std::ops::{Index,IndexMut};
 
-use game::Game;
-use map::{LocationGrid,Tile};
+use map::{LocationGrid,TileSource};
 use unit::{Unit,UnitType};
-use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
-
-pub trait TileSource {
-    fn get(&self, loc: Location) -> Option<&Tile>;
-    fn dims(&self) -> Dims;
-}
-
-impl TileSource for Game {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.current_player_tile(loc)
-    }
-    fn dims(&self) -> Dims {
-        self.map_dims()
-    }
-}
-
-impl TileSource for LocationGrid<Tile> {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.get(loc)
-    }
-    fn dims(&self) -> Dims {
-        self.dims()
-    }
-}
+use util::{Location,Vec2d,Wrap2d,wrapped_add};
 
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
