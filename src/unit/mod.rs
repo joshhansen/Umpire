@@ -315,13 +315,17 @@ impl City {
 
 impl fmt::Display for City {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "City \"{}\"", self.name)
+        let mut result = write!(f, "City \"{}\"", self.name);
+        if let Some(ref produced_unit) = self.unit_under_production {
+            result = result.and(write!(f, ", producing {} ({}/{})", produced_unit, self.production_progress, produced_unit.cost()));
+        }
+        result
     }
 }
 
 impl fmt::Debug for City {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "City \"{}\"@{}", self.name, self.loc)
+        fmt::Display::fmt(self, f)
     }
 }
 
