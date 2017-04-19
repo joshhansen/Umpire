@@ -8,76 +8,21 @@ use rand::{Rng, ThreadRng, thread_rng};
 
 use conf;
 use map::{LocationGrid,Terrain,Tile,TileSource};
+use map::dijkstra::{TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL};
 use name::{ListNamer,Namer};
 use unit::{Alignment,City,PlayerNum};
-use util::{Dims,Location};
-
-fn is_land<T:TileSource>(tiles: &T, loc: Location) -> bool {
-    tiles.get(loc).unwrap().terrain == Terrain::Land
-}
+use util::{Dims,Location,WRAP_NEITHER};
 
 fn land_cardinal_neighbors<T:TileSource>(tiles: &T, loc: Location) -> u16 {
-    let map_dims = tiles.dims();
-
-    let mut land_cardinal_neighbors = 0;
-
-    // left
-    if loc.x > 0 && is_land(tiles, Location{x: loc.x-1, y: loc.y}) {
-        land_cardinal_neighbors += 1;
-    }
-    // right
-    if loc.x < map_dims.width - 1 && is_land(tiles, Location{x: loc.x+1, y: loc.y}) {
-        land_cardinal_neighbors += 1;
-    }
-    // up
-    if loc.y > 0 && is_land(tiles, Location{x: loc.x, y: loc.y-1}) {
-        land_cardinal_neighbors += 1;
-    }
-    // down
-    if loc.y < map_dims.height - 1 && is_land(tiles, Location{x: loc.x, y: loc.y+1}) {
-        land_cardinal_neighbors += 1;
-    }
-
-    land_cardinal_neighbors
+    neighbors(tiles, loc, RELATIVE_NEIGHBORS_CARDINAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
 }
 
 fn land_diagonal_neighbors<T:TileSource>(tiles: &T, loc: Location) -> u16 {
-    let map_dims = tiles.dims();
-
-    let x_low_room = loc.x > 0;
-    let y_low_room = loc.y > 0;
-    let x_high_room = loc.x < map_dims.width - 1;
-    let y_high_room = loc.y < map_dims.height - 1;
-
-    let mut land_neighbors = 0;
-
-    if x_low_room && y_low_room && is_land(tiles, Location{x: loc.x-1, y: loc.y-1}) {
-        land_neighbors += 1;
-    }
-    if x_low_room && y_high_room && is_land(tiles, Location{x: loc.x-1, y: loc.y+1}) {
-        land_neighbors += 1;
-    }
-    if x_high_room && y_low_room && is_land(tiles, Location{x: loc.x+1, y: loc.y-1}) {
-        land_neighbors += 1;
-    }
-    if x_high_room && y_high_room && is_land(tiles, Location{x: loc.x+1, y: loc.y+1}) {
-        land_neighbors += 1;
-    }
-    land_neighbors
+    neighbors(tiles, loc, RELATIVE_NEIGHBORS_DIAGONAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
 }
 
-// fn _land_neighbors(&self, x:u16, y:u16) -> u16 {
-//     let mut land_nearby = 0;
-//     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
-//         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
-//             if x2 != x && y2 != y {
-//                 if self.tiles[x2 as usize][y2 as usize].terrain == Terrain::Land {
-//                     land_nearby += 1;
-//                 }
-//             }
-//         }
-//     }
-//     land_nearby
+// fn land_neighbors<T:TileSource>(tiles: &T, loc: Location) -> u16 {
+//     neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
 // }
 
 pub struct MapGenerator {

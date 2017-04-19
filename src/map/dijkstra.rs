@@ -6,7 +6,7 @@ use std::collections::{BinaryHeap,HashSet};
 use std::fmt;
 use std::ops::{Index,IndexMut};
 
-use map::{LocationGrid,TileSource};
+use map::{LocationGrid,Terrain,Tile,TileSource};
 use unit::{Unit,UnitType};
 use util::{Location,Vec2d,Wrap2d,wrapped_add};
 
@@ -66,13 +66,53 @@ pub static RELATIVE_NEIGHBORS: [Vec2d<i32>; 8] = [
     Vec2d { x:  1, y:  0 },
     Vec2d { x:  1, y:  1}
 ];
+pub static RELATIVE_NEIGHBORS_CARDINAL: [Vec2d<i32>; 4] = [
+    Vec2d { x: -1, y:  0 },
+    Vec2d { x:  0, y: -1 },
+    Vec2d { x:  0, y:  1 },
+    Vec2d { x:  1, y:  0 }
+];
+pub static RELATIVE_NEIGHBORS_DIAGONAL: [Vec2d<i32>; 4] = [
+    Vec2d { x: -1, y: -1 },
+    Vec2d { x: -1, y:  1 },
+    Vec2d { x:  1, y: -1 },
+    Vec2d { x:  1, y:  1 }
+];
 
-pub fn neighbors<T:TileSource>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
+pub trait NeighbFilter {
+    fn include(&self, neighb_tile: &Tile) -> bool;
+}
+struct UnitMovementFilter<'a> {
+    unit: &'a Unit
+}
+impl <'a> NeighbFilter for UnitMovementFilter<'a> {
+    fn include(&self, neighb_tile: &Tile) -> bool {
+        self.unit.can_move_on_tile(neighb_tile)
+    }
+}
+pub struct TerrainFilter {
+    pub terrain: Terrain
+}
+impl NeighbFilter for TerrainFilter {
+    fn include(&self, neighb_tile: &Tile) -> bool {
+        self.terrain == neighb_tile.terrain
+    }
+}
+
+pub fn neighbors<'a,F,N,T>(
+            tiles: &T,
+            loc: Location,
+            rel_neighbs: N,
+            filter: &F,
+            wrapping: Wrap2d) -> HashSet<Location>
+
+        where F:NeighbFilter, N:Iterator<Item=&'a Vec2d<i32>>, T:TileSource {
+
     let mut neighbs = HashSet::new();
-    for rel_neighb in RELATIVE_NEIGHBORS.iter() {
+    for rel_neighb in rel_neighbs.into_iter() {
         if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
             if let Some(tile) = tiles.get(neighb_loc) {
-                if unit.can_move_on_tile(&tile) {
+                if filter.include(tile) {
                     neighbs.insert(neighb_loc);
                 }
             }
@@ -82,19 +122,16 @@ pub fn neighbors<T:TileSource>(tiles: &T, loc: Location, unit: &Unit, wrapping: 
     neighbs
 }
 
-pub fn neighbors_terrain_only<T:TileSource>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
-    let mut neighbs = HashSet::new();
-    for rel_neighb in RELATIVE_NEIGHBORS.iter() {
-        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
-            if let Some(tile) = tiles.get(neighb_loc) {
-                if unit_type.can_move_on_terrain(&tile.terrain) {
-                    neighbs.insert(neighb_loc);
-                }
-            }
-        }
+struct UnitTypeFilter {
+    unit_type: UnitType
+}
+impl NeighbFilter for UnitTypeFilter {
+    fn include(&self, neighb_tile: &Tile) -> bool {
+        self.unit_type.can_move_on_terrain(&neighb_tile.terrain)
     }
-
-    neighbs
+}
+pub fn neighbors_terrain_only<T:TileSource>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
+    neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type: unit_type}, wrapping)
 }
 
 #[derive(Eq,PartialEq)]
@@ -138,7 +175,8 @@ pub fn shortest_paths<T:TileSource>(tiles: &T, source: Location, unit: &Unit, wr
         if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
 
         // for neighb_loc in neighbors_with_same_terrain(tiles, &loc, wrapping) {
-        for neighb_loc in neighbors(tiles, loc, unit, wrapping) {
+        // for neighb_loc in neighbors(tiles, loc, unit, wrapping) {
+        for neighb_loc in neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit: unit}, wrapping) {
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
 
@@ -158,13 +196,17 @@ pub fn shortest_paths<T:TileSource>(tiles: &T, source: Location, unit: &Unit, wr
 #[cfg(test)]
 mod test {
 
+    use std::collections::HashSet;
     use std::convert::TryFrom;
 
-    use map::LocationGrid;
-    use map::dijkstra::{neighbors,neighbors_terrain_only,shortest_paths};
+    use map::{LocationGrid,TileSource};
+    use map::dijkstra::{UnitMovementFilter,neighbors,neighbors_terrain_only,shortest_paths,RELATIVE_NEIGHBORS};
     use unit::{Alignment,Unit,UnitType};
-    use util::{Location,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
+    use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
+    fn neighbors_all_unit<T:TileSource>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
+        neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit:unit}, wrapping)
+    }
 
     #[test]
     fn test_neighbors_terrain_only() {
@@ -222,7 +264,7 @@ mod test {
 
             let loc = Location{x:0, y:2};
             let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
-            let neighbs_both = neighbors(&map, loc, &infantry, WRAP_BOTH);
+            let neighbs_both = neighbors_all_unit(&map, loc, &infantry, WRAP_BOTH);
             assert!(neighbs_both.contains(&Location{x:0, y:0}));
             assert!(neighbs_both.contains(&Location{x:0, y:1}));
             assert!(neighbs_both.contains(&Location{x:1, y:0}));
@@ -231,7 +273,7 @@ mod test {
             assert!(neighbs_both.contains(&Location{x:2, y:1}));
             assert!(neighbs_both.contains(&Location{x:2, y:2}));
 
-            let neighbs_horiz = neighbors(&map, loc, &infantry, WRAP_HORIZ);
+            let neighbs_horiz = neighbors_all_unit(&map, loc, &infantry, WRAP_HORIZ);
             assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
             assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
             assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
@@ -240,7 +282,7 @@ mod test {
             assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
             assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
 
-            let neighbs_vert = neighbors(&map, loc, &infantry, WRAP_VERT);
+            let neighbs_vert = neighbors_all_unit(&map, loc, &infantry, WRAP_VERT);
             assert!( neighbs_vert.contains(&Location{x:0, y:0}));
             assert!( neighbs_vert.contains(&Location{x:0, y:1}));
             assert!( neighbs_vert.contains(&Location{x:1, y:0}));
@@ -249,7 +291,7 @@ mod test {
             assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
             assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
 
-            let neighbs_neither = neighbors(&map, loc, &infantry, WRAP_NEITHER);
+            let neighbs_neither = neighbors_all_unit(&map, loc, &infantry, WRAP_NEITHER);
             assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
             assert!( neighbs_neither.contains(&Location{x:0, y:1}));
             assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
