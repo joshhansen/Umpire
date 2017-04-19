@@ -6,10 +6,33 @@ use std::collections::{BinaryHeap,HashSet};
 use std::fmt;
 use std::ops::{Index,IndexMut};
 
-
+use game::Game;
 use map::{LocationGrid,Tile};
 use unit::{Unit,UnitType};
-use util::{Location,Vec2d,Wrap2d,wrapped_add};
+use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
+
+pub trait TileSource {
+    fn get(&self, loc: Location) -> Option<&Tile>;
+    fn dims(&self) -> Dims;
+}
+
+impl TileSource for Game {
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        self.current_player_tile(loc)
+    }
+    fn dims(&self) -> Dims {
+        self.map_dims()
+    }
+}
+
+impl TileSource for LocationGrid<Tile> {
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        self.get(loc)
+    }
+    fn dims(&self) -> Dims {
+        self.dims
+    }
+}
 
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
@@ -68,10 +91,10 @@ pub static RELATIVE_NEIGHBORS: [Vec2d<i32>; 8] = [
     Vec2d { x:  1, y:  1}
 ];
 
-pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
+pub fn neighbors<T:TileSource>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
     let mut neighbs = HashSet::new();
     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
-        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims, wrapping) {
+        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
             if let Some(tile) = tiles.get(neighb_loc) {
                 if unit.can_move_on_tile(&tile) {
                     neighbs.insert(neighb_loc);
@@ -83,10 +106,10 @@ pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit: &Unit, wrappin
     neighbs
 }
 
-pub fn neighbors_terrain_only(tiles: &LocationGrid<Tile>, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
+pub fn neighbors_terrain_only<T:TileSource>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
     let mut neighbs = HashSet::new();
     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
-        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims, wrapping) {
+        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
             if let Some(tile) = tiles.get(neighb_loc) {
                 if unit_type.can_move_on_terrain(&tile.terrain) {
                     neighbs.insert(neighb_loc);
@@ -123,11 +146,11 @@ impl PartialOrd for State {
 /// to any particular destination.
 ///
 /// The provided wrapping strategy is respected.
-pub fn shortest_paths(tiles: &LocationGrid<Tile>, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
+pub fn shortest_paths<T:TileSource>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 
-    let mut dist = LocationGrid::new(tiles.dims, |_loc| None);
-    let mut prev = LocationGrid::new(tiles.dims, |_loc| None);
+    let mut dist = LocationGrid::new(tiles.dims(), |_loc| None);
+    let mut prev = LocationGrid::new(tiles.dims(), |_loc| None);
 
     q.push(State{ dist_: 0, loc: source });
 
