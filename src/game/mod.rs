@@ -272,7 +272,7 @@ impl Game {
     }
 
     fn tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
-        self.tiles.get(&loc)
+        self.tiles.get(loc)
     }
 
     pub fn current_player_tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {

@@ -157,7 +157,7 @@ impl<T> LocationGrid<T> {
         LocationGrid{ grid: grid, dims: dims }
     }
 
-    pub fn get<'a>(&'a self, loc: &Location) -> Option<&'a T> {
+    pub fn get<'a>(&'a self, loc: Location) -> Option<&'a T> {
         if let Some(col) = self.grid.get(loc.x as usize) {
             col.get(loc.y as usize)
         } else {

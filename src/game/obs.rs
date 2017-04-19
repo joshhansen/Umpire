@@ -34,7 +34,7 @@ impl FogOfWarTracker {
 
 impl ObsTracker for FogOfWarTracker {
     fn get<'a>(&'a self, loc: Location) -> Option<&'a Obs> {
-        self.observations.get(&loc)
+        self.observations.get(loc)
     }
 
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) {

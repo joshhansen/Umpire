@@ -72,7 +72,7 @@ pub fn neighbors(tiles: &LocationGrid<Tile>, loc: Location, unit: &Unit, wrappin
     let mut neighbs = HashSet::new();
     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
         if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims, wrapping) {
-            if let Some(tile) = tiles.get(&neighb_loc) {
+            if let Some(tile) = tiles.get(neighb_loc) {
                 if unit.can_move_on_tile(&tile) {
                     neighbs.insert(neighb_loc);
                 }
@@ -87,7 +87,7 @@ pub fn neighbors_terrain_only(tiles: &LocationGrid<Tile>, loc: Location, unit_ty
     let mut neighbs = HashSet::new();
     for rel_neighb in RELATIVE_NEIGHBORS.iter() {
         if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims, wrapping) {
-            if let Some(tile) = tiles.get(&neighb_loc) {
+            if let Some(tile) = tiles.get(neighb_loc) {
                 if unit_type.can_move_on_terrain(&tile.terrain) {
                     neighbs.insert(neighb_loc);
                 }
