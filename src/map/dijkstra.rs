@@ -214,8 +214,6 @@ pub fn shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, 
         // Quit early since we're already doing worse than the best known route
         if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
 
-        // for neighb_loc in neighbors_with_same_terrain(tiles, &loc, wrapping) {
-        // for neighb_loc in neighbors(tiles, loc, unit, wrapping) {
         for neighb_loc in neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit: unit}, wrapping) {
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
