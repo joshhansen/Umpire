@@ -85,7 +85,7 @@ trait IMode {
                     return KeyStatus::Handled(StateDisposition::Quit);
                 },
                 conf::KEY_EXAMINE => {
-                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(*mode) {
+                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(&mode) {
                         *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc, first: true};
                         return KeyStatus::Handled(StateDisposition::Next);
                     } else {

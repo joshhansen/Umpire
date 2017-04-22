@@ -415,13 +415,13 @@ impl<W:Write> TermUI<W> {
         write!(self.stdout, "{}", ToMainScreen).unwrap();
     }
 
-    pub fn cursor_viewport_loc(&self, mode: Mode) -> Option<Location> {
+    pub fn cursor_viewport_loc(&self, mode: &Mode) -> Option<Location> {
         let viewport_dims = self.map_scroller.viewport_dims();
         let ref map = self.map_scroller.scrollable;
 
         match mode {
-            Mode::SetProduction{loc} => map.map_to_viewport_coords(loc, viewport_dims),
-            Mode::GetUnitOrders{loc,first_move:_}      => map.map_to_viewport_coords(loc, viewport_dims),
+            &Mode::SetProduction{loc} => map.map_to_viewport_coords(loc, viewport_dims),
+            &Mode::GetUnitOrders{loc,first_move:_}      => map.map_to_viewport_coords(loc, viewport_dims),
             _                        => None
         }
     }
