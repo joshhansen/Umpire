@@ -49,7 +49,8 @@ extern crate unicode_segmentation;
 // extern crate portaudio as pa;
 // extern crate sample;
 
-use std::io::{Write,stdout};
+use std::fs::File;
+use std::io::{BufRead,BufReader,Write,stdout};
 
 use clap::{Arg, App};
 use termion::terminal_size;
@@ -62,6 +63,20 @@ use util::Dims;
 
 // Derived configuration
 const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
+
+fn print_loading_screen() {
+    let f = File::open("images/1945_Baseball_Umpire.txt").unwrap();
+    let file = BufReader::new(&f);
+    for line in file.lines() {
+        let l = line.unwrap();
+        println!("{}", l);
+    }
+
+    println!();
+
+    println!("{}: Combat Quest of the Millennium", conf::APP_NAME);
+    stdout().flush().unwrap();
+}
 
 fn main() {
     if let Ok((term_width,term_height)) = terminal_size() {
@@ -91,8 +106,7 @@ fn main() {
             )
         .get_matches();
 
-        print!("Loading {}...", conf::APP_NAME);
-        stdout().flush().unwrap();
+        print_loading_screen();
 
         let fog_of_war = matches.value_of("fog").unwrap() == "on";
         let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();

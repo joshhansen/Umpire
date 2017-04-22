@@ -43,10 +43,10 @@
 // }
 
 /// The name of this application
-pub const APP_NAME: &'static str = "battaliad";
+pub const APP_NAME: &'static str = "umpire";
 
 /// The subtitle. You know, for flavor.
-pub const APP_SUBTITLE: &'static str = "A quest of outrageous combat";
+pub const APP_SUBTITLE: &'static str = "Combat Quest of the Millennium";
 
 // pub const USER_NAME: &'static str = "Jersh";
 

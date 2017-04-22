@@ -37,17 +37,33 @@ pub fn run(mut game: Game, term_dims: Dims) -> Result<(),String> {
         }
     }
 
-    println!("\n\n\t\tThe Battaliad\n
-    \tO Muse! the causes and the crimes relate;
-    \tWhat goddess was provok'd, and whence her hate;
-    \tFor what offense the Queen of Heav'n began
-    \tTo persecute so brave, so just a man;
-    \tInvolv'd his anxious life in endless cares,
-    \tExpos'd to wants, and hurried into wars!
-    \tCan heav'nly minds such high resentment show,
-    \tOr exercise Their spite in human woe?");
+    // println!("\n\n\t\tUmpire\n
+    // \tO Muse! the causes and the crimes relate;
+    // \tWhat goddess was provok'd, and whence her hate;
+    // \tFor what offense the Queen of Heav'n began
+    // \tTo persecute so brave, so just a man;
+    // \tInvolv'd his anxious life in endless cares,
+    // \tExpos'd to wants, and hurried into wars!
+    // \tCan heav'nly minds such high resentment show,
+    // \tOr exercise Their spite in human woe?");
 
-    println!("\nThe quest awaits you.");
+println!("\n\n\tFor Hot, Cold, Moist, and Dry, four champions fierce,
+\tStrive here for mastery, and to battle bring
+\tTheir embryon atoms: they around the flag
+\tOf each his faction, in their several clans,
+\tLight-armed or heavy, sharp, smooth, swift, or slow,
+\tSwarm populous, unnumbered as the sands
+\tOf Barca or Cyrene's torrid soil,
+\tLevied to side with warring winds, and poise
+\tTheir lighter wings.  To whom these most adhere
+\tHe rules a moment: Chaos umpire sits,
+\tAnd by decision more embroils the fray
+\tBy which he reigns: next him, high arbiter,
+\tChance governs all.
+
+\t\t\t\tParadise Lost (2.898-910)\n");
+
+    // println!("\nThe quest awaits you.");
 
     Ok(())
 }
