@@ -380,6 +380,13 @@ struct ExamineMode {
     cursor_viewport_loc: Location,
     first: bool
 }
+impl ExamineMode {
+    fn clean_up<W:Write>(&self, game: &Game, ui: &mut TermUI<W>) {
+        let ref mut map = ui.map_scroller.scrollable;
+        map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
+        ui.stdout.flush().unwrap();
+    }
+}
 impl IMode for ExamineMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
         let maybe_tile = {
@@ -426,10 +433,7 @@ impl IMode for ExamineMode {
                     }
                 }
 
-                let ref mut map = ui.map_scroller.scrollable;
-                map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
-                ui.stdout.flush().unwrap();
-
+                self.clean_up(game, ui);
                 true
             },
             KeyStatus::Handled(state_disposition) => {
