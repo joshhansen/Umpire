@@ -6,9 +6,11 @@ use std::collections::{BinaryHeap,HashSet};
 use std::fmt;
 use std::ops::{Index,IndexMut};
 
-use map::{LocationGrid,Terrain,Tile,TileSource};
+use game::Game;
+use game::obs::Obs;
+use map::{LocationGrid,Terrain,Tile};
 use unit::{Unit,UnitType};
-use util::{Location,Vec2d,Wrap2d,wrapped_add};
+use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
 
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
@@ -79,13 +81,12 @@ pub static RELATIVE_NEIGHBORS_DIAGONAL: [Vec2d<i32>; 4] = [
     Vec2d { x:  1, y:  1 }
 ];
 
-pub trait NeighbFilter {
-    fn include(&self, neighb_tile: &Tile) -> bool;
-}
+pub trait NeighbFilter : Filter<Tile> {}
+
 struct UnitMovementFilter<'a> {
     unit: &'a Unit
 }
-impl <'a> NeighbFilter for UnitMovementFilter<'a> {
+impl <'a> Filter<Tile> for UnitMovementFilter<'a> {
     fn include(&self, neighb_tile: &Tile) -> bool {
         self.unit.can_move_on_tile(neighb_tile)
     }
@@ -93,20 +94,59 @@ impl <'a> NeighbFilter for UnitMovementFilter<'a> {
 pub struct TerrainFilter {
     pub terrain: Terrain
 }
-impl NeighbFilter for TerrainFilter {
+impl Filter<Tile> for TerrainFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
         self.terrain == neighb_tile.terrain
     }
 }
 
-pub fn neighbors<'a,F,N,T>(
-            tiles: &T,
-            loc: Location,
-            rel_neighbs: N,
-            filter: &F,
-            wrapping: Wrap2d) -> HashSet<Location>
+pub trait Source<T> {
+    fn get(&self, loc: Location) -> Option<&T>;
+    fn dims(&self) -> Dims;
+}
+pub trait Filter<T> {
+    fn include(&self, item: &T) -> bool;
+}
 
-        where F:NeighbFilter, N:Iterator<Item=&'a Vec2d<i32>>, T:TileSource {
+impl Source<Tile> for Game {
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        self.current_player_tile(loc)
+    }
+    fn dims(&self) -> Dims {
+        self.map_dims()
+    }
+}
+
+impl Source<Tile> for LocationGrid<Tile> {
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        self.get(loc)
+    }
+    fn dims(&self) -> Dims {
+        self.dims()
+    }
+}
+
+#[allow(dead_code)]
+struct UnobservedFilter {}
+impl Filter<Obs> for UnobservedFilter {
+    fn include(&self, obs: &Obs) -> bool {
+        *obs == Obs::Unobserved
+    }
+}
+struct ObservedFilter {}
+impl Filter<Obs> for ObservedFilter {
+    fn include(&self, obs: &Obs) -> bool {
+        if let Obs::Observed{tile:_, turn:_} = *obs {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
+                                 filter: &F, wrapping: Wrap2d) -> HashSet<Location>
+    where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
 
     let mut neighbs = HashSet::new();
     for rel_neighb in rel_neighbs.into_iter() {
@@ -125,12 +165,12 @@ pub fn neighbors<'a,F,N,T>(
 struct UnitTypeFilter {
     unit_type: UnitType
 }
-impl NeighbFilter for UnitTypeFilter {
+impl Filter<Tile> for UnitTypeFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
         self.unit_type.can_move_on_terrain(&neighb_tile.terrain)
     }
 }
-pub fn neighbors_terrain_only<T:TileSource>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
+pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
     neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type: unit_type}, wrapping)
 }
 
@@ -159,7 +199,7 @@ impl PartialOrd for State {
 /// to any particular destination.
 ///
 /// The provided wrapping strategy is respected.
-pub fn shortest_paths<T:TileSource>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
+pub fn shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 
     let mut dist = LocationGrid::new(tiles.dims(), |_loc| None);
@@ -199,12 +239,12 @@ mod test {
     use std::collections::HashSet;
     use std::convert::TryFrom;
 
-    use map::{LocationGrid,TileSource};
-    use map::dijkstra::{UnitMovementFilter,neighbors,neighbors_terrain_only,shortest_paths,RELATIVE_NEIGHBORS};
+    use map::{LocationGrid,Tile};
+    use map::dijkstra::{Source,UnitMovementFilter,neighbors,neighbors_terrain_only,shortest_paths,RELATIVE_NEIGHBORS};
     use unit::{Alignment,Unit,UnitType};
     use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
-    fn neighbors_all_unit<T:TileSource>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
+    fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
         neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit:unit}, wrapping)
     }
 

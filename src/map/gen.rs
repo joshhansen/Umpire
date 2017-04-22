@@ -7,17 +7,17 @@
 use rand::{Rng, ThreadRng, thread_rng};
 
 use conf;
-use map::{LocationGrid,Terrain,Tile,TileSource};
-use map::dijkstra::{TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL};
+use map::{LocationGrid,Terrain,Tile};
+use map::dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL};
 use name::{ListNamer,Namer};
 use unit::{Alignment,City,PlayerNum};
 use util::{Dims,Location,WRAP_NEITHER};
 
-fn land_cardinal_neighbors<T:TileSource>(tiles: &T, loc: Location) -> u16 {
+fn land_cardinal_neighbors<T:Source<Tile>>(tiles: &T, loc: Location) -> u16 {
     neighbors(tiles, loc, RELATIVE_NEIGHBORS_CARDINAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
 }
 
-fn land_diagonal_neighbors<T:TileSource>(tiles: &T, loc: Location) -> u16 {
+fn land_diagonal_neighbors<T:Source<Tile>>(tiles: &T, loc: Location) -> u16 {
     neighbors(tiles, loc, RELATIVE_NEIGHBORS_DIAGONAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
 }
 

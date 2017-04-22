@@ -6,9 +6,8 @@ use std::fmt;
 
 use termion::color::AnsiValue;
 
-use game::Game;
 use unit::{Alignment,City,Sym,Unit};
-use util::{Dims,Location};
+use util::Location;
 
 
 #[derive(Clone,PartialEq)]
@@ -123,28 +122,7 @@ impl fmt::Display for Tile {
 }
 
 
-pub trait TileSource {
-    fn get(&self, loc: Location) -> Option<&Tile>;
-    fn dims(&self) -> Dims;
-}
 
-impl TileSource for Game {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.current_player_tile(loc)
-    }
-    fn dims(&self) -> Dims {
-        self.map_dims()
-    }
-}
-
-impl TileSource for LocationGrid<Tile> {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.get(loc)
-    }
-    fn dims(&self) -> Dims {
-        self.dims()
-    }
-}
 
 
 pub mod dijkstra;
