@@ -4,12 +4,13 @@
 //! The abstract game logic is implemented in `game::Game`. This user interface references that
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
-use std::io::Write;
+use std::io::{Write,stdout};
 
 use termion;
 use termion::clear;
 use termion::color::{Bg,Rgb};
-use termion::screen::ToMainScreen;
+use termion::raw::IntoRawMode;
+use termion::screen::{AlternateScreen,ToMainScreen};
 
 use conf;
 use conf::HEADER_HEIGHT;
@@ -20,6 +21,65 @@ use ui::style::StrongReset;
 use unit::Sym;
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
+
+pub fn run(mut game: Game, term_dims: Dims) -> Result<(),String> {
+    {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
+        let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
+        let mut ui = TermUI::new(
+            game.map_dims(),
+            term_dims,
+            screen,
+        );
+
+        let mut mode = self::mode::Mode::TurnStart;
+        while mode.run(&mut game, &mut ui) {
+            // nothing here
+        }
+    }
+
+    println!("\n\n\t\tThe Battaliad\n
+    \tO Muse! the causes and the crimes relate;
+    \tWhat goddess was provok'd, and whence her hate;
+    \tFor what offense the Queen of Heav'n began
+    \tTo persecute so brave, so just a man;
+    \tInvolv'd his anxious life in endless cares,
+    \tExpos'd to wants, and hurried into wars!
+    \tCan heav'nly minds such high resentment show,
+    \tOr exercise Their spite in human woe?");
+
+    println!("\nThe quest awaits you.");
+
+    Ok(())
+}
+
+pub trait MoveAnimator {
+    fn animate_move(&mut self, game: &Game, move_result: &MoveResult);
+}
+
+pub trait UI : LogTarget + MoveAnimator {
+
+}
+
+pub struct DefaultUI;
+
+impl LogTarget for DefaultUI {
+    fn log_message<T>(&mut self, message: T) where Message:From<T> {
+        println!("{}", Message::from(message).text);
+    }
+    fn replace_message<T>(&mut self, message: T) where Message:From<T> {
+        println!("\r{}", Message::from(message).text);
+    }
+}
+
+impl MoveAnimator for DefaultUI {
+    fn animate_move(&mut self, _game: &Game, move_result: &MoveResult) {
+        println!("Moving: {:?}", *move_result);
+    }
+}
+
+impl UI for DefaultUI {
+
+}
 
 /// 0-indexed variant of Goto
 pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {

@@ -52,13 +52,11 @@ extern crate unicode_segmentation;
 use std::io::{Write,stdout};
 
 use clap::{Arg, App};
-use termion::raw::IntoRawMode;
-use termion::screen::AlternateScreen;
 use termion::terminal_size;
 
 use game::Game;
-use log::DefaultLog;
 use name::{city_namer,unit_namer};
+use ui::DefaultUI;
 use unit::PlayerNum;
 use util::Dims;
 
@@ -104,34 +102,11 @@ fn main() {
                 match unit_namer() {
                     Ok(unit_namer) => {
 
-                        let mut game = Game::new(MAP_DIMS, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultLog);
+                        let game = Game::new(MAP_DIMS, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
 
-                        {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
-                            let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-                            let mut ui = ui::TermUI::new(
-                                game.map_dims(),
-                                Dims{ width: term_width, height: term_height },
-                                screen,
-                            );
-
-                            let mut mode = ui::mode::Mode::TurnStart;
-                            while mode.run(&mut game, &mut ui) {
-                                // nothing here
-                            }
+                        if let Err(msg) = ui::run(game, Dims{ width: term_width, height: term_height }) {
+                            println!("Error running UI: {}", msg);
                         }
-
-                        println!("\n\n\t\tThe Battaliad\n
-                        \tO Muse! the causes and the crimes relate;
-                        \tWhat goddess was provok'd, and whence her hate;
-                        \tFor what offense the Queen of Heav'n began
-                        \tTo persecute so brave, so just a man;
-                        \tInvolv'd his anxious life in endless cares,
-                        \tExpos'd to wants, and hurried into wars!
-                        \tCan heav'nly minds such high resentment show,
-                        \tOr exercise Their spite in human woe?");
-
-                        println!("\nThe quest awaits you.");
-
                     },
                     Err(err) => {
                         println!("Error loading unit namer: {}", err);
