@@ -31,8 +31,9 @@ pub fn run(mut game: Game, term_dims: Dims) -> Result<(),String> {
             screen,
         );
 
+        let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
-        while mode.run(&mut game, &mut ui) {
+        while mode.run(&mut game, &mut ui, &mut prev_mode) {
             // nothing here
         }
     }

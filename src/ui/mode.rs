@@ -32,26 +32,36 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub fn run<W:Write>(&mut self, game: &mut Game, ui: &mut TermUI<W>) -> bool {
-        match *self {
-            Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self),
-            Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self),
-            Mode::SetProductions =>     SetProductionsMode{}.run(game, ui, self),
-            Mode::SetProduction{loc} => {
-                let viewport_rect = ui.viewport_rect();
-                let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                SetProductionMode{rect:rect, loc:loc}.run(game, ui, self)
-            },
-            Mode::GetOrders =>          GetOrdersMode{}.run(game, ui, self),
-            Mode::GetUnitOrders{loc,first_move} =>      {
-                let viewport_rect = ui.viewport_rect();
-                let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                GetUnitOrdersMode{rect:rect, loc:loc, first_move:first_move}.run(game, ui, self)
-            },
-            Mode::Quit =>               QuitMode{}.run(game, ui, self),
-            Mode::Examine{cursor_viewport_loc, first} =>
-                ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first}.run(game, ui, self)
-        }
+    pub fn run<W:Write>(&mut self, game: &mut Game, ui: &mut TermUI<W>, prev_mode: &mut Option<Mode>) -> bool {
+        let continue_ = {
+            let prev_mode = prev_mode.as_ref().unwrap();
+
+            match *self {
+                Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self, prev_mode),
+                Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self, prev_mode),
+                Mode::SetProductions =>     SetProductionsMode{}.run(game, ui, self, prev_mode),
+                Mode::SetProduction{loc} => {
+                    let viewport_rect = ui.viewport_rect();
+                    let rect = sidebar_rect(viewport_rect, ui.term_dims);
+                    SetProductionMode{rect:rect, loc:loc}.run(game, ui, self, prev_mode)
+                },
+                Mode::GetOrders =>          GetOrdersMode{}.run(game, ui, self, prev_mode),
+                Mode::GetUnitOrders{loc,first_move} =>      {
+                    let viewport_rect = ui.viewport_rect();
+                    let rect = sidebar_rect(viewport_rect, ui.term_dims);
+                    GetUnitOrdersMode{rect:rect, loc:loc, first_move:first_move}.run(game, ui, self, prev_mode)
+                },
+                Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
+                Mode::Examine{cursor_viewport_loc, first} =>
+                    ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first}.run(game, ui, self, prev_mode)
+            }
+
+        };
+
+
+        *prev_mode = Some(*self);
+
+        continue_
     }
 }
 
@@ -68,7 +78,7 @@ enum KeyStatus {
 }
 
 trait IMode {
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool;
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, prev_mode: &Mode) -> bool;
 
     fn get_key<W:Write>(&self, game: &Game, ui: &mut TermUI<W>, mode: &mut Mode) -> KeyStatus {
         let key = get_key();
@@ -128,7 +138,7 @@ trait IVisibleMode: IMode {
 
 pub struct TurnStartMode {}
 impl IMode for TurnStartMode {
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Mode) -> bool {
         ui.current_player.draw(game, &mut ui.stdout);
 
         ui.log_message(Message {
@@ -147,7 +157,7 @@ impl IMode for TurnStartMode {
 
 struct TurnResumeMode{}
 impl IMode for TurnResumeMode {
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Mode) -> bool {
         // Process production set requests
         if !game.production_set_requests().is_empty() {
             *mode = Mode::SetProductions;
@@ -168,7 +178,7 @@ impl IMode for TurnResumeMode {
 
 struct SetProductionsMode{}
 impl IMode for SetProductionsMode {
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Mode) -> bool {
 
         if game.production_set_requests().is_empty() {
             ui.log_message("Productions set.".to_string());
@@ -210,7 +220,7 @@ impl SetProductionMode {
 }
 
 impl IMode for SetProductionMode {
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Mode) -> bool {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
         ui.draw(game);
@@ -264,7 +274,7 @@ impl IVisibleMode for SetProductionMode {
 
 struct GetOrdersMode {}
 impl IMode for GetOrdersMode {
-    fn run<W:Write>(&self, game: &mut Game, _ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, _ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Mode) -> bool {
         if !game.unit_orders_requests().is_empty() {
 
             let loc = *game.unit_orders_requests().iter().next().unwrap();
@@ -309,7 +319,7 @@ impl GetUnitOrdersMode {
     }
 }
 impl IMode for GetUnitOrdersMode {
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Mode) -> bool {
         {
             let unit = game.unit(self.loc).unwrap();
             ui.log_message(format!("Requesting orders for unit {} at {}", unit, self.loc));
@@ -370,7 +380,7 @@ impl IMode for GetUnitOrdersMode {
 
 struct QuitMode {}
 impl IMode for QuitMode {
-    fn run<W:Write>(&self, _game: &mut Game, ui: &mut TermUI<W>, _mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, _game: &mut Game, ui: &mut TermUI<W>, _mode: &mut Mode, _prev_mode: &Mode) -> bool {
         ui.cleanup();
         false
     }
@@ -388,7 +398,7 @@ impl ExamineMode {
     }
 }
 impl IMode for ExamineMode {
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, prev_mode: &Mode) -> bool {
         let maybe_tile = {
             let ref mut map = ui.map_scroller.scrollable;
             map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
