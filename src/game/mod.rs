@@ -288,21 +288,20 @@ impl Game {
     }
 
     pub fn city<'b>(&'b self, loc: Location) -> Option<&'b City> {
-        //FIXME Tidy up Option handling
         if let Some(tile) = self.tile(loc) {
-            if let Some(ref city) = tile.city {
-                return Some(city);
-            }
+            tile.city.as_ref()
+        } else {
+            None
         }
-        None
     }
 
     pub fn unit<'a>(&'a self, loc: Location) -> Option<&'a Unit> {
-        //FIXME Tidy up Option handling
         if let Some(tile) = self.tile(loc) {
-            if let Some(ref unit) = tile.unit {
-                return Some(unit);
-            }
+            tile.unit.as_ref()
+        } else {
+            None
+        }
+    }
         }
         None
     }
