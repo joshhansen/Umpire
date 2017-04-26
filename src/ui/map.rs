@@ -19,7 +19,7 @@ fn nonnegative_mod(x: i32, max: u16) -> u16 {
         result += max as i32;
     }
 
-    return (result % max as i32) as u16;
+    (result % max as i32) as u16
 }
 
 pub fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {

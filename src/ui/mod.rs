@@ -371,7 +371,7 @@ impl<W:Write> TermUI<W> {
 
             {
                 let viewport_dims = self.map_scroller.viewport_dims();
-                let ref mut map = self.map_scroller.scrollable;
+                let map = &mut self.map_scroller.scrollable;
 
                 // Erase the unit's symbol at its old location
                 if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
@@ -397,7 +397,7 @@ impl<W:Write> TermUI<W> {
                 defender_loc: Location) {
 
         let viewport_dims = self.map_scroller.viewport_dims();
-        let ref mut map = self.map_scroller.scrollable;
+        let map = &mut self.map_scroller.scrollable;
 
         let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc, viewport_dims);
         let defender_viewport_loc = map.map_to_viewport_coords(defender_loc, viewport_dims);
@@ -405,13 +405,13 @@ impl<W:Write> TermUI<W> {
         let defender_sym = outcome.defender().sym();
 
         for damage_recipient in outcome.received_damage_sequence() {
-            let viewport_loc = match damage_recipient {
-                &CombatParticipant::Attacker => attacker_viewport_loc,
-                &CombatParticipant::Defender => defender_viewport_loc
+            let viewport_loc = match *damage_recipient {
+                CombatParticipant::Attacker => attacker_viewport_loc,
+                CombatParticipant::Defender => defender_viewport_loc
             };
-            let sym = match damage_recipient {
-                &CombatParticipant::Attacker => attacker_sym,
-                &CombatParticipant::Defender => defender_sym
+            let sym = match *damage_recipient {
+                CombatParticipant::Attacker => attacker_sym,
+                CombatParticipant::Defender => defender_sym
             };
 
             if let Some(viewport_loc) = viewport_loc {
@@ -434,12 +434,12 @@ impl<W:Write> TermUI<W> {
 
     pub fn cursor_viewport_loc(&self, mode: &Mode) -> Option<Location> {
         let viewport_dims = self.map_scroller.viewport_dims();
-        let ref map = self.map_scroller.scrollable;
+        let map = &self.map_scroller.scrollable;
 
-        match mode {
-            &Mode::SetProduction{loc} => map.map_to_viewport_coords(loc, viewport_dims),
-            &Mode::GetUnitOrders{loc,first_move:_}      => map.map_to_viewport_coords(loc, viewport_dims),
-            _                        => None
+        match *mode {
+            Mode::SetProduction{loc} | Mode::GetUnitOrders{loc,..} =>
+                    map.map_to_viewport_coords(loc, viewport_dims),
+            _ => None
         }
     }
 }

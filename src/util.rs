@@ -187,13 +187,13 @@ pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d)
     if let Wrap::Wrapping = wrapping.horiz {
         if new_x < 0 {
             loop {
-                new_x = dims.width as i32 + new_x;
+                new_x += dims.width as i32;
                 if new_x >= 0 {
                     break;
                 }
             }
         } else {
-            new_x = new_x % dims.width as i32
+            new_x %= dims.width as i32
         }
     } else if new_x < 0 || new_x >= dims.width as i32 {
         return None;
@@ -203,13 +203,13 @@ pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d)
     if let Wrap::Wrapping = wrapping.vert {
         if new_y < 0 {
             loop {
-                new_y = dims.height as i32 + new_y;
+                new_y += dims.height as i32;
                 if new_y >= 0 {
                     break;
                 }
             }
         } else {
-            new_y = new_y % dims.height as i32
+            new_y %= dims.height as i32
         }
     } else if new_y < 0 || new_y >= dims.height as i32 {
         return None;
@@ -239,18 +239,18 @@ pub fn sleep_millis(millis: u64) {
     sleep(Duration::from_millis(millis));
 }
 
-pub fn grapheme_substr(s: &String, len: usize) -> String {
+pub fn grapheme_substr(s: &str, len: usize) -> String {
     let mut substr = String::with_capacity(len);
 
-    for grapheme in UnicodeSegmentation::graphemes(s.as_str(), true).take(len) {
+    for grapheme in UnicodeSegmentation::graphemes(s, true).take(len) {
         substr.push_str(grapheme);
     }
 
     substr
 }
 
-pub fn grapheme_len(s: &String) -> usize {
-    UnicodeSegmentation::graphemes(s.as_str(), true).count()
+pub fn grapheme_len(s: &str) -> usize {
+    UnicodeSegmentation::graphemes(s, true).count()
 }
 
 #[cfg(test)]

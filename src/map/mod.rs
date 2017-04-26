@@ -59,12 +59,10 @@ impl Tile {
     pub fn sym(&self) -> &'static str {
         if let Some(ref unit) = self.unit {
             unit.sym()
+        } else if let Some(ref city) = self.city {
+            city.sym()
         } else {
-            if let Some(ref city) = self.city {
-                city.sym()
-            } else {
-                " "
-            }
+            " "
         }
     }
 
@@ -111,12 +109,10 @@ impl fmt::Display for Tile {
             } else {
                 write!(f, "{}", city)
             }
+        } else if let Some(ref unit) = self.unit {
+            write!(f, "{} on {}", unit, self.terrain)
         } else {
-            if let Some(ref unit) = self.unit {
-                write!(f, "{} on {}", unit, self.terrain)
-            } else {
-                write!(f, "{}", self.terrain)
-            }
+            write!(f, "{}", self.terrain)
         }
     }
 }

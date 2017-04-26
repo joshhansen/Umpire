@@ -17,8 +17,7 @@ use util::{Direction,Location,Rect,WRAP_BOTH};
 
 fn get_key() -> Key {
     let stdin = stdin();
-    let c = stdin.keys().next().unwrap().unwrap();
-    c
+    stdin.keys().next().unwrap().unwrap()
 }
 
 #[derive(Clone,Copy,Debug)]
@@ -91,7 +90,7 @@ trait IMode {
                     return KeyStatus::Handled(StateDisposition::Quit);
                 },
                 conf::KEY_EXAMINE => {
-                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(&mode) {
+                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(mode) {
                         *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc, first: true};
                         return KeyStatus::Handled(StateDisposition::Next);
                     } else {
@@ -110,7 +109,7 @@ trait IMode {
 
     fn map_loc_to_viewport_loc<W:Write>(ui: &mut TermUI<W>, map_loc: Location) -> Option<Location> {
         let viewport_dims = ui.map_scroller.viewport_dims();
-        let ref map = ui.map_scroller.scrollable;
+        let map = &ui.map_scroller.scrollable;
         map.map_to_viewport_coords(map_loc, viewport_dims)
     }
 }
@@ -185,7 +184,7 @@ impl IMode for SetProductionsMode {
         let loc = *game.production_set_requests().iter().next().unwrap();
 
         *mode = Mode::SetProduction{loc:loc};
-        return true;
+        true
     }
 }
 
@@ -234,7 +233,7 @@ impl IMode for SetProductionMode {
                         if let Some(unit_type) = UnitType::from_key(&c) {
                             game.set_production(self.loc, unit_type).unwrap();
 
-                            let ref city = game.city(self.loc).unwrap();
+                            let city = &game.city(self.loc).unwrap();
                             ui.replace_message(Message {
                                 text: format!("Set {}'s production to {}", city.name(), unit_type),
                                 mark: Some('·'),
@@ -388,18 +387,18 @@ struct ExamineMode {
 }
 impl ExamineMode {
     fn clean_up<W:Write>(&self, game: &Game, ui: &mut TermUI<W>) {
-        let ref mut map = ui.map_scroller.scrollable;
+        let map = &mut ui.map_scroller.scrollable;
         map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
         ui.stdout.flush().unwrap();
     }
 
     fn maybe_tile<'a, W:Write>(&'a self, game: &'a Game, ui: &TermUI<W>) -> Option<&'a Tile> {
-        let ref map = ui.map_scroller.scrollable;
+        let map = &ui.map_scroller.scrollable;
         map.tile(game, self.cursor_viewport_loc)
     }
 
     fn draw_tile<'a, W:Write>(&'a self, game: &'a Game, ui: &mut TermUI<W>) {
-        let ref mut map = ui.map_scroller.scrollable;
+        let map = &mut ui.map_scroller.scrollable;
         map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
     }
 }
@@ -432,7 +431,7 @@ impl IMode for ExamineMode {
                     *mode = Mode::TurnResume;
                 } else if key==Key::Char(conf::KEY_EXAMINE_SELECT) {
 
-                    if let Some(ref tile) = self.maybe_tile(game, ui) {
+                    if let Some(tile) = self.maybe_tile(game, ui) {
                         if let Some(ref city) = tile.city {
                             let current_alignment = Alignment::Belligerent{player: game.current_player()};
                             if city.alignment() == current_alignment {
@@ -443,17 +442,17 @@ impl IMode for ExamineMode {
                         }
                     }
 
-                    if let &Some(Mode::GetUnitOrders{loc,first_move:_}) = prev_mode {
+                    if let Some(Mode::GetUnitOrders{loc,..}) = *prev_mode {
 
                         let (can_move, dest) = {
                             let unit = game.unit(loc).unwrap();
 
-                            let can_move = if let Some(ref tile) = self.maybe_tile(game, ui) {
+                            let can_move = if let Some(tile) = self.maybe_tile(game, ui) {
                                 unit.can_move_on_tile(tile)
                             } else {
                                 false
                             };
-                            let dest = if let Some(ref tile) = self.maybe_tile(game, ui) {
+                            let dest = if let Some(tile) = self.maybe_tile(game, ui) {
                                 Some(tile.loc)
                             } else {
                                 None
@@ -487,8 +486,7 @@ impl IMode for ExamineMode {
             KeyStatus::Handled(state_disposition) => {
                 match state_disposition {
                     StateDisposition::Quit => false,
-                    StateDisposition::Next => true,
-                    StateDisposition::Stay => true//examine mode doesn't loop, so just move on to the next state
+                    StateDisposition::Next | StateDisposition::Stay => true
                 }
             }
         }

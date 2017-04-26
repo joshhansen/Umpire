@@ -40,7 +40,7 @@ impl<T> LocationGrid<T> {
         LocationGrid{ grid: grid, dims: dims }
     }
 
-    pub fn get<'a>(&'a self, loc: Location) -> Option<&'a T> {
+    pub fn get(&self, loc: Location) -> Option<&T> {
         if let Some(col) = self.grid.get(loc.x as usize) {
             col.get(loc.y as usize)
         } else {
@@ -48,7 +48,7 @@ impl<T> LocationGrid<T> {
         }
     }
 
-    pub fn get_mut<'a>(&'a mut self, loc: Location) -> Option<&'a mut T> {
+    pub fn get_mut(&mut self, loc: Location) -> Option<&mut T> {
         if let Some(col) = self.grid.get_mut(loc.x as usize) {
             col.get_mut(loc.y as usize)
         } else {
@@ -85,15 +85,15 @@ impl <'b> Iterator for LocationGridIter<'b> {
 
 impl<T> Index<Location> for LocationGrid<T> {
     type Output = T;
-    fn index<'a>(&'a self, location: Location) -> &'a T {
+    fn index(&self, location: Location) -> &T {
         &self.grid[location.x as usize][location.y as usize]
     }
 }
 
 impl<T> IndexMut<Location> for LocationGrid<T> {
-    fn index_mut<'a>(&'a mut self, location: Location) -> &'a mut T {
-        let col:  &mut Vec<T> = self.grid.get_mut(location.x as usize).unwrap();
-        col.get_mut(location.y as usize).unwrap()
+    fn index_mut(&mut self, location: Location) -> &mut T {
+        let col:  &mut Vec<T> = &mut self.grid[location.x as usize];
+        &mut col[location.y as usize]
     }
 }
 
@@ -120,11 +120,11 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
 /// Convert a multiline string into a map
 /// A convenience method
 /// For example:
-/// LocationGrid::try_from(
+/// `LocationGrid::try_from(
 /// "xx x x\
 ///  xx  xx\
 ///  x    x"
-/// )
+/// )`
 /// would yield a location grid with tiles populated thus:
 /// * numerals represent land terrain with a city belonging to the player of that number
 ///   i.e. character "3" becomes a city belonging to player 3 located on land.

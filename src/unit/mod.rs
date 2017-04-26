@@ -71,13 +71,9 @@ impl UnitType {
 
     fn max_hp(&self) -> u16 {
         match *self {
-            UnitType::Infantry => 1,
-            UnitType::Armor => 2,
-            UnitType::Fighter => 1,
-            UnitType::Bomber => 1,
+            UnitType::Infantry | UnitType::Fighter | UnitType::Bomber => 1,
+            UnitType::Armor | UnitType::Destroyer | UnitType::Submarine => 2,
             UnitType::Transport => 3,
-            UnitType::Destroyer => 2,
-            UnitType::Submarine => 2,
             UnitType::Cruiser => 4,
             UnitType::Battleship => 8,
             UnitType::Carrier => 6
@@ -87,12 +83,9 @@ impl UnitType {
     pub fn cost(&self) -> u16 {
         match *self {
             UnitType::Infantry => 6,
-            UnitType::Armor => 12,//?
-            UnitType::Fighter => 12,
-            UnitType::Bomber => 12,//?
+            UnitType::Armor | UnitType::Fighter | UnitType::Bomber => 12,
             UnitType::Transport => 30,
-            UnitType::Destroyer => 24,
-            UnitType::Submarine => 24,
+            UnitType::Destroyer | UnitType::Submarine=> 24,
             UnitType::Cruiser => 36,
             UnitType::Battleship => 60,
             UnitType::Carrier => 48
@@ -116,21 +109,14 @@ impl UnitType {
 
     pub fn sight_distance(&self) -> u16 {
         match *self {
-            UnitType::Infantry => 2,
-            UnitType::Armor => 2,
-            UnitType::Fighter => 4,
-            UnitType::Bomber => 4,
-            UnitType::Transport => 2,
-            UnitType::Destroyer => 3,
-            UnitType::Submarine => 3,
-            UnitType::Cruiser => 3,
-            UnitType::Battleship => 4,
-            UnitType::Carrier => 4
+            UnitType::Infantry | UnitType::Armor | UnitType::Transport => 2,
+            UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser => 3,
+            UnitType::Fighter | UnitType::Bomber | UnitType::Battleship | UnitType::Carrier => 4,
         }
     }
 
     pub fn from_key(c: &char) -> Option<UnitType> {
-        for unit_type in UnitType::values().iter() {
+        for unit_type in &UnitType::values() {
             if unit_type.key() == *c {
                 return Some(*unit_type);
             }
@@ -140,16 +126,13 @@ impl UnitType {
 
     pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
         match *self {
-            UnitType::Infantry => *terrain==Terrain::Land,
-            UnitType::Armor => *terrain==Terrain::Land,
-            UnitType::Fighter => *terrain==Terrain::Land || *terrain==Terrain::Water,
-            UnitType::Bomber => *terrain==Terrain::Land || *terrain==Terrain::Water,
-            UnitType::Transport => *terrain==Terrain::Water,
-            UnitType::Destroyer => *terrain==Terrain::Water,
-            UnitType::Submarine => *terrain==Terrain::Water,
-            UnitType::Cruiser => *terrain==Terrain::Water,
-            UnitType::Battleship => *terrain==Terrain::Water,
-            UnitType::Carrier => *terrain==Terrain::Water
+            UnitType::Infantry | UnitType::Armor =>
+                    *terrain==Terrain::Land,
+            UnitType::Fighter | UnitType::Bomber =>
+                    *terrain==Terrain::Land || *terrain==Terrain::Water,
+            UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
+            UnitType::Battleship | UnitType::Carrier =>
+                    *terrain==Terrain::Water,
         }
     }
 
@@ -219,16 +202,10 @@ impl Unit {
 
     pub fn movement_per_turn(&self) -> u16 {
         match self.type_ {
-            UnitType::Infantry => 1,
-            UnitType::Armor => 2,//?
-            UnitType::Fighter => 5,
-            UnitType::Bomber => 5,//?
-            UnitType::Transport => 2,
+            UnitType::Infantry | UnitType::Battleship | UnitType::Carrier => 1,
+            UnitType::Armor | UnitType::Transport | UnitType::Submarine | UnitType::Cruiser => 2,
             UnitType::Destroyer => 3,
-            UnitType::Submarine => 2,
-            UnitType::Cruiser => 2,
-            UnitType::Battleship => 1,
-            UnitType::Carrier => 1
+            UnitType::Fighter | UnitType::Bomber => 5,
         }
     }
 
@@ -246,7 +223,7 @@ impl Unit {
             return self.alignment != unit.alignment;
         }
 
-        return true;
+        true
     }
 
     pub fn alignment(&self) -> Alignment { self.alignment }

@@ -64,7 +64,7 @@ impl <N: Default+PartialOrd+SampleRange> Namer for WeightedNamer<N> {
     fn name(&mut self) -> String {
         // self.weighted_names_dist.ind_sample(&mut self.rng)
         let x = self.sample_range.ind_sample(&mut self.rng);
-        for cumulatively_weighted_name in self.cumulatively_weighted_names.iter() {
+        for cumulatively_weighted_name in &self.cumulatively_weighted_names {
             if cumulatively_weighted_name.cum_weight >= x {
                 return cumulatively_weighted_name.item.clone();
             }

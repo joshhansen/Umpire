@@ -21,7 +21,7 @@ pub enum ResolvedObs {
 }
 
 pub trait ObsTracker {
-    fn get<'a>(&'a self, loc: Location) -> Option<&'a Obs>;
+    fn get(&self, loc: Location) -> Option<&Obs>;
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum);
 }
 
@@ -38,7 +38,7 @@ impl FogOfWarTracker {
 }
 
 impl ObsTracker for FogOfWarTracker {
-    fn get<'a>(&'a self, loc: Location) -> Option<&'a Obs> {
+    fn get(&self, loc: Location) -> Option<&Obs> {
         self.observations.get(loc)
     }
 
@@ -57,8 +57,15 @@ impl UniversalVisibilityTracker {
         }
     }
 }
+impl Default for UniversalVisibilityTracker {
+    fn default() -> Self {
+        UniversalVisibilityTracker {
+            obs: Obs::Current
+        }
+    }
+}
 impl ObsTracker for UniversalVisibilityTracker {
-    fn get<'a>(&'a self, _loc: Location) -> Option<&'a Obs> {
+    fn get(&self, _loc: Location) -> Option<&Obs> {
         Some(&self.obs)
     }
 

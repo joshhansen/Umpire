@@ -6,23 +6,22 @@ use std::collections::{BinaryHeap,HashSet};
 use std::fmt;
 use std::ops::{Index,IndexMut};
 
-use game::Game;
-use game::obs::{Obs,ResolvedObs};
+use game::obs::Obs;
 use map::{LocationGrid,Terrain,Tile};
 use unit::{Unit,UnitType};
 use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
 
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
-    fn index<'a>(&'a self, location: Location) -> &'a Self::Output {
+    fn index(&self, location: Location) -> &Self::Output {
         &self[location.x as usize][location.y as usize]
     }
 }
 
 impl IndexMut<Location> for Vec<Vec<u16>> {
-    fn index_mut<'a>(&'a mut self, location: Location) -> &'a mut u16 {
-        let col:  &mut Vec<u16> = self.get_mut(location.x as usize).unwrap();
-        col.get_mut(location.y as usize).unwrap()
+    fn index_mut(&mut self, location: Location) -> &mut u16 {
+        let col: &mut Vec<u16> = &mut self[location.x as usize];
+        &mut col[location.y as usize]
     }
 }
 
@@ -45,13 +44,9 @@ impl ShortestPaths {
 
         let mut most_recent = dest;
 
-        loop {
-            if let Some(prev) = self.prev[most_recent] {
-                path.insert(0, prev);
-                most_recent = prev;
-            } else {
-                break;
-            }
+        while let Some(prev) = self.prev[most_recent] {
+            path.insert(0, prev);
+            most_recent = prev;
         }
 
         path
@@ -153,7 +148,7 @@ impl Filter<Obs> for UnobservedFilter {
 struct ObservedFilter {}
 impl Filter<Obs> for ObservedFilter {
     fn include(&self, obs: &Obs) -> bool {
-        if let Obs::Observed{tile:_, turn:_} = *obs {
+        if let Obs::Observed{..} = *obs {
             true
         } else {
             false
@@ -186,7 +181,7 @@ pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
     where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
 
     let mut neighbs = HashSet::new();
-    for rel_neighb in rel_neighbs.into_iter() {
+    for rel_neighb in rel_neighbs {
         if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
             if let Some(tile) = tiles.get(neighb_loc) {
                 if filter.include(tile) {
@@ -301,7 +296,7 @@ pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: 
             let tile: &Tile = tiles.get(**neighb).unwrap();
             unit_filter.include(tile)
         }) {
-            if !visited.contains(&neighb) {
+            if !visited.contains(neighb) {
                 q.push(*neighb);
             }
         }
@@ -316,7 +311,7 @@ mod test {
     use std::convert::TryFrom;
 
     use map::{LocationGrid,Tile};
-    use map::dijkstra::{Source,UnitMovementFilter,neighbors,neighbors_terrain_only,shortest_paths,RELATIVE_NEIGHBORS};
+    use map::dijkstra::{Source,UnitMovementFilter,neighbors,neighbors_terrain_only,old_shortest_paths,RELATIVE_NEIGHBORS};
     use unit::{Alignment,Unit,UnitType};
     use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
@@ -424,7 +419,7 @@ mod test {
 
         let loc = Location{x:0, y:0};
         let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
-        let shortest_neither = shortest_paths(&map, loc, &infantry, WRAP_NEITHER);
+        let shortest_neither = old_shortest_paths(&map, loc, &infantry, WRAP_NEITHER);
         println!("{:?}", shortest_neither);
         assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
@@ -439,7 +434,7 @@ mod test {
         assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(3));
 
 
-        let shortest_horiz = shortest_paths(&map, loc, &infantry, WRAP_HORIZ);
+        let shortest_horiz = old_shortest_paths(&map, loc, &infantry, WRAP_HORIZ);
         println!("{:?}", shortest_horiz);
         assert_eq!(shortest_horiz.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], Some(1));
@@ -453,7 +448,7 @@ mod test {
         assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], Some(2));
         assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], Some(2));
 
-        let shortest_vert = shortest_paths(&map, loc, &infantry, WRAP_VERT);
+        let shortest_vert = old_shortest_paths(&map, loc, &infantry, WRAP_VERT);
         assert_eq!(shortest_vert.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_vert.dist[Location{x:1, y:0}], Some(1));
         assert_eq!(shortest_vert.dist[Location{x:2, y:0}], Some(2));
@@ -466,7 +461,7 @@ mod test {
         assert_eq!(shortest_vert.dist[Location{x:1, y:2}], Some(1));
         assert_eq!(shortest_vert.dist[Location{x:2, y:2}], Some(2));
 
-        let shortest_both = shortest_paths(&map, loc, &infantry, WRAP_BOTH);
+        let shortest_both = old_shortest_paths(&map, loc, &infantry, WRAP_BOTH);
         assert_eq!(shortest_both.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_both.dist[Location{x:1, y:0}], Some(1));
         assert_eq!(shortest_both.dist[Location{x:2, y:0}], Some(1));

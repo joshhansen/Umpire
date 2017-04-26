@@ -272,15 +272,15 @@ impl Game {
         }
     }
 
-    fn tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
+    fn tile(&self, loc: Location) -> Option<&Tile> {
         self.tiles.get(loc)
     }
 
-    fn tile_mut<'a>(&'a mut self, loc: Location) -> Option<&'a mut Tile> {
+    fn tile_mut(&mut self, loc: Location) -> Option<&mut Tile> {
         self.tiles.get_mut(loc)
     }
 
-    pub fn current_player_tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
+    pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
         let obs = self.current_player_obs(loc).unwrap();
 
         match *obs {
@@ -291,11 +291,11 @@ impl Game {
     }
 
     pub fn current_player_obs(&self, loc: Location) -> Option<&Obs> {
-        let obs_tracker: &Box<ObsTracker> = self.player_observations.get(&self.current_player).unwrap();
+        let obs_tracker: &Box<ObsTracker> = &self.player_observations[&self.current_player];
         obs_tracker.get(loc)
     }
 
-    pub fn city<'b>(&'b self, loc: Location) -> Option<&'b City> {
+    pub fn city(&self, loc: Location) -> Option<&City> {
         if let Some(tile) = self.tile(loc) {
             tile.city.as_ref()
         } else {
@@ -303,7 +303,7 @@ impl Game {
         }
     }
 
-    pub fn unit<'a>(&'a self, loc: Location) -> Option<&'a Unit> {
+    pub fn unit(&self, loc: Location) -> Option<&Unit> {
         if let Some(tile) = self.tile(loc) {
             tile.unit.as_ref()
         } else {
@@ -311,7 +311,7 @@ impl Game {
         }
     }
 
-    fn unit_mut<'a>(&'a mut self, loc: Location) -> Option<&'a mut Unit> {
+    fn unit_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tile_mut(loc) {
             tile.unit.as_mut()
         } else {
@@ -460,15 +460,15 @@ but there is no city at that location",
     /// Units that could be produced by a city located at the given location
     pub fn valid_productions(&self, loc: Location) -> BTreeSet<UnitType> {
         UnitType::values().iter()
-        .map(|unit_type| *unit_type)
+        .cloned()
         .filter(|unit_type| {
             for neighb_loc in neighbors_terrain_only(&self.tiles, loc, *unit_type, self.wrapping) {
-                let ref neighb_tile = self.tiles[neighb_loc];
+                let neighb_tile = &self.tiles[neighb_loc];
                 if unit_type.can_move_on_terrain( &neighb_tile.terrain ) {
                     return true;
                 }
             }
-            return false;
+            false
         }).collect()
     }
 

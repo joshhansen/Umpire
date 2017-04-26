@@ -118,10 +118,8 @@ pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, src: Location, dest: Loc
         Ok(move_result) => {
             ui.animate_move(game, &move_result);
 
-            if move_result.moved_successfully() {
-                if move_result.unit().moves_remaining > 0 {
-                    game.give_orders(move_result.ending_loc().unwrap(), None, ui).unwrap();
-                }
+            if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
+                game.give_orders(move_result.ending_loc().unwrap(), None, ui).unwrap();
             }
         },
         Err(msg) => {

@@ -60,18 +60,18 @@ impl MapGenerator {
                 for y in 0..map_dims.height {
                     loc.y = y;
                     match tiles[loc].terrain {
-                        // Terrain::Land => {
-                        //
-                        //     for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
-                        //         for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
-                        //             if x2 != x && y2 != y {
-                        //                 if rng.next_f32() <= GROWTH_PROB {
-                        //                     self.tiles[x2 as usize][y2 as usize].terrain = Terrain::Land;
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
-                        // },
+                        Terrain::Land => {
+
+                            // for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
+                            //     for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
+                            //         if x2 != x && y2 != y {
+                            //             if rng.next_f32() <= GROWTH_PROB {
+                            //                 self.tiles[x2 as usize][y2 as usize].terrain = Terrain::Land;
+                            //             }
+                            //         }
+                            //     }
+                            // }
+                        },
                         Terrain::Water => {
                             let cardinal_growth_prob = land_cardinal_neighbors(&tiles, loc) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
                             let diagonal_growth_prob = land_diagonal_neighbors(&tiles, loc) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
@@ -80,7 +80,6 @@ impl MapGenerator {
                                 tiles[loc].terrain = Terrain::Land;
                             }
                         }
-                        _ => {}
                     }
                 }
             }
@@ -91,10 +90,8 @@ impl MapGenerator {
             for y in 0..map_dims.height {
                 let loc = Location{x:x, y:y};
                 let tile = &mut tiles[loc];
-                if tile.terrain == Terrain::Land {
-                    if rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                        tile.city = Some(City::new(Alignment::Neutral, loc, self.city_namer.name()));
-                    }
+                if tile.terrain == Terrain::Land && rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
+                    tile.city = Some(City::new(Alignment::Neutral, loc, self.city_namer.name()));
                 }
             }
         }
@@ -106,11 +103,9 @@ impl MapGenerator {
 
             let tile = &mut tiles[loc];
 
-            if tile.terrain == Terrain::Land {
-                if tile.city.is_none() {
-                    tile.city = Some(City::new(Alignment::Belligerent{ player: player_num }, loc, self.city_namer.name()));
-                    player_num += 1;
-                }
+            if tile.terrain == Terrain::Land && tile.city.is_none() {
+                tile.city = Some(City::new(Alignment::Belligerent{ player: player_num }, loc, self.city_namer.name()));
+                player_num += 1;
             }
         }
 
