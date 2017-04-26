@@ -7,7 +7,7 @@ use std::fmt;
 use std::ops::{Index,IndexMut};
 
 use game::Game;
-use game::obs::Obs;
+use game::obs::{Obs,ResolvedObs};
 use map::{LocationGrid,Terrain,Tile};
 use unit::{Unit,UnitType};
 use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
@@ -83,12 +83,24 @@ pub static RELATIVE_NEIGHBORS_DIAGONAL: [Vec2d<i32>; 4] = [
 
 pub trait NeighbFilter : Filter<Tile> {}
 
-struct UnitMovementFilter<'a> {
+pub struct UnitMovementFilter<'a> {
     unit: &'a Unit
+}
+impl <'a> UnitMovementFilter<'a> {
+    pub fn new(unit: &'a Unit) -> Self {
+        UnitMovementFilter {
+            unit: unit
+        }
+    }
 }
 impl <'a> Filter<Tile> for UnitMovementFilter<'a> {
     fn include(&self, neighb_tile: &Tile) -> bool {
         self.unit.can_move_on_tile(neighb_tile)
+    }
+}
+impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
+    fn include(&self, obs: &Obs) -> bool {
+        false//FIXME
     }
 }
 pub struct TerrainFilter {
@@ -100,6 +112,11 @@ impl Filter<Tile> for TerrainFilter {
     }
 }
 
+pub trait OwnedSource<T> {
+    fn get(&self, loc: Location) -> Option<T>;
+    fn dims(&self) -> Dims;
+}
+
 pub trait Source<T> {
     fn get(&self, loc: Location) -> Option<&T>;
     fn dims(&self) -> Dims;
@@ -108,14 +125,14 @@ pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
 }
 
-impl Source<Tile> for Game {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.current_player_tile(loc)
-    }
-    fn dims(&self) -> Dims {
-        self.map_dims()
-    }
-}
+// impl <T> Source<T> for OwnedSource<T> {
+//     fn get(&self, loc: Location) -> Option<&T> {
+//         OwnedSource::get(self, loc).as_ref()
+//     }
+//     fn dims(&self) -> Dims {
+//         OwnedSource::dims(self)
+//     }
+// }
 
 impl Source<Tile> for LocationGrid<Tile> {
     fn get(&self, loc: Location) -> Option<&Tile> {
@@ -140,6 +157,26 @@ impl Filter<Obs> for ObservedFilter {
             true
         } else {
             false
+        }
+    }
+}
+
+pub struct Xenophile<F:Filter<Obs>> {
+    sub_filter: F
+}
+impl <F:Filter<Obs>> Xenophile<F> {
+    pub fn new(sub_filter: F) -> Self {
+        Xenophile {
+            sub_filter: sub_filter
+        }
+    }
+}
+impl <F:Filter<Obs>> Filter<Obs> for Xenophile<F> {
+    fn include(&self, obs: &Obs) -> bool {
+        if *obs == Obs::Unobserved {
+            true
+        } else {
+            self.sub_filter.include(obs)
         }
     }
 }
@@ -199,7 +236,12 @@ impl PartialOrd for State {
 /// to any particular destination.
 ///
 /// The provided wrapping strategy is respected.
-pub fn shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
+
+// pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
+//                                  filter: &F, wrapping: Wrap2d) -> HashSet<Location>
+//     where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
+
+pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, filter: &F, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 
     let mut dist = LocationGrid::new(tiles.dims(), |_loc| None);
@@ -214,7 +256,7 @@ pub fn shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, 
         // Quit early since we're already doing worse than the best known route
         if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
 
-        for neighb_loc in neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit: unit}, wrapping) {
+        for neighb_loc in neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), filter, wrapping) {
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
 
@@ -229,6 +271,42 @@ pub fn shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, 
     }
 
     ShortestPaths { dist: dist, prev: prev }
+}
+
+pub fn old_shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
+    shortest_paths(tiles, source, &UnitMovementFilter{unit: unit}, wrapping)
+}
+
+/// Return the (or a) closest tile to the source which is reachable by the given
+/// unit and is adjacent to at least one unobserved tile. If no such tile exists
+/// then return None
+pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: &S, src: Location, unit: &Unit, wrapping: Wrap2d) -> Option<Location> {
+    let mut q = BinaryHeap::new();
+    q.push(src);
+
+    let mut visited = HashSet::new();
+
+    while let Some(loc) = q.pop() {
+        visited.insert(loc);
+
+        let observed_neighbors = neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter{}, wrapping);
+        if observed_neighbors.len() < RELATIVE_NEIGHBORS.len() {
+        // if adjacent_to_unknown {
+            return Some(loc);
+        }
+
+        let unit_filter = UnitMovementFilter{unit: unit};
+
+        for neighb in observed_neighbors.iter().filter(|neighb|{
+            let tile: &Tile = tiles.get(**neighb).unwrap();
+            unit_filter.include(tile)
+        }) {
+            if !visited.contains(&neighb) {
+                q.push(*neighb);
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

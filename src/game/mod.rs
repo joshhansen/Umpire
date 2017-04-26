@@ -7,14 +7,15 @@ pub mod obs;
 
 use std::collections::{BTreeSet,HashMap,HashSet};
 
-use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
+use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,ResolvedObs,UniversalVisibilityTracker};
 use log::{LogTarget,Message,MessageSource,Rgb};
 use map::{Tile,LocationGrid};
 use map::gen::MapGenerator;
-use map::dijkstra::{neighbors_terrain_only,shortest_paths};
+use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths};
 use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
 use unit::combat::{CombatCapable,CombatOutcome};
+use unit::orders::Orders;
 use util::{Dims,Location,Wrap,Wrap2d};
 
 
@@ -275,16 +276,23 @@ impl Game {
         self.tiles.get(loc)
     }
 
-    pub fn current_player_tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
-        let obs_tracker: &Box<ObsTracker> = self.player_observations.get(&self.current_player).unwrap();
+    fn tile_mut<'a>(&'a mut self, loc: Location) -> Option<&'a mut Tile> {
+        self.tiles.get_mut(loc)
+    }
 
-        let obs: &Obs = obs_tracker.get(loc).unwrap();
+    pub fn current_player_tile<'a>(&'a self, loc: Location) -> Option<&'a Tile> {
+        let obs = self.current_player_obs(loc).unwrap();
 
         match *obs {
             Obs::Current => self.tile(loc),
             Obs::Observed{ref tile,turn:_turn} => Some(tile),
             Obs::Unobserved => None
         }
+    }
+
+    pub fn current_player_obs(&self, loc: Location) -> Option<&Obs> {
+        let obs_tracker: &Box<ObsTracker> = self.player_observations.get(&self.current_player).unwrap();
+        obs_tracker.get(loc)
     }
 
     pub fn city<'b>(&'b self, loc: Location) -> Option<&'b City> {
@@ -302,8 +310,13 @@ impl Game {
             None
         }
     }
+
+    fn unit_mut<'a>(&'a mut self, loc: Location) -> Option<&'a mut Unit> {
+        if let Some(tile) = self.tile_mut(loc) {
+            tile.unit.as_mut()
+        } else {
+            None
         }
-        None
     }
 
     pub fn production_set_requests(&self) -> &HashSet<Location> {
@@ -322,7 +335,7 @@ impl Game {
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let shortest_paths = {
             let unit = self.tiles[src].unit.as_ref().unwrap();
-            shortest_paths(&self.tiles, src, unit, self.wrapping)
+            shortest_paths(&self.tiles, src, &UnitMovementFilter::new(unit), self.wrapping)
         };
         if let Some(distance) = shortest_paths.dist[dest] {
             if let Some(mut unit) = self.tiles[src].pop_unit() {
@@ -458,8 +471,57 @@ but there is no city at that location",
             return false;
         }).collect()
     }
+
+    pub fn give_orders<U>(&mut self, loc: Location, orders: Option<Orders>, ui: &U) -> Result<(),String> {
+        if let Some(unit) = self.unit_mut(loc) {
+            unit.give_orders(orders);
+
+            Ok(())
+        } else {
+            Err(format!("Attempted to give orders to a unit a {} but no such unit exists", loc))
+        }
+    }
 }
 
+impl Source<Tile> for Game {
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        self.current_player_tile(loc)
+    }
+    fn dims(&self) -> Dims {
+        self.map_dims()
+    }
+}
+impl Source<Obs> for Game {
+    fn get(&self, loc: Location) -> Option<&Obs> {
+        self.current_player_obs(loc)
+    }
+    fn dims(&self) -> Dims {
+        self.map_dims()
+    }
+}
+impl Source<ResolvedObs> for Game {
+    fn get(&self, loc: Location) -> Option<&ResolvedObs> {
+        // self.current_player_obs(loc).map(|obs| match obs {
+        //     &Obs::Current =>
+        //         &ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
+        //     &Obs::Observed{tile: tile, turn: turn} =>
+        //         &ResolvedObs::Observation{tile: tile, turn: turn},
+        //     &Obs::Unobserved => &ResolvedObs::Unobserved
+        // })
+
+        None
+        // self.current_player_obs(loc).map(|obs| match obs {
+        //     Obs::Current =>
+        //         ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
+        //     Obs::Observed{tile: tile, turn: turn} =>
+        //         ResolvedObs::Observation{tile: tile, turn: turn},
+        //     Obs::Unobserved => ResolvedObs::Unobserved
+        // })
+    }
+    fn dims(&self) -> Dims {
+        self.map_dims()
+    }
+}
 
 
 #[cfg(test)]

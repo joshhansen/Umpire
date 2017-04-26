@@ -252,6 +252,10 @@ impl Unit {
     pub fn alignment(&self) -> Alignment { self.alignment }
 
     pub fn orders(&self) -> &Option<Orders> { &self.orders }
+
+    pub fn give_orders(&mut self, orders: Option<Orders>) {
+        self.orders = orders;
+    }
 }
 
 impl Sym for Unit {

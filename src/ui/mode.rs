@@ -8,9 +8,11 @@ use termion::input::TermRead;
 use conf;
 use game::Game;
 use log::{LogTarget,Message,MessageSource};
+use map::Tile;
 use ui::{Draw,TermUI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
 use unit::{Alignment,UnitType};
+use unit::orders::Orders;
 use util::{Direction,Location,Rect,WRAP_BOTH};
 
 fn get_key() -> Key {
@@ -390,21 +392,31 @@ impl ExamineMode {
         map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
         ui.stdout.flush().unwrap();
     }
+
+    fn maybe_tile<'a, W:Write>(&'a self, game: &'a Game, ui: &TermUI<W>) -> Option<&'a Tile> {
+        let ref map = ui.map_scroller.scrollable;
+        map.tile(game, self.cursor_viewport_loc)
+    }
+
+    fn draw_tile<'a, W:Write>(&'a self, game: &'a Game, ui: &mut TermUI<W>) {
+        let ref mut map = ui.map_scroller.scrollable;
+        map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
+    }
 }
 impl IMode for ExamineMode {
-        let maybe_tile = {
-            let ref mut map = ui.map_scroller.scrollable;
-            map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
-            map.tile(game, self.cursor_viewport_loc)
+
+
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool {
+        self.draw_tile(game, ui);
+
+        let description = {
+            if let Some(tile) = self.maybe_tile(game, ui) {
+                format!("{}", tile)
+            } else {
+                "the horrifying void of the unknown (hic sunt dracones)".to_string()
+            }
         };
 
-        let description =
-        if let Some(tile) = maybe_tile {
-            format!("{}", tile)
-        } else {
-            "the horrifying void of the unknown (hic sunt dracones)".to_string()
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool {
-        };
 
         let message = format!("Examining: {}", description);
         if self.first {
@@ -419,14 +431,46 @@ impl IMode for ExamineMode {
                 if key==Key::Esc {
                     *mode = Mode::TurnResume;
                 } else if key==Key::Char(conf::KEY_EXAMINE_SELECT) {
-                    if let Some(tile) = maybe_tile {
+
+                    if let Some(ref tile) = self.maybe_tile(game, ui) {
                         if let Some(ref city) = tile.city {
                             let current_alignment = Alignment::Belligerent{player: game.current_player()};
                             if city.alignment() == current_alignment {
                                 *mode = Mode::SetProduction{loc:tile.loc};
+                                self.clean_up(game, ui);
+                                return true;
                             }
                         }
                     }
+
+                    if let &Some(Mode::GetUnitOrders{loc,first_move:_}) = prev_mode {
+
+                        let (can_move, dest) = {
+                            let unit = game.unit(loc).unwrap();
+
+                            let can_move = if let Some(ref tile) = self.maybe_tile(game, ui) {
+                                unit.can_move_on_tile(tile)
+                            } else {
+                                false
+                            };
+                            let dest = if let Some(ref tile) = self.maybe_tile(game, ui) {
+                                Some(tile.loc)
+                            } else {
+                                None
+                            };
+                            (can_move, dest)
+                        };
+
+
+
+
+                        if can_move {
+                            game.give_orders(loc, Some(Orders::GoTo{dest:dest.unwrap()}), ui).unwrap();
+                            self.clean_up(game, ui);
+                            return true;
+                        }
+                    }
+
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
                         let new_loc = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_BOTH).unwrap();

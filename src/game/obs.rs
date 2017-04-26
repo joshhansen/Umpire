@@ -15,6 +15,11 @@ pub enum Obs {
     Unobserved
 }
 
+pub enum ResolvedObs {
+    Observation{tile: Tile, turn: TurnNum},
+    Unobserved
+}
+
 pub trait ObsTracker {
     fn get<'a>(&'a self, loc: Location) -> Option<&'a Obs>;
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum);
