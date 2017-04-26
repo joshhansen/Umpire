@@ -110,7 +110,7 @@ impl Direction {
 }
 
 impl TryFrom<char> for Direction {
-    type Err = String;
+    type Error = String;
     fn try_from(c: char) -> Result<Direction,String> {
         match c {
             conf::KEY_UP                        => Ok(Direction::Up),

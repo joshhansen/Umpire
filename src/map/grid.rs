@@ -125,7 +125,7 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
 ///
 /// Error if there are no lines or if the lines aren't of equal length
 impl TryFrom<&'static str> for LocationGrid<Tile> {
-    type Err = String;
+    type Error = String;
     fn try_from(str: &'static str) -> Result<LocationGrid<Tile>,String> {
         let lines = Vec::from_iter( str.lines().map(|line| Vec::from_iter( line.chars() )) );
         if lines.is_empty() {
