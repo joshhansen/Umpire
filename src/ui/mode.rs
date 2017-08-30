@@ -201,11 +201,16 @@ impl SetProductionMode {
 
         for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
             let y = i as u16 + 2;
-            write!(*stdout, " {}{} - {}",
+
+            let mut char_and_name = format!(" {} - {}", unit_type.key(), unit_type.name());
+            while char_and_name.len() < 16 {
+                char_and_name.push(' ');
+            }
+
+            write!(*stdout, "{}{}",
                 self.goto(0, y),
-                unit_type.key(),
-                unit_type.name()).unwrap();
-            write!(*stdout, "{}[{}]",
+                char_and_name).unwrap();
+            write!(*stdout, "{}[{}]       ",
                 self.goto(16, y),
                 unit_type.cost()).unwrap();
         }
