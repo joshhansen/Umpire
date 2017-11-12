@@ -1,5 +1,5 @@
 //!
-//! The Battaliad: a quest of outrageous combat
+//! Umpire: Combat Quest of the Millennium
 //!
 
 // FIXME Ask for production assignment immediately after city is conquered
