@@ -9,7 +9,7 @@ use conf;
 use game::Game;
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
-use ui::{Draw,TermUI,sidebar_rect};
+use ui::{Draw,MoveAnimator,TermUI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
 use unit::{Alignment,UnitType};
 use unit::orders::Orders;
@@ -29,10 +29,15 @@ pub enum Mode {
     GetOrders,
     GetUnitOrders{loc:Location, first_move:bool},
     Quit,
-    Examine{cursor_viewport_loc:Location, first: bool}
+    Examine{
+        cursor_viewport_loc:Location,
+        first: bool,
+        most_recently_active_unit_loc: Location
+    }
 }
 
 impl Mode {
+    /// Return true if the UI should continue after this mode runs, false if it should quit
     pub fn run<W:Write>(&mut self, game: &mut Game, ui: &mut TermUI<W>, prev_mode: &mut Option<Mode>) -> bool {
         let continue_ = match *self {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self, prev_mode),
@@ -50,8 +55,9 @@ impl Mode {
                 GetUnitOrdersMode{rect:rect, loc:loc, first_move:first_move}.run(game, ui, self, prev_mode)
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
-            Mode::Examine{cursor_viewport_loc, first} =>
-                ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first}.run(game, ui, self, prev_mode)
+            Mode::Examine{cursor_viewport_loc, first, most_recently_active_unit_loc} =>
+                ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first,
+                    most_recently_active_unit_loc: most_recently_active_unit_loc}.run(game, ui, self, prev_mode)
         };
 
         *prev_mode = Some(*self);
@@ -73,6 +79,7 @@ enum KeyStatus {
 }
 
 trait IMode {
+    /// Return true if the UI should continue after this mode runs, false if it should quit
     fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool;
 
     fn get_key<W:Write>(&self, game: &Game, ui: &mut TermUI<W>, mode: &mut Mode) -> KeyStatus {
@@ -91,7 +98,11 @@ trait IMode {
                 },
                 conf::KEY_EXAMINE => {
                     if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(mode) {
-                        *mode = Mode::Examine{cursor_viewport_loc: cursor_viewport_loc, first: true};
+                        *mode = Mode::Examine{
+                            cursor_viewport_loc: cursor_viewport_loc,
+                            first: true,
+                            most_recently_active_unit_loc: ui.cursor_map_loc(mode).unwrap()
+                        };
                         return KeyStatus::Handled(StateDisposition::Next);
                     } else {
                         ui.log_message(String::from("Couldn't get cursor loc"));
@@ -388,7 +399,8 @@ impl IMode for QuitMode {
 
 struct ExamineMode {
     cursor_viewport_loc: Location,
-    first: bool
+    first: bool,
+    most_recently_active_unit_loc: Location
 }
 impl ExamineMode {
     fn clean_up<W:Write>(&self, game: &Game, ui: &mut TermUI<W>) {
@@ -410,7 +422,7 @@ impl ExamineMode {
 impl IMode for ExamineMode {
 
 
-    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         self.draw_tile(game, ui);
 
         let description = {
@@ -447,40 +459,35 @@ impl IMode for ExamineMode {
                         }
                     }
 
-                    if let Some(Mode::GetUnitOrders{loc,..}) = *prev_mode {
+                    ui.log_message(format!("Might move unit"));
+                    let (can_move, dest) = {
+                        let unit = game.unit(self.most_recently_active_unit_loc).unwrap();
 
-                        let (can_move, dest) = {
-                            let unit = game.unit(loc).unwrap();
-
-                            let can_move = if let Some(tile) = self.maybe_tile(game, ui) {
-                                unit.can_move_on_tile(tile)
-                            } else {
-                                false
-                            };
-                            let dest = if let Some(tile) = self.maybe_tile(game, ui) {
-                                Some(tile.loc)
-                            } else {
-                                None
-                            };
-                            (can_move, dest)
+                        let can_move = if let Some(tile) = self.maybe_tile(game, ui) {
+                            unit.can_move_on_tile(tile)
+                        } else {
+                            false
                         };
+                        let dest = self.maybe_tile(game, ui).map(|tile| tile.loc);
+                        (can_move, dest)
+                    };
 
+                    if can_move {
+                        let dest = dest.unwrap();
+                        game.give_orders(self.most_recently_active_unit_loc, Some(Orders::GoTo{dest:dest}), ui).unwrap();
+                        ui.log_message(format!("Ordered unit to go to {}", dest));
 
+                        *mode = Mode::TurnResume;
 
-
-                        if can_move {
-                            game.give_orders(loc, Some(Orders::GoTo{dest:dest.unwrap()}), ui).unwrap();
-                            self.clean_up(game, ui);
-                            return true;
-                        }
+                        self.clean_up(game, ui);
+                        return true;
                     }
-
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
                         let new_loc = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_BOTH).unwrap();
                         let viewport_rect = ui.viewport_rect();
                         if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
-                            *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false};
+                            *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false, most_recently_active_unit_loc: self.most_recently_active_unit_loc};
                         }
                     }
                 }

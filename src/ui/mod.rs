@@ -342,57 +342,6 @@ impl<W:Write> TermUI<W> {
         }
     }
 
-    fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
-        let mut current_loc = move_result.starting_loc();
-
-        for move_ in move_result.moves() {
-            let target_loc = move_.loc();
-
-            let mut was_combat = false;
-            if let Some(ref combat) = *move_.unit_combat() {
-                self.animate_combat(game, combat, current_loc, target_loc);
-                was_combat = true;
-            }
-
-            if let Some(ref combat) = *move_.city_combat() {
-                self.animate_combat(game, combat, current_loc, target_loc);
-                was_combat = true;
-            }
-
-            self.log_message(Message {
-                text: format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {
-                    if was_combat {"victorious"} else {"moved successfully"}
-                } else {"destroyed"}),
-                mark: Some('*'),
-                fg_color: Some(Rgb(240, 5, 5)),
-                bg_color: None,
-                source: Some(MessageSource::UI)
-            });
-
-            {
-                let viewport_dims = self.map_scroller.viewport_dims();
-                let map = &mut self.map_scroller.scrollable;
-
-                // Erase the unit's symbol at its old location
-                if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
-                    map.draw_tile(game, &mut self.stdout, current_viewport_loc, false, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
-                }
-            }
-
-            if move_.moved_successfully() {
-                self.draw_unit_observations(game, target_loc);
-            }
-
-            current_loc = target_loc;
-
-            self.stdout.flush().unwrap();
-        }
-
-        if move_result.unit().moves_remaining == 0 {
-            sleep_millis(250);
-        }
-    }
-
     fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(&mut self, game: &Game, outcome: &CombatOutcome<A,D>, attacker_loc: Location,
                 defender_loc: Location) {
 
@@ -442,6 +391,13 @@ impl<W:Write> TermUI<W> {
             _ => None
         }
     }
+
+    pub fn cursor_map_loc(&self, mode: &Mode) -> Option<Location> {
+        match *mode {
+            Mode::SetProduction{loc} | Mode::GetUnitOrders{loc,..} => Some(loc),
+            _ => None
+        }
+    }
 }
 
 impl <W:Write> LogTarget for TermUI<W> {
@@ -453,5 +409,58 @@ impl <W:Write> LogTarget for TermUI<W> {
     fn replace_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.replace(Message::from(message));
         self.log.draw_lite(&mut self.stdout);
+    }
+}
+
+impl <W:Write> MoveAnimator for TermUI<W> {
+    fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
+        let mut current_loc = move_result.starting_loc();
+
+        for move_ in move_result.moves() {
+            let target_loc = move_.loc();
+
+            let mut was_combat = false;
+            if let Some(ref combat) = *move_.unit_combat() {
+                self.animate_combat(game, combat, current_loc, target_loc);
+                was_combat = true;
+            }
+
+            if let Some(ref combat) = *move_.city_combat() {
+                self.animate_combat(game, combat, current_loc, target_loc);
+                was_combat = true;
+            }
+
+            self.log_message(Message {
+                text: format!("Unit {} {}", move_result.unit(), if move_.moved_successfully() {
+                    if was_combat {"victorious"} else {"moved successfully"}
+                } else {"destroyed"}),
+                mark: Some('*'),
+                fg_color: Some(Rgb(240, 5, 5)),
+                bg_color: None,
+                source: Some(MessageSource::UI)
+            });
+
+            {
+                let viewport_dims = self.map_scroller.viewport_dims();
+                let map = &mut self.map_scroller.scrollable;
+
+                // Erase the unit's symbol at its old location
+                if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
+                    map.draw_tile(game, &mut self.stdout, current_viewport_loc, false, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
+                }
+            }
+
+            if move_.moved_successfully() {
+                self.draw_unit_observations(game, target_loc);
+            }
+
+            current_loc = target_loc;
+
+            self.stdout.flush().unwrap();
+        }
+
+        if move_result.unit().moves_remaining == 0 {
+            sleep_millis(250);
+        }
     }
 }

@@ -228,7 +228,7 @@ impl Unit {
 
     pub fn alignment(&self) -> Alignment { self.alignment }
 
-    pub fn orders(&self) -> &Option<Orders> { &self.orders }
+    pub fn orders(&self) -> Option<&Orders> { self.orders.as_ref() }
 
     pub fn give_orders(&mut self, orders: Option<Orders>) {
         self.orders = orders;

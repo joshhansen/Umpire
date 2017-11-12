@@ -95,7 +95,13 @@ impl <'a> Filter<Tile> for UnitMovementFilter<'a> {
 }
 impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
     fn include(&self, obs: &Obs) -> bool {
-        false//FIXME
+        match *obs {
+            Obs::Unobserved => false,
+            Obs::Observed {ref tile, ..} => {
+                UnitMovementFilter::include(self, tile)
+            },
+            Obs::Current => unimplemented!()
+        }
     }
 }
 pub struct TerrainFilter {
@@ -129,14 +135,14 @@ pub trait Filter<T> {
 //     }
 // }
 
-impl Source<Tile> for LocationGrid<Tile> {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.get(loc)
-    }
-    fn dims(&self) -> Dims {
-        self.dims()
-    }
-}
+// impl Source<Tile> for LocationGrid<Tile> {
+//     fn get(&self, loc: Location) -> Option<&Tile> {
+//         self.get(loc)
+//     }
+//     fn dims(&self) -> Dims {
+//         self.dims()
+//     }
+// }
 
 #[allow(dead_code)]
 struct UnobservedFilter {}
@@ -310,8 +316,9 @@ mod test {
     use std::collections::HashSet;
     use std::convert::TryFrom;
 
+    use game::obs::Obs;
     use map::{LocationGrid,Tile};
-    use map::dijkstra::{Source,UnitMovementFilter,neighbors,neighbors_terrain_only,old_shortest_paths,RELATIVE_NEIGHBORS};
+    use map::dijkstra::{Source,UnitMovementFilter,Xenophile,neighbors,neighbors_terrain_only,old_shortest_paths,shortest_paths,RELATIVE_NEIGHBORS};
     use unit::{Alignment,Unit,UnitType};
     use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
@@ -365,7 +372,7 @@ mod test {
     }
 
     #[test]
-    fn test_neighbors() {
+    fn test_neighbors_all_unit() {
         let map = LocationGrid::try_from("*xx\n\
                                           x x\n\
                                           xxx").unwrap();
@@ -407,6 +414,72 @@ mod test {
         assert!(!neighbs_neither.contains(&Location{x:2, y:0}));
         assert!(!neighbs_neither.contains(&Location{x:2, y:1}));
         assert!(!neighbs_neither.contains(&Location{x:2, y:2}));
+    }
+
+    // pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
+    //                                  filter: &F, wrapping: Wrap2d) -> HashSet<Location>
+    //     where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
+    #[test]
+    fn test_neighbors() {//TODO
+        let map: LocationGrid<Obs> = LocationGrid::try_from(
+            "\
+            xxx\n\
+            ???\n\
+            *xx").unwrap();
+
+        let loc = Location{x:0, y:2};
+        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
+        {
+            let neighbs_both = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_BOTH);
+            assert!( neighbs_both.contains(&Location{x:0, y:0}));
+            assert!( neighbs_both.contains(&Location{x:0, y:1}));
+            assert!(!neighbs_both.contains(&Location{x:0, y:2}));
+            assert!( neighbs_both.contains(&Location{x:1, y:0}));
+            assert!( neighbs_both.contains(&Location{x:1, y:1}));
+            assert!( neighbs_both.contains(&Location{x:1, y:2}));
+            assert!( neighbs_both.contains(&Location{x:2, y:0}));
+            assert!( neighbs_both.contains(&Location{x:2, y:1}));
+            assert!( neighbs_both.contains(&Location{x:2, y:2}));
+        }
+
+        {
+            let neighbs_horiz = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_HORIZ);
+            assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
+            assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
+            assert!(!neighbs_horiz.contains(&Location{x:0, y:2}));
+            assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
+            assert!( neighbs_horiz.contains(&Location{x:1, y:1}));
+            assert!( neighbs_horiz.contains(&Location{x:1, y:2}));
+            assert!(!neighbs_horiz.contains(&Location{x:2, y:0}));
+            assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
+            assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
+        }
+        
+        {
+            let neighbs_vert = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_VERT);
+            assert!( neighbs_vert.contains(&Location{x:0, y:0}));
+            assert!( neighbs_vert.contains(&Location{x:0, y:1}));
+            assert!(!neighbs_vert.contains(&Location{x:0, y:2}));
+            assert!( neighbs_vert.contains(&Location{x:1, y:0}));
+            assert!( neighbs_vert.contains(&Location{x:1, y:1}));
+            assert!( neighbs_vert.contains(&Location{x:1, y:2}));
+            assert!(!neighbs_vert.contains(&Location{x:2, y:0}));
+            assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
+            assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
+        }
+        
+        {
+            let neighbs_neither = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_NEITHER);
+            assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
+            assert!( neighbs_neither.contains(&Location{x:0, y:1}));
+            assert!(!neighbs_neither.contains(&Location{x:0, y:2}));
+            assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
+            assert!( neighbs_neither.contains(&Location{x:1, y:1}));
+            assert!( neighbs_neither.contains(&Location{x:1, y:2}));
+            assert!(!neighbs_neither.contains(&Location{x:2, y:0}));
+            assert!(!neighbs_neither.contains(&Location{x:2, y:1}));
+            assert!(!neighbs_neither.contains(&Location{x:2, y:2}));
+        }
     }
 
     #[test]
@@ -473,5 +546,35 @@ mod test {
         assert_eq!(shortest_both.dist[Location{x:0, y:2}], Some(1));
         assert_eq!(shortest_both.dist[Location{x:1, y:2}], Some(1));
         assert_eq!(shortest_both.dist[Location{x:2, y:2}], Some(1));
+    }
+
+    #[test]
+    fn test_shortest_paths() {
+        let map: LocationGrid<Obs> = LocationGrid::try_from(
+            "\
+            xxx\n\
+            ???\n\
+            *xx").unwrap();
+
+        let loc = Location{x:0, y:0};
+        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
+
+        let shortest_neither = shortest_paths(
+            &map,
+            loc,
+            &Xenophile::new(UnitMovementFilter::new(&infantry)),
+            WRAP_NEITHER);
+
+        assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
+        assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
+        assert_eq!(shortest_neither.dist[Location{x:2, y:0}], Some(2));
+
+        assert_eq!(shortest_neither.dist[Location{x:0, y:1}], Some(1));
+        assert_eq!(shortest_neither.dist[Location{x:1, y:1}], Some(1));
+        assert_eq!(shortest_neither.dist[Location{x:2, y:1}], Some(2));
+
+        assert_eq!(shortest_neither.dist[Location{x:0, y:2}], Some(2));
+        assert_eq!(shortest_neither.dist[Location{x:1, y:2}], Some(2));
+        assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(2));
     }
 }

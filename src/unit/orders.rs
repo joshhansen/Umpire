@@ -93,6 +93,12 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, starting_loc: Location
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
 pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, src: Location, dest: Location, ui: &mut U) {
+    ui.log_message(format!("Destination 1: {}", dest));
+    let moves_remaining = {
+        game.unit(src).unwrap().moves_remaining
+    };
+
+    ui.log_message(format!("Destination 2: {}", dest));
     // Shortest paths emanating from the starting location, allowing inclusion of unobserved tiles.
     let shortest_paths = shortest_paths(
         game,
@@ -100,14 +106,26 @@ pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, src: Location, dest: Loc
         &Xenophile::new(UnitMovementFilter::new(game.unit(src).unwrap())),
         game.wrapping());
 
+    ui.log_message(format!("Destination 3: {}", dest));
+    // Find the observed tile on the path from source to destination that is nearest to the
+    // destination but also within reach of this unit's limited moves
     let mut dest = dest;
     loop {
         if game.current_player_tile(dest).is_some() {
-            break;
+            if let Some(dist) = shortest_paths.dist[dest] {
+                if dist <= moves_remaining {
+                    break;
+                }
+            }
         }
+        // if game.current_player_tile(dest).is_some() && shortest_paths.dist[dest].unwrap() <= moves_remaining {
+        //     break;
+        // }
         dest = shortest_paths.prev[dest].unwrap();
     }
     let dest = dest;
+
+    ui.log_message(format!("Destination 4: {}", dest));
     //
     // let dest = {
     //     let unit = game.unit(src).unwrap();

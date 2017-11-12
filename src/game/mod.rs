@@ -13,6 +13,7 @@ use map::{Tile,LocationGrid};
 use map::gen::MapGenerator;
 use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths};
 use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
+use ui::MoveAnimator;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
 use unit::combat::{CombatCapable,CombatOutcome};
 use unit::orders::Orders;
@@ -251,7 +252,7 @@ impl Game {
     }
 
     fn update_current_player_observations(&mut self) {
-        let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
+        let obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
 
         for tile in self.tiles.iter() {
             if let Some(ref city) = tile.city {
@@ -399,7 +400,7 @@ impl Game {
                         }
                     }
 
-                    debug_assert!(self.unit_orders_requests.remove(&src));
+                    // debug_assert!(self.unit_orders_requests.remove(&src));
 
                     unit.moves_remaining -= moves.len() as u16;
 
@@ -472,14 +473,62 @@ but there is no city at that location",
         }).collect()
     }
 
-    pub fn give_orders<U>(&mut self, loc: Location, orders: Option<Orders>, ui: &U) -> Result<(),String> {
-        if let Some(unit) = self.unit_mut(loc) {
-            unit.give_orders(orders);
+    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, loc: Location, orders: Option<Orders>, ui: &mut U) -> Result<(),String> {
 
-            Ok(())
-        } else {
-            Err(format!("Attempted to give orders to a unit a {} but no such unit exists", loc))
-        }
+        unimplemented!()
+
+        // // if let Some(unit) = self.unit_mut(loc) {
+        // //     unit.give_orders(orders);
+        // //
+        // // } else {
+        // //     return Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc));
+        // // }
+
+        // self.unit_mut(loc).unwrap().give_orders(orders);
+
+        // if self.unit(loc).is_some() {
+        //     self.unit_orders_requests.remove(&loc);
+
+        //     if let Some(ref orders) = self.unit(loc).unwrap().orders() {
+        //         orders.carry_out(loc, self, ui);
+        //     }
+
+            
+
+        //     Ok(())
+        // } else {
+        //     return Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc));
+        // }
+
+
+        // // if self.unit(loc).is_some() {
+        // //     self.unit_orders_requests.remove(&loc);
+        // //
+        // //     if let Some(ref orders) = orders {
+        // //         orders.carry_out(loc, self, ui);
+        // //     }
+        // //
+        // //     let unit = self.unit_mut(loc).unwrap();
+        // //     unit.give_orders(orders);
+        // //     Ok(())
+        // //     // if let Some(unit) = self.unit_mut(loc) {
+        // //     //     unit.give_orders(orders);
+        // //     //
+        // //     //     Ok(())
+        // //     // } else {
+        // //     //
+        // //     // }
+        // // } else {
+        // //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
+        // // }
+
+        // // if let Some(unit) = self.unit_mut(loc) {
+        // //     unit.give_orders(orders);
+        // //
+        // //     Ok(())
+        // // } else {
+        // //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
+        // // }
     }
 }
 
@@ -607,7 +656,7 @@ mod test {
 
     #[test]
     fn test_move_unit() {
-        let map = LocationGrid::try_from("--0-+-+-1--").unwrap();
+        let map: LocationGrid<Tile> = LocationGrid::try_from("--0-+-+-1--").unwrap();
         {
             let loc1 = Location{x:2, y:0};
             let loc2 = Location{x:8, y:0};
