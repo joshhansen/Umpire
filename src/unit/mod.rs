@@ -10,6 +10,7 @@ use termion::color::AnsiValue;
 
 use game::obs::Observer;
 use map::{Terrain,Tile};
+use map::newmap::{CityID,UnitID};
 use util::Location;
 use self::orders::Orders;
 
@@ -177,6 +178,8 @@ impl Ord for UnitType {
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct Unit {
+    pub id: UnitID,
+    pub loc: Location,
     pub type_: UnitType,
     pub alignment: Alignment,
     hp: u16,
@@ -187,9 +190,11 @@ pub struct Unit {
 }
 
 impl Unit {
-    pub fn new<S:Into<String>>(type_: UnitType, alignment: Alignment, name: S) -> Self {
+    pub fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
         let max_hp =type_.max_hp();
         Unit {
+            id: id,
+            loc: loc,
             type_: type_,
             alignment: alignment,
             hp: max_hp,
@@ -235,6 +240,52 @@ impl Unit {
     }
 }
 
+// pub type UnitID = u64;
+
+// #[derive(Clone,Debug,Eq,Hash,PartialEq)]
+// pub struct UnitID {
+//     id: u64
+// }
+// impl UnitID {
+//     fn next(&self) -> Self {
+//         UnitID{ id: self.id + 1 }
+//     }
+// }
+// 
+// pub struct UnitManager {
+//     next_unit_id: UnitID,
+//     units: HashMap<UnitID,Unit>
+// }
+// impl UnitManager {
+//     pub fn new() -> Self {
+//         Self{ next_unit_id: UnitID{id: 0}, units: HashMap::new() }
+//     }
+
+//     pub fn new_unit<S:Into<String>>(&mut self, type_: UnitType, alignment: Alignment, name: S) -> (UnitID,&Unit) {
+//         let unit: Unit = Unit::new(type_, alignment, name);
+//         let unit_id = self.next_unit_id;
+//         self.next_unit_id = self.next_unit_id.next();
+        
+//         let insertion_result = self.units.insert(unit_id, unit);
+//         debug_assert!(insertion_result.is_none());
+
+//         (unit_id, self.units.get(&unit_id).unwrap())
+//     }
+
+//     pub fn get(&self, unit_id: UnitID) -> Option<&Unit> {
+//         self.units.get(&unit_id)
+//     }
+
+//     pub fn get_mut(&mut self, unit_id: UnitID) -> Option<&mut Unit> {
+//         self.units.get_mut(&unit_id)
+//     }
+
+//     pub fn destroy(&mut self, unit_id: UnitID) {
+//         self.units.remove(&unit_id);
+//     }
+// }
+
+
 impl Sym for Unit {
     fn sym(&self) -> &'static str {
         match self.type_ {
@@ -264,10 +315,22 @@ impl fmt::Display for Unit {
     }
 }
 
+
+// #[derive(Clone,Debug,Eq,Hash,PartialEq)]
+// pub struct CityID {
+//     id: u64
+// }
+// impl CityID {
+//     fn next(&self) -> Self {
+//         Self{ id: self.id + 1 }
+//     }
+// }
+
 const CITY_MAX_HP: u16 = 1;
 
 #[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
+    pub id: CityID,
     pub alignment: Alignment,
     pub loc: Location,//NOTE City location is also reflected in the Game::grid matrix, so this could be stale
     hp: u16,
@@ -276,8 +339,9 @@ pub struct City {
     name: String
 }
 impl City {
-    pub fn new<S:Into<String>>(alignment: Alignment, loc: Location, name: S) -> City {
+    pub fn new<S:Into<String>>(id: CityID, alignment: Alignment, loc: Location, name: S) -> City {
         City {
+            id: id,
             loc: loc,
             alignment: alignment,
             hp: CITY_MAX_HP,

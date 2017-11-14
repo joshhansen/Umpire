@@ -1,5 +1,6 @@
 use game::TurnNum;
 use map::{LocationGrid,Tile};
+use map::dijkstra::Source;
 use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
 
 /// What a particular player knows about a tile
@@ -86,10 +87,10 @@ pub fn visible_coords_iter(sight_distance: u16) -> impl Iterator<Item=Vec2d<i32>
 
 pub trait Observer {
     fn sight_distance(&self) -> u16;
-    fn observe(&self, observer_loc: Location, tiles: &LocationGrid<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
+    fn observe(&self, observer_loc: Location, tiles: &Source<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
         for inc in visible_coords_iter(self.sight_distance()) {
             if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
-                obs_tracker.observe(loc, &tiles[loc], turn);
+                obs_tracker.observe(loc, tiles.get(loc).unwrap(), turn);
             }
         }
     }

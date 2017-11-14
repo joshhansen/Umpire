@@ -7,11 +7,12 @@ pub mod obs;
 
 use std::collections::{BTreeSet,HashMap,HashSet};
 
-use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,ResolvedObs,UniversalVisibilityTracker};
+use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
 use log::{LogTarget,Message,MessageSource,Rgb};
-use map::{Tile,LocationGrid};
+use map::Tile;
 use map::gen::MapGenerator;
 use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths};
+use map::newmap::MapData;
 use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use ui::MoveAnimator;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
@@ -104,7 +105,8 @@ impl MoveComponent {
 }
 
 pub struct Game {
-    tiles: LocationGrid<Tile>, // tiles[col][row]
+    // tiles: LocationGrid<Tile>, // tiles[col][row]
+    map: MapData,
     player_observations: HashMap<PlayerNum,Box<ObsTracker>>,
     turn: TurnNum,
     num_players: PlayerNum,
@@ -134,7 +136,7 @@ impl Game {
         Game::new_with_map(map, num_players, fog_of_war, unit_namer, log)
     }
 
-    fn new_with_map<L:LogTarget>(map: LocationGrid<Tile>, num_players: PlayerNum,
+    fn new_with_map<L:LogTarget>(map: MapData, num_players: PlayerNum,
             fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
             log: &mut L) -> Self {
 
@@ -155,7 +157,7 @@ impl Game {
         ));
 
         let mut game = Game {
-            tiles: map,
+            map: map,
             player_observations: player_observations,
             turn: 0,
             num_players: num_players,
@@ -182,29 +184,66 @@ impl Game {
         for x in 0..self.map_dims().width {
             for y in 0..self.map_dims().height {
                 let loc = Location{x:x, y:y};
-                let tile: &mut Tile = &mut self.tiles[loc];
+                // let tile: &mut Tile = &mut self.tiles[loc];
 
-                if let Some(ref mut city) = tile.city {
-                    if let Alignment::Belligerent{player} = city.alignment {
-                        if player==self.current_player {
+                let new_unit_produced: Option<UnitType> = {
+                    if let Some(ref mut city) = self.map.mut_city_by_loc(loc) {
+                        if let Alignment::Belligerent{player} = city.alignment {
+                            if player==self.current_player {
 
-                            if let Some(ref unit_under_production) = city.unit_under_production {
-                                city.production_progress += 1;
-                                if city.production_progress >= unit_under_production.cost() {
-                                    let new_unit = Unit::new(*unit_under_production, city.alignment, self.unit_namer.name());
-                                    log.log_message(format!("{} produced {}", city, new_unit));
-                                    tile.unit = Some(new_unit);
-                                    city.production_progress = 0;
+                                if let Some(ref unit_under_production) = city.unit_under_production {
+                                    city.production_progress += 1;
+                                    if city.production_progress >= unit_under_production.cost() {
+                                        log.log_message(format!("{} produced a {}", city, unit_under_production));
+                                        city.production_progress = 0;
+                                        Some(*unit_under_production)
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    log.log_message(format!("Queueing production set request for {}", city));
+                                    self.production_set_requests.insert(loc);
+                                    None
                                 }
                             } else {
-                                log.log_message(format!("Queueing production set request for {}", city));
-                                self.production_set_requests.insert(loc);
+                                None
                             }
+                        } else {
+                            None
                         }
+                    } else {
+                        None
                     }
+                };
+
+                if let Some(unit_under_production) = new_unit_produced {
+                    let alignment = self.map.city_by_loc(loc).unwrap().alignment;
+                    let new_unit = self.map.new_unit(loc, unit_under_production, alignment, self.unit_namer.name()).unwrap();
+                    log.log_message(format!("{} was produced", new_unit));
                 }
 
-                if let Some(ref mut unit) = tile.unit {
+                // if let Some(ref mut city) = self.map.mut_city_by_loc(loc) {
+                //     if let Alignment::Belligerent{player} = city.alignment {
+                //         if player==self.current_player {
+
+                //             if let Some(ref unit_under_production) = city.unit_under_production {
+                //                 city.production_progress += 1;
+                //                 if city.production_progress >= unit_under_production.cost() {
+                //                     let new_unit = self.map.new_unit(loc, *unit_under_production, city.alignment, self.unit_namer.name()).unwrap();
+                //                     // let new_unit = Unit::new(*unit_under_production, city.alignment, self.unit_namer.name());
+                //                     log.log_message(format!("{} produced {}", city, new_unit));
+                //                     // tile.unit = Some(new_unit);
+                //                     city.production_progress = 0;
+                //                 }
+                //             } else {
+                //                 log.log_message(format!("Queueing production set request for {}", city));
+                //                 self.production_set_requests.insert(loc);
+                //             }
+                //         }
+                //     }
+                // }
+
+                if let Some(ref mut unit) = self.map.mut_unit_by_loc(loc) {
                     if let Alignment::Belligerent{player} = unit.alignment {
                         if player==self.current_player {
                             unit.moves_remaining = unit.movement_per_turn();
@@ -254,19 +293,26 @@ impl Game {
     fn update_current_player_observations(&mut self) {
         let obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
 
-        for tile in self.tiles.iter() {
-            if let Some(ref city) = tile.city {
-                if let Alignment::Belligerent{player} = city.alignment {
-                    if player==self.current_player {
-                        city.observe(tile.loc, &self.tiles, self.turn, self.wrapping, obs_tracker);
+        let mut loc = Location{x: 0, y: 0};
+        for x in 0..self.map.dims().width {
+            loc.x = x;
+            for y in 0..self.map.dims().height {
+                loc.y = y;
+
+                let tile = self.map.tile(loc).unwrap();
+                if let Some(ref city) = tile.city {
+                    if let Alignment::Belligerent{player} = city.alignment {
+                        if player==self.current_player {
+                            city.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+                        }
                     }
                 }
-            }
 
-            if let Some(ref unit) = tile.unit {
-                if let Alignment::Belligerent{player} = unit.alignment {
-                    if player==self.current_player {
-                        unit.observe(tile.loc, &self.tiles, self.turn, self.wrapping, obs_tracker);
+                if let Some(ref unit) = tile.unit {
+                    if let Alignment::Belligerent{player} = unit.alignment {
+                        if player==self.current_player {
+                            unit.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+                        }
                     }
                 }
             }
@@ -274,12 +320,13 @@ impl Game {
     }
 
     fn tile(&self, loc: Location) -> Option<&Tile> {
-        self.tiles.get(loc)
+        self.map.tile(loc)
     }
 
-    fn tile_mut(&mut self, loc: Location) -> Option<&mut Tile> {
-        self.tiles.get_mut(loc)
-    }
+    // #[deprecated]
+    // fn tile_mut(&mut self, loc: Location) -> Option<&mut Tile> {
+    //     self.map.tile_mut(loc)
+    // }
 
     pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
         let obs = self.current_player_obs(loc).unwrap();
@@ -297,28 +344,16 @@ impl Game {
     }
 
     pub fn city(&self, loc: Location) -> Option<&City> {
-        if let Some(tile) = self.tile(loc) {
-            tile.city.as_ref()
-        } else {
-            None
-        }
+        self.map.city_by_loc(loc)
     }
 
     pub fn unit(&self, loc: Location) -> Option<&Unit> {
-        if let Some(tile) = self.tile(loc) {
-            tile.unit.as_ref()
-        } else {
-            None
-        }
+        self.map.unit_by_loc(loc)
     }
 
-    fn unit_mut(&mut self, loc: Location) -> Option<&mut Unit> {
-        if let Some(tile) = self.tile_mut(loc) {
-            tile.unit.as_mut()
-        } else {
-            None
-        }
-    }
+    // fn unit_mut(&mut self, loc: Location) -> Option<&mut Unit> {
+    //     self.map.mut_unit_by_loc(loc)
+    // }
 
     pub fn production_set_requests(&self) -> &HashSet<Location> {
         &self.production_set_requests
@@ -335,11 +370,11 @@ impl Game {
     //FIXME This function checks two separate times whether a unit exists at src
     pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let shortest_paths = {
-            let unit = self.tiles[src].unit.as_ref().unwrap();
-            shortest_paths(&self.tiles, src, &UnitMovementFilter::new(unit), self.wrapping)
+            let unit = self.map.unit_by_loc(src).unwrap();
+            shortest_paths(&self.map, src, &UnitMovementFilter::new(unit), self.wrapping)
         };
         if let Some(distance) = shortest_paths.dist[dest] {
-            if let Some(mut unit) = self.tiles[src].pop_unit() {
+            if let Some(mut unit) = self.map.pop_unit_by_loc(src) {
                 if distance > unit.moves_remaining {
                     Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
                                 unit, src, dest, distance, unit.moves_remaining))
@@ -370,20 +405,20 @@ impl Game {
                         moves.push(MoveComponent::new(*loc));
                         let mut move_ = moves.last_mut().unwrap();
 
-                        let mut dest_tile = &mut self.tiles[*loc];
-                        debug_assert_eq!(dest_tile.loc, *loc);
-                        if let Some(ref other_unit) = dest_tile.unit {
+                        // let mut dest_tile = &mut self.tiles[*loc];
+                        // debug_assert_eq!(dest_tile.loc, *loc);
+                        if let Some(ref other_unit) = self.map.unit_by_loc(*loc) {
                             move_.unit_combat = Some(unit.fight(other_unit));
                         }
                         if let Some(ref outcome) = move_.unit_combat {
                             if outcome.destroyed() {
                                 break;
                             } else {
-                                dest_tile.unit = None;// eliminate the unit we conquered
+                                self.map.destroy_unit_by_loc(*loc);// eliminate the unit we conquered
                             }
                         }
 
-                        if let Some(ref mut city) = dest_tile.city {
+                        if let Some(city) = self.map.mut_city_by_loc(*loc) {
                             if city.alignment != unit.alignment {
                                 let outcome = unit.fight(city);
 
@@ -410,11 +445,11 @@ impl Game {
                                 self.unit_orders_requests.insert(dest);
                             }
 
-                            self.tiles[dest].set_unit(unit.clone());
+                            self.map.set_unit(dest, unit.clone());
                         }
 
                         let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
-                        unit.observe(dest, &self.tiles, self.turn, self.wrapping, obs_tracker);
+                        unit.observe(dest, &self.map, self.turn, self.wrapping, obs_tracker);
                     }
 
                     MoveResult::new(unit, src, moves)
@@ -429,7 +464,7 @@ impl Game {
 
     //FIXME Make set_production return Err rather than panic if location is out of bounds
     pub fn set_production(&mut self, location: Location, production: UnitType) -> Result<(),String> {
-        if let Some(ref mut city) = self.tiles[location].city {
+        if let Some(city) = self.map.mut_city_by_loc(location) {
             city.unit_under_production = Some(production);
             self.production_set_requests.remove(&location);
             Ok(())
@@ -451,7 +486,7 @@ but there is no city at that location",
     }
 
     pub fn map_dims(&self) -> Dims {
-        self.tiles.dims()
+        self.map.dims()
     }
 
     pub fn wrapping(&self) -> Wrap2d {
@@ -463,9 +498,9 @@ but there is no city at that location",
         UnitType::values().iter()
         .cloned()
         .filter(|unit_type| {
-            for neighb_loc in neighbors_terrain_only(&self.tiles, loc, *unit_type, self.wrapping) {
-                let neighb_tile = &self.tiles[neighb_loc];
-                if unit_type.can_move_on_terrain( &neighb_tile.terrain ) {
+            for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
+                let terrain = self.map.terrain(neighb_loc).unwrap();
+                if unit_type.can_move_on_terrain( &terrain ) {
                     return true;
                 }
             }
@@ -473,7 +508,7 @@ but there is no city at that location",
         }).collect()
     }
 
-    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, loc: Location, orders: Option<Orders>, ui: &mut U) -> Result<(),String> {
+    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, _loc: Location, _orders: Option<Orders>, _ui: &mut U) -> Result<(),String> {
 
         unimplemented!()
 
@@ -548,29 +583,29 @@ impl Source<Obs> for Game {
         self.map_dims()
     }
 }
-impl Source<ResolvedObs> for Game {
-    fn get(&self, loc: Location) -> Option<&ResolvedObs> {
-        // self.current_player_obs(loc).map(|obs| match obs {
-        //     &Obs::Current =>
-        //         &ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
-        //     &Obs::Observed{tile: tile, turn: turn} =>
-        //         &ResolvedObs::Observation{tile: tile, turn: turn},
-        //     &Obs::Unobserved => &ResolvedObs::Unobserved
-        // })
+// impl Source<ResolvedObs> for Game {
+//     fn get(&self, loc: Location) -> Option<&ResolvedObs> {
+//         // self.current_player_obs(loc).map(|obs| match obs {
+//         //     &Obs::Current =>
+//         //         &ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
+//         //     &Obs::Observed{tile: tile, turn: turn} =>
+//         //         &ResolvedObs::Observation{tile: tile, turn: turn},
+//         //     &Obs::Unobserved => &ResolvedObs::Unobserved
+//         // })
 
-        None
-        // self.current_player_obs(loc).map(|obs| match obs {
-        //     Obs::Current =>
-        //         ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
-        //     Obs::Observed{tile: tile, turn: turn} =>
-        //         ResolvedObs::Observation{tile: tile, turn: turn},
-        //     Obs::Unobserved => ResolvedObs::Unobserved
-        // })
-    }
-    fn dims(&self) -> Dims {
-        self.map_dims()
-    }
-}
+//         None
+//         // self.current_player_obs(loc).map(|obs| match obs {
+//         //     Obs::Current =>
+//         //         ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
+//         //     Obs::Observed{tile: tile, turn: turn} =>
+//         //         ResolvedObs::Observation{tile: tile, turn: turn},
+//         //     Obs::Unobserved => ResolvedObs::Unobserved
+//         // })
+//     }
+//     fn dims(&self) -> Dims {
+//         self.map_dims()
+//     }
+// }
 
 
 #[cfg(test)]

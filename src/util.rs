@@ -43,6 +43,14 @@ pub struct Dims {
     pub height: u16
 }
 
+impl Dims {
+    pub fn in_bounds(&self, loc: Location) -> bool {
+        // loc.x >= 0 && 
+        // loc.y >= 0 &&
+        loc.x < self.width && loc.y < self.height
+    }
+}
+
 impl fmt::Display for Dims {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.width.fmt(f)

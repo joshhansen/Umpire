@@ -124,6 +124,7 @@ impl fmt::Display for Tile {
 pub mod dijkstra;
 pub mod gen;
 mod grid;
+pub mod newmap;
 
 pub use self::grid::LocationGrid;
 

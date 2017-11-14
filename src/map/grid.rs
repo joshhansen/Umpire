@@ -7,6 +7,7 @@ use std::ops::{Index,IndexMut};
 use game::obs::Obs;
 use map::{Terrain,Tile};
 use map::dijkstra::Source;
+use map::newmap::CityID;
 use unit::{Alignment,City,PlayerNum};
 use util::{Dims,Location};
 
@@ -162,9 +163,11 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
             }
         }
 
+        let height = lines.len() as u16;
+
         Ok(
             LocationGrid::new(
-                Dims{width: width as u16, height: lines.len() as u16 },
+                Dims{width: width as u16, height: height as u16 },
                 |loc| {
                     let c = lines[loc.y as usize][loc.x as usize];
                     let mut tile = Tile::new(
@@ -175,8 +178,10 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
                         },
                         loc
                     );
+                    let id: u64 = (loc.x * height + loc.y) as u64;
                     if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                         tile.city = Some(City::new(
+                            CityID::new(id),
                             Alignment::Belligerent{player: player_num},
                             loc,
                             format!("City_{}_{}", loc.x, loc.y)
@@ -225,9 +230,11 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
             }
         }
 
+        let height = lines.len() as u16;
+
         Ok(
             LocationGrid::new(
-                Dims{width: width as u16, height: lines.len() as u16 },
+                Dims{width: width as u16, height: height },
                 |loc| {
                     let c = lines[loc.y as usize][loc.x as usize];
                     if c == '?' {
@@ -242,8 +249,10 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
                             loc
                         );
 
+                        let id: u64 = (loc.x * height + loc.y) as u64;
                         if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                             tile.city = Some(City::new(
+                                CityID::new(id),
                                 Alignment::Belligerent{player: player_num},
                                 loc,
                                 format!("City_{}_{}", loc.x, loc.y)
