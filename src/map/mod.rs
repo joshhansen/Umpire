@@ -131,6 +131,7 @@ pub use self::grid::LocationGrid;
 #[cfg(test)]
 mod test {
     use map::{Terrain,Tile};
+    use map::newmap::UnitID;
     use unit::{Alignment,Unit,UnitType};
     use util::Location;
 
@@ -146,7 +147,7 @@ mod test {
 
         let mut tile = tile;
 
-        let unit = Unit::new(UnitType::Infantry, Alignment::Neutral, "Mordai Nowhere");
+        let unit = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Neutral, "Mordai Nowhere");
         let unit2 = unit.clone();
         tile.set_unit(unit);
         assert_eq!(tile.unit, Some(unit2));

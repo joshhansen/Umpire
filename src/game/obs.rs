@@ -100,6 +100,7 @@ pub trait Observer {
 mod test {
     use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker};
     use map::{LocationGrid,Terrain,Tile};
+    use map::newmap::UnitID;
     use util::{Dims,Location,WRAP_BOTH};
     use unit::{Alignment,Unit,UnitType};
     #[test]
@@ -119,7 +120,7 @@ mod test {
 
         assert_eq!(tracker.get(loc), Some(&Obs::Observed{tile: tile, turn: turn}));
 
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "George Glover");
+        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "George Glover");
         infantry.observe(loc, &map, turn, WRAP_BOTH, &mut tracker);
     }
 }

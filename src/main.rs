@@ -104,12 +104,21 @@ fn main() {
                     players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
                 })
             )
+            .arg(Arg::with_name("use_alt_screen")
+                .short("a")
+                .long("altscreen")
+                .help("Use alternate screen")
+                .takes_value(true)
+                .default_value(conf::USE_ALTERNATE_SCREEN)
+                .possible_values(&["on","off"])
+            )
         .get_matches();
 
         print_loading_screen();
 
         let fog_of_war = matches.value_of("fog").unwrap() == "on";
         let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
+        let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
 
         match city_namer() {
             Ok(city_namer) => {
@@ -118,7 +127,7 @@ fn main() {
 
                         let game = Game::new(MAP_DIMS, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
 
-                        if let Err(msg) = ui::run(game, Dims{ width: term_width, height: term_height }) {
+                        if let Err(msg) = ui::run(game, Dims{ width: term_width, height: term_height }, use_alt_screen) {
                             println!("Error running UI: {}", msg);
                         }
                     },

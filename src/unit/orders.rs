@@ -1,6 +1,7 @@
 use game::Game;
 use log::LogTarget;
 use map::dijkstra::{UnitMovementFilter,Xenophile,nearest_reachable_adjacent_unobserved,shortest_paths};
+use map::newmap::UnitID;
 use ui::MoveAnimator;
 use util::Location;
 
@@ -12,16 +13,16 @@ pub enum Orders {
 }
 
 impl Orders {
-    pub fn carry_out<U:LogTarget+MoveAnimator>(&self, unit_loc: Location, game: &mut Game, ui: &mut U) {
+    pub fn carry_out<U:LogTarget+MoveAnimator>(&self, unit_id: UnitID, game: &mut Game, ui: &mut U) {
         match *self {
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
             },
             Orders::GoTo{dest} => {
-                go_to(game, unit_loc, dest, ui);
+                go_to(game, unit_id, dest, ui);
             },
             Orders::Explore => {
-                explore(game, unit_loc, ui);
+                explore(game, unit_id, ui);
             }
         }//match orders
     }
@@ -42,7 +43,7 @@ www
 
 
 */
-pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, starting_loc: Location, ui: &mut U) {
+pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &mut U) {
     // // Shortest paths emanating from the starting location, considering only observed tiles
     // let shortest_paths_observed = shortest_paths_unit_limited(game, starting_loc,
     //                                             game.unit(starting_loc).unwrap(), game.wrapping());
@@ -53,14 +54,14 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, starting_loc: Location
     //
     //
     //
-    let mut current_loc = starting_loc;
+    let mut current_loc = game.unit_by_id(unit_id).unwrap().loc;
     loop {
         if let Some(goal) = {
-            let unit = game.unit(current_loc).unwrap();
+            let unit = game.unit_by_id(unit_id).unwrap();
             nearest_reachable_adjacent_unobserved(game, current_loc, unit, game.wrapping())
         } {
 
-            match game.move_unit(current_loc, goal) {
+            match game.move_unit_by_id(unit_id, goal) {
                 Ok(move_result) => {
                     ui.animate_move(game, &move_result);
 
@@ -74,7 +75,7 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, starting_loc: Location
             }
 
         } else {
-            game.give_orders(current_loc, None, ui).unwrap();
+            game.give_orders(unit_id, None, ui).unwrap();
             break;
         }
     }
@@ -92,19 +93,28 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, starting_loc: Location
 /// So, in all cases, the right thing to do is to go to the observed, accessible tile nearest the
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
-pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, src: Location, dest: Location, ui: &mut U) {
+pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: Location, ui: &mut U) {
     ui.log_message(format!("Destination 1: {}", dest));
-    let moves_remaining = {
-        game.unit(src).unwrap().moves_remaining
-    };
+    // let moves_remaining = {
+    //     game.unit_by_id(unit_id).unwrap().moves_remaining
+    // };
+    //
+    // ui.log_message(format!("Destination 2: {}", dest));
 
-    ui.log_message(format!("Destination 2: {}", dest));
-    // Shortest paths emanating from the starting location, allowing inclusion of unobserved tiles.
-    let shortest_paths = shortest_paths(
-        game,
-        src,
-        &Xenophile::new(UnitMovementFilter::new(game.unit(src).unwrap())),
-        game.wrapping());
+
+    let (moves_remaining, shortest_paths) = {
+        let unit = game.unit_by_id(unit_id).unwrap();
+        let moves_remaining = unit.moves_remaining;
+
+        // Shortest paths emanating from the unit's location, allowing inclusion of unobserved tiles.
+        let shortest_paths = shortest_paths(
+            game,
+            unit.loc,
+            &Xenophile::new(UnitMovementFilter::new(unit)),
+            game.wrapping());
+
+        (moves_remaining, shortest_paths)
+    };
 
     ui.log_message(format!("Destination 3: {}", dest));
     // Find the observed tile on the path from source to destination that is nearest to the
@@ -132,12 +142,12 @@ pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, src: Location, dest: Loc
     //     nearest_reachable_adjacent_unobserved(game, src, &unit, game.wrapping())
     // };
 
-    match game.move_unit(src, dest) {
+    match game.move_unit_by_id(unit_id, dest) {
         Ok(move_result) => {
             ui.animate_move(game, &move_result);
 
             if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
-                game.give_orders(move_result.ending_loc().unwrap(), None, ui).unwrap();
+                game.give_orders(unit_id, None, ui).unwrap();
             }
         },
         Err(msg) => {

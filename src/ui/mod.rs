@@ -22,19 +22,31 @@ use unit::Sym;
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
 
-pub fn run(mut game: Game, term_dims: Dims) -> Result<(),String> {
+pub fn run(mut game: Game, term_dims: Dims, use_alt_screen: bool) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
-        let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-        let mut ui = TermUI::new(
-            game.map_dims(),
-            term_dims,
-            screen,
-        );
 
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
-        while mode.run(&mut game, &mut ui, &mut prev_mode) {
-            // nothing here
+        if use_alt_screen {//FIXME find a way to not duplicate code in both arms of this if statement
+            let mut ui = TermUI::new(
+                game.map_dims(),
+                term_dims,
+                AlternateScreen::from(stdout().into_raw_mode().unwrap())
+            );
+
+            while mode.run(&mut game, &mut ui, &mut prev_mode) {
+                // nothing here
+            }
+        } else {
+            let mut ui = TermUI::new(
+                game.map_dims(),
+                term_dims,
+                stdout().into_raw_mode().unwrap()
+            );
+
+            while mode.run(&mut game, &mut ui, &mut prev_mode) {
+                // nothing here
+            }
         }
     }
 
@@ -330,9 +342,9 @@ impl<W:Write> TermUI<W> {
         self.stdout.flush().unwrap();
     }
 
-    fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location) {
-        let unit = game.unit(unit_loc).unwrap();
-        for inc in visible_coords_iter(unit.sight_distance()) {
+    fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location, unit_sight_distance: u16) {
+        // let unit = game.unit_by_loc(unit_loc).unwrap();
+        for inc in visible_coords_iter(unit_sight_distance) {
             if let Some(loc) = wrapped_add(unit_loc, inc, game.map_dims(), game.wrapping()) {
 
                 if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
@@ -381,20 +393,27 @@ impl<W:Write> TermUI<W> {
         write!(self.stdout, "{}", ToMainScreen).unwrap();
     }
 
-    pub fn cursor_viewport_loc(&self, mode: &Mode) -> Option<Location> {
+    pub fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
         let viewport_dims = self.map_scroller.viewport_dims();
         let map = &self.map_scroller.scrollable;
 
         match *mode {
-            Mode::SetProduction{loc} | Mode::GetUnitOrders{loc,..} =>
-                    map.map_to_viewport_coords(loc, viewport_dims),
+            Mode::SetProduction{city_loc} => map.map_to_viewport_coords(city_loc, viewport_dims),
+            Mode::GetUnitOrders{unit_id,..} => {
+                let unit_loc = game.unit_loc(unit_id).unwrap();
+                map.map_to_viewport_coords(unit_loc, viewport_dims)
+            },
             _ => None
         }
     }
 
-    pub fn cursor_map_loc(&self, mode: &Mode) -> Option<Location> {
+    pub fn cursor_map_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
         match *mode {
-            Mode::SetProduction{loc} | Mode::GetUnitOrders{loc,..} => Some(loc),
+            Mode::SetProduction{city_loc} => Some(city_loc),
+            Mode::GetUnitOrders{unit_id,..} => {
+                let unit_loc = game.unit_loc(unit_id).unwrap();
+                Some(unit_loc)
+            },
             _ => None
         }
     }
@@ -451,7 +470,7 @@ impl <W:Write> MoveAnimator for TermUI<W> {
             }
 
             if move_.moved_successfully() {
-                self.draw_unit_observations(game, target_loc);
+                self.draw_unit_observations(game, target_loc, move_result.unit().sight_distance());
             }
 
             current_loc = target_loc;

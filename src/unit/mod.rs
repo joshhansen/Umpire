@@ -251,7 +251,7 @@ impl Unit {
 //         UnitID{ id: self.id + 1 }
 //     }
 // }
-// 
+//
 // pub struct UnitManager {
 //     next_unit_id: UnitID,
 //     units: HashMap<UnitID,Unit>
@@ -265,7 +265,7 @@ impl Unit {
 //         let unit: Unit = Unit::new(type_, alignment, name);
 //         let unit_id = self.next_unit_id;
 //         self.next_unit_id = self.next_unit_id.next();
-        
+
 //         let insertion_result = self.units.insert(unit_id, unit);
 //         debug_assert!(insertion_result.is_none());
 
@@ -396,6 +396,7 @@ mod test {
 
     use game::obs::{FogOfWarTracker,Obs,ObsTracker};
     use map::{LocationGrid,Terrain,Tile};
+    use map::newmap::UnitID;
     use unit::{Alignment,Observer,Unit,UnitType};
     use util::{Dims,Location,WRAP_BOTH};
 
@@ -424,7 +425,7 @@ x   o    x";
 
                 let infantry_loc = Location{x:4, y:2};
 
-                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
+                let infantry = Unit::new(UnitID::new(0), infantry_loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
 
                 let mut obs_tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
 
@@ -494,11 +495,11 @@ x   o    x";
 
     #[test]
     fn test_mobility() {
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
-        let friendly_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:0}, "Lynn Stone");
-        let enemy_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:1}, "James Lindsey");
-
         let loc = Location{x:5, y:5};
+
+        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
+        let friendly_unit = Unit::new(UnitID::new(1), loc, UnitType::Armor, Alignment::Belligerent{player:0}, "Lynn Stone");
+        let enemy_unit = Unit::new(UnitID::new(2), loc, UnitType::Armor, Alignment::Belligerent{player:1}, "James Lindsey");
 
         let tile1 = Tile::new(Terrain::Land, loc);
         assert!(infantry.can_move_on_tile(&tile1));

@@ -26,6 +26,9 @@ pub struct UnitID {
     id: u64
 }
 impl UnitID {
+    pub fn new(id: u64) -> Self {
+        Self{ id: id }
+    }
     fn next(&self) -> Self {
         UnitID{ id: self.id + 1 }
     }
@@ -82,7 +85,7 @@ impl UnitID {
 //         self.next_unit_id = self.next_unit_id.next();
 
 //         let unit: Unit = Unit::new(unit_id, loc, type_, alignment, name);
-        
+
 //         let insertion_result1 = self.units_by_id.insert(unit_id, unit);
 //         debug_assert!(insertion_result1.is_none());
 
@@ -140,7 +143,7 @@ impl UnitID {
 //         self.next_city_id = self.next_city_id.next();
 
 //         let city = City::new(city_id, alignment, loc, name);
-        
+
 //         let insertion_result1 = self.cities_by_id.insert(city_id, city);
 //         debug_assert!(insertion_result1.is_none());
 
@@ -177,7 +180,7 @@ impl UnitID {
 //     // pub fn move_unit_from_loc(&mut self, src: Location, dest: Location) -> Result<(), String> {
 //     //     if let Some(unit) = self.unit_from_loc(src) {
 
-            
+
 
 //     //         Ok(())
 //     //     } else {
@@ -337,7 +340,9 @@ impl MapData {
         }
     }
 
-    pub fn set_unit(&mut self, loc: Location, unit: Unit) -> Option<Unit> {
+    pub fn set_unit(&mut self, loc: Location, mut unit: Unit) -> Option<Unit> {
+        unit.loc = loc;
+
         let old_unit = self.pop_unit_by_loc(loc);
         self.tiles.get_mut(loc).unwrap().unit = Some(unit);
         old_unit
@@ -350,6 +355,10 @@ impl MapData {
     pub fn mut_unit_by_id(&mut self, id: UnitID) -> Option<&mut Unit> {
         let loc = *self.unit_loc_by_id.get(&id).unwrap();
         self.mut_unit_by_loc( loc )//FIXME NLL -- this should be a one-liner
+    }
+
+    pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
+        self.unit_by_id(id).map(|unit| unit.loc)
     }
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {
@@ -365,7 +374,7 @@ impl MapData {
         self.next_city_id = self.next_city_id.next();
 
         let city = City::new(city_id, alignment, loc, name);
-        
+
         let insertion_result = self.city_loc_by_id.insert(city_id, loc);
         debug_assert!(insertion_result.is_none());
 
@@ -420,7 +429,7 @@ impl MapData {
     // pub fn move_unit_from_loc(&mut self, src: Location, dest: Location) -> Result<(), String> {
     //     if let Some(unit) = self.unit_from_loc(src) {
 
-            
+
 
     //         Ok(())
     //     } else {

@@ -12,7 +12,7 @@ use log::{LogTarget,Message,MessageSource,Rgb};
 use map::Tile;
 use map::gen::MapGenerator;
 use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths};
-use map::newmap::MapData;
+use map::newmap::{MapData,UnitID};
 use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use ui::MoveAnimator;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
@@ -112,7 +112,7 @@ pub struct Game {
     num_players: PlayerNum,
     current_player: PlayerNum,
     production_set_requests: HashSet<Location>,
-    unit_orders_requests: HashSet<Location>,
+    unit_orders_requests: HashSet<UnitID>,
     wrapping: Wrap2d,
     unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>
 }
@@ -202,7 +202,7 @@ impl Game {
                                     }
                                 } else {
                                     log.log_message(format!("Queueing production set request for {}", city));
-                                    self.production_set_requests.insert(loc);
+                                    self.production_set_requests.insert(city.loc);
                                     None
                                 }
                             } else {
@@ -249,7 +249,7 @@ impl Game {
                             unit.moves_remaining = unit.movement_per_turn();
                             if unit.orders().is_none() {
                                 log.log_message(format!("Queueing unit orders request for {}", unit));
-                                self.unit_orders_requests.insert(loc);
+                                self.unit_orders_requests.insert(unit.id);
                             }
                         }
                     }
@@ -343,17 +343,29 @@ impl Game {
         obs_tracker.get(loc)
     }
 
-    pub fn city(&self, loc: Location) -> Option<&City> {
+    pub fn city_by_loc(&self, loc: Location) -> Option<&City> {
         self.map.city_by_loc(loc)
     }
 
-    pub fn unit(&self, loc: Location) -> Option<&Unit> {
+    pub fn unit_by_loc(&self, loc: Location) -> Option<&Unit> {
         self.map.unit_by_loc(loc)
     }
 
-    // fn unit_mut(&mut self, loc: Location) -> Option<&mut Unit> {
+    pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
+        self.map.unit_by_id(id)
+    }
+
+    // fn mut_unit_by_loc(&mut self, loc: Location) -> Option<&mut Unit> {
     //     self.map.mut_unit_by_loc(loc)
     // }
+
+    fn mut_unit_by_id(&mut self, id: UnitID) -> Option<&mut Unit> {
+        self.map.mut_unit_by_id(id)
+    }
+
+    pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
+        self.map.unit_loc(id)
+    }
 
     pub fn production_set_requests(&self) -> &HashSet<Location> {
         &self.production_set_requests
@@ -362,13 +374,13 @@ impl Game {
     //FIXME Make it easy for UI clients to process unit move requests in unit order by returning these locations in a consistent unit order
     //      This means if unit A just moved and still has moves remaining, unit A will be the first in line to move again regardless of where
     //      they are located
-    pub fn unit_orders_requests(&self) -> &HashSet<Location> {
+    pub fn unit_orders_requests(&self) -> &HashSet<UnitID> {
         &self.unit_orders_requests
     }
 
     //FIXME Make the unit observe at each point along its path
     //FIXME This function checks two separate times whether a unit exists at src
-    pub fn move_unit(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
+    pub fn move_unit_by_loc(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let shortest_paths = {
             let unit = self.map.unit_by_loc(src).unwrap();
             shortest_paths(&self.map, src, &UnitMovementFilter::new(unit), self.wrapping)
@@ -435,6 +447,13 @@ impl Game {
                         }
                     }
 
+                    for move_ in moves.iter() {
+                        if move_.moved_successfully() {
+                            let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
+                            unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, obs_tracker);
+                        }
+                    }
+
                     // debug_assert!(self.unit_orders_requests.remove(&src));
 
                     unit.moves_remaining -= moves.len() as u16;
@@ -442,14 +461,11 @@ impl Game {
                     if let Some(move_) = moves.last() {
                         if move_.moved_successfully() {
                             if !conquered_city && unit.moves_remaining > 0 {
-                                self.unit_orders_requests.insert(dest);
+                                self.unit_orders_requests.insert(unit.id);
                             }
 
                             self.map.set_unit(dest, unit.clone());
                         }
-
-                        let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
-                        unit.observe(dest, &self.map, self.turn, self.wrapping, obs_tracker);
                     }
 
                     MoveResult::new(unit, src, moves)
@@ -460,6 +476,11 @@ impl Game {
         } else {
             Err(format!("No route to {} from {}", dest, src))
         }
+    }
+
+    pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> Result<MoveResult,String> {
+        let src = self.map.unit_loc(unit_id).unwrap();
+        self.move_unit_by_loc(src, dest)
     }
 
     //FIXME Make set_production return Err rather than panic if location is out of bounds
@@ -508,62 +529,65 @@ but there is no city at that location",
         }).collect()
     }
 
-    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, _loc: Location, _orders: Option<Orders>, _ui: &mut U) -> Result<(),String> {
+    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, unit_id: UnitID, orders: Option<Orders>, ui: &mut U) -> Result<(),String> {
 
-        unimplemented!()
+        // unimplemented!()
 
-        // // if let Some(unit) = self.unit_mut(loc) {
-        // //     unit.give_orders(orders);
-        // //
-        // // } else {
-        // //     return Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc));
-        // // }
-
-        // self.unit_mut(loc).unwrap().give_orders(orders);
-
-        // if self.unit(loc).is_some() {
-        //     self.unit_orders_requests.remove(&loc);
-
-        //     if let Some(ref orders) = self.unit(loc).unwrap().orders() {
-        //         orders.carry_out(loc, self, ui);
-        //     }
-
-            
-
-        //     Ok(())
+        // if let Some(unit) = self.unit_mut(loc) {
+        //     unit.give_orders(orders);
+        //
         // } else {
         //     return Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc));
         // }
 
+        self.mut_unit_by_id(unit_id).unwrap().give_orders(orders);
 
-        // // if self.unit(loc).is_some() {
-        // //     self.unit_orders_requests.remove(&loc);
-        // //
-        // //     if let Some(ref orders) = orders {
-        // //         orders.carry_out(loc, self, ui);
-        // //     }
-        // //
-        // //     let unit = self.unit_mut(loc).unwrap();
-        // //     unit.give_orders(orders);
-        // //     Ok(())
-        // //     // if let Some(unit) = self.unit_mut(loc) {
-        // //     //     unit.give_orders(orders);
-        // //     //
-        // //     //     Ok(())
-        // //     // } else {
-        // //     //
-        // //     // }
-        // // } else {
-        // //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
-        // // }
+        if self.unit_by_id(unit_id).is_some() {
+            self.unit_orders_requests.remove(&unit_id);
 
-        // // if let Some(unit) = self.unit_mut(loc) {
-        // //     unit.give_orders(orders);
-        // //
-        // //     Ok(())
-        // // } else {
-        // //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
-        // // }
+            let orders = if let Some(unit) = self.unit_by_id(unit_id) {
+                unit.orders().map(|orders| orders.clone())//FIXME Is there some way to dance around the borrow checker without cloning here?
+            } else {
+                None
+            };
+            if let Some(orders) = orders {
+                orders.carry_out(unit_id, self, ui);
+            }
+
+            Ok(())
+        } else {
+            return Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id));
+        }
+
+
+        // if self.unit(loc).is_some() {
+        //     self.unit_orders_requests.remove(&loc);
+        //
+        //     if let Some(ref orders) = orders {
+        //         orders.carry_out(loc, self, ui);
+        //     }
+        //
+        //     let unit = self.unit_mut(loc).unwrap();
+        //     unit.give_orders(orders);
+        //     Ok(())
+        //     // if let Some(unit) = self.unit_mut(loc) {
+        //     //     unit.give_orders(orders);
+        //     //
+        //     //     Ok(())
+        //     // } else {
+        //     //
+        //     // }
+        // } else {
+        //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
+        // }
+
+        // if let Some(unit) = self.unit_mut(loc) {
+        //     unit.give_orders(orders);
+        //
+        //     Ok(())
+        // } else {
+        //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
+        // }
     }
 }
 
@@ -614,27 +638,32 @@ mod test {
 
     use game::Game;
     use log::{DefaultLog,LogTarget};
-    use map::{LocationGrid,Terrain,Tile};
+    use map::Terrain;
+    use map::newmap::MapData;
     use name::{test_unit_namer};
-    use unit::{Alignment,City,UnitType};
+    use unit::{Alignment,UnitType};
     use util::{Dims,Location};
 
     /// 10x10 grid of land only with two cities:
     /// * Player 0's Machang at 0,0
     /// * Player 1's Zanzibar at 0,1
-    fn map1() -> LocationGrid<Tile> {
+    fn map1() -> MapData {
         let dims = Dims{width: 10, height: 10};
-        LocationGrid::new(dims, |loc| {
-            let mut tile = Tile::new(Terrain::Land, loc);
-            if loc.x == 0 {
-                if loc.y == 0 {
-                    tile.city = Some(City::new(Alignment::Belligerent{player:0}, loc, "Machang"));
-                } else if loc.y == 1 {
-                    tile.city = Some(City::new(Alignment::Belligerent{player:1}, loc, "Zanzibar"));
-                }
-            }
-            tile
-        })
+        let mut map = MapData::new(dims);
+        map.new_city(Location{x:0,y:0}, Alignment::Belligerent{player:0}, "Machang");
+        map.new_city(Location{x:0,y:1}, Alignment::Belligerent{player:1}, "Zanzibar");
+        // LocationGrid::new(dims, |loc| {
+        //     let mut tile = Tile::new(Terrain::Land, loc);
+        //     if loc.x == 0 {
+        //         if loc.y == 0 {
+        //             tile.city = Some(City::new(Alignment::Belligerent{player:0}, loc, "Machang"));
+        //         } else if loc.y == 1 {
+        //             tile.city = Some(City::new(Alignment::Belligerent{player:1}, loc, "Zanzibar"));
+        //         }
+        //     }
+        //     tile
+        // })
+        map
     }
 
     fn game1<L:LogTarget>(log: &mut L) -> Game {
@@ -679,25 +708,26 @@ mod test {
 
         for player in 0..2 {
             assert_eq!(game.unit_orders_requests().len(), 1);
-            let loc = *game.unit_orders_requests().iter().next().unwrap();
+            let unit_id = *game.unit_orders_requests().iter().next().unwrap();
+            let loc = game.unit_loc(unit_id).unwrap();
             let new_x = (loc.x + 1) % game.map_dims().width;
             let new_loc = Location{x:new_x, y:loc.y};
             println!("Moving unit from {} to {}", loc, new_loc);
 
-            assert!(game.move_unit(loc, new_loc).is_ok());
+            assert!(game.move_unit_by_loc(loc, new_loc).is_ok());
             assert_eq!(game.end_turn(&mut log), Ok(1-player));
         }
     }
 
     #[test]
     fn test_move_unit() {
-        let map: LocationGrid<Tile> = LocationGrid::try_from("--0-+-+-1--").unwrap();
+        let map = MapData::try_from("--0-+-+-1--").unwrap();
         {
             let loc1 = Location{x:2, y:0};
             let loc2 = Location{x:8, y:0};
 
-            let ref city1tile = map[loc1];
-            let ref city2tile = map[loc2];
+            let ref city1tile = map.tile(loc1).unwrap();
+            let ref city2tile = map.tile(loc2).unwrap();
             assert_eq!(city1tile.terrain, Terrain::Land);
             assert_eq!(city2tile.terrain, Terrain::Land);
 
@@ -729,10 +759,11 @@ mod test {
         // Move the armor unit to the right until it attacks the opposing city
         for round in 0..3 {
             assert_eq!(game.unit_orders_requests().len(), 1);
-            let loc = *game.unit_orders_requests().iter().next().unwrap();
+            let unit_id = *game.unit_orders_requests().iter().next().unwrap();
+            let loc = game.unit_loc(unit_id).unwrap();
             let dest_loc = Location{x: loc.x+2, y:loc.y};
             println!("Moving from {} to {}", loc, dest_loc);
-            let move_result = game.move_unit(loc, dest_loc).unwrap();
+            let move_result = game.move_unit_by_loc(loc, dest_loc).unwrap();
             println!("Result: {:?}", move_result);
             assert_eq!(move_result.unit().type_, UnitType::Armor);
             assert_eq!(move_result.unit().alignment, Alignment::Belligerent{player:0});

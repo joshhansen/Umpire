@@ -81,6 +81,8 @@ pub const NUM_PLAYERS: &'static str = "4";
 
 pub const FOG_OF_WAR: &'static str = "on";
 
+pub const USE_ALTERNATE_SCREEN: &'static str = "on";
+
 // pub const HUMAN_PLAYER: PlayerNum = 0;
 
 // Key mappings

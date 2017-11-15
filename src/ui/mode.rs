@@ -9,6 +9,7 @@ use conf;
 use game::Game;
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
+use map::newmap::UnitID;
 use ui::{Draw,MoveAnimator,TermUI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
 use unit::{Alignment,UnitType};
@@ -25,14 +26,14 @@ pub enum Mode {
     TurnStart,
     TurnResume,
     SetProductions,
-    SetProduction{loc:Location},
+    SetProduction{city_loc:Location},
     GetOrders,
-    GetUnitOrders{loc:Location, first_move:bool},
+    GetUnitOrders{unit_id:UnitID, first_move:bool},
     Quit,
     Examine{
         cursor_viewport_loc:Location,
         first: bool,
-        most_recently_active_unit_loc: Location
+        most_recently_active_unit_id: UnitID
     }
 }
 
@@ -43,21 +44,21 @@ impl Mode {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self, prev_mode),
             Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self, prev_mode),
             Mode::SetProductions =>     SetProductionsMode{}.run(game, ui, self, prev_mode),
-            Mode::SetProduction{loc} => {
+            Mode::SetProduction{city_loc} => {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                SetProductionMode{rect:rect, loc:loc}.run(game, ui, self, prev_mode)
+                SetProductionMode{rect:rect, loc:city_loc}.run(game, ui, self, prev_mode)
             },
             Mode::GetOrders =>          GetOrdersMode{}.run(game, ui, self, prev_mode),
-            Mode::GetUnitOrders{loc,first_move} =>      {
+            Mode::GetUnitOrders{unit_id,first_move} =>      {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                GetUnitOrdersMode{rect:rect, loc:loc, first_move:first_move}.run(game, ui, self, prev_mode)
+                GetUnitOrdersMode{rect:rect, unit_id:unit_id, first_move:first_move}.run(game, ui, self, prev_mode)
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
-            Mode::Examine{cursor_viewport_loc, first, most_recently_active_unit_loc} =>
+            Mode::Examine{cursor_viewport_loc, first, most_recently_active_unit_id} =>
                 ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first,
-                    most_recently_active_unit_loc: most_recently_active_unit_loc}.run(game, ui, self, prev_mode)
+                    most_recently_active_unit_id: most_recently_active_unit_id}.run(game, ui, self, prev_mode)
         };
 
         *prev_mode = Some(*self);
@@ -97,11 +98,14 @@ trait IMode {
                     return KeyStatus::Handled(StateDisposition::Quit);
                 },
                 conf::KEY_EXAMINE => {
-                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(mode) {
+                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(mode, game) {
+                        let most_recently_active_unit_loc = ui.cursor_map_loc(mode, game).unwrap();
+                        let most_recently_active_unit_id = game.unit_by_loc(most_recently_active_unit_loc).unwrap().id;
+
                         *mode = Mode::Examine{
                             cursor_viewport_loc: cursor_viewport_loc,
                             first: true,
-                            most_recently_active_unit_loc: ui.cursor_map_loc(mode).unwrap()
+                            most_recently_active_unit_id: most_recently_active_unit_id
                         };
                         return KeyStatus::Handled(StateDisposition::Next);
                     } else {
@@ -192,9 +196,9 @@ impl IMode for SetProductionsMode {
             return true;
         }
 
-        let loc = *game.production_set_requests().iter().next().unwrap();
+        let city_loc = *game.production_set_requests().iter().next().unwrap();
 
-        *mode = Mode::SetProduction{loc:loc};
+        *mode = Mode::SetProduction{city_loc:city_loc};
         true
     }
 }
@@ -238,7 +242,7 @@ impl IMode for SetProductionMode {
         self.draw(game, &mut ui.stdout);
 
         {
-            let city = game.city(self.loc).unwrap();
+            let city = game.city_by_loc(self.loc).unwrap();
             ui.log_message(format!("Requesting production target for {}", city ));
         }
 
@@ -249,7 +253,7 @@ impl IMode for SetProductionMode {
                         if let Some(unit_type) = UnitType::from_key(&c) {
                             game.set_production(self.loc, unit_type).unwrap();
 
-                            let city = &game.city(self.loc).unwrap();
+                            let city = &game.city_by_loc(self.loc).unwrap();
                             ui.replace_message(Message {
                                 text: format!("Set {}'s production to {}", city.name(), unit_type),
                                 mark: Some('·'),
@@ -288,9 +292,9 @@ impl IMode for GetOrdersMode {
     fn run<W:Write>(&self, game: &mut Game, _ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         if !game.unit_orders_requests().is_empty() {
 
-            let loc = *game.unit_orders_requests().iter().next().unwrap();
+            let unit_id = *game.unit_orders_requests().iter().next().unwrap();
 
-            *mode = Mode::GetUnitOrders{loc:loc, first_move:true};
+            *mode = Mode::GetUnitOrders{unit_id:unit_id, first_move:true};
             return true;
         }
         *mode = Mode::TurnResume;
@@ -300,7 +304,7 @@ impl IMode for GetOrdersMode {
 
 struct GetUnitOrdersMode{
     rect: Rect,
-    loc: Location,
+    unit_id: UnitID,
     first_move: bool
 }
 impl IVisibleMode for GetUnitOrdersMode {
@@ -310,7 +314,7 @@ impl IVisibleMode for GetUnitOrdersMode {
 }
 impl GetUnitOrdersMode {
     fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
-        let unit = game.unit(self.loc).unwrap();
+        let unit = game.unit_by_id(self.unit_id).unwrap();
 
         write!(*stdout, "{}Get Orders for {}", self.goto(0, 0), unit).unwrap();
         write!(*stdout,
@@ -331,19 +335,20 @@ impl GetUnitOrdersMode {
 }
 impl IMode for GetUnitOrdersMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        {
-            let unit = game.unit(self.loc).unwrap();
-            ui.log_message(format!("Requesting orders for unit {} at {}", unit, self.loc));
-        }
+        let unit_loc = {
+            let unit = game.unit_by_id(self.unit_id).unwrap();
+            ui.log_message(format!("Requesting orders for unit {} at {}", unit, unit.loc));
+            unit.loc
+        };
 
         if self.first_move {
-            ui.map_scroller.scrollable.center_viewport(self.loc);
+            ui.map_scroller.scrollable.center_viewport(unit_loc);
         }
         ui.draw(game);
 
         self.draw(game, &mut ui.stdout);
 
-        let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(self.loc, ui.viewport_rect().dims()).unwrap();
+        let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit_loc, ui.viewport_rect().dims()).unwrap();
         ui.map_scroller.scrollable.draw_tile(game, &mut ui.stdout, viewport_loc, false, true, None);
 
         loop {
@@ -352,20 +357,25 @@ impl IMode for GetUnitOrdersMode {
 
                     if let Key::Char(c) = key {
                         if let Ok(dir) = Direction::try_from(c) {
-                            if let Some(dest) = self.loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
-                                match game.move_unit(self.loc, dest) {
+                            if let Some(dest) = unit_loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
+                                match game.move_unit_by_id(self.unit_id, dest) {
                                     Ok(move_result) => {
                                         ui.animate_move(game, &move_result);
 
-                                        if let Some(ending_loc) = move_result.ending_loc() {
-                                            if game.unit_orders_requests().contains(&ending_loc) {
-                                                *mode = Mode::GetUnitOrders{loc:ending_loc, first_move:false};
-                                            } else {
-                                                *mode = Mode::GetOrders;
-                                            }
+                                        if game.unit_orders_requests().contains(&self.unit_id) {
+                                            *mode = Mode::GetUnitOrders{unit_id:self.unit_id, first_move:false};
                                         } else {
                                             *mode = Mode::GetOrders;
                                         }
+                                        // if let Some(ending_loc) = move_result.ending_loc() {
+                                        //     if game.unit_orders_requests().contains(&ending_loc) {
+                                        //         *mode = Mode::GetUnitOrders{loc:ending_loc, first_move:false};
+                                        //     } else {
+                                        //         *mode = Mode::GetOrders;
+                                        //     }
+                                        // } else {
+                                        //     *mode = Mode::GetOrders;
+                                        // }
                                         self.clear(&mut ui.stdout);
                                         return true;
                                     },
@@ -400,7 +410,7 @@ impl IMode for QuitMode {
 struct ExamineMode {
     cursor_viewport_loc: Location,
     first: bool,
-    most_recently_active_unit_loc: Location
+    most_recently_active_unit_id: UnitID
 }
 impl ExamineMode {
     fn clean_up<W:Write>(&self, game: &Game, ui: &mut TermUI<W>) {
@@ -452,7 +462,7 @@ impl IMode for ExamineMode {
                         if let Some(ref city) = tile.city {
                             let current_alignment = Alignment::Belligerent{player: game.current_player()};
                             if city.alignment() == current_alignment {
-                                *mode = Mode::SetProduction{loc:tile.loc};
+                                *mode = Mode::SetProduction{city_loc:city.loc};
                                 self.clean_up(game, ui);
                                 return true;
                             }
@@ -461,7 +471,7 @@ impl IMode for ExamineMode {
 
                     ui.log_message(format!("Might move unit"));
                     let (can_move, dest) = {
-                        let unit = game.unit(self.most_recently_active_unit_loc).unwrap();
+                        let unit = game.unit_by_id(self.most_recently_active_unit_id).unwrap();
 
                         let can_move = if let Some(tile) = self.maybe_tile(game, ui) {
                             unit.can_move_on_tile(tile)
@@ -474,7 +484,7 @@ impl IMode for ExamineMode {
 
                     if can_move {
                         let dest = dest.unwrap();
-                        game.give_orders(self.most_recently_active_unit_loc, Some(Orders::GoTo{dest:dest}), ui).unwrap();
+                        game.give_orders(self.most_recently_active_unit_id, Some(Orders::GoTo{dest:dest}), ui).unwrap();
                         ui.log_message(format!("Ordered unit to go to {}", dest));
 
                         *mode = Mode::TurnResume;
@@ -487,7 +497,7 @@ impl IMode for ExamineMode {
                         let new_loc = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_BOTH).unwrap();
                         let viewport_rect = ui.viewport_rect();
                         if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
-                            *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false, most_recently_active_unit_loc: self.most_recently_active_unit_loc};
+                            *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false, most_recently_active_unit_id: self.most_recently_active_unit_id};
                         }
                     }
                 }
