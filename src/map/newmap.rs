@@ -342,6 +342,7 @@ impl MapData {
 
     pub fn set_unit(&mut self, loc: Location, mut unit: Unit) -> Option<Unit> {
         unit.loc = loc;
+        self.unit_loc_by_id.insert(unit.id, loc);
 
         let old_unit = self.pop_unit_by_loc(loc);
         self.tiles.get_mut(loc).unwrap().unit = Some(unit);
@@ -359,6 +360,10 @@ impl MapData {
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
         self.unit_by_id(id).map(|unit| unit.loc)
+    }
+
+    pub fn unit_id(&self, loc: Location) -> Option<UnitID> {
+        self.unit_by_loc(loc).map(|unit| unit.id)
     }
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {

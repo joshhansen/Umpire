@@ -386,95 +386,100 @@ impl Game {
             shortest_paths(&self.map, src, &UnitMovementFilter::new(unit), self.wrapping)
         };
         if let Some(distance) = shortest_paths.dist[dest] {
-            if let Some(mut unit) = self.map.pop_unit_by_loc(src) {
+            
+            if let Some(unit) = self.map.unit_by_loc(src) {
                 if distance > unit.moves_remaining {
-                    Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
-                                unit, src, dest, distance, unit.moves_remaining))
-                } else {
-
-                    // We're here because a route exists to the destination and a unit existed at the source
-
-                    let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
-
-                    let mut moves = Vec::new();
-
-                    // Move along the shortest path to the destination
-                    // At each tile along the path, check if there's a unit there
-                    // If so, battle it
-                    // If we lose, this unit is destroyed
-                    // If we win, the opposing unit is destroyed and this unit continues its journey
-                    //     battling if necessary until it is either destroyed or reaches its destination
-                    //
-                    // Observe that the unit will either make it all the way to its destination, or
-                    // will be destroyed somewhere along the way. There will be no stopping midway.
-
-                    let mut conquered_city = false;
-
-                    let mut it = shortest_path.iter();
-                    let first_loc = it.next().unwrap();// skip the source location
-                    debug_assert_eq!(src, *first_loc);
-                    for loc in it {
-                        moves.push(MoveComponent::new(*loc));
-                        let mut move_ = moves.last_mut().unwrap();
-
-                        // let mut dest_tile = &mut self.tiles[*loc];
-                        // debug_assert_eq!(dest_tile.loc, *loc);
-                        if let Some(ref other_unit) = self.map.unit_by_loc(*loc) {
-                            move_.unit_combat = Some(unit.fight(other_unit));
-                        }
-                        if let Some(ref outcome) = move_.unit_combat {
-                            if outcome.destroyed() {
-                                break;
-                            } else {
-                                self.map.destroy_unit_by_loc(*loc);// eliminate the unit we conquered
-                            }
-                        }
-
-                        if let Some(city) = self.map.mut_city_by_loc(*loc) {
-                            if city.alignment != unit.alignment {
-                                let outcome = unit.fight(city);
-
-                                if outcome.victorious() {
-                                    city.alignment = unit.alignment;
-                                }
-
-                                move_.city_combat = Some(outcome);
-
-                                conquered_city = true;
-
-                                break;// break regardless of outcome. Either conquer a city and stop, or be destroyed
-                            }
-                        }
-                    }
-
-                    for move_ in moves.iter() {
-                        if move_.moved_successfully() {
-                            let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
-                            unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, obs_tracker);
-                        }
-                    }
-
-                    // debug_assert!(self.unit_orders_requests.remove(&src));
-
-                    unit.moves_remaining -= moves.len() as u16;
-
-                    if let Some(move_) = moves.last() {
-                        if move_.moved_successfully() {
-                            if !conquered_city && unit.moves_remaining > 0 {
-                                self.unit_orders_requests.insert(unit.id);
-                            }
-
-                            self.map.set_unit(dest, unit.clone());
-                        }
-                    }
-
-                    MoveResult::new(unit, src, moves)
+                    return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
+                                unit, src, dest, distance, unit.moves_remaining));
                 }
+            }
+
+            if let Some(mut unit) = self.map.pop_unit_by_loc(src) {
+
+                // We're here because a route exists to the destination and a unit existed at the source
+
+                let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
+
+                let mut moves = Vec::new();
+
+                // Move along the shortest path to the destination
+                // At each tile along the path, check if there's a unit there
+                // If so, battle it
+                // If we lose, this unit is destroyed
+                // If we win, the opposing unit is destroyed and this unit continues its journey
+                //     battling if necessary until it is either destroyed or reaches its destination
+                //
+                // Observe that the unit will either make it all the way to its destination, or
+                // will be destroyed somewhere along the way. There will be no stopping midway.
+
+                let mut conquered_city = false;
+
+                let mut it = shortest_path.iter();
+                let first_loc = it.next().unwrap();// skip the source location
+                debug_assert_eq!(src, *first_loc);
+                for loc in it {
+                    moves.push(MoveComponent::new(*loc));
+                    let mut move_ = moves.last_mut().unwrap();
+
+                    // let mut dest_tile = &mut self.tiles[*loc];
+                    // debug_assert_eq!(dest_tile.loc, *loc);
+                    if let Some(ref other_unit) = self.map.unit_by_loc(*loc) {
+                        move_.unit_combat = Some(unit.fight(other_unit));
+                    }
+                    if let Some(ref outcome) = move_.unit_combat {
+                        if outcome.destroyed() {
+                            break;
+                        } else {
+                            self.map.destroy_unit_by_loc(*loc);// eliminate the unit we conquered
+                        }
+                    }
+
+                    if let Some(city) = self.map.mut_city_by_loc(*loc) {
+                        if city.alignment != unit.alignment {
+                            let outcome = unit.fight(city);
+
+                            if outcome.victorious() {
+                                city.alignment = unit.alignment;
+                            }
+
+                            move_.city_combat = Some(outcome);
+
+                            conquered_city = true;
+
+                            break;// break regardless of outcome. Either conquer a city and stop, or be destroyed
+                        }
+                    }
+                }
+
+                for move_ in moves.iter() {
+                    if move_.moved_successfully() {
+                        let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
+                        unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, obs_tracker);
+                    }
+                }
+
+                let removed = self.unit_orders_requests.remove(&unit.id);
+                debug_assert!(removed);
+                // debug_assert!(self.unit_orders_requests.remove(&src));
+
+                unit.moves_remaining -= moves.len() as u16;
+
+                if let Some(move_) = moves.last() {
+                    if move_.moved_successfully() {
+                        if !conquered_city && unit.moves_remaining > 0 {
+                            self.unit_orders_requests.insert(unit.id);
+                        }
+
+                        self.map.set_unit(dest, unit.clone());
+                    }
+                }
+
+                MoveResult::new(unit, src, moves)
             } else {
                 Err(format!("No unit found at source location {}", src))
             }
         } else {
-            Err(format!("No route to {} from {}", dest, src))
+            Err(format!("No route from {} to {}", src, dest))
         }
     }
 
@@ -714,7 +719,22 @@ mod test {
             let new_loc = Location{x:new_x, y:loc.y};
             println!("Moving unit from {} to {}", loc, new_loc);
 
-            assert!(game.move_unit_by_loc(loc, new_loc).is_ok());
+            match game.move_unit_by_loc(loc, new_loc) {
+                Ok(move_result) => {
+                    println!("{:?}", move_result);
+                },
+                Err(msg) => {
+                    println!("{}", msg);
+                    assert!(false);
+                }
+            }
+            // if let Ok(move_result) = game.move_unit_by_loc(loc, new_loc) {
+            //     println!("{}", move_result);
+            // } else {
+                
+            // }
+            // let move_result = game.move_unit_by_loc(loc, new_loc)
+            // assert!(game.move_unit_by_loc(loc, new_loc).is_ok());
             assert_eq!(game.end_turn(&mut log), Ok(1-player));
         }
     }

@@ -49,10 +49,10 @@ impl LogArea {
     }
 
     pub fn replace(&mut self, message: Message) {
-        if let Some(item) = self.messages.back_mut() {
-            *item = message;
-            return;// TODO maybe when non-lexical lifetimes arrive we can get rid of this awkward return construct
-        }
+        // if let Some(item) = self.messages.back_mut() {
+        //     *item = message;
+        //     return;// TODO maybe when non-lexical lifetimes arrive we can get rid of this awkward return construct
+        // }
         self.log(message);
     }
 
