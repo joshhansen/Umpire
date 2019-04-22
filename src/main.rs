@@ -26,9 +26,6 @@
 // TODO Show possible orders / shortcuts in move unit mode
 // TODO Zoomed-out map view?
 
-#![feature(conservative_impl_trait)]
-#![feature(try_from)]
-
 pub mod conf;
 pub mod game;
 pub mod log;
