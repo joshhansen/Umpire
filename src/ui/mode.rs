@@ -468,7 +468,7 @@ impl IMode for ExamineMode {
                         }
                     }
 
-                    ui.log_message(format!("Might move unit"));
+                    ui.log_message("Might move unit".to_string());
                     let (can_move, dest) = {
                         let unit = game.unit_by_id(self.most_recently_active_unit_id).unwrap();
 

@@ -50,7 +50,7 @@ impl MoveResult {
     }
 
     pub fn moved_successfully(&self) -> bool {
-        self.moves.iter().map(|move_| move_.moved_successfully()).fold(true, |acc, x| acc && x)
+        self.moves.iter().map(MoveComponent::moved_successfully).fold(true, |acc, x| acc && x)
     }
 
     pub fn ending_loc(&self) -> Option<Location> {
