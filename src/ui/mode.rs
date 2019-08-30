@@ -47,18 +47,17 @@ impl Mode {
             Mode::SetProduction{city_loc} => {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                SetProductionMode{rect:rect, loc:city_loc}.run(game, ui, self, prev_mode)
+                SetProductionMode{rect, loc:city_loc}.run(game, ui, self, prev_mode)
             },
             Mode::GetOrders =>          GetOrdersMode{}.run(game, ui, self, prev_mode),
             Mode::GetUnitOrders{unit_id,first_move} =>      {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                GetUnitOrdersMode{rect:rect, unit_id:unit_id, first_move:first_move}.run(game, ui, self, prev_mode)
+                GetUnitOrdersMode{rect, unit_id, first_move}.run(game, ui, self, prev_mode)
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
             Mode::Examine{cursor_viewport_loc, first, most_recently_active_unit_id} =>
-                ExamineMode{cursor_viewport_loc:cursor_viewport_loc, first: first,
-                    most_recently_active_unit_id: most_recently_active_unit_id}.run(game, ui, self, prev_mode)
+                ExamineMode{cursor_viewport_loc, first, most_recently_active_unit_id}.run(game, ui, self, prev_mode)
         };
 
         *prev_mode = Some(*self);
@@ -103,9 +102,9 @@ trait IMode {
                         let most_recently_active_unit_id = game.unit_by_loc(most_recently_active_unit_loc).unwrap().id;
 
                         *mode = Mode::Examine{
-                            cursor_viewport_loc: cursor_viewport_loc,
+                            cursor_viewport_loc,
                             first: true,
-                            most_recently_active_unit_id: most_recently_active_unit_id
+                            most_recently_active_unit_id
                         };
                         return KeyStatus::Handled(StateDisposition::Next);
                     } else {
@@ -198,7 +197,7 @@ impl IMode for SetProductionsMode {
 
         let city_loc = *game.production_set_requests().iter().next().unwrap();
 
-        *mode = Mode::SetProduction{city_loc:city_loc};
+        *mode = Mode::SetProduction{city_loc};
         true
     }
 }
@@ -294,7 +293,7 @@ impl IMode for GetOrdersMode {
 
             let unit_id = *game.unit_orders_requests().iter().next().unwrap();
 
-            *mode = Mode::GetUnitOrders{unit_id:unit_id, first_move:true};
+            *mode = Mode::GetUnitOrders{unit_id, first_move:true};
             return true;
         }
         *mode = Mode::TurnResume;
@@ -484,7 +483,7 @@ impl IMode for ExamineMode {
 
                     if can_move {
                         let dest = dest.unwrap();
-                        game.give_orders(self.most_recently_active_unit_id, Some(Orders::GoTo{dest:dest}), ui).unwrap();
+                        game.give_orders(self.most_recently_active_unit_id, Some(Orders::GoTo{dest}), ui).unwrap();
                         ui.log_message(format!("Ordered unit to go to {}", dest));
 
                         *mode = Mode::TurnResume;

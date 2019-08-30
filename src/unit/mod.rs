@@ -193,12 +193,12 @@ impl Unit {
     pub fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
         let max_hp =type_.max_hp();
         Unit {
-            id: id,
-            loc: loc,
-            type_: type_,
-            alignment: alignment,
+            id,
+            loc,
+            type_,
+            alignment,
             hp: max_hp,
-            max_hp: max_hp,
+            max_hp,
             moves_remaining: 0,
             name: name.into(),
             orders: None
@@ -341,9 +341,9 @@ pub struct City {
 impl City {
     pub fn new<S:Into<String>>(id: CityID, alignment: Alignment, loc: Location, name: S) -> City {
         City {
-            id: id,
-            loc: loc,
-            alignment: alignment,
+            id,
+            loc,
+            alignment,
             hp: CITY_MAX_HP,
             unit_under_production: None,
             production_progress: 0,

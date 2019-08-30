@@ -34,7 +34,7 @@ impl MoveResult {
         if moves.is_empty() {
             Err(String::from("Attempted to create MoveResult with no moves"))
         } else {
-            Ok(MoveResult{unit:unit, starting_loc:starting_loc, moves:moves})
+            Ok(MoveResult{unit, starting_loc, moves})
         }
     }
     pub fn unit(&self) -> &Unit {
@@ -71,7 +71,7 @@ pub struct MoveComponent {
 impl MoveComponent {
     fn new(loc: Location) -> Self {
         MoveComponent {
-            loc: loc,
+            loc,
             unit_combat: None,
             city_combat: None
         }
@@ -157,15 +157,15 @@ impl Game {
         ));
 
         let mut game = Game {
-            map: map,
-            player_observations: player_observations,
+            map,
+            player_observations,
             turn: 0,
-            num_players: num_players,
+            num_players,
             current_player: 0,
             production_set_requests: HashSet::new(),
             unit_orders_requests: HashSet::new(),
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
-            unit_namer: unit_namer
+            unit_namer
         };
 
         game.begin_turn(log);
@@ -183,7 +183,7 @@ impl Game {
 
         for x in 0..self.map_dims().width {
             for y in 0..self.map_dims().height {
-                let loc = Location{x:x, y:y};
+                let loc = Location{x, y};
                 // let tile: &mut Tile = &mut self.tiles[loc];
 
                 let new_unit_produced: Option<UnitType> = {

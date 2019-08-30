@@ -276,13 +276,13 @@ impl<W:Write> TermUI<W> {
         let current_player = CurrentPlayer::new(cp_rect);
 
         let mut ui = TermUI {
-            stdout: stdout,
-            term_dims: term_dims,
-            viewport_size: viewport_size,
+            stdout,
+            term_dims,
+            viewport_size,
 
-            map_scroller: map_scroller,
-            log: log,
-            current_player: current_player,
+            map_scroller,
+            log,
+            current_player,
 
             turn: Turn::new(&turn_rect(&cp_rect)),
 

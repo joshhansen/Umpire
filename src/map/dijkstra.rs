@@ -84,7 +84,7 @@ pub struct UnitMovementFilter<'a> {
 impl <'a> UnitMovementFilter<'a> {
     pub fn new(unit: &'a Unit) -> Self {
         UnitMovementFilter {
-            unit: unit
+            unit
         }
     }
 }
@@ -168,7 +168,7 @@ pub struct Xenophile<F:Filter<Obs>> {
 impl <F:Filter<Obs>> Xenophile<F> {
     pub fn new(sub_filter: F) -> Self {
         Xenophile {
-            sub_filter: sub_filter
+            sub_filter
         }
     }
 }
@@ -209,7 +209,7 @@ impl Filter<Tile> for UnitTypeFilter {
     }
 }
 pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
-    neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type: unit_type}, wrapping)
+    neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type}, wrapping)
 }
 
 #[derive(Eq,PartialEq)]
@@ -271,11 +271,11 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
         }
     }
 
-    ShortestPaths { dist: dist, prev: prev }
+    ShortestPaths { dist, prev }
 }
 
 pub fn old_shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
-    shortest_paths(tiles, source, &UnitMovementFilter{unit: unit}, wrapping)
+    shortest_paths(tiles, source, &UnitMovementFilter{unit}, wrapping)
 }
 
 /// Return the (or a) closest tile to the source which is reachable by the given
@@ -296,7 +296,7 @@ pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: 
             return Some(loc);
         }
 
-        let unit_filter = UnitMovementFilter{unit: unit};
+        let unit_filter = UnitMovementFilter{unit};
 
         for neighb in observed_neighbors.iter().filter(|neighb|{
             let tile: &Tile = tiles.get(**neighb).unwrap();
@@ -324,7 +324,7 @@ mod test {
     use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
     fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
-        neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit:unit}, wrapping)
+        neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit}, wrapping)
     }
 
     #[test]

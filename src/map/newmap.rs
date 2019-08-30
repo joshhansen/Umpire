@@ -14,7 +14,7 @@ pub struct CityID {
 }
 impl CityID {
     pub fn new(id: u64) -> Self {
-        Self{ id: id }
+        Self{ id }
     }
     fn next(&self) -> Self {
         Self{ id: self.id + 1 }
@@ -27,7 +27,7 @@ pub struct UnitID {
 }
 impl UnitID {
     pub fn new(id: u64) -> Self {
-        Self{ id: id }
+        Self{ id }
     }
     fn next(&self) -> Self {
         UnitID{ id: self.id + 1 }
@@ -269,7 +269,7 @@ impl MapData {
 
     pub fn new(dims: Dims) -> Self {
         Self {
-            dims: dims,
+            dims,
             tiles: LocationGrid::new(dims, |loc| Tile::new(Terrain::Water, loc)),
             unit_loc_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
