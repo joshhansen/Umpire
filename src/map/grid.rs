@@ -18,7 +18,7 @@ pub struct LocationGrid<T> {
 
 impl<T> LocationGrid<T> {
     pub fn new_from_vec(dims: Dims, grid: Vec<Vec<T>>) -> Self {
-        LocationGrid{ grid: grid, dims: dims }
+        LocationGrid{ grid, dims }
     }
 
     pub fn new<I>(dims: Dims, initializer: I) -> Self
@@ -40,7 +40,7 @@ impl<T> LocationGrid<T> {
             grid.push(col);
         }
 
-        LocationGrid{ grid: grid, dims: dims }
+        LocationGrid{ grid, dims }
     }
 
     pub fn get(&self, loc: Location) -> Option<&T> {
@@ -122,7 +122,7 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
                 }
                 result = result.and(self[Location{x:j_, y:i}].fmt(f));
             }
-            result = result.and(write!(f, "\n"));
+            result = result.and(writeln!(f));
         }
 
         result
@@ -178,7 +178,7 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
                         },
                         loc
                     );
-                    let id: u64 = (loc.x * height + loc.y) as u64;
+                    let id: u64 = u64::from(loc.x * height + loc.y);
                     if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                         tile.city = Some(City::new(
                             CityID::new(id),
@@ -234,7 +234,7 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
 
         Ok(
             LocationGrid::new(
-                Dims{width: width as u16, height: height },
+                Dims{width: width as u16, height },
                 |loc| {
                     let c = lines[loc.y as usize][loc.x as usize];
                     if c == '?' {
@@ -249,7 +249,7 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
                             loc
                         );
 
-                        let id: u64 = (loc.x * height + loc.y) as u64;
+                        let id: u64 = u64::from(loc.x * height + loc.y);
                         if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                             tile.city = Some(City::new(
                                 CityID::new(id),
@@ -259,7 +259,7 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
                             ));
                         }
 
-                        Obs::Observed{tile: tile, turn: 0}
+                        Obs::Observed{tile, turn: 0}
                     }
                 }
             )

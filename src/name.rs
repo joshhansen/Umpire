@@ -22,7 +22,7 @@ pub struct ListNamer {
 }
 impl ListNamer {
     fn new(names: Vec<String>) -> Self {
-        ListNamer{names: names, next_name: 0}
+        ListNamer{names, next_name: 0}
     }
 }
 impl Namer for ListNamer {
@@ -54,7 +54,7 @@ impl <N: Copy+Default+PartialOrd+SampleRange> WeightedNamer<N> {
         WeightedNamer {
             // weighted_names_dist: choice,
             // weighted_names: weighted_names,
-            cumulatively_weighted_names: cumulatively_weighted_names,
+            cumulatively_weighted_names,
             sample_range: weight_range,
             rng: thread_rng()
         }
@@ -180,9 +180,9 @@ pub struct CompoundNamer<N1:Namer,N2:Namer> {
 impl <N1:Namer,N2:Namer> CompoundNamer<N1,N2> {
     fn new(join_str: &'static str, namer1: N1, namer2: N2) -> Self {
         CompoundNamer{
-            join_str: join_str,
-            namer1: namer1,
-            namer2: namer2
+            join_str,
+            namer1,
+            namer2
         }
     }
 }

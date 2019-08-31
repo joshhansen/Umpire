@@ -67,7 +67,7 @@ pub struct Vec2d<T> {
 
 impl<T> Vec2d<T> {
     pub fn new(x: T, y: T) -> Self {
-        Vec2d{ x: x, y: y }
+        Vec2d{ x, y }
     }
 }
 

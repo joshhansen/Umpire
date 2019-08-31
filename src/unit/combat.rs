@@ -19,10 +19,10 @@ pub struct CombatOutcome<A:CombatCapable,D:CombatCapable> {
 impl <A:CombatCapable,D:CombatCapable> CombatOutcome<A,D> {
     fn new(victor: CombatParticipant, attacker: A, defender: D, received_damage_sequence: Vec<CombatParticipant>) -> Self {
         CombatOutcome {
-            victor: victor,
-            attacker: attacker,
-            defender: defender,
-            received_damage_sequence: received_damage_sequence
+            victor,
+            attacker,
+            defender,
+            received_damage_sequence
         }
     }
 

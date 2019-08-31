@@ -16,7 +16,7 @@ impl CityID {
     pub fn new(id: u64) -> Self {
         Self{ id }
     }
-    fn next(&self) -> Self {
+    fn next(self) -> Self {
         Self{ id: self.id + 1 }
     }
 }
@@ -29,7 +29,7 @@ impl UnitID {
     pub fn new(id: u64) -> Self {
         Self{ id }
     }
-    fn next(&self) -> Self {
+    fn next(self) -> Self {
         UnitID{ id: self.id + 1 }
     }
 }
@@ -350,11 +350,11 @@ impl MapData {
     }
 
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.unit_by_loc( * self.unit_loc_by_id.get(&id).unwrap() )
+        self.unit_by_loc(self.unit_loc_by_id[&id])
     }
 
     pub fn mut_unit_by_id(&mut self, id: UnitID) -> Option<&mut Unit> {
-        let loc = *self.unit_loc_by_id.get(&id).unwrap();
+        let loc = self.unit_loc_by_id[&id];
         self.mut_unit_by_loc( loc )//FIXME NLL -- this should be a one-liner
     }
 
@@ -413,11 +413,11 @@ impl MapData {
     }
 
     pub fn city_by_id(&self, id: CityID) -> Option<&City> {
-        self.city_by_loc( * self.city_loc_by_id.get(&id).unwrap() )
+        self.city_by_loc(self.city_loc_by_id[&id])
     }
 
     pub fn mut_city_by_id(&mut self, id: CityID) -> Option<&mut City> {
-        let loc = * self.city_loc_by_id.get(&id).unwrap();
+        let loc = self.city_loc_by_id[&id];
         self.mut_city_by_loc( loc )//FIXME NLL -- this should be a one-liner
     }
 

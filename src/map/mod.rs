@@ -53,7 +53,7 @@ pub struct Tile {
 
 impl Tile {
     pub fn new(terrain: Terrain, loc: Location) -> Tile {
-        Tile{ terrain: terrain, unit: None, city: None, loc: loc }
+        Tile{ terrain, unit: None, city: None, loc }
     }
 
     pub fn sym(&self) -> &'static str {

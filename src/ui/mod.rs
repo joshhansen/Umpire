@@ -200,7 +200,7 @@ fn current_player_rect() -> Rect {
     }
 }
 
-fn turn_rect(current_player_rect: &Rect) -> Rect {
+fn turn_rect(current_player_rect: Rect) -> Rect {
     Rect {
         left: current_player_rect.right() + 2,
         top: 0,
@@ -209,7 +209,7 @@ fn turn_rect(current_player_rect: &Rect) -> Rect {
     }
 }
 
-fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
+fn log_area_rect(viewport_rect: Rect, term_dims: Dims) -> Rect {
     Rect {
         left: 0,
         top: viewport_rect.bottom() + 2,
@@ -269,7 +269,7 @@ impl<W:Write> TermUI<W> {
         let mut map_scroller = Scroller::new(map_scroller_rect, map);
         map_scroller.set_rect(viewport_rect);
 
-        let log_rect = log_area_rect(&viewport_rect, &term_dims);
+        let log_rect = log_area_rect(viewport_rect, term_dims);
         let log = LogArea::new(&log_rect);
 
         let cp_rect = current_player_rect();
@@ -284,7 +284,7 @@ impl<W:Write> TermUI<W> {
             log,
             current_player,
 
-            turn: Turn::new(&turn_rect(&cp_rect)),
+            turn: Turn::new(turn_rect(cp_rect)),
 
             first_draw: true
         };

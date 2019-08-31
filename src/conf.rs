@@ -43,10 +43,10 @@
 // }
 
 /// The name of this application
-pub const APP_NAME: &'static str = "umpire";
+pub const APP_NAME: &str = "umpire";
 
 /// The subtitle. You know, for flavor.
-pub const APP_SUBTITLE: &'static str = "Combat Quest of the Millennium";
+pub const APP_SUBTITLE: &str = "Combat Quest of the Millennium";
 
 // pub const USER_NAME: &'static str = "Jersh";
 
@@ -77,11 +77,11 @@ pub const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
 pub const NEUTRAL_CITY_DENSITY : f32 = 0.05;
 
 /// The number of teams playing, including humans and AIs
-pub const NUM_PLAYERS: &'static str = "4";
+pub const NUM_PLAYERS: &str = "4";
 
-pub const FOG_OF_WAR: &'static str = "on";
+pub const FOG_OF_WAR: &str = "on";
 
-pub const USE_ALTERNATE_SCREEN: &'static str = "on";
+pub const USE_ALTERNATE_SCREEN: &str = "on";
 
 // pub const HUMAN_PLAYER: PlayerNum = 0;
 

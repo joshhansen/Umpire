@@ -427,7 +427,7 @@ x   o    x";
 
                 let infantry = Unit::new(UnitID::new(0), infantry_loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
 
-                let mut obs_tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
+                let mut obs_tracker: Box<dyn ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
 
                 for tile in map.iter() {
                     assert_eq!(*obs_tracker.get(tile.loc).unwrap(), Obs::Unobserved);

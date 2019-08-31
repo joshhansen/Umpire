@@ -50,7 +50,7 @@ impl MoveResult {
     }
 
     pub fn moved_successfully(&self) -> bool {
-        self.moves.iter().map(MoveComponent::moved_successfully).fold(true, |acc, x| acc && x)
+        self.moves.iter().map(MoveComponent::moved_successfully).all(|success| success)
     }
 
     pub fn ending_loc(&self) -> Option<Location> {
@@ -107,7 +107,7 @@ impl MoveComponent {
 pub struct Game {
     // tiles: LocationGrid<Tile>, // tiles[col][row]
     map: MapData,
-    player_observations: HashMap<PlayerNum,Box<ObsTracker>>,
+    player_observations: HashMap<PlayerNum,Box<dyn ObsTracker>>,
     turn: TurnNum,
     num_players: PlayerNum,
     current_player: PlayerNum,
@@ -142,7 +142,7 @@ impl Game {
 
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
-            let tracker: Box<ObsTracker> = if fog_of_war {
+            let tracker: Box<dyn ObsTracker> = if fog_of_war {
                 Box::new(FogOfWarTracker::new(map.dims()))
             } else {
                 Box::new(UniversalVisibilityTracker::new())
@@ -291,7 +291,7 @@ impl Game {
     }
 
     fn update_current_player_observations(&mut self) {
-        let obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
+        let obs_tracker: &mut dyn ObsTracker = &mut ** (self.player_observations.get_mut(&self.current_player).unwrap()) ;
 
         let mut loc = Location{x: 0, y: 0};
         for x in 0..self.map.dims().width {
@@ -339,8 +339,7 @@ impl Game {
     }
 
     pub fn current_player_obs(&self, loc: Location) -> Option<&Obs> {
-        let obs_tracker: &Box<ObsTracker> = &self.player_observations[&self.current_player];
-        obs_tracker.get(loc)
+        self.player_observations[&self.current_player()].get(loc)
     }
 
     pub fn city_by_loc(&self, loc: Location) -> Option<&City> {
@@ -551,7 +550,7 @@ but there is no city at that location",
             self.unit_orders_requests.remove(&unit_id);
 
             let orders = if let Some(unit) = self.unit_by_id(unit_id) {
-                unit.orders().map(|orders| orders.clone())//FIXME Is there some way to dance around the borrow checker without cloning here?
+                unit.orders().cloned()//FIXME Is there some way to dance around the borrow checker without cloning here?
             } else {
                 None
             };
@@ -724,8 +723,7 @@ mod test {
                     println!("{:?}", move_result);
                 },
                 Err(msg) => {
-                    println!("{}", msg);
-                    assert!(false);
+                    panic!("Error during move: {}", msg);
                 }
             }
             // if let Ok(move_result) = game.move_unit_by_loc(loc, new_loc) {

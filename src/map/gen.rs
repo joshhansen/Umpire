@@ -39,7 +39,7 @@ fn rand_loc(rng: &mut ThreadRng, map_dims: Dims) -> Location {
 
 impl MapGenerator {
     pub fn new(city_namer: ListNamer) -> Self {
-        MapGenerator{ city_namer: city_namer }
+        MapGenerator{ city_namer }
     }
 
     pub fn generate(&mut self, map_dims: Dims, num_players: PlayerNum) -> MapData {
@@ -61,7 +61,7 @@ impl MapGenerator {
                 for y in 0..map_dims.height {
                     loc.y = y;
                     match map.terrain(loc).unwrap() {
-                        &Terrain::Land => {
+                        Terrain::Land => {
 
                             // for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
                             //     for y2 in safe_minus_one(y)..(safe_plus_one(y, self.map_dims.height)+1) {
@@ -73,9 +73,9 @@ impl MapGenerator {
                             //     }
                             // }
                         },
-                        &Terrain::Water => {
-                            let cardinal_growth_prob = land_cardinal_neighbors(&map, loc) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
-                            let diagonal_growth_prob = land_diagonal_neighbors(&map, loc) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
+                        Terrain::Water => {
+                            let cardinal_growth_prob = f32::from(land_cardinal_neighbors(&map, loc)) / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
+                            let diagonal_growth_prob = f32::from(land_diagonal_neighbors(&map, loc)) / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
 
                             if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
                                 map.set_terrain(loc, Terrain::Land);
@@ -89,7 +89,7 @@ impl MapGenerator {
         // Populate neutral cities
         for x in 0..map_dims.width {
             for y in 0..map_dims.height {
-                let loc = Location{x:x, y:y};
+                let loc = Location{x, y};
 
                 if *map.terrain(loc).unwrap() == Terrain::Land && rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
                     map.new_city(loc, Alignment::Neutral, self.city_namer.name()).unwrap();

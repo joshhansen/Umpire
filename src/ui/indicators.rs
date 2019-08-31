@@ -11,7 +11,7 @@ pub struct CurrentPlayer {
 impl CurrentPlayer {
     pub fn new(rect: Rect) -> Self {
         CurrentPlayer {
-            rect: rect
+            rect
         }
     }
 }
@@ -41,8 +41,8 @@ pub struct Turn {
 }
 
 impl Turn {
-    pub fn new(rect: &Rect) -> Self {
-        Turn{ rect: *rect }
+    pub fn new(rect: Rect) -> Self {
+        Turn{ rect }
     }
 }
 

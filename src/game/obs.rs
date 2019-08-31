@@ -44,7 +44,7 @@ impl ObsTracker for FogOfWarTracker {
     }
 
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) {
-        self.observations[loc] = Obs::Observed{tile:tile.clone(), turn:turn};
+        self.observations[loc] = Obs::Observed{tile:tile.clone(), turn};
     }
 }
 
@@ -76,10 +76,10 @@ impl ObsTracker for UniversalVisibilityTracker {
 }
 
 pub fn visible_coords_iter(sight_distance: u16) -> impl Iterator<Item=Vec2d<i32>>  {
-    let sight_distance = sight_distance as i32;
-    (-sight_distance..sight_distance+1).flat_map(move |x| {
+    let sight_distance = i32::from(sight_distance);
+    (-sight_distance..=sight_distance).flat_map(move |x| {
         let y_max = sight_distance - x.abs();
-        (-y_max..y_max+1).map(move |y| {
+        (-y_max..=y_max).map(move |y| {
             Vec2d::new(x,y)
         })
     } )
@@ -87,7 +87,7 @@ pub fn visible_coords_iter(sight_distance: u16) -> impl Iterator<Item=Vec2d<i32>
 
 pub trait Observer {
     fn sight_distance(&self) -> u16;
-    fn observe(&self, observer_loc: Location, tiles: &Source<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut Box<ObsTracker>) {
+    fn observe(&self, observer_loc: Location, tiles: &dyn Source<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut dyn ObsTracker) {
         for inc in visible_coords_iter(self.sight_distance()) {
             if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
                 obs_tracker.observe(loc, tiles.get(loc).unwrap(), turn);
@@ -107,7 +107,7 @@ mod test {
     fn test_fog_of_war_tracker() {
         let dims = Dims{width: 10, height: 20};
         let map: LocationGrid<Tile> = LocationGrid::new(dims, |loc| -> Tile { Tile::new(Terrain::Land, loc) });
-        let mut tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(dims));
+        let mut tracker: Box<dyn ObsTracker> = Box::new(FogOfWarTracker::new(dims));
         let loc = Location{x: 5, y: 10};
         assert_eq!(tracker.get(loc), Some(&Obs::Unobserved));
         assert_eq!(tracker.get(Location{x:1000, y: 2000}), None);
@@ -121,6 +121,6 @@ mod test {
         assert_eq!(tracker.get(loc), Some(&Obs::Observed{tile: tile, turn: turn}));
 
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "George Glover");
-        infantry.observe(loc, &map, turn, WRAP_BOTH, &mut tracker);
+        infantry.observe(loc, &map, turn, WRAP_BOTH, &mut *tracker);
     }
 }
