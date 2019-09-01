@@ -560,7 +560,7 @@ but there is no city at that location",
 
             Ok(())
         } else {
-            return Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id));
+            Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
         }
 
 
