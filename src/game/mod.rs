@@ -530,8 +530,8 @@ but there is no city at that location",
         .cloned()
         .filter(|unit_type| {
             for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
-                let terrain = self.map.terrain(neighb_loc).unwrap();
-                if unit_type.can_move_on_terrain( &terrain ) {
+                let tile = self.map.tile(neighb_loc).unwrap();
+                if unit_type.can_move_on_tile( &tile ) {
                     return true;
                 }
             }
@@ -660,8 +660,8 @@ mod test {
     fn map1() -> MapData {
         let dims = Dims{width: 10, height: 10};
         let mut map = MapData::new(dims);
-        map.new_city(Location{x:0,y:0}, Alignment::Belligerent{player:0}, "Machang");
-        map.new_city(Location{x:0,y:1}, Alignment::Belligerent{player:1}, "Zanzibar");
+        map.new_city(Location{x:0,y:0}, Alignment::Belligerent{player:0}, "Machang").unwrap();
+        map.new_city(Location{x:0,y:1}, Alignment::Belligerent{player:1}, "Zanzibar").unwrap();
         // LocationGrid::new(dims, |loc| {
         //     let mut tile = Tile::new(Terrain::Land, loc);
         //     if loc.x == 0 {

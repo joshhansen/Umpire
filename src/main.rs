@@ -21,11 +21,14 @@
 // TODO Show owner of city or unit in examine mode
 // TODO Game save/load
 // TODO Announce new unit creation
-// TODO Color console text announcing turn start to correspond to player colors
+// TODO Color console text announcing turn start to correspond to player colors?
 // TODO Show unit stats in examine mode
 // TODO Show production cost / time when setting productions
 // TODO Show possible orders / shortcuts in move unit mode
 // TODO Zoomed-out map view?
+// TODO AI
+
+#[allow(clippy::cognitive_complexity)]
 
 pub mod conf;
 pub mod game;

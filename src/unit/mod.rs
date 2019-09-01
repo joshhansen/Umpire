@@ -24,8 +24,8 @@ pub enum Alignment {
 }
 
 impl Alignment {
-    pub fn color(&self) -> AnsiValue {
-        match *self {
+    pub fn color(self) -> AnsiValue {
+        match self {
             Alignment::Neutral => AnsiValue(8),
             Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
         }
@@ -70,8 +70,8 @@ impl UnitType {
         ]
     }
 
-    fn max_hp(&self) -> u16 {
-        match *self {
+    fn max_hp(self) -> u16 {
+        match self {
             UnitType::Infantry | UnitType::Fighter | UnitType::Bomber => 1,
             UnitType::Armor | UnitType::Destroyer | UnitType::Submarine => 2,
             UnitType::Transport => 3,
@@ -81,8 +81,8 @@ impl UnitType {
         }
     }
 
-    pub fn cost(&self) -> u16 {
-        match *self {
+    pub fn cost(self) -> u16 {
+        match self {
             UnitType::Infantry => 6,
             UnitType::Armor | UnitType::Fighter | UnitType::Bomber => 12,
             UnitType::Transport => 30,
@@ -93,8 +93,8 @@ impl UnitType {
         }
     }
 
-    pub fn key(&self) -> char {
-        match *self {
+    pub fn key(self) -> char {
+        match self {
             UnitType::Infantry => 'i',
             UnitType::Armor => 'a',
             UnitType::Fighter => 'f',
@@ -108,37 +108,53 @@ impl UnitType {
         }
     }
 
-    pub fn sight_distance(&self) -> u16 {
-        match *self {
+    pub fn sight_distance(self) -> u16 {
+        match self {
             UnitType::Infantry | UnitType::Armor | UnitType::Transport => 2,
             UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser => 3,
             UnitType::Fighter | UnitType::Bomber | UnitType::Battleship | UnitType::Carrier => 4,
         }
     }
 
-    pub fn from_key(c: &char) -> Option<UnitType> {
+    pub fn from_key(c: char) -> Option<UnitType> {
         for unit_type in &UnitType::values() {
-            if unit_type.key() == *c {
+            if unit_type.key() == c {
                 return Some(*unit_type);
             }
         }
         None
     }
 
-    pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
-        match *self {
+    // pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
+    //     match *self {
+    //         UnitType::Infantry | UnitType::Armor =>
+    //                 *terrain==Terrain::Land,
+    //         UnitType::Fighter | UnitType::Bomber =>
+    //                 *terrain==Terrain::Land || *terrain==Terrain::Water,
+    //         UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
+    //         UnitType::Battleship | UnitType::Carrier =>
+    //                 *terrain==Terrain::Water,
+    //     }
+    // }
+
+    /// Determine whether this unit can move onto a particular tile (potentially requiring combat to do so).
+    /// 
+    /// If a city is present, this will always be true. Otherwise, it will be determined by the match between
+    /// the unit's capabilities and the terrain (e.g. planes over water, but not tanks over water).
+    pub fn can_move_on_tile(self, tile: &Tile) -> bool {
+        tile.city.is_some() || match self {
             UnitType::Infantry | UnitType::Armor =>
-                    *terrain==Terrain::Land,
+                    tile.terrain==Terrain::Land,
             UnitType::Fighter | UnitType::Bomber =>
-                    *terrain==Terrain::Land || *terrain==Terrain::Water,
+                    tile.terrain==Terrain::Land || tile.terrain==Terrain::Water,
             UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
             UnitType::Battleship | UnitType::Carrier =>
-                    *terrain==Terrain::Water,
+                    tile.terrain==Terrain::Water,
         }
     }
 
-    pub fn name(&self) -> &'static str {
-        match *self {
+    pub fn name(self) -> &'static str {
+        match self {
             UnitType::Infantry => "Infantry",
             UnitType::Armor => "Armor",
             UnitType::Fighter => "Fighter",
@@ -220,7 +236,7 @@ impl Unit {
     /// The presence of cities makes no difference, because either we'll go as a visitor to our own
     /// city, or attempt to capture a hostile city.
     pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
-        if !self.type_.can_move_on_terrain(&tile.terrain) {
+        if !self.type_.can_move_on_tile(tile) {
             return false;
         }
 
@@ -412,7 +428,7 @@ x   o    x";
 
         match LocationGrid::try_from(map_s) {
             Err(err) => {
-                assert!(false, "Error parsing map: {}", err);
+                panic!("Error parsing map: {}", err);
             },
             Ok(map) => {
                 assert_eq!(map.dims(), Dims{width:10, height:5});
@@ -435,7 +451,7 @@ x   o    x";
 
                 let turn = 0;
 
-                infantry.observe(infantry_loc, &map, turn, WRAP_BOTH, &mut obs_tracker);
+                infantry.observe(infantry_loc, &map, turn, WRAP_BOTH, &mut *obs_tracker);
 
                 let observed_locs_arr = [
                     Location{x:4, y:0},
@@ -471,7 +487,7 @@ x   o    x";
                 */
                 let infantry_loc_2 = Location{x:5, y:2};
 
-                infantry.observe(infantry_loc_2, &map, turn, WRAP_BOTH, &mut obs_tracker);
+                infantry.observe(infantry_loc_2, &map, turn, WRAP_BOTH, &mut *obs_tracker);
 
                 let observed_locs_arr_2 = [
                     Location{x:5, y:0},

@@ -205,7 +205,7 @@ struct UnitTypeFilter {
 }
 impl Filter<Tile> for UnitTypeFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        self.unit_type.can_move_on_terrain(&neighb_tile.terrain)
+        self.unit_type.can_move_on_tile(neighb_tile)
     }
 }
 pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
