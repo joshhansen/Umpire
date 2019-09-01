@@ -44,6 +44,10 @@ pub struct Dims {
 }
 
 impl Dims {
+    pub fn new(width: u16, height: u16) -> Self {
+        Self { width, height }
+    }
+
     pub fn in_bounds(&self, loc: Location) -> bool {
         // loc.x >= 0 && 
         // loc.y >= 0 &&

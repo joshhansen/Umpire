@@ -58,9 +58,6 @@ use ui::DefaultUI;
 use unit::PlayerNum;
 use util::Dims;
 
-// Derived configuration
-const MAP_DIMS: Dims = Dims { width: conf::MAP_WIDTH, height: conf::MAP_HEIGHT };
-
 fn print_loading_screen() {
     let f = File::open("images/1945_Baseball_Umpire.txt").unwrap();
     let file = BufReader::new(&f);
@@ -77,6 +74,9 @@ fn print_loading_screen() {
 
 fn main() {
     if let Ok((term_width,term_height)) = terminal_size() {
+        let map_width_s: &str = &conf::MAP_WIDTH.to_string();
+        let map_height_s: &str = &conf::MAP_HEIGHT.to_string();
+
         let matches = App::new(conf::APP_NAME)
             .version("0.1")
             .author("Josh Hansen <hansen.joshuaa@gmail.com>")
@@ -109,6 +109,28 @@ fn main() {
                 .default_value(conf::USE_ALTERNATE_SCREEN)
                 .possible_values(&["on","off"])
             )
+            .arg(Arg::with_name("map_width")
+                .short("W")
+                .long("width")
+                .help("Map width")
+                .takes_value(true)
+                .default_value(map_width_s)
+                .validator(|s| {
+                    let width: Result<u16,_> = s.trim().parse();
+                    width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))
+                })
+            )
+            .arg(Arg::with_name("map_height")
+                .short("H")
+                .long("height")
+                .help("Map height")
+                .takes_value(true)
+                .default_value(map_height_s)
+                .validator(|s| {
+                    let width: Result<u16,_> = s.trim().parse();
+                    width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
+                })
+            )
         .get_matches();
 
         print_loading_screen();
@@ -116,13 +138,17 @@ fn main() {
         let fog_of_war = matches.value_of("fog").unwrap() == "on";
         let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
         let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
+        let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
+        let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
+
+        let map_dims: Dims = Dims::new(map_width, map_height);
 
         match city_namer() {
             Ok(city_namer) => {
                 match unit_namer() {
                     Ok(unit_namer) => {
 
-                        let game = Game::new(MAP_DIMS, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
+                        let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
 
                         if let Err(msg) = ui::run(game, Dims{ width: term_width, height: term_height }, use_alt_screen) {
                             println!("Error running UI: {}", msg);
