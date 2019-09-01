@@ -19,9 +19,9 @@ pub struct LogArea {
 }
 
 impl LogArea {
-    pub fn new(rect: &Rect) -> Self {
+    pub fn new(rect: Rect) -> Self {
         LogArea {
-            rect: *rect,
+            rect,
             messages: VecDeque::new(),
             empty_message: Message::from(String::from("")),
             white: Rgb(255,255,255),

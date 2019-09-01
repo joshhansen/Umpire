@@ -127,11 +127,11 @@ impl Map {
     pub fn new(rect: Rect, map_dims: Dims) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
-            rect: rect,
-            map_dims: map_dims,
+            rect,
+            map_dims,
             old_viewport_offset: Vec2d::new(0, 0),
             viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2),
-            displayed_tiles: displayed_tiles
+            displayed_tiles
         }
     }
 

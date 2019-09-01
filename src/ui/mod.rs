@@ -270,7 +270,7 @@ impl<W:Write> TermUI<W> {
         map_scroller.set_rect(viewport_rect);
 
         let log_rect = log_area_rect(viewport_rect, term_dims);
-        let log = LogArea::new(&log_rect);
+        let log = LogArea::new(log_rect);
 
         let cp_rect = current_player_rect();
         let current_player = CurrentPlayer::new(cp_rect);
