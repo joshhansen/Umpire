@@ -116,6 +116,7 @@ pub fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, vi
     None
 }
 
+/// The map widget
 pub struct Map {
     rect: Rect,
     map_dims: Dims,

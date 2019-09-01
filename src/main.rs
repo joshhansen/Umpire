@@ -9,6 +9,7 @@
 // FIXME Make it clear when a unit is inside a city
 // FIXME Don't let units have land or water color
 // FIXME Make Map::draw_tile faster, maybe by eliminating tile cloning
+// FIXME Fix problems with small map sizes: 1) crash if viewport is larger than map 2) limitless wrapping where we should only wrap once
 // TODO Implement transport functionality
 // TODO Implement carrier functionality
 // TODO Allow sentry
