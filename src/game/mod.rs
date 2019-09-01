@@ -377,23 +377,29 @@ impl Game {
         &self.unit_orders_requests
     }
 
-    //FIXME Make the unit observe at each point along its path
-    //FIXME This function checks two separate times whether a unit exists at src
+    /*
+        Errors:
+        * If unit at `src` doesn't exist
+        * If requested move requires more moves than the unit has remaining
+        * If `dest` is unreachable from `src` (may be subsumed by previous)
+
+        FIXME Make the unit observe at each point along its path
+
+        FIXME This function checks two separate times whether a unit exists at src
+    */
     pub fn move_unit_by_loc(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let shortest_paths = {
             let unit = self.map.unit_by_loc(src).unwrap();
             shortest_paths(&self.map, src, &UnitMovementFilter::new(unit), self.wrapping)
         };
         if let Some(distance) = shortest_paths.dist[dest] {
-            
             if let Some(unit) = self.map.unit_by_loc(src) {
                 if distance > unit.moves_remaining {
                     return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
                                 unit, src, dest, distance, unit.moves_remaining));
                 }
-            }
 
-            if let Some(mut unit) = self.map.pop_unit_by_loc(src) {
+                let mut unit = self.map.pop_unit_by_loc(src).unwrap();
 
                 // We're here because a route exists to the destination and a unit existed at the source
 
@@ -450,13 +456,6 @@ impl Game {
                     }
                 }
 
-                for move_ in moves.iter() {
-                    if move_.moved_successfully() {
-                        let mut obs_tracker: &mut Box<ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
-                        unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, obs_tracker);
-                    }
-                }
-
                 let removed = self.unit_orders_requests.remove(&unit.id);
                 debug_assert!(removed);
                 // debug_assert!(self.unit_orders_requests.remove(&src));
@@ -473,9 +472,16 @@ impl Game {
                     }
                 }
 
+                for move_ in moves.iter() {
+                    if move_.moved_successfully() {
+                        let obs_tracker: &mut Box<dyn ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
+                        unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, &mut **obs_tracker);
+                    }
+                }
+
                 MoveResult::new(unit, src, moves)
             } else {
-                Err(format!("No unit found at source location {}", src))
+                Err(format!("Cannot move unit at source location {} because none exists", src))
             }
         } else {
             Err(format!("No route from {} to {}", src, dest))
