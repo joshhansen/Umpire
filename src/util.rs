@@ -95,6 +95,7 @@ impl <T:fmt::Display> fmt::Display for Vec2d<T> {
     }
 }
 
+#[derive(Clone,Copy)]
 pub enum Direction {
     Up,
     Down,
@@ -107,8 +108,8 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn vec2d(&self) -> Vec2d<i32> {
-        match *self {
+    pub fn vec2d(self) -> Vec2d<i32> {
+        match self {
             Direction::Up         => Vec2d{x: 0, y:-1},
             Direction::Down       => Vec2d{x: 0, y: 1},
             Direction::Left       => Vec2d{x:-1, y: 0},

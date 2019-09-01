@@ -14,7 +14,7 @@ use ui::{Draw,MoveAnimator,TermUI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
 use unit::{Alignment,UnitType};
 use unit::orders::Orders;
-use util::{Direction,Location,Rect,WRAP_BOTH};
+use util::{Direction,Location,Rect,WRAP_NEITHER};
 
 fn get_key() -> Key {
     let stdin = stdin();
@@ -357,6 +357,7 @@ impl IMode for GetUnitOrdersMode {
                     if let Key::Char(c) = key {
                         if let Ok(dir) = Direction::try_from(c) {
                             if let Some(dest) = unit_loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
+                                // ui.log_message(format!("About to move unit from {} to {}", unit_loc, dest));
                                 match game.move_unit_by_id(self.unit_id, dest) {
                                     Ok(move_result) => {
                                         ui.animate_move(game, &move_result);
@@ -493,10 +494,19 @@ impl IMode for ExamineMode {
                     }
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
-                        let new_loc = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_BOTH).unwrap();
-                        let viewport_rect = ui.viewport_rect();
-                        if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
-                            *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false, most_recently_active_unit_id: self.most_recently_active_unit_id};
+
+                        if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_NEITHER) {
+                            let viewport_rect = ui.viewport_rect();
+                            if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
+                                *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false, most_recently_active_unit_id: self.most_recently_active_unit_id};
+                            }
+                        } else {
+                            // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport
+                            // such that the cursor will still be at its edge
+
+                            ui.map_scroller.scrollable.shift_viewport(dir.vec2d());
+                            ui.map_scroller.draw(game, &mut ui.stdout);
+                            // Don't change `mode` since we'll basically pick up where we left off
                         }
                     }
                 }
