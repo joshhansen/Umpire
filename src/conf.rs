@@ -104,6 +104,8 @@ pub const KEY_VIEWPORT_SHIFT_UP_RIGHT: char = 'U';
 pub const KEY_VIEWPORT_SHIFT_DOWN_LEFT: char = 'B';
 pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';
 
+pub const KEY_EXPLORE: char = 'o';
+
 pub const KEY_QUIT: char = 'q';
 
 pub const KEY_EXAMINE: char = 'x';

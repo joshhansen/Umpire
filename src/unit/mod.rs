@@ -251,7 +251,7 @@ impl Unit {
 
     pub fn orders(&self) -> Option<&Orders> { self.orders.as_ref() }
 
-    pub fn give_orders(&mut self, orders: Option<Orders>) {
+    pub fn set_orders(&mut self, orders: Option<Orders>) {
         self.orders = orders;
     }
 }

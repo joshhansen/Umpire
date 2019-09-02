@@ -12,17 +12,25 @@ pub enum Orders {
     Explore
 }
 
+pub enum OrdersStatus {
+    InProgress,
+    Completed
+}
+
+type OrdersResult = Result<OrdersStatus,String>;
+
 impl Orders {
-    pub fn carry_out<U:LogTarget+MoveAnimator>(&self, unit_id: UnitID, game: &mut Game, ui: &mut U) {
+    pub fn carry_out<U:LogTarget+MoveAnimator>(&self, unit_id: UnitID, game: &mut Game, ui: &mut U) -> OrdersResult {
         match *self {
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
+                Ok(OrdersStatus::InProgress)
             },
             Orders::GoTo{dest} => {
-                go_to(game, unit_id, dest, ui);
+                go_to(game, unit_id, dest, ui)
             },
             Orders::Explore => {
-                explore(game, unit_id, ui);
+                explore(game, unit_id, ui)
             }
         }//match orders
     }
@@ -43,7 +51,7 @@ www
 
 
 */
-pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &mut U) {
+pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &mut U) -> OrdersResult {
     // // Shortest paths emanating from the starting location, considering only observed tiles
     // let shortest_paths_observed = shortest_paths_unit_limited(game, starting_loc,
     //                                             game.unit(starting_loc).unwrap(), game.wrapping());
@@ -56,10 +64,13 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &
     //
     let mut current_loc = game.unit_by_id(unit_id).unwrap().loc;
     loop {
-        if let Some(goal) = {
-            let unit = game.unit_by_id(unit_id).unwrap();
-            nearest_reachable_adjacent_unobserved(game, current_loc, unit, game.wrapping())
-        } {
+        let unit = game.unit_by_id(unit_id).unwrap();
+
+        if let Some(goal) = nearest_reachable_adjacent_unobserved(game, current_loc, unit, game.wrapping()) {
+
+            if unit.moves_remaining == 0 {
+                return Ok(OrdersStatus::InProgress);
+            }
 
             match game.move_unit_by_id(unit_id, goal) {
                 Ok(move_result) => {
@@ -70,13 +81,13 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &
                     }
                 },
                 Err(msg) => {
-                    ui.log_message(format!("Error moving unit toward {}: {}", goal, msg));
+                    return Err(format!("Error moving unit toward {}: {}", goal, msg));
                 }
             }
 
         } else {
             game.give_orders(unit_id, None, ui).unwrap();
-            break;
+            return Ok(OrdersStatus::Completed);
         }
     }
 }
@@ -93,7 +104,7 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &
 /// So, in all cases, the right thing to do is to go to the observed, accessible tile nearest the
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
-pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: Location, ui: &mut U) {
+pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: Location, ui: &mut U) -> OrdersResult {
     ui.log_message(format!("Destination 1: {}", dest));
     // let moves_remaining = {
     //     game.unit_by_id(unit_id).unwrap().moves_remaining
@@ -148,10 +159,13 @@ pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: L
 
             if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
                 game.give_orders(unit_id, None, ui).unwrap();
+                Ok(OrdersStatus::Completed)
+            } else {
+                Ok(OrdersStatus::InProgress)
             }
         },
         Err(msg) => {
-            ui.log_message(format!("Error moving unit toward {}: {}", dest, msg));
+            Err(format!("Error moving unit toward {}: {}", dest, msg))
         }
     }
 }

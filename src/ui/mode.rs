@@ -29,6 +29,8 @@ pub enum Mode {
     SetProduction{city_loc:Location},
     GetOrders,
     GetUnitOrders{unit_id:UnitID, first_move:bool},
+    CarryOutOrders,
+    CarryOutUnitOrders{unit_id:UnitID},
     Quit,
     Examine{
         cursor_viewport_loc:Location,
@@ -54,6 +56,12 @@ impl Mode {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims);
                 GetUnitOrdersMode{rect, unit_id, first_move}.run(game, ui, self, prev_mode)
+            },
+            Mode::CarryOutOrders =>     CarryOutOrdersMode{}.run(game, ui, self, prev_mode),
+            Mode::CarryOutUnitOrders{unit_id} => {
+                let viewport_rect = ui.viewport_rect();
+                let rect = sidebar_rect(viewport_rect, ui.term_dims);
+                CarryOutUnitOrdersMode{rect, unit_id}.run(game, ui, self, prev_mode)
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
             Mode::Examine{cursor_viewport_loc, first, most_recently_active_unit_id} =>
@@ -172,6 +180,12 @@ impl IMode for TurnResumeMode {
             *mode = Mode::SetProductions;
             return true;
         }
+
+        if !game.units_with_pending_orders().is_empty() {
+            *mode = Mode::CarryOutOrders;
+            return true;
+        }
+
         if !game.unit_orders_requests().is_empty() {
             *mode = Mode::GetOrders;
             return true;
@@ -249,7 +263,7 @@ impl IMode for SetProductionMode {
             match self.get_key(game, ui, mode) {
                 KeyStatus::Unhandled(key) => {
                     if let Key::Char(c) = key {
-                        if let Some(unit_type) = UnitType::from_key(&c) {
+                        if let Some(unit_type) = UnitType::from_key(c) {
                             game.set_production(self.loc, unit_type).unwrap();
 
                             let city = &game.city_by_loc(self.loc).unwrap();
@@ -327,7 +341,9 @@ impl GetUnitOrdersMode {
 
         write!(*stdout, "{}Examine:\t{}", self.goto(0, 6), conf::KEY_EXAMINE).unwrap();
 
-        write!(*stdout, "{}Quit:\t{}", self.goto(0, 8), conf::KEY_QUIT).unwrap();
+        write!(*stdout, "{}Explore:\t{}", self.goto(0, 8), conf::KEY_EXPLORE).unwrap();
+
+        write!(*stdout, "{}Quit:\t{}", self.goto(0, 10), conf::KEY_QUIT).unwrap();
 
         stdout.flush().unwrap();
     }
@@ -398,6 +414,85 @@ impl IMode for GetUnitOrdersMode {
         }
     }
 }
+
+struct CarryOutOrdersMode {}
+impl IMode for CarryOutOrdersMode {
+    fn run<W:Write>(&self, game: &mut Game, _ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+        while !game.units_with_pending_orders().is_empty() {
+            let unit_id = *game.units_with_pending_orders().iter().next().unwrap();
+            let unit = game.unit_by_id(unit_id).unwrap();
+            if unit.moves_remaining > 0 {
+                *mode = Mode::CarryOutUnitOrders{unit_id};
+                return true;
+            }
+        }
+        *mode = Mode::TurnResume;
+        true
+    }
+}
+
+struct CarryOutUnitOrdersMode {
+    rect: Rect,
+    unit_id: UnitID,
+}
+
+impl IVisibleMode for CarryOutUnitOrdersMode {
+    fn rect(&self) -> Rect {
+        self.rect
+    }
+}
+impl CarryOutUnitOrdersMode {
+    fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
+        let unit = game.unit_by_id(self.unit_id).unwrap();
+
+        write!(*stdout, "{}Unit {} carries out its orders", self.goto(0, 0), unit).unwrap();
+
+        // write!(*stdout, "{}Cancel:\tESC", self.goto(0, 2)).unwrap();
+
+        // write!(*stdout, "{}Examine:\t{}", self.goto(0, 4), conf::KEY_EXAMINE).unwrap();
+
+        // write!(*stdout, "{}Quit:\t{}", self.goto(0, 6), conf::KEY_QUIT).unwrap();
+
+        stdout.flush().unwrap();
+    }
+}
+impl IMode for CarryOutUnitOrdersMode {
+    fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+        let unit = game.unit_by_id(self.unit_id).unwrap();
+
+        ui.map_scroller.scrollable.center_viewport(unit.loc);
+
+        ui.draw(game);
+
+        self.draw(game, &mut ui.stdout);
+
+        let orders = unit.orders().unwrap().clone();
+
+        match orders.carry_out(self.unit_id, game, ui) {
+            Ok(_orders_status) => {
+                *mode = Mode::CarryOutOrders{};
+            },
+            Err(msg) => {
+                panic!(msg);
+            }
+        }
+
+        true
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 struct QuitMode {}
 impl IMode for QuitMode {

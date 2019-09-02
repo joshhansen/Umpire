@@ -17,7 +17,7 @@ use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use ui::MoveAnimator;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
 use unit::combat::{CombatCapable,CombatOutcome};
-use unit::orders::Orders;
+use unit::orders::{Orders,OrdersStatus};
 use util::{Dims,Location,Wrap,Wrap2d};
 
 
@@ -112,7 +112,8 @@ pub struct Game {
     num_players: PlayerNum,
     current_player: PlayerNum,
     production_set_requests: HashSet<Location>,
-    unit_orders_requests: HashSet<UnitID>,
+    unit_orders_requests: BTreeSet<UnitID>,// we use a tree-based set so we can iterate through units in a consistent order
+    units_with_pending_orders: BTreeSet<UnitID>,// we use a tree-based set so we can iterate through units in a consistent order
     wrapping: Wrap2d,
     unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>
 }
@@ -163,7 +164,8 @@ impl Game {
             num_players,
             current_player: 0,
             production_set_requests: HashSet::new(),
-            unit_orders_requests: HashSet::new(),
+            unit_orders_requests: BTreeSet::new(),
+            units_with_pending_orders: BTreeSet::new(),
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
             unit_namer
         };
@@ -186,26 +188,21 @@ impl Game {
                 let loc = Location{x, y};
                 // let tile: &mut Tile = &mut self.tiles[loc];
 
-                let new_unit_produced: Option<UnitType> = {
-                    if let Some(ref mut city) = self.map.mut_city_by_loc(loc) {
-                        if let Alignment::Belligerent{player} = city.alignment {
-                            if player==self.current_player {
-
-                                if let Some(ref unit_under_production) = city.unit_under_production {
-                                    city.production_progress += 1;
-                                    if city.production_progress >= unit_under_production.cost() {
-                                        log.log_message(format!("{} produced a {}", city, unit_under_production));
-                                        city.production_progress = 0;
-                                        Some(*unit_under_production)
-                                    } else {
-                                        None
-                                    }
+                let new_unit_produced: Option<UnitType> = if let Some(ref mut city) = self.map.mut_city_by_loc(loc) {
+                    if let Alignment::Belligerent{player} = city.alignment {
+                        if player==self.current_player {
+                            if let Some(ref unit_under_production) = city.unit_under_production {
+                                city.production_progress += 1;
+                                if city.production_progress >= unit_under_production.cost() {
+                                    log.log_message(format!("{} produced a {}", city, unit_under_production));
+                                    city.production_progress = 0;
+                                    Some(*unit_under_production)
                                 } else {
-                                    log.log_message(format!("Queueing production set request for {}", city));
-                                    self.production_set_requests.insert(city.loc);
                                     None
                                 }
                             } else {
+                                log.log_message(format!("Queueing production set request for {}", city));
+                                self.production_set_requests.insert(city.loc);
                                 None
                             }
                         } else {
@@ -214,6 +211,8 @@ impl Game {
                     } else {
                         None
                     }
+                } else {
+                    None
                 };
 
                 if let Some(unit_under_production) = new_unit_produced {
@@ -250,6 +249,8 @@ impl Game {
                             if unit.orders().is_none() {
                                 log.log_message(format!("Queueing unit orders request for {}", unit));
                                 self.unit_orders_requests.insert(unit.id);
+                            } else {
+                                self.units_with_pending_orders.insert(unit.id);
                             }
                         }
                     }
@@ -370,11 +371,12 @@ impl Game {
         &self.production_set_requests
     }
 
-    //FIXME Make it easy for UI clients to process unit move requests in unit order by returning these locations in a consistent unit order
-    //      This means if unit A just moved and still has moves remaining, unit A will be the first in line to move again regardless of where
-    //      they are located
-    pub fn unit_orders_requests(&self) -> &HashSet<UnitID> {
+    pub fn unit_orders_requests(&self) -> &BTreeSet<UnitID> {
         &self.unit_orders_requests
+    }
+
+    pub fn units_with_pending_orders(&self) -> &BTreeSet<UnitID> {
+        &self.units_with_pending_orders
     }
 
     /*
@@ -397,7 +399,15 @@ impl Game {
                 if distance > unit.moves_remaining {
                     return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
                                 unit, src, dest, distance, unit.moves_remaining));
+                } else if distance == unit.moves_remaining {
+                    // If we know we're using up all remaining moves, eliminate any unit orders request for this unit
+                    self.unit_orders_requests.remove(&unit.id);
+
+                    // Also drop it from the list of units whose orders need to be carried out in case it's there
+                    self.units_with_pending_orders.remove(&unit.id);
                 }
+
+
 
                 let mut unit = self.map.pop_unit_by_loc(src).unwrap();
 
@@ -456,11 +466,15 @@ impl Game {
                     }
                 }
 
-                let removed = self.unit_orders_requests.remove(&unit.id);
-                debug_assert!(removed);
+                // let removed = self.unit_orders_requests.remove(&unit.id);
+                // debug_assert!(removed);
                 // debug_assert!(self.unit_orders_requests.remove(&src));
 
                 unit.moves_remaining -= moves.len() as u16;
+
+                // if unit.moves_remaining == 0 {
+                //     self.unit_orders_requests.remove(&unit.id);
+                // }
 
                 if let Some(move_) = moves.last() {
                     if move_.moved_successfully() {
@@ -550,24 +564,65 @@ but there is no city at that location",
         //     return Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc));
         // }
 
-        self.mut_unit_by_id(unit_id).unwrap().give_orders(orders);
+        // if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
+        //     unit.give_orders(orders);
 
-        if self.unit_by_id(unit_id).is_some() {
-            self.unit_orders_requests.remove(&unit_id);
+        //     let removed = self.unit_orders_requests.remove(&unit_id);
+        //     debug_assert!(removed);
 
-            let orders = if let Some(unit) = self.unit_by_id(unit_id) {
-                unit.orders().cloned()//FIXME Is there some way to dance around the borrow checker without cloning here?
-            } else {
-                None
-            };
-            if let Some(orders) = orders {
-                orders.carry_out(unit_id, self, ui);
-            }
+        //     unit.orders().unwrap().carry_out(unit_id, self, ui);
 
-            Ok(())
+        //     Ok(())
+
+
+        // } else {
+        //     Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
+        // }
+
+
+        if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
+            unit.set_orders(orders);
         } else {
-            Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
+            return Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id));
         }
+
+        let removed = self.unit_orders_requests.remove(&unit_id);
+        debug_assert!(removed);
+
+        // let orders = if let Some(unit) = self.unit_by_id(unit_id) {
+        //     unit.orders().cloned()//FIXME Is there some way to dance around the borrow checker without cloning here?
+        // } else {
+        //     None
+        // };
+
+        let orders = self.unit_by_id(unit_id).unwrap().orders().unwrap().clone();//FIXME Is there some way to dance around the borrow checker without cloning here?
+
+        let result = orders.carry_out(unit_id, self, ui);
+
+        // If the orders are already complete, clear them out
+        if let Ok(OrdersStatus::Completed) = result {
+            self.mut_unit_by_id(unit_id).unwrap().set_orders(None);
+        }
+        
+        result.map(|_ok| ())
+        
+
+        // if self.unit_by_id(unit_id).is_some() {
+        //     self.unit_orders_requests.remove(&unit_id);
+
+        //     let orders = if let Some(unit) = self.unit_by_id(unit_id) {
+        //         unit.orders().cloned()//FIXME Is there some way to dance around the borrow checker without cloning here?
+        //     } else {
+        //         None
+        //     };
+        //     if let Some(orders) = orders {
+        //         orders.carry_out(unit_id, self, ui);
+        //     }
+
+        //     Ok(())
+        // } else {
+        //     Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
+        // }
 
 
         // if self.unit(loc).is_some() {
