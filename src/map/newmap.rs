@@ -457,6 +457,34 @@ impl MapData {
         let unit = self.pop_unit_by_loc(loc);
         debug_assert!(unit.is_some());
     }
+
+    pub fn player_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
+        self.tiles.iter().filter(move |tile| if let Some(ref unit) = tile.unit {
+            if let Alignment::Belligerent{player:player_} = unit.alignment {
+                player_==player
+            } else {
+                false
+            }
+        } else {
+            false
+        }).map(|tile| tile.unit.as_ref().unwrap())
+    }
+
+    pub fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
+        self.tiles.iter().filter(move |tile| if let Some(ref city) = tile.city {
+            if let Alignment::Belligerent{player:player_} = city.alignment {
+                player_==player
+            } else {
+                false
+            }
+        } else {
+            false
+        }).map(|tile| tile.city.as_ref().unwrap())
+    }
+
+    pub fn player_cities_lacking_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
+        self.player_cities(player).filter(|city| city.unit_under_production.is_none())
+    }
 }
 
 impl Source<Tile> for MapData {

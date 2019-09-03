@@ -1,7 +1,6 @@
 use std::convert::TryFrom;
 use std::fmt;
-use std::iter::{FlatMap,FromIterator};
-use std::slice::Iter;
+use std::iter::FromIterator;
 use std::ops::{Index,IndexMut};
 
 use game::obs::Obs;
@@ -74,24 +73,8 @@ impl <T> Source<T> for LocationGrid<T> {
 }
 
 impl LocationGrid<Tile> {
-    fn map1(item: &Vec<Tile>) -> Iter<Tile> {
-        item.iter()
-    }
-
-    pub fn iter(&self) -> LocationGridIter {
-        LocationGridIter {
-            iter: self.grid.iter().flat_map(LocationGrid::map1)
-        }
-    }
-}
-
-pub struct LocationGridIter<'a> {
-    iter: FlatMap<Iter<'a, Vec<Tile>>, Iter<'a, Tile>, fn(&Vec<Tile>) -> Iter<Tile> >
-}
-impl <'b> Iterator for LocationGridIter<'b> {
-    type Item = &'b Tile;
-    fn next(&mut self) -> Option<&'b Tile> {
-        self.iter.next()
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item=&'a Tile> {
+        self.grid.iter().flat_map(|item: &Vec<Tile>| item.iter())
     }
 }
 

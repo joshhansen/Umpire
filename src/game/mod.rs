@@ -5,7 +5,7 @@
 
 pub mod obs;
 
-use std::collections::{BTreeSet,HashMap,HashSet};
+use std::collections::{BTreeSet,HashMap};
 
 use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
 use log::{LogTarget,Message,MessageSource,Rgb};
@@ -111,7 +111,6 @@ pub struct Game {
     turn: TurnNum,
     num_players: PlayerNum,
     current_player: PlayerNum,
-    production_set_requests: HashSet<Location>,
     unit_orders_requests: BTreeSet<UnitID>,// we use a tree-based set so we can iterate through units in a consistent order
     units_with_pending_orders: BTreeSet<UnitID>,// we use a tree-based set so we can iterate through units in a consistent order
     wrapping: Wrap2d,
@@ -163,7 +162,6 @@ impl Game {
             turn: 0,
             num_players,
             current_player: 0,
-            production_set_requests: HashSet::new(),
             unit_orders_requests: BTreeSet::new(),
             units_with_pending_orders: BTreeSet::new(),
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
@@ -201,8 +199,6 @@ impl Game {
                                     None
                                 }
                             } else {
-                                log.log_message(format!("Queueing production set request for {}", city));
-                                self.production_set_requests.insert(city.loc);
                                 None
                             }
                         } else {
@@ -261,6 +257,10 @@ impl Game {
         self.update_current_player_observations();
     }
 
+    fn turn_is_done(&self) -> bool {
+        self.production_set_requests().next().is_none() && self.unit_orders_requests().is_empty()
+    }
+
     /// End the current player's turn and begin the next player's turn
     ///
     /// Returns the number of the now-current player.
@@ -277,7 +277,7 @@ impl Game {
     ///
     /// At the end of a turn, production counts will be incremented.
     pub fn end_turn<L:LogTarget>(&mut self, log: &mut L) -> Result<PlayerNum,PlayerNum> {
-        if self.production_set_requests.is_empty() && self.unit_orders_requests.is_empty() {
+        if self.turn_is_done() {
             self.current_player = (self.current_player + 1) % self.num_players;
             if self.current_player == 0 {
                 self.turn += 1;
@@ -367,8 +367,8 @@ impl Game {
         self.map.unit_loc(id)
     }
 
-    pub fn production_set_requests(&self) -> &HashSet<Location> {
-        &self.production_set_requests
+    pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
+        self.map.player_cities_lacking_production_target(self.current_player).map(|city| city.loc)
     }
 
     pub fn unit_orders_requests(&self) -> &BTreeSet<UnitID> {
@@ -511,7 +511,6 @@ impl Game {
     pub fn set_production(&mut self, location: Location, production: UnitType) -> Result<(),String> {
         if let Some(city) = self.map.mut_city_by_loc(location) {
             city.unit_under_production = Some(production);
-            self.production_set_requests.remove(&location);
             Ok(())
         } else {
             Err(format!(
@@ -745,7 +744,7 @@ mod test {
         let mut log = DefaultLog;
         let mut game = game1(&mut log);
 
-        let loc = *game.production_set_requests().iter().next().unwrap();
+        let loc: Location = game.production_set_requests().next().unwrap();
 
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
@@ -753,7 +752,7 @@ mod test {
         let player = game.end_turn(&mut log).unwrap();
         assert_eq!(player, 1);
 
-        let loc = *game.production_set_requests().iter().next().unwrap();
+        let loc: Location = game.production_set_requests().next().unwrap();
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
 
@@ -821,11 +820,11 @@ mod test {
         let mut log = DefaultLog;
         let mut game = Game::new_with_map(map, 2, false, test_unit_namer().unwrap(), &mut log);
 
-        let loc = *game.production_set_requests().iter().next().unwrap();
+        let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Armor), Ok(()));
         assert_eq!(game.end_turn(&mut log), Ok(1));
 
-        let loc = *game.production_set_requests().iter().next().unwrap();
+        let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Carrier), Ok(()));
         assert_eq!(game.end_turn(&mut log), Ok(0));
 

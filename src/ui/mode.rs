@@ -176,7 +176,7 @@ struct TurnResumeMode{}
 impl IMode for TurnResumeMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         // Process production set requests
-        if !game.production_set_requests().is_empty() {
+        if game.production_set_requests().next().is_some() {
             *mode = Mode::SetProductions;
             return true;
         }
@@ -203,13 +203,13 @@ struct SetProductionsMode{}
 impl IMode for SetProductionsMode {
     fn run<W:Write>(&self, game: &mut Game, ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
 
-        if game.production_set_requests().is_empty() {
+        if game.production_set_requests().next().is_none() {
             ui.log_message("Productions set.".to_string());
             *mode = Mode::TurnResume;
             return true;
         }
 
-        let city_loc = *game.production_set_requests().iter().next().unwrap();
+        let city_loc = game.production_set_requests().next().unwrap();
 
         *mode = Mode::SetProduction{city_loc};
         true
