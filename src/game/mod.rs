@@ -8,6 +8,9 @@ pub mod obs;
 
 use std::collections::{BTreeSet,HashMap};
 
+//FIXME Don't depend on termion outside of `ui`
+use termion::color::AnsiValue;
+
 use color::NOTICE;
 use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
 use log::{LogTarget,Message,MessageSource};
@@ -17,13 +20,31 @@ use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_pa
 use map::newmap::{MapData,NewUnitError,UnitID};
 use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use ui::MoveAnimator;
-use unit::{Alignment,City,PlayerNum,Unit,UnitType};
+use unit::{City,Unit,UnitType};
 use unit::combat::{CombatCapable,CombatOutcome};
 use unit::orders::{Orders,OrdersStatus};
 use util::{Dims,Location,Wrap,Wrap2d};
 
 
 pub type TurnNum = u32;
+
+pub type PlayerNum = u8;
+
+#[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
+pub enum Alignment {
+    Neutral,
+    Belligerent { player: PlayerNum }
+    // active neutral, chaotic, etc.
+}
+
+impl Alignment {
+    pub fn color(self) -> AnsiValue {
+        match self {
+            Alignment::Neutral => AnsiValue(8),
+            Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
+        }
+    }
+}
 
 pub trait Aligned : AlignedMaybe {
     fn alignment(&self) -> Alignment;
@@ -647,12 +668,12 @@ impl Source<Obs> for Game {
 mod test {
     use std::convert::TryFrom;
 
-    use game::Game;
+    use game::{Alignment,Game};
     use log::{DefaultLog,LogTarget};
     use map::Terrain;
     use map::newmap::{MapData,UnitID};
     use name::{test_unit_namer};
-    use unit::{Alignment,UnitType};
+    use unit::{UnitType};
     use util::{Dims,Location};
 
     /// 10x10 grid of land only with two cities:

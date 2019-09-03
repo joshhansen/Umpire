@@ -316,11 +316,12 @@ mod test {
     use std::collections::HashSet;
     use std::convert::TryFrom;
 
+    use game::Alignment;
     use game::obs::Obs;
     use map::{LocationGrid,Tile};
     use map::dijkstra::{Source,UnitMovementFilter,Xenophile,neighbors,neighbors_terrain_only,old_shortest_paths,shortest_paths,RELATIVE_NEIGHBORS};
     use map::newmap::UnitID;
-    use unit::{Alignment,Unit,UnitType};
+    use unit::{Unit,UnitType};
     use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
     fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {

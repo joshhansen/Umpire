@@ -3,11 +3,12 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::ops::{Index,IndexMut};
 
+use game::{Alignment,PlayerNum};
 use game::obs::Obs;
 use map::{Terrain,Tile};
 use map::dijkstra::Source;
 use map::newmap::CityID;
-use unit::{Alignment,City,PlayerNum};
+use unit::{City};
 use util::{Dims,Location};
 
 pub struct LocationGrid<T> {

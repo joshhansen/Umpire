@@ -3,11 +3,9 @@
 pub mod combat;
 pub mod orders;
 
-use game::Aligned;
+use game::{Aligned,Alignment};
 use std::cmp::Ordering;
 use std::fmt;
-
-use termion::color::AnsiValue;
 
 use game::obs::Observer;
 use map::{Terrain,Tile};
@@ -15,24 +13,6 @@ use map::newmap::{CityID,UnitID};
 use util::Location;
 use self::orders::Orders;
 
-//FIXME relocate PlayerNum to `game`
-pub type PlayerNum = u8;
-
-#[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
-pub enum Alignment {
-    Neutral,
-    Belligerent { player: PlayerNum }
-    // active neutral, chaotic, etc.
-}
-
-impl Alignment {
-    pub fn color(self) -> AnsiValue {
-        match self {
-            Alignment::Neutral => AnsiValue(8),
-            Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
-        }
-    }
-}
 
 pub trait Located {
     fn loc(&self) -> Location;

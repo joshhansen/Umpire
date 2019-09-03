@@ -6,8 +6,8 @@ use std::fmt;
 
 use termion::color::AnsiValue;
 
-use game::{Aligned,AlignedMaybe};
-use unit::{Alignment,City,Sym,Unit};
+use game::{Aligned,AlignedMaybe,Alignment};
+use unit::{City,Sym,Unit};
 use util::Location;
 
 
@@ -133,9 +133,10 @@ pub use self::grid::LocationGrid;
 
 #[cfg(test)]
 mod test {
+    use game::Alignment;
     use map::{Terrain,Tile};
     use map::newmap::UnitID;
-    use unit::{Alignment,Unit,UnitType};
+    use unit::{Unit,UnitType};
     use util::Location;
 
 

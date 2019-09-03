@@ -6,13 +6,13 @@ use termion::event::Key;
 use termion::input::TermRead;
 
 use conf;
-use game::{Aligned,Game};
+use game::{AlignedMaybe,Game};
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
 use map::newmap::UnitID;
 use ui::{Draw,MoveAnimator,TermUI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
-use unit::{Alignment,UnitType};
+use unit::{UnitType};
 use unit::orders::Orders;
 use util::{Direction,Location,Rect,WRAP_NEITHER};
 
@@ -554,8 +554,7 @@ impl IMode for ExamineMode {
 
                     if let Some(tile) = self.maybe_tile(game, ui) {
                         if let Some(ref city) = tile.city {
-                            let current_alignment = Alignment::Belligerent{player: game.current_player()};
-                            if city.alignment() == current_alignment {
+                            if city.belongs_to_player(game.current_player()) {
                                 *mode = Mode::SetProduction{city_loc:city.loc};
                                 self.clean_up(game, ui);
                                 return true;

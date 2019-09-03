@@ -57,10 +57,9 @@ use std::io::{BufRead,BufReader,Write,stdout};
 use clap::{Arg, App};
 use termion::terminal_size;
 
-use game::Game;
+use game::{Game,PlayerNum};
 use name::{city_namer,unit_namer};
 use ui::DefaultUI;
-use unit::PlayerNum;
 use util::Dims;
 
 fn print_loading_screen() {

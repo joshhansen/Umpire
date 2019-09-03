@@ -98,11 +98,12 @@ pub trait Observer {
 
 #[cfg(test)]
 mod test {
+    use game::Alignment;
     use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker};
     use map::{LocationGrid,Terrain,Tile};
     use map::newmap::UnitID;
     use util::{Dims,Location,WRAP_BOTH};
-    use unit::{Alignment,Unit,UnitType};
+    use unit::{Unit,UnitType};
     #[test]
     fn test_fog_of_war_tracker() {
         let dims = Dims{width: 10, height: 20};
