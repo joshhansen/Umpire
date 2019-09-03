@@ -105,9 +105,9 @@ impl fmt::Display for Tile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref city) = self.city {
             if let Some(ref unit) = self.unit {
-                write!(f, "{} with {} garrisoned", city, unit)
+                write!(f, "{} with {} garrisoned; {}", city, unit, self.terrain)
             } else {
-                write!(f, "{}", city)
+                write!(f, "{}; {}", city, self.terrain)
             }
         } else if let Some(ref unit) = self.unit {
             write!(f, "{} on {}", unit, self.terrain)
