@@ -1,21 +1,27 @@
 use std::collections::VecDeque;
 use std::io::Write;
 
-use termion::color::{Bg,Fg,Rgb};
-use termion::style::Underline;
+use termion::{
+    color::{Bg,Fg},
+    style::Underline
+};
 
-use game::Game;
-use log::{Message,MessageSource};
-use ui::{Component,Draw};
-use ui::style::StrongReset;
-use util::{Rect,grapheme_len,grapheme_substr};
+use crate::{
+    color::{BLACK,WHITE},
+    game::Game,
+    log::{Message,MessageSource},
+    ui::{
+        Component,
+        Draw,
+        style::StrongReset
+    },
+    util::{Rect,grapheme_len,grapheme_substr}
+};
 
 pub struct LogArea {
     rect: Rect,
     messages: VecDeque<Message>,
     empty_message: Message,
-    white: Rgb,
-    black: Rgb
 }
 
 impl LogArea {
@@ -24,8 +30,6 @@ impl LogArea {
             rect,
             messages: VecDeque::new(),
             empty_message: Message::from(String::from("")),
-            white: Rgb(255,255,255),
-            black: Rgb(0,0,0)
         }
     }
 
@@ -79,8 +83,8 @@ impl LogArea {
             }
 
             let mark = message.mark.unwrap_or(' ');
-            let fg_color = message.fg_color.unwrap_or(self.white);
-            let bg_color = message.bg_color.unwrap_or(self.black);
+            let fg_color = message.fg_color.unwrap_or(WHITE);
+            let bg_color = message.bg_color.unwrap_or(BLACK);
 
             write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
         }

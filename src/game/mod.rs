@@ -5,14 +5,16 @@
 
 pub mod obs;
 
+
 use std::collections::{BTreeSet,HashMap};
 
+use color::NOTICE;
 use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
-use log::{LogTarget,Message,MessageSource,Rgb};
+use log::{LogTarget,Message,MessageSource};
 use map::Tile;
 use map::gen::MapGenerator;
 use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths};
-use map::newmap::{MapData,UnitID};
+use map::newmap::{MapData,NewUnitError,UnitID};
 use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use ui::MoveAnimator;
 use unit::{Alignment,City,PlayerNum,Unit,UnitType};
@@ -111,7 +113,6 @@ pub struct Game {
     turn: TurnNum,
     num_players: PlayerNum,
     current_player: PlayerNum,
-    unit_orders_requests: BTreeSet<UnitID>,// we use a tree-based set so we can iterate through units in a consistent order
     units_with_pending_orders: BTreeSet<UnitID>,// we use a tree-based set so we can iterate through units in a consistent order
     wrapping: Wrap2d,
     unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>
@@ -162,7 +163,6 @@ impl Game {
             turn: 0,
             num_players,
             current_player: 0,
-            unit_orders_requests: BTreeSet::new(),
             units_with_pending_orders: BTreeSet::new(),
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
             unit_namer
@@ -176,7 +176,7 @@ impl Game {
         log.log_message(Message {
             text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
             mark: None,
-            fg_color: Some(Rgb(255,140,0)),
+            fg_color: Some(NOTICE),
             bg_color: None,
             source: Some(MessageSource::Game)
         });
@@ -213,8 +213,27 @@ impl Game {
 
                 if let Some(unit_under_production) = new_unit_produced {
                     let alignment = self.map.city_by_loc(loc).unwrap().alignment;
-                    let new_unit = self.map.new_unit(loc, unit_under_production, alignment, self.unit_namer.name()).unwrap();
-                    log.log_message(format!("{} was produced", new_unit));
+                    match self.map.new_unit(loc, unit_under_production, alignment, self.unit_namer.name()) {
+                        Ok(new_unit) => log.log_message(format!("{} was produced", new_unit)),
+                        Err(err) => match err {
+                            NewUnitError::OutOfBounds{ loc, dims } => panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims)),
+                            NewUnitError::UnitAlreadyPresent{ loc, prior_unit_id } => {
+                                log.log_message(Message {
+                                    text: format!(
+                                        "{} would have produced {} but a unit {} was already garrisoned",
+                                        self.map.city_by_loc(loc).unwrap(),
+                                        unit_under_production,
+                                        self.map.unit_by_id(prior_unit_id).unwrap()
+                                    ),
+                                    mark: None,
+                                    fg_color: Some(NOTICE),
+                                    bg_color: None,
+                                    source: Some(MessageSource::Game)
+                                });
+                            }
+                        }
+                    }
+                    
                 }
 
                 // if let Some(ref mut city) = self.map.mut_city_by_loc(loc) {
@@ -242,10 +261,7 @@ impl Game {
                     if let Alignment::Belligerent{player} = unit.alignment {
                         if player==self.current_player {
                             unit.moves_remaining = unit.movement_per_turn();
-                            if unit.orders().is_none() {
-                                log.log_message(format!("Queueing unit orders request for {}", unit));
-                                self.unit_orders_requests.insert(unit.id);
-                            } else {
+                            if unit.orders().is_some() {
                                 self.units_with_pending_orders.insert(unit.id);
                             }
                         }
@@ -258,7 +274,7 @@ impl Game {
     }
 
     fn turn_is_done(&self) -> bool {
-        self.production_set_requests().next().is_none() && self.unit_orders_requests().is_empty()
+        self.production_set_requests().next().is_none() && self.unit_orders_requests().next().is_none()
     }
 
     /// End the current player's turn and begin the next player's turn
@@ -371,8 +387,13 @@ impl Game {
         self.map.player_cities_lacking_production_target(self.current_player).map(|city| city.loc)
     }
 
-    pub fn unit_orders_requests(&self) -> &BTreeSet<UnitID> {
-        &self.unit_orders_requests
+    /// Which if the current player's units need orders?
+    /// 
+    /// In other words, which of the current player's units have no orders and have moves remaining?
+    pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
+        self.map.player_units(self.current_player)
+            .filter(|unit| unit.orders().is_none() && unit.moves_remaining > 0)
+            .map(|unit| unit.id)
     }
 
     pub fn units_with_pending_orders(&self) -> &BTreeSet<UnitID> {
@@ -400,8 +421,6 @@ impl Game {
                     return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
                                 unit, src, dest, distance, unit.moves_remaining));
                 } else if distance == unit.moves_remaining {
-                    // If we know we're using up all remaining moves, eliminate any unit orders request for this unit
-                    self.unit_orders_requests.remove(&unit.id);
 
                     // Also drop it from the list of units whose orders need to be carried out in case it's there
                     self.units_with_pending_orders.remove(&unit.id);
@@ -469,8 +488,11 @@ impl Game {
                 // let removed = self.unit_orders_requests.remove(&unit.id);
                 // debug_assert!(removed);
                 // debug_assert!(self.unit_orders_requests.remove(&src));
-
-                unit.moves_remaining -= moves.len() as u16;
+                if conquered_city {
+                    unit.moves_remaining = 0;
+                } else {
+                    unit.moves_remaining -= moves.len() as u16;
+                }
 
                 // if unit.moves_remaining == 0 {
                 //     self.unit_orders_requests.remove(&unit.id);
@@ -478,9 +500,9 @@ impl Game {
 
                 if let Some(move_) = moves.last() {
                     if move_.moved_successfully() {
-                        if !conquered_city && unit.moves_remaining > 0 {
-                            self.unit_orders_requests.insert(unit.id);
-                        }
+                        // if !conquered_city && unit.moves_remaining > 0 {
+                        //     self.unit_orders_requests.insert(unit.id);
+                        // }
 
                         self.map.set_unit(dest, unit.clone());
                     }
@@ -585,8 +607,8 @@ but there is no city at that location",
             return Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id));
         }
 
-        let removed = self.unit_orders_requests.remove(&unit_id);
-        debug_assert!(removed);
+        // let removed = self.unit_orders_requests.remove(&unit_id);
+        // debug_assert!(removed);
 
         // let orders = if let Some(unit) = self.unit_by_id(unit_id) {
         //     unit.orders().cloned()//FIXME Is there some way to dance around the borrow checker without cloning here?
@@ -703,7 +725,7 @@ mod test {
     use game::Game;
     use log::{DefaultLog,LogTarget};
     use map::Terrain;
-    use map::newmap::MapData;
+    use map::newmap::{MapData,UnitID};
     use name::{test_unit_namer};
     use unit::{Alignment,UnitType};
     use util::{Dims,Location};
@@ -771,8 +793,8 @@ mod test {
         assert_eq!(game.end_turn(&mut log), Err(0));
 
         for player in 0..2 {
-            assert_eq!(game.unit_orders_requests().len(), 1);
-            let unit_id = *game.unit_orders_requests().iter().next().unwrap();
+            assert_eq!(game.unit_orders_requests().count(), 1);
+            let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
             let loc = game.unit_loc(unit_id).unwrap();
             let new_x = (loc.x + 1) % game.map_dims().width;
             let new_loc = Location{x:new_x, y:loc.y};
@@ -836,8 +858,8 @@ mod test {
 
         // Move the armor unit to the right until it attacks the opposing city
         for round in 0..3 {
-            assert_eq!(game.unit_orders_requests().len(), 1);
-            let unit_id = *game.unit_orders_requests().iter().next().unwrap();
+            assert_eq!(game.unit_orders_requests().count(), 1);
+            let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
             let loc = game.unit_loc(unit_id).unwrap();
             let dest_loc = Location{x: loc.x+2, y:loc.y};
             println!("Moving from {} to {}", loc, dest_loc);

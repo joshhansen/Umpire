@@ -3,7 +3,7 @@ use std::fmt;
 use termion::color::Bg;
 use termion::style::Reset;
 
-use ui::color::BLACK;
+use color::BLACK;
 
 #[derive(Clone,Copy)]
 pub struct StrongReset;

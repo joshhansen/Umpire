@@ -253,6 +253,17 @@ impl UnitID {
 //     }
 // }
 
+pub enum NewUnitError {
+    OutOfBounds {
+        loc: Location,
+        dims: Dims
+    },
+    UnitAlreadyPresent {
+        loc: Location,
+        prior_unit_id: UnitID
+    }
+}
+
 pub struct MapData {
     dims: Dims,
     tiles: LocationGrid<Tile>,
@@ -294,13 +305,17 @@ impl MapData {
         self.tiles.get_mut(loc).unwrap().terrain = terrain;
     }
 
-    pub fn new_unit<S:Into<String>>(&mut self, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Result<&Unit,String> {
+    
+
+    pub fn new_unit<S:Into<String>>(&mut self, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Result<&Unit,NewUnitError> {
         if !self.in_bounds(loc) {
-            return Err(format!("Attempted to create unit at location {} which is out of bounds {}", loc, self.dims));
+            // return Err(format!("Attempted to create unit at location {} which is out of bounds {}", loc, self.dims));
+            return Err(NewUnitError::OutOfBounds { loc, dims: self.dims });
         }
 
         if let Some(ref prior_unit) = self.tiles.get(loc).unwrap().unit {
-            return Err(format!("Attempted to create unit at location {}, but unit {} is already there", loc, prior_unit));
+            // return Err(format!("Attempted to create unit at location {}, but unit {} is already there", loc, prior_unit));
+            return Err(NewUnitError::UnitAlreadyPresent { loc, prior_unit_id: prior_unit.id });
         }
 
         let unit_id = self.next_unit_id;

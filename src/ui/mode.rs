@@ -186,7 +186,7 @@ impl IMode for TurnResumeMode {
             return true;
         }
 
-        if !game.unit_orders_requests().is_empty() {
+        if game.unit_orders_requests().next().is_some() {
             *mode = Mode::GetOrders;
             return true;
         }
@@ -303,9 +303,9 @@ impl IVisibleMode for SetProductionMode {
 struct GetOrdersMode {}
 impl IMode for GetOrdersMode {
     fn run<W:Write>(&self, game: &mut Game, _ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        if !game.unit_orders_requests().is_empty() {
+        if game.unit_orders_requests().next().is_some() {
 
-            let unit_id = *game.unit_orders_requests().iter().next().unwrap();
+            let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
             *mode = Mode::GetUnitOrders{unit_id, first_move:true};
             return true;
@@ -378,7 +378,7 @@ impl IMode for GetUnitOrdersMode {
                                     Ok(move_result) => {
                                         ui.animate_move(game, &move_result);
 
-                                        if game.unit_orders_requests().contains(&self.unit_id) {
+                                        if game.unit_orders_requests().any(|unit_id| unit_id==self.unit_id) {
                                             *mode = Mode::GetUnitOrders{unit_id:self.unit_id, first_move:false};
                                         } else {
                                             *mode = Mode::GetOrders;

@@ -4,10 +4,10 @@ use termion::color::{Fg, Bg, White, Black};
 use termion::cursor::Hide;
 use termion::style::{Blink,Bold,Invert,Underline};
 
+use color::{BLACK,WHITE};
 use game::Game;
 use map::{LocationGrid,Tile};
 use ui::{Component,Draw};
-use ui::color::{BLACK,WHITE};
 use ui::scroll::{ScrollableComponent};
 use ui::style::StrongReset;
 use util::{Dims,Location,Rect,Vec2d};

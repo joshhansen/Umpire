@@ -125,7 +125,6 @@ pub trait Component : Draw {
 
 mod scroll;
 
-mod color;
 mod indicators;
 pub mod log;
 mod map;
