@@ -148,7 +148,7 @@ pub fn city_namer() -> Result<ListNamer,String> {
             // println!("{:?}", row);
             names.push(row[CITY_NAME_COL].clone());
         }
-        println!("Cities loaded.");
+        // println!("Cities loaded.");
         ListNamer::new(shuffle(names))
     })
 
