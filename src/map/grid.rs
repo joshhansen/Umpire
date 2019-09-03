@@ -76,6 +76,10 @@ impl LocationGrid<Tile> {
     pub fn iter<'a>(&'a self) -> impl Iterator<Item=&'a Tile> {
         self.grid.iter().flat_map(|item: &Vec<Tile>| item.iter())
     }
+
+    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item=&'a mut Tile> {
+        self.grid.iter_mut().flat_map(|item: &mut Vec<Tile>| item.iter_mut())
+    }
 }
 
 impl<T> Index<Location> for LocationGrid<T> {

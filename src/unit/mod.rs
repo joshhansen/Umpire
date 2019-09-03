@@ -3,6 +3,7 @@
 pub mod combat;
 pub mod orders;
 
+use game::Aligned;
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -14,6 +15,7 @@ use map::newmap::{CityID,UnitID};
 use util::Location;
 use self::orders::Orders;
 
+//FIXME relocate PlayerNum to `game`
 pub type PlayerNum = u8;
 
 #[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
@@ -247,60 +249,12 @@ impl Unit {
         true
     }
 
-    pub fn alignment(&self) -> Alignment { self.alignment }
-
     pub fn orders(&self) -> Option<&Orders> { self.orders.as_ref() }
 
     pub fn set_orders(&mut self, orders: Option<Orders>) {
         self.orders = orders;
     }
 }
-
-// pub type UnitID = u64;
-
-// #[derive(Clone,Debug,Eq,Hash,PartialEq)]
-// pub struct UnitID {
-//     id: u64
-// }
-// impl UnitID {
-//     fn next(&self) -> Self {
-//         UnitID{ id: self.id + 1 }
-//     }
-// }
-//
-// pub struct UnitManager {
-//     next_unit_id: UnitID,
-//     units: HashMap<UnitID,Unit>
-// }
-// impl UnitManager {
-//     pub fn new() -> Self {
-//         Self{ next_unit_id: UnitID{id: 0}, units: HashMap::new() }
-//     }
-
-//     pub fn new_unit<S:Into<String>>(&mut self, type_: UnitType, alignment: Alignment, name: S) -> (UnitID,&Unit) {
-//         let unit: Unit = Unit::new(type_, alignment, name);
-//         let unit_id = self.next_unit_id;
-//         self.next_unit_id = self.next_unit_id.next();
-
-//         let insertion_result = self.units.insert(unit_id, unit);
-//         debug_assert!(insertion_result.is_none());
-
-//         (unit_id, self.units.get(&unit_id).unwrap())
-//     }
-
-//     pub fn get(&self, unit_id: UnitID) -> Option<&Unit> {
-//         self.units.get(&unit_id)
-//     }
-
-//     pub fn get_mut(&mut self, unit_id: UnitID) -> Option<&mut Unit> {
-//         self.units.get_mut(&unit_id)
-//     }
-
-//     pub fn destroy(&mut self, unit_id: UnitID) {
-//         self.units.remove(&unit_id);
-//     }
-// }
-
 
 impl Sym for Unit {
     fn sym(&self) -> &'static str {
@@ -319,6 +273,12 @@ impl Sym for Unit {
     }
 }
 
+impl Aligned for Unit {
+    fn alignment(&self) -> Alignment {
+        self.alignment
+    }
+}
+
 impl Observer for Unit {
     fn sight_distance(&self) -> u16 {
         self.type_.sight_distance()
@@ -330,17 +290,6 @@ impl fmt::Display for Unit {
         write!(f, "{} \"{}\" [{}/{}]", self.type_, self.name, self.hp, self.max_hp)
     }
 }
-
-
-// #[derive(Clone,Debug,Eq,Hash,PartialEq)]
-// pub struct CityID {
-//     id: u64
-// }
-// impl CityID {
-//     fn next(&self) -> Self {
-//         Self{ id: self.id + 1 }
-//     }
-// }
 
 const CITY_MAX_HP: u16 = 1;
 
@@ -370,8 +319,6 @@ impl City {
     pub fn name(&self) -> &String {
         &self.name
     }
-
-    pub fn alignment(&self) -> Alignment { self.alignment }
 }
 
 impl fmt::Display for City {
@@ -392,6 +339,12 @@ impl fmt::Debug for City {
 
 impl Located for City {
     fn loc(&self) -> Location { self.loc }
+}
+
+impl Aligned for City {
+    fn alignment(&self) -> Alignment {
+        self.alignment
+    }
 }
 
 impl Observer for City {

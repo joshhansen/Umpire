@@ -5,7 +5,7 @@ use termion::cursor::Hide;
 use termion::style::{Blink,Bold,Invert,Underline};
 
 use color::{BLACK,WHITE};
-use game::Game;
+use game::{AlignedMaybe,Game};
 use map::{LocationGrid,Tile};
 use ui::{Component,Draw};
 use ui::scroll::{ScrollableComponent};
@@ -275,7 +275,7 @@ impl Draw for Map {
                         let redraw_for_mismatch = !(
                             old.terrain==new.terrain &&
                             old.sym() == new.sym() &&
-                            old.alignment() == new.alignment()
+                            old.alignment_maybe() == new.alignment_maybe()
                         );
                         redraw_for_mismatch
                     }) || {

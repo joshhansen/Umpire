@@ -6,6 +6,7 @@ use std::fmt;
 
 use termion::color::AnsiValue;
 
+use game::{Aligned,AlignedMaybe};
 use unit::{Alignment,City,Sym,Unit};
 use util::Location;
 
@@ -89,8 +90,10 @@ impl Tile {
     pub fn set_unit(&mut self, unit: Unit) {
         self.unit = Some(unit);
     }
+}
 
-    pub fn alignment(&self) -> Option<Alignment> {
+impl AlignedMaybe for Tile {
+    fn alignment_maybe(&self) -> Option<Alignment> {
         if let Some(ref city) = self.city {
             Some(city.alignment())
         } else if let Some(ref unit) = self.unit {

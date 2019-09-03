@@ -25,6 +25,32 @@ use util::{Dims,Location,Wrap,Wrap2d};
 
 pub type TurnNum = u32;
 
+pub trait Aligned : AlignedMaybe {
+    fn alignment(&self) -> Alignment;
+}
+
+pub trait AlignedMaybe {
+    fn alignment_maybe(&self) -> Option<Alignment>;
+
+    fn belongs_to_player(&self, player: PlayerNum) -> bool {
+        if let Some(alignment) = self.alignment_maybe() {
+            if let Alignment::Belligerent{player:player_} = alignment {
+                player==player_
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+}
+
+impl <T:Aligned> AlignedMaybe for T {
+    fn alignment_maybe(&self) -> Option<Alignment> {
+        Some(self.alignment())
+    }
+}
+
 #[derive(Debug)]
 pub struct MoveResult {
     unit: Unit,
@@ -113,7 +139,6 @@ pub struct Game {
     turn: TurnNum,
     num_players: PlayerNum,
     current_player: PlayerNum,
-    units_with_pending_orders: BTreeSet<UnitID>,// we use a tree-based set so we can iterate through units in a consistent order
     wrapping: Wrap2d,
     unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>
 }
@@ -163,13 +188,95 @@ impl Game {
             turn: 0,
             num_players,
             current_player: 0,
-            units_with_pending_orders: BTreeSet::new(),
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
             unit_namer
         };
 
         game.begin_turn(log);
         game
+    }
+
+    fn player_cities_with_production_target(&self) -> impl Iterator<Item=&City> {
+        self.map.player_cities_with_production_target(self.current_player)
+    }
+
+    fn player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
+        self.map.player_cities_with_production_target_mut(self.current_player)
+    }
+
+    fn player_units(&self) -> impl Iterator<Item=&Unit> {
+        self.map.player_units(self.current_player)
+    }
+
+    fn player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+        self.map.player_units_mut(self.current_player)
+    }
+
+    fn produce_units<L:LogTarget>(&mut self, log: &mut L) {
+        for city in self.player_cities_with_production_target_mut() {
+            city.production_progress += 1;
+        }
+
+        let producing_city_locs: Vec<Location> = self.player_cities_with_production_target()
+            .filter(|city| {
+                let unit_under_production = city.unit_under_production.unwrap();
+
+                city.production_progress >= unit_under_production.cost()
+            }).map(|city| city.loc).collect()
+        ;
+
+        for city_loc in producing_city_locs {
+
+            let (city_loc, city_alignment, city_desc, unit_under_production) = {
+                let city = self.map.mut_city_by_loc(city_loc).unwrap();
+                let unit_under_production = city.unit_under_production.unwrap();
+                (city.loc, city.alignment, format!("{}", city), unit_under_production)
+            };
+
+            let name = self.unit_namer.name();
+
+            // Attempt to create the new unit
+
+            let result = self.map.new_unit(city_loc, unit_under_production, city_alignment, name);
+
+            match result {
+                Ok(new_unit_id) => {
+                    {
+                        let city = self.map.mut_city_by_loc(city_loc).unwrap();
+                        city.production_progress = 0;
+                    };
+
+                    let new_unit = self.map.unit_by_id(new_unit_id).unwrap();
+                    
+                    log.log_message(format!("{} produced {}", city_desc, new_unit));
+                },
+                Err(err) => match err {
+                    NewUnitError::OutOfBounds{ loc, dims } => {
+                        panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims))
+                    },
+                    NewUnitError::UnitAlreadyPresent{ loc:_loc, prior_unit } => {
+                        log.log_message(Message {
+                            text: format!(
+                                "{} would have produced {} but {} was already garrisoned",
+                                city_desc,
+                                unit_under_production,
+                                prior_unit
+                            ),
+                            mark: None,
+                            fg_color: Some(NOTICE),
+                            bg_color: None,
+                            source: Some(MessageSource::Game)
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    fn refresh_moves_remaining(&mut self) {
+        for unit in self.player_units_mut() {
+            unit.moves_remaining = unit.movement_per_turn();
+        }
     }
 
     fn begin_turn<L:LogTarget>(&mut self, log: &mut L) {
@@ -181,94 +288,9 @@ impl Game {
             source: Some(MessageSource::Game)
         });
 
-        for x in 0..self.map_dims().width {
-            for y in 0..self.map_dims().height {
-                let loc = Location{x, y};
-                // let tile: &mut Tile = &mut self.tiles[loc];
+        self.produce_units(log);
 
-                let new_unit_produced: Option<UnitType> = if let Some(ref mut city) = self.map.mut_city_by_loc(loc) {
-                    if let Alignment::Belligerent{player} = city.alignment {
-                        if player==self.current_player {
-                            if let Some(ref unit_under_production) = city.unit_under_production {
-                                city.production_progress += 1;
-                                if city.production_progress >= unit_under_production.cost() {
-                                    log.log_message(format!("{} produced a {}", city, unit_under_production));
-                                    city.production_progress = 0;
-                                    Some(*unit_under_production)
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                if let Some(unit_under_production) = new_unit_produced {
-                    let alignment = self.map.city_by_loc(loc).unwrap().alignment;
-                    match self.map.new_unit(loc, unit_under_production, alignment, self.unit_namer.name()) {
-                        Ok(new_unit) => log.log_message(format!("{} was produced", new_unit)),
-                        Err(err) => match err {
-                            NewUnitError::OutOfBounds{ loc, dims } => panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims)),
-                            NewUnitError::UnitAlreadyPresent{ loc, prior_unit_id } => {
-                                log.log_message(Message {
-                                    text: format!(
-                                        "{} would have produced {} but a unit {} was already garrisoned",
-                                        self.map.city_by_loc(loc).unwrap(),
-                                        unit_under_production,
-                                        self.map.unit_by_id(prior_unit_id).unwrap()
-                                    ),
-                                    mark: None,
-                                    fg_color: Some(NOTICE),
-                                    bg_color: None,
-                                    source: Some(MessageSource::Game)
-                                });
-                            }
-                        }
-                    }
-                    
-                }
-
-                // if let Some(ref mut city) = self.map.mut_city_by_loc(loc) {
-                //     if let Alignment::Belligerent{player} = city.alignment {
-                //         if player==self.current_player {
-
-                //             if let Some(ref unit_under_production) = city.unit_under_production {
-                //                 city.production_progress += 1;
-                //                 if city.production_progress >= unit_under_production.cost() {
-                //                     let new_unit = self.map.new_unit(loc, *unit_under_production, city.alignment, self.unit_namer.name()).unwrap();
-                //                     // let new_unit = Unit::new(*unit_under_production, city.alignment, self.unit_namer.name());
-                //                     log.log_message(format!("{} produced {}", city, new_unit));
-                //                     // tile.unit = Some(new_unit);
-                //                     city.production_progress = 0;
-                //                 }
-                //             } else {
-                //                 log.log_message(format!("Queueing production set request for {}", city));
-                //                 self.production_set_requests.insert(loc);
-                //             }
-                //         }
-                //     }
-                // }
-
-                if let Some(ref mut unit) = self.map.mut_unit_by_loc(loc) {
-                    if let Alignment::Belligerent{player} = unit.alignment {
-                        if player==self.current_player {
-                            unit.moves_remaining = unit.movement_per_turn();
-                            if unit.orders().is_some() {
-                                self.units_with_pending_orders.insert(unit.id);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        self.refresh_moves_remaining();
 
         self.update_current_player_observations();
     }
@@ -396,8 +418,10 @@ impl Game {
             .map(|unit| unit.id)
     }
 
-    pub fn units_with_pending_orders(&self) -> &BTreeSet<UnitID> {
-        &self.units_with_pending_orders
+    pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
+        self.player_units()
+            .filter(|unit| unit.moves_remaining > 0 && unit.orders().is_some())
+            .map(|unit| unit.id)
     }
 
     /*
@@ -420,13 +444,7 @@ impl Game {
                 if distance > unit.moves_remaining {
                     return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
                                 unit, src, dest, distance, unit.moves_remaining));
-                } else if distance == unit.moves_remaining {
-
-                    // Also drop it from the list of units whose orders need to be carried out in case it's there
-                    self.units_with_pending_orders.remove(&unit.id);
                 }
-
-
 
                 let mut unit = self.map.pop_unit_by_loc(src).unwrap();
 
@@ -485,25 +503,14 @@ impl Game {
                     }
                 }
 
-                // let removed = self.unit_orders_requests.remove(&unit.id);
-                // debug_assert!(removed);
-                // debug_assert!(self.unit_orders_requests.remove(&src));
                 if conquered_city {
                     unit.moves_remaining = 0;
                 } else {
                     unit.moves_remaining -= moves.len() as u16;
                 }
 
-                // if unit.moves_remaining == 0 {
-                //     self.unit_orders_requests.remove(&unit.id);
-                // }
-
                 if let Some(move_) = moves.last() {
                     if move_.moved_successfully() {
-                        // if !conquered_city && unit.moves_remaining > 0 {
-                        //     self.unit_orders_requests.insert(unit.id);
-                        // }
-
                         self.map.set_unit(dest, unit.clone());
                     }
                 }
@@ -576,45 +583,11 @@ but there is no city at that location",
 
     pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, unit_id: UnitID, orders: Option<Orders>, ui: &mut U) -> Result<(),String> {
 
-        // unimplemented!()
-
-        // if let Some(unit) = self.unit_mut(loc) {
-        //     unit.give_orders(orders);
-        //
-        // } else {
-        //     return Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc));
-        // }
-
-        // if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
-        //     unit.give_orders(orders);
-
-        //     let removed = self.unit_orders_requests.remove(&unit_id);
-        //     debug_assert!(removed);
-
-        //     unit.orders().unwrap().carry_out(unit_id, self, ui);
-
-        //     Ok(())
-
-
-        // } else {
-        //     Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
-        // }
-
-
         if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
             unit.set_orders(orders);
         } else {
             return Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id));
         }
-
-        // let removed = self.unit_orders_requests.remove(&unit_id);
-        // debug_assert!(removed);
-
-        // let orders = if let Some(unit) = self.unit_by_id(unit_id) {
-        //     unit.orders().cloned()//FIXME Is there some way to dance around the borrow checker without cloning here?
-        // } else {
-        //     None
-        // };
 
         let orders = self.unit_by_id(unit_id).unwrap().orders().unwrap().clone();//FIXME Is there some way to dance around the borrow checker without cloning here?
 
@@ -626,54 +599,6 @@ but there is no city at that location",
         }
         
         result.map(|_ok| ())
-        
-
-        // if self.unit_by_id(unit_id).is_some() {
-        //     self.unit_orders_requests.remove(&unit_id);
-
-        //     let orders = if let Some(unit) = self.unit_by_id(unit_id) {
-        //         unit.orders().cloned()//FIXME Is there some way to dance around the borrow checker without cloning here?
-        //     } else {
-        //         None
-        //     };
-        //     if let Some(orders) = orders {
-        //         orders.carry_out(unit_id, self, ui);
-        //     }
-
-        //     Ok(())
-        // } else {
-        //     Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
-        // }
-
-
-        // if self.unit(loc).is_some() {
-        //     self.unit_orders_requests.remove(&loc);
-        //
-        //     if let Some(ref orders) = orders {
-        //         orders.carry_out(loc, self, ui);
-        //     }
-        //
-        //     let unit = self.unit_mut(loc).unwrap();
-        //     unit.give_orders(orders);
-        //     Ok(())
-        //     // if let Some(unit) = self.unit_mut(loc) {
-        //     //     unit.give_orders(orders);
-        //     //
-        //     //     Ok(())
-        //     // } else {
-        //     //
-        //     // }
-        // } else {
-        //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
-        // }
-
-        // if let Some(unit) = self.unit_mut(loc) {
-        //     unit.give_orders(orders);
-        //
-        //     Ok(())
-        // } else {
-        //     Err(format!("Attempted to give orders to a unit at {} but no such unit exists", loc))
-        // }
     }
 }
 

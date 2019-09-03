@@ -6,7 +6,7 @@ use termion::event::Key;
 use termion::input::TermRead;
 
 use conf;
-use game::Game;
+use game::{Aligned,Game};
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
 use map::newmap::UnitID;
@@ -181,7 +181,7 @@ impl IMode for TurnResumeMode {
             return true;
         }
 
-        if !game.units_with_pending_orders().is_empty() {
+        if game.units_with_pending_orders().next().is_some() {
             *mode = Mode::CarryOutOrders;
             return true;
         }
@@ -418,8 +418,7 @@ impl IMode for GetUnitOrdersMode {
 struct CarryOutOrdersMode {}
 impl IMode for CarryOutOrdersMode {
     fn run<W:Write>(&self, game: &mut Game, _ui: &mut TermUI<W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        while !game.units_with_pending_orders().is_empty() {
-            let unit_id = *game.units_with_pending_orders().iter().next().unwrap();
+        while let Some(unit_id) = game.units_with_pending_orders().next() {
             let unit = game.unit_by_id(unit_id).unwrap();
             if unit.moves_remaining > 0 {
                 *mode = Mode::CarryOutUnitOrders{unit_id};
