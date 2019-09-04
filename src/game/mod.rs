@@ -17,7 +17,7 @@ use log::{LogTarget,Message,MessageSource};
 use map::Tile;
 use map::gen::MapGenerator;
 use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths};
-use map::newmap::{MapData,NewUnitError,UnitID};
+use map::newmap::{CityID,MapData,NewUnitError,UnitID};
 use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
 use ui::MoveAnimator;
 use unit::{City,Unit,UnitType};
@@ -151,6 +151,15 @@ impl MoveComponent {
     pub fn loc(&self) -> Location {
         self.loc
     }
+}
+
+#[derive(Debug)]
+pub enum GameError {
+    NoSuchUnit { msg: String, id: UnitID },
+    NoUnitAtLocation { msg: String, loc: Location },
+    NoSuchCity { msg: String, id: CityID },
+    NoCityAtLocation { msg: String, loc: Location },
+    UnitNotControlledByCurrentPlayer { msg: String }
 }
 
 pub struct Game {
@@ -410,6 +419,10 @@ impl Game {
         self.map.unit_by_loc(loc)
     }
 
+    fn mut_unit_by_loc(&mut self, loc: Location) -> Option<&mut Unit> {
+        self.map.mut_unit_by_loc(loc)
+    }
+
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
         self.map.unit_by_id(id)
     }
@@ -420,6 +433,27 @@ impl Game {
 
     fn mut_unit_by_id(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.map.mut_unit_by_id(id)
+    }
+
+
+    /// If a unit at the location owned by the current player exists, activate it
+    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
+        let current_player = self.current_player;
+        if let Some(unit) = self.mut_unit_by_loc(loc) {
+            if unit.belongs_to_player(current_player) {
+                unit.set_orders(None);
+                Ok(())
+            } else {
+                Err(GameError::UnitNotControlledByCurrentPlayer{
+                    msg: format!("Could not activate unit at location {} because it does not belong to current player {}", loc, self.current_player)
+                })
+            }
+        } else {
+            Err(GameError::NoUnitAtLocation{
+                msg: format!("Could not activate unit at location {} because no such unit exists", loc),
+                loc
+            })
+        }
     }
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
@@ -441,7 +475,7 @@ impl Game {
 
     pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
         self.player_units()
-            .filter(|unit| unit.moves_remaining > 0 && unit.orders().is_some())
+            .filter(|unit| unit.moves_remaining > 0 && unit.orders().is_some() && *unit.orders().unwrap() != Orders::Sentry)
             .map(|unit| unit.id)
     }
 
@@ -602,7 +636,7 @@ but there is no city at that location",
         }).collect()
     }
 
-    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, unit_id: UnitID, orders: Option<Orders>, ui: &mut U) -> Result<(),String> {
+    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, unit_id: UnitID, orders: Option<Orders>, ui: &mut U, carry_out_now: bool) -> Result<(),String> {
 
         if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
             unit.set_orders(orders);
@@ -610,16 +644,21 @@ but there is no city at that location",
             return Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id));
         }
 
-        let orders = self.unit_by_id(unit_id).unwrap().orders().unwrap().clone();//FIXME Is there some way to dance around the borrow checker without cloning here?
 
-        let result = orders.carry_out(unit_id, self, ui);
+        if carry_out_now {
+            let orders = self.unit_by_id(unit_id).unwrap().orders().unwrap().clone();//FIXME Is there some way to dance around the borrow checker without cloning here?
 
-        // If the orders are already complete, clear them out
-        if let Ok(OrdersStatus::Completed) = result {
-            self.mut_unit_by_id(unit_id).unwrap().set_orders(None);
+            let result = orders.carry_out(unit_id, self, ui);
+
+            // If the orders are already complete, clear them out
+            if let Ok(OrdersStatus::Completed) = result {
+                self.mut_unit_by_id(unit_id).unwrap().set_orders(None);
+            }
+            
+            result.map(|_ok| ())
+        } else {
+            Ok(())
         }
-        
-        result.map(|_ok| ())
     }
 }
 

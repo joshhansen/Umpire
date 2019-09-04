@@ -38,9 +38,9 @@ impl LogArea {
     }
 
     pub fn log(&mut self, message: Message) {
-        if message.source == Some(MessageSource::Game) {
-            return;
-        }
+        // if message.source == Some(MessageSource::Game) {
+        //     return;
+        // }
         self.messages.push_back(message);
         if self.messages.len() > self.max_messages() as usize {
             self.messages.pop_front();

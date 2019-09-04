@@ -7,6 +7,7 @@ use util::Location;
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Orders {
+    Skip,
     Sentry,
     GoTo{dest:Location},
     Explore
@@ -22,6 +23,9 @@ type OrdersResult = Result<OrdersStatus,String>;
 impl Orders {
     pub fn carry_out<U:LogTarget+MoveAnimator>(&self, unit_id: UnitID, game: &mut Game, ui: &mut U) -> OrdersResult {
         match *self {
+            Orders::Skip => {
+                game.give_orders(unit_id, None, ui, false).map(|_| OrdersStatus::Completed)
+            },
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
                 Ok(OrdersStatus::InProgress)
@@ -86,7 +90,7 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &
             }
 
         } else {
-            game.give_orders(unit_id, None, ui).unwrap();
+            game.give_orders(unit_id, None, ui, false).unwrap();
             return Ok(OrdersStatus::Completed);
         }
     }
@@ -158,7 +162,7 @@ pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: L
             ui.animate_move(game, &move_result);
 
             if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
-                game.give_orders(unit_id, None, ui).unwrap();
+                game.give_orders(unit_id, None, ui, false).unwrap();
                 Ok(OrdersStatus::Completed)
             } else {
                 Ok(OrdersStatus::InProgress)

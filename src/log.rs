@@ -36,6 +36,12 @@ impl From<String> for Message {
     }
 }
 
+impl From<&str> for Message {
+    fn from(s: &str) -> Self {
+        Self::from(String::from(s))
+    }
+}
+
 /// A valid target to which messages can be logged.
 pub trait LogTarget {
     fn log_message<T>(&mut self, message: T) where Message:From<T>;

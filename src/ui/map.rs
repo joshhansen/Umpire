@@ -226,7 +226,7 @@ impl Map {
         stdout.flush().unwrap();
     }
 
-    pub fn tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
+    pub fn current_player_tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
         game.current_player_tile(tile_loc)
     }

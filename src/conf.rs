@@ -106,7 +106,19 @@ pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';
 
 pub const KEY_EXPLORE: char = 'o';
 
+pub const KEY_SENTRY: char = 's';
+
+pub const KEY_SKIP: char = ' ';
+
 pub const KEY_QUIT: char = 'q';
 
 pub const KEY_EXAMINE: char = 'x';
 pub const KEY_EXAMINE_SELECT: char = '\n';
+
+pub fn key_desc(key: char) -> String {
+    match key {
+        ' ' => String::from("Space"),
+        '\n' => String::from("Enter"),
+        c => c.to_string()
+    }
+}

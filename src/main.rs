@@ -30,6 +30,8 @@
 
 #[allow(clippy::cognitive_complexity)]
 
+
+
 mod color;
 pub mod conf;
 pub mod game;
