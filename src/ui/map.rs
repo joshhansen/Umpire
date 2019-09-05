@@ -2,7 +2,7 @@ use std::io::Write;
 
 use termion::color::{Fg, Bg, White, Black};
 use termion::cursor::Hide;
-use termion::style::{Blink,Bold,Invert,Underline};
+use termion::style::{Blink,Bold,Invert,Italic,Underline};
 
 use color::{BLACK,WHITE};
 use game::{AlignedMaybe,Game};
@@ -10,6 +10,7 @@ use map::{LocationGrid,Tile};
 use ui::{Component,Draw};
 use ui::scroll::{ScrollableComponent};
 use ui::style::StrongReset;
+use unit::orders::Orders;
 use util::{Dims,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
@@ -204,6 +205,14 @@ impl Map {
 
             if let Some(fg_color) = tile.fg_color() {
                 write!(stdout, "{}", Fg(fg_color)).unwrap();
+            }
+
+            if let Some(ref unit) = tile.unit {
+                if let Some(orders) = unit.orders() {
+                    if *orders == Orders::Sentry {
+                        write!(stdout, "{}", Italic).unwrap();
+                    }
+                }
             }
 
             write!(stdout, "{}{}",
