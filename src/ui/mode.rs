@@ -577,6 +577,8 @@ impl IMode for ExamineMode {
                                 match game.activate_unit_by_loc(unit.loc) {
                                     Ok(()) => {
                                         ui.log_message(format!("Activated unit {}", unit));
+                                        *mode = Mode::GetUnitOrders { unit_id: unit.id, first_move: true };
+                                        return true;
                                     },
                                     Err(GameError::NoSuchUnit{msg:_msg,id:_id}) => {
                                         // The unit we had must have been a stale observation since we can't find it now.
