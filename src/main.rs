@@ -62,7 +62,6 @@ use termion::{
     color::{
         AnsiValue,
         Color,
-        Rgb,
     },
     terminal_size
 };

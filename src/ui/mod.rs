@@ -13,7 +13,7 @@ use termion::color::{Bg,Color,Rgb};
 use termion::raw::IntoRawMode;
 use termion::screen::{AlternateScreen,ToMainScreen};
 
-use color::Palette;
+use color::{Colors,Palette};
 use conf;
 use conf::HEADER_HEIGHT;
 use game::{Game,MoveResult};
@@ -99,7 +99,7 @@ pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
 }
 
 pub trait Draw {
-    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W);
+    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>);
 }
 
 pub trait Component : Draw {
@@ -316,17 +316,17 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
                 goto(0,0),
                 termion::style::Underline,
                 conf::APP_NAME,
-                StrongReset
+                StrongReset::new(&self.palette)
             ).unwrap();
             self.first_draw = false;
         }
 
-        self.log.draw_lite(&mut self.stdout);
-        self.current_player.draw(game, &mut self.stdout);
-        self.map_scroller.draw(game, &mut self.stdout);
-        self.turn.draw(game, &mut self.stdout);
+        self.log.draw_lite(&mut self.stdout, &self.palette);
+        self.current_player.draw(game, &mut self.stdout, &self.palette);
+        self.map_scroller.draw(game, &mut self.stdout, &self.palette);
+        self.turn.draw(game, &mut self.stdout, &self.palette);
 
-        write!(self.stdout, "{}{}", StrongReset, termion::cursor::Hide).unwrap();
+        write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
     }
 
@@ -414,12 +414,12 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
 impl <C:Color+Copy,W:Write> LogTarget for TermUI<C,W> {
     fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
-        self.log.draw_lite(&mut self.stdout);
+        self.log.draw_lite(&mut self.stdout, &self.palette);
     }
 
     fn replace_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.replace(Message::from(message));
-        self.log.draw_lite(&mut self.stdout);
+        self.log.draw_lite(&mut self.stdout, &self.palette);
     }
 }
 
@@ -446,7 +446,7 @@ impl <C:Color+Copy,W:Write> MoveAnimator for TermUI<C,W> {
                     if was_combat {"victorious"} else {"moved successfully"}
                 } else {"destroyed"}),
                 mark: Some('*'),
-                fg_color: Some(Rgb(240, 5, 5)),
+                fg_color: Some(Colors::Combat),
                 bg_color: None,
                 source: Some(MessageSource::UI)
             });

@@ -8,10 +8,7 @@ pub mod obs;
 
 use std::collections::{BTreeSet,HashMap};
 
-//FIXME Don't depend on termion outside of `ui`
-use termion::color::{AnsiValue,Color};
-
-use color::{ColorPair,PairColorized,Palette,NOTICE};
+use color::{Colors,Colorized};
 use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
@@ -37,20 +34,11 @@ pub enum Alignment {
     // active neutral, chaotic, etc.
 }
 
-// impl Alignment {
-//     pub fn color(self) -> AnsiValue {
-//         match self {
-//             Alignment::Neutral => AnsiValue(8),
-//             Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
-//         }
-//     }
-// }
-
-impl <C:Color+Copy> PairColorized<C> for Alignment {
-    fn color_pair(&self, palette: &Palette<C>) -> Option<ColorPair<C>> {
+impl Colorized for Alignment {
+    fn color(&self) -> Option<Colors> {
         Some(match self {
-            Alignment::Neutral => palette.neutral,
-            Alignment::Belligerent{player} => palette.players[usize::from(*player)]
+            Alignment::Neutral => Colors::Neutral,
+            Alignment::Belligerent{player} => Colors::Player(*player),
         })
     }
 }
@@ -302,7 +290,7 @@ impl Game {
                                 prior_unit
                             ),
                             mark: None,
-                            fg_color: Some(NOTICE),
+                            fg_color: Some(Colors::Notice),
                             bg_color: None,
                             source: Some(MessageSource::Game)
                         });
@@ -322,7 +310,7 @@ impl Game {
         log.log_message(Message {
             text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
             mark: None,
-            fg_color: Some(NOTICE),
+            fg_color: Some(Colors::Notice),
             bg_color: None,
             source: Some(MessageSource::Game)
         });

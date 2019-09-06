@@ -18,8 +18,6 @@
 //! * map: colors only used on the map
 //! * text: colors used in textual output outside of the map
 
-use std::fmt;
-
 use pastel::Color as PastelColor;
 use pastel::RGBA;
 use pastel::distinct::{DistanceMetric,distinct_colors};
@@ -32,13 +30,41 @@ use termion::color::Rgb;
 
 use game::PlayerNum;
 
-pub const BLACK: Rgb = Rgb(0, 0, 0);
-pub const WHITE: Rgb = Rgb(255, 255, 255);
+#[derive(Copy,Clone,Debug)]
+pub enum Colors {
+    /// The background behind everything else
+    Background,
 
-pub const NOTICE: Rgb = Rgb(255,140,0);
+    /// Dry land
+    Land,
 
-pub trait Colorized<C:Color+Copy> {
-    fn color(&self, palette: &Palette<C>) -> C;
+    /// The ocean
+    Ocean,
+
+    /// The neutral "player"'s color
+    Neutral,
+
+    /// A player's color
+    Player(u8),
+
+    /// The default text color
+    Text,
+
+    /// A message that needs to be extra noticeable
+    Notice,
+
+    /// The cursor
+    Cursor,
+
+    /// Messages or effects about combat
+    Combat,
+
+    /// Scroll percentage indicators
+    ScrollMarks,
+}
+
+pub trait Colorized {
+    fn color(&self) -> Option<Colors>;
 }
 
 pub trait PairColorized<C:Color+Copy> {
@@ -49,40 +75,68 @@ pub trait PaletteT<C:Color> {
     fn background(&self) -> C;
 }
 
-pub struct Palette<C:Color> {
+pub struct Palette<C> {
     // general
     background: C,
     
 
     // map
-    pub land: ColorPair<C>,
-    pub ocean: ColorPair<C>,
-    pub players: Vec<ColorPair<C>>,
-    pub neutral: ColorPair<C>,
+    land: ColorPair<C>,
+    ocean: ColorPair<C>,
+    players: Vec<ColorPair<C>>,
+    neutral: ColorPair<C>,
 
     // text
     text: C,
+
     notice: C,
+
+    cursor: C,
+
+    combat: C,
+
+    // other
+    scroll_marks: C
 }
 
-// impl <C:Color> Palette<C> {
-//     fn new(
-//         background: ColorPair<C>,
-//         text: C,
-//         land: ColorPair<C>,
-//         ocean: ColorPair<C>,
-//         notice: C,
-//         player_colors: Vec<ColorPair<C>>) -> Self {
-//             Self {
-//                 background,
-//                 text,
-//                 land,
-//                 ocean,
-//                 notice,
-//                 player_colors
-//             }
-//         }
-// }
+impl <C:Color+Copy> Palette<C> {
+    pub fn get_single(&self, color: Colors) -> C {
+        match color {
+            Colors::Background => self.background,
+            Colors::Notice => self.notice,
+            Colors::Text => self.text,
+            Colors::Combat => self.combat,
+            Colors::Cursor => self.cursor,
+            Colors::ScrollMarks => self.scroll_marks,
+            _ => panic!("Color {:?} is not a single color", color)
+        }
+    }
+
+    pub fn get(&self, color: Colors, currently_observed: bool) -> C {
+        match color {
+            Colors::Background => self.background,
+            Colors::Land => self.land.get(currently_observed),
+            Colors::Ocean => self.ocean.get(currently_observed),
+            Colors::Neutral => self.neutral.get(currently_observed),
+            Colors::Player(player_num) => self.players[usize::from(player_num)].get(currently_observed),
+            Colors::Notice => self.notice,
+            Colors::Text => self.text,
+            Colors::Cursor => self.cursor,
+            Colors::Combat => self.combat,
+            Colors::ScrollMarks => self.scroll_marks
+        }
+    }
+
+    pub fn get_pair(&self, color: Colors) -> ColorPair<C> {
+        match color {
+            Colors::Land => self.land,
+            Colors::Ocean => self.ocean,
+            Colors::Neutral => self.neutral,
+            Colors::Player(player_num) => self.players[usize::from(player_num)],
+            _ => panic!("Color {:?} is not a paired color", color)
+        }
+    }
+}
 
 pub fn palette16() -> Palette<AnsiValue> {
     Palette {
@@ -98,7 +152,10 @@ pub fn palette16() -> Palette<AnsiValue> {
         ],
         neutral: ColorPair::new_ansi(8, 8),// gray
         text: AnsiValue(15),
-        notice: AnsiValue(14)
+        notice: AnsiValue(14),
+        cursor: AnsiValue(15),
+        combat: AnsiValue(9),
+        scroll_marks: AnsiValue(11),
     }
 }
 
@@ -116,7 +173,10 @@ pub fn palette256() -> Palette<AnsiValue> {
         ],
         neutral: ColorPair::new_ansi(8, 8),// gray
         text: AnsiValue(15),
-        notice: AnsiValue(14)
+        notice: AnsiValue(14),
+        cursor: AnsiValue(15),
+        combat: AnsiValue(9),
+        scroll_marks: AnsiValue(11),
     }
 }
 
@@ -155,113 +215,15 @@ pub fn palette24(num_players: PlayerNum) -> Result<Palette<Rgb>,String> {
         players: player_colors,
         neutral: ColorPair::new_rgb(202,202,202, 102,102,102),
         text: Rgb(255,255,255),
-        notice: Rgb(232,128,56)
+        notice: Rgb(232,128,56),
+        combat: Rgb(237,89,66),
+        cursor: Rgb(255,154,71),
+        scroll_marks: Rgb(248,202,0),
     })
 }
 
-
-// trait Palette<C:Color> {
-//     fn background()-> ColorPair<C>;
-//     fn foreground() -> ColorPair<C>;
-//     fn notice() -> ColorPair<C>;
-//     fn player_color(player: PlayerNum) -> ColorPair<C>;
-// }
-
-
-// struct Palette16 {
-
-// }
-
-// impl Palette<AnsiValue> for Palette16 {
-//     fn background()-> ColorPair<AnsiValue> {
-
-//     }
-//     fn foreground() -> ColorPair<AnsiValue>;
-//     fn notice() -> ColorPair<AnsiValue>;
-//     fn player_color(player: PlayerNum) -> ColorPair<AnsiValue>;
-// }
-
-
-// struct Palette256 {
-
-// }
-
-// impl Palette<AnsiValue> for Palette256 {
-//     fn background()-> ColorPair<AnsiValue>;
-//     fn foreground() -> ColorPair<AnsiValue>;
-//     fn notice() -> ColorPair<AnsiValue>;
-//     fn player_color(player: PlayerNum) -> ColorPair<AnsiValue>;
-// }
-
-// struct Palette24bit {
-
-// }
-
-// impl Palette<Rgb> for Palette24bit {
-
-// }
-
-
-
-
-// struct Color {
-//     ansi_normal: u8,
-//     ansi_bright: u8,
-//     rgb_normal: Rgb,
-//     rgb_bright: Rgb,
-// }
-
-// impl Color {
-//     fn new(ansi_normal: u8, ansi_bright: u8, rgb_normal: Rgb, rgb_bright: Rgb) -> Self {
-//         Self {
-//             ansi_normal,
-//             ansi_bright,
-//             rgb_normal,
-//             rgb_bright,
-//         }
-//     }
-
-
-// }
-
-// const BLACK: Color = Color::new(0, 8, Rgb(0, 0, 0), Rgb(50, 50, 50));
-
-// /// A hybrid color declared in 8-bit color (256 color), and optionally in 16 color and 24-bit color.
-// /// 
-// /// The standard color system for this application is 8-bit color with its 256 values. This is widely
-// /// supported across terminals.
-// #[derive(Debug)]
-// struct CompatibleColor {
-//     ansi_16_color: Option<AnsiValue>,
-//     ansi_256_color: AnsiValue,
-//     ansi_rgb_color: Option<Rgb>
-// }
-
-// impl Color for CompatibleColor {
-//     /// Write the foreground version of this color.
-//     fn write_fg(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         let mut result = self.ansi_16_color.write_fg(f);
-//         if let Some(ansi_256_color) = self.ansi_256_color {
-//             result = result.and(ansi_256_color.write_fg(f));
-//         }
-
-//         if let Some(ansi_rgb_color) = self.ansi_rgb_color {
-//             result = result.and(ansi_rgb_color.write_fg(f));
-//         }
-
-//         result
-//     }
-
-//     /// Write the background version of this color.
-//     fn write_bg(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         self.ansi_16_color.write_bg(f).and(
-//             self.ansi_256_color
-//         )
-//     }
-// }
-
 #[derive(Copy,Clone)]
-pub struct ColorPair<C:Color> {
+pub struct ColorPair<C> {
     active: C,
     foggy: C
 }
@@ -294,4 +256,3 @@ impl ColorPair<Rgb> {
         Self::new( Rgb(active_r, active_g, active_b), Rgb(foggy_r, foggy_g, foggy_b) )
     }
 }
-

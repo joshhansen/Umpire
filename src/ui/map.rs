@@ -1,11 +1,11 @@
 use std::io::Write;
 use std::rc::Rc;
 
-use termion::color::{Color,Fg, Bg, White, Black};
+use termion::color::{Color,Fg, Bg};
 use termion::cursor::Hide;
 use termion::style::{Blink,Bold,Invert,Italic,Underline};
 
-use color::{PairColorized,Palette,PaletteT,BLACK,WHITE};
+use color::{Colors,Colorized,Palette};
 use game::{AlignedMaybe,Game};
 use game::obs::Obs;
 use map::{LocationGrid,Tile};
@@ -213,8 +213,9 @@ impl <C:Color+Copy> Map<C> {
                 write!(stdout, "{}{}", Blink, Bold).unwrap();
             }
 
-            if let Some(fg_color) = tile.color_pair(&self.palette) {
-                write!(stdout, "{}", Fg(fg_color.get(currently_observed))).unwrap();
+            // if let Some(fg_color) = tile.color_pair(&self.palette) {
+            if let Some(fg_color) = tile.color() {
+                write!(stdout, "{}", Fg(self.palette.get(fg_color, currently_observed))).unwrap();
             }
 
             if let Some(ref unit) = tile.unit {
@@ -226,22 +227,22 @@ impl <C:Color+Copy> Map<C> {
             }
 
             write!(stdout, "{}{}",
-                Bg(tile.terrain.color_pair(&self.palette).unwrap().get(currently_observed)),
+                Bg(self.palette.get(tile.terrain.color().unwrap(), currently_observed)),
                 symbol.unwrap_or(tile.sym())
             ).unwrap();
 
             self.displayed_tiles[viewport_loc] = Some(tile.clone());
         } else {
             if highlight {
-                write!(stdout, "{}{}", Bg(White), Bg(WHITE)).unwrap();// Use ansi white AND rgb white. Terminals supporting rgb will get a brighter white
+                write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
             } else {
-                write!(stdout, "{}{}", Bg(Black), Bg(BLACK)).unwrap();
+                write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
             }
             write!(stdout, " ").unwrap();
             self.displayed_tiles[viewport_loc] = None;
         }
 
-        write!(stdout, "{}", StrongReset).unwrap();
+        write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
         stdout.flush().unwrap();
     }
 
@@ -272,7 +273,7 @@ impl <C:Color+Copy> Component for Map<C> {
 }
 
 impl <C:Color+Copy> Draw for Map<C> {
-    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
+    fn draw<C2:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C2>) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;
@@ -314,7 +315,7 @@ impl <C:Color+Copy> Draw for Map<C> {
             }
         }
 
-        write!(stdout, "{}{}", StrongReset, Hide).unwrap();
+        write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
         stdout.flush().unwrap();
     }
 }

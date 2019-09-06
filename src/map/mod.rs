@@ -4,9 +4,7 @@
 
 use std::fmt;
 
-use termion::color::{AnsiValue,Color};
-
-use crate::color::{ColorPair,Palette,PairColorized};
+use crate::color::{Colors,Colorized};
 use game::{Aligned,AlignedMaybe,Alignment};
 use unit::{City,Sym,Unit};
 use util::Location;
@@ -20,21 +18,11 @@ pub enum Terrain {
     //ice, lava, river, deep sea vs shallow, etc.
 }
 
-// impl Terrain {
-//     pub fn color(&self, palette: &Palette) -> AnsiValue {
-//         match *self {
-//             Terrain::Water => AnsiValue(12),
-//             Terrain::Land => AnsiValue(10),
-//             // Terrain::CITY => AnsiValue(245)
-//         }
-//     }
-// }
-
-impl <C:Color+Copy> PairColorized<C> for Terrain {
-    fn color_pair(&self, palette: &Palette<C>) -> Option<ColorPair<C>> {
+impl Colorized for Terrain {
+    fn color(&self) -> Option<Colors> {
         Some(match *self {
-            Terrain::Water => palette.ocean,
-            Terrain::Land => palette.land
+            Terrain::Water => Colors::Ocean,
+            Terrain::Land => Colors::Land
         })
     }
 }
@@ -77,20 +65,6 @@ impl Tile {
         }
     }
 
-    // pub fn fg_color(&self, palette: &Palette<dyn Color>) -> Option<AnsiValue> {
-    //     match self.unit {
-    //         Some(ref last_unit) => Some(last_unit.alignment.color()),
-    //         None => match self.city {
-    //             Some(ref city) => Some(city.alignment().color()),
-    //             None => None
-    //         }
-    //     }
-    // }
-
-    // pub fn bg_color(&self, palette: &Palette<dyn Color>) -> AnsiValue {
-    //     self.terrain.color()
-    // }
-
     pub fn pop_unit(&mut self) -> Option<Unit> {
         let unit = self.unit.clone();
         self.unit = None;
@@ -102,14 +76,12 @@ impl Tile {
     }
 }
 
-impl <C:Color+Copy> PairColorized<C> for Tile {
-    /// A tile's color pair is the color of the foreground, i.e. units, cities, etc.
-    fn color_pair(&self, palette: &Palette<C>) -> Option<ColorPair<C>> {
-
+impl Colorized for Tile {
+    fn color(&self) -> Option<Colors> {
         if let Some(ref last_unit) = self.unit {
-            last_unit.alignment.color_pair(palette)
+            last_unit.alignment.color()
         } else if let Some(ref city) = self.city {
-            city.alignment().color_pair(palette)
+            city.alignment().color()
         } else {
             None
         }
@@ -143,9 +115,6 @@ impl fmt::Display for Tile {
         }
     }
 }
-
-
-
 
 
 pub mod dijkstra;

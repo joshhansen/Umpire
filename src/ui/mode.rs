@@ -97,7 +97,7 @@ trait IMode {
         if let Key::Char(c) = key {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 ui.map_scroller.scrollable.scroll_relative(dir.vec2d());
-                ui.map_scroller.draw(game, &mut ui.stdout);
+                ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
                 return KeyStatus::Handled(StateDisposition::Stay);
             }
 
@@ -158,7 +158,7 @@ trait IVisibleMode: IMode {
 pub struct TurnStartMode {}
 impl IMode for TurnStartMode {
     fn run<C:Color+Copy,W:Write>(&self, game: &mut Game, ui: &mut TermUI<C,W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        ui.current_player.draw(game, &mut ui.stdout);
+        ui.current_player.draw(game, &mut ui.stdout, &ui.palette);
 
         ui.log_message(Message {
             text: format!("Turn {}, player {} go!", game.turn(), game.current_player()),
@@ -629,7 +629,7 @@ impl IMode for ExamineMode {
                             // such that the cursor will still be at its edge
 
                             ui.map_scroller.scrollable.shift_viewport(dir.vec2d());
-                            ui.map_scroller.draw(game, &mut ui.stdout);
+                            ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
                             // Don't change `mode` since we'll basically pick up where we left off
                         }
                     }

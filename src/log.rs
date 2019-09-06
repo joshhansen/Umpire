@@ -2,9 +2,7 @@
 //!
 //! This is one channel over which the game engine and various UIs can communicate.
 
-/// Reexport the Rgb struct from termion
-/// We do this to help isolate the dependency on termion from the non-UI code
-pub use termion::color::Rgb;
+use crate::color::Colors;
 
 #[derive(PartialEq)]
 pub enum MessageSource {
@@ -19,8 +17,8 @@ pub enum MessageSource {
 pub struct Message {
     pub text: String,
     pub mark: Option<char>,
-    pub fg_color: Option<Rgb>,
-    pub bg_color: Option<Rgb>,
+    pub fg_color: Option<Colors>,
+    pub bg_color: Option<Colors>,
     pub source: Option<MessageSource>
 }
 

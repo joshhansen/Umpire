@@ -2,14 +2,14 @@ use std::collections::VecDeque;
 use std::io::Write;
 
 use termion::{
-    color::{Bg,Fg},
+    color::{Bg,Color,Fg},
     style::Underline
 };
 
 use crate::{
-    color::{BLACK,WHITE},
+    color::{Colors,Palette},
     game::Game,
-    log::{Message,MessageSource},
+    log::{Message},
     ui::{
         Component,
         Draw,
@@ -22,6 +22,7 @@ pub struct LogArea {
     rect: Rect,
     messages: VecDeque<Message>,
     empty_message: Message,
+    
 }
 
 impl LogArea {
@@ -65,12 +66,12 @@ impl LogArea {
         self.replace(Message::from(message));
     }
 
-    pub fn draw_lite<W:Write>(&self, stdout: &mut W) {
+    pub fn draw_lite<C:Color+Copy,W:Write>(&self, stdout: &mut W, palette: &Palette<C>) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),
             Underline,
-            StrongReset
+            StrongReset::new(palette),
         ).unwrap();
 
         for i in 0..self.rect.height {
@@ -83,8 +84,15 @@ impl LogArea {
             }
 
             let mark = message.mark.unwrap_or(' ');
-            let fg_color = message.fg_color.unwrap_or(WHITE);
-            let bg_color = message.bg_color.unwrap_or(BLACK);
+            let fg_color: C = message.fg_color.map_or_else(
+                || palette.get_single(Colors::Text),
+                |fg_color| palette.get_single(fg_color)
+            );
+
+            let bg_color: C = message.bg_color.map_or_else(
+                || palette.get_single(Colors::Background),
+                |bg_color| palette.get_single(bg_color)
+            );
 
             write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
         }
@@ -94,8 +102,8 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw<W:Write>(&mut self, _game: &Game, stdout: &mut W) {
-        self.draw_lite(stdout);
+    fn draw<C:Color+Copy,W:Write>(&mut self, _game: &Game, stdout: &mut W, palette: &Palette<C>) {
+        self.draw_lite(stdout, palette);
     }
 }
 

@@ -3,10 +3,10 @@
 pub mod combat;
 pub mod orders;
 
-use game::{Aligned,Alignment};
 use std::cmp::Ordering;
 use std::fmt;
 
+use game::{Aligned,Alignment};
 use game::obs::Observer;
 use map::{Terrain,Tile};
 use map::newmap::{CityID,UnitID};
