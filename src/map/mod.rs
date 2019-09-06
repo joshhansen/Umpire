@@ -4,8 +4,9 @@
 
 use std::fmt;
 
-use termion::color::AnsiValue;
+use termion::color::{AnsiValue,Color};
 
+use crate::color::{ColorPair,Palette,PairColorized};
 use game::{Aligned,AlignedMaybe,Alignment};
 use unit::{City,Sym,Unit};
 use util::Location;
@@ -19,13 +20,22 @@ pub enum Terrain {
     //ice, lava, river, deep sea vs shallow, etc.
 }
 
-impl Terrain {
-    pub fn color(&self) -> AnsiValue {
-        match *self {
-            Terrain::Water => AnsiValue(12),
-            Terrain::Land => AnsiValue(10),
-            // Terrain::CITY => AnsiValue(245)
-        }
+// impl Terrain {
+//     pub fn color(&self, palette: &Palette) -> AnsiValue {
+//         match *self {
+//             Terrain::Water => AnsiValue(12),
+//             Terrain::Land => AnsiValue(10),
+//             // Terrain::CITY => AnsiValue(245)
+//         }
+//     }
+// }
+
+impl <C:Color+Copy> PairColorized<C> for Terrain {
+    fn color_pair(&self, palette: &Palette<C>) -> Option<ColorPair<C>> {
+        Some(match *self {
+            Terrain::Water => palette.ocean,
+            Terrain::Land => palette.land
+        })
     }
 }
 
@@ -67,19 +77,19 @@ impl Tile {
         }
     }
 
-    pub fn fg_color(&self) -> Option<AnsiValue> {
-        match self.unit {
-            Some(ref last_unit) => Some(last_unit.alignment.color()),
-            None => match self.city {
-                Some(ref city) => Some(city.alignment().color()),
-                None => None
-            }
-        }
-    }
+    // pub fn fg_color(&self, palette: &Palette<dyn Color>) -> Option<AnsiValue> {
+    //     match self.unit {
+    //         Some(ref last_unit) => Some(last_unit.alignment.color()),
+    //         None => match self.city {
+    //             Some(ref city) => Some(city.alignment().color()),
+    //             None => None
+    //         }
+    //     }
+    // }
 
-    pub fn bg_color(&self) -> AnsiValue {
-        self.terrain.color()
-    }
+    // pub fn bg_color(&self, palette: &Palette<dyn Color>) -> AnsiValue {
+    //     self.terrain.color()
+    // }
 
     pub fn pop_unit(&mut self) -> Option<Unit> {
         let unit = self.unit.clone();
@@ -89,6 +99,20 @@ impl Tile {
 
     pub fn set_unit(&mut self, unit: Unit) {
         self.unit = Some(unit);
+    }
+}
+
+impl <C:Color+Copy> PairColorized<C> for Tile {
+    /// A tile's color pair is the color of the foreground, i.e. units, cities, etc.
+    fn color_pair(&self, palette: &Palette<C>) -> Option<ColorPair<C>> {
+
+        if let Some(ref last_unit) = self.unit {
+            last_unit.alignment.color_pair(palette)
+        } else if let Some(ref city) = self.city {
+            city.alignment().color_pair(palette)
+        } else {
+            None
+        }
     }
 }
 

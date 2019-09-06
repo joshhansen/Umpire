@@ -9,9 +9,9 @@ pub mod obs;
 use std::collections::{BTreeSet,HashMap};
 
 //FIXME Don't depend on termion outside of `ui`
-use termion::color::AnsiValue;
+use termion::color::{AnsiValue,Color};
 
-use color::NOTICE;
+use color::{ColorPair,PairColorized,Palette,NOTICE};
 use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
@@ -37,12 +37,21 @@ pub enum Alignment {
     // active neutral, chaotic, etc.
 }
 
-impl Alignment {
-    pub fn color(self) -> AnsiValue {
-        match self {
-            Alignment::Neutral => AnsiValue(8),
-            Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
-        }
+// impl Alignment {
+//     pub fn color(self) -> AnsiValue {
+//         match self {
+//             Alignment::Neutral => AnsiValue(8),
+//             Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
+//         }
+//     }
+// }
+
+impl <C:Color+Copy> PairColorized<C> for Alignment {
+    fn color_pair(&self, palette: &Palette<C>) -> Option<ColorPair<C>> {
+        Some(match self {
+            Alignment::Neutral => palette.neutral,
+            Alignment::Belligerent{player} => palette.players[usize::from(*player)]
+        })
     }
 }
 
@@ -170,7 +179,7 @@ pub struct Game {
     num_players: PlayerNum,
     current_player: PlayerNum,
     wrapping: Wrap2d,
-    unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>
+    unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
 }
 impl Game {
     /// Creates a new game instance

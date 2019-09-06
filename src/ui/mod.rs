@@ -5,13 +5,15 @@
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
 use std::io::{Write,stdout};
+use std::rc::Rc;
 
 use termion;
 use termion::clear;
-use termion::color::{Bg,Rgb};
+use termion::color::{Bg,Color,Rgb};
 use termion::raw::IntoRawMode;
 use termion::screen::{AlternateScreen,ToMainScreen};
 
+use color::Palette;
 use conf;
 use conf::HEADER_HEIGHT;
 use game::{Game,MoveResult};
@@ -22,7 +24,7 @@ use unit::Sym;
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
 
-pub fn run(mut game: Game, term_dims: Dims, use_alt_screen: bool) -> Result<(),String> {
+pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
 
         let mut prev_mode: Option<Mode> = None;
@@ -31,7 +33,8 @@ pub fn run(mut game: Game, term_dims: Dims, use_alt_screen: bool) -> Result<(),S
             let mut ui = TermUI::new(
                 game.map_dims(),
                 term_dims,
-                AlternateScreen::from(stdout().into_raw_mode().unwrap())
+                AlternateScreen::from(stdout().into_raw_mode().unwrap()),
+                palette,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
@@ -41,7 +44,8 @@ pub fn run(mut game: Game, term_dims: Dims, use_alt_screen: bool) -> Result<(),S
             let mut ui = TermUI::new(
                 game.map_dims(),
                 term_dims,
-                stdout().into_raw_mode().unwrap()
+                stdout().into_raw_mode().unwrap(),
+                palette,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
@@ -215,28 +219,32 @@ const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
 /// The termion-based user interface.
-pub struct TermUI<W:Write> {
+pub struct TermUI<C:Color+Copy,W:Write> {
     stdout: W,
     term_dims: Dims,
     viewport_size: ViewportSize,
 
-    map_scroller: Scroller<Map>,
+    map_scroller: Scroller<Map<C>>,
     log: LogArea,
     current_player: CurrentPlayer,
     turn: Turn,
-    first_draw: bool
+    first_draw: bool,
+    palette: Rc<Palette<C>>,
 }
 
-impl<W:Write> TermUI<W> {
+impl<C:Color+Copy,W:Write> TermUI<C,W> {
     pub fn new(
         map_dims: Dims,
         term_dims: Dims,
         stdout: W,
+        palette: Palette<C>,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
 
-        let map = Map::new(viewport_rect, map_dims);
+        let palette = Rc::new(palette);
+
+        let map = Map::new(viewport_rect, map_dims, palette.clone());
 
         let map_scroller_rect = Rect {
             left: viewport_rect.left,
@@ -264,7 +272,9 @@ impl<W:Write> TermUI<W> {
 
             turn: Turn::new(turn_rect(cp_rect)),
 
-            first_draw: true
+            first_draw: true,
+            
+            palette
         };
 
         ui.clear();
@@ -332,8 +342,12 @@ impl<W:Write> TermUI<W> {
         }
     }
 
-    fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(&mut self, game: &Game, outcome: &CombatOutcome<A,D>, attacker_loc: Location,
-                defender_loc: Location) {
+    fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(
+        &mut self,
+        game: &Game,
+        outcome: &CombatOutcome<A,D>,
+        attacker_loc: Location,
+        defender_loc: Location) {
 
         let viewport_dims = self.map_scroller.viewport_dims();
         let map = &mut self.map_scroller.scrollable;
@@ -397,7 +411,7 @@ impl<W:Write> TermUI<W> {
     }
 }
 
-impl <W:Write> LogTarget for TermUI<W> {
+impl <C:Color+Copy,W:Write> LogTarget for TermUI<C,W> {
     fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
         self.log.draw_lite(&mut self.stdout);
@@ -409,7 +423,7 @@ impl <W:Write> LogTarget for TermUI<W> {
     }
 }
 
-impl <W:Write> MoveAnimator for TermUI<W> {
+impl <C:Color+Copy,W:Write> MoveAnimator for TermUI<C,W> {
     fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
         let mut current_loc = move_result.starting_loc();
 

@@ -4,8 +4,9 @@ version = "0.1.0"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
 
 [dependencies]
-clap = "2.20.5"
+clap = "2.33.0"
 csv = "0.15.0"
+pastel = { path = "../External/pastel" }
 sample = "0.6.2"
 termion = "1.3.0"
 rand = "0.3.14"

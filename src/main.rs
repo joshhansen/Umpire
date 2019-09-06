@@ -28,8 +28,8 @@
 // TODO Zoomed-out map view?
 // TODO AI
 
-#[allow(clippy::cognitive_complexity)]
-
+#![allow(clippy::cognitive_complexity)]
+#![allow(clippy::let_and_return)]
 
 
 mod color;
@@ -46,6 +46,7 @@ pub mod util;
 
 extern crate clap;
 extern crate csv;
+extern crate pastel;
 extern crate rand;
 extern crate termion;
 extern crate unicode_segmentation;
@@ -57,8 +58,16 @@ use std::fs::File;
 use std::io::{BufRead,BufReader,Write,stdout};
 
 use clap::{Arg, App};
-use termion::terminal_size;
+use termion::{
+    color::{
+        AnsiValue,
+        Color,
+        Rgb,
+    },
+    terminal_size
+};
 
+use color::{Palette, palette16, palette256, palette24};
 use game::{Game,PlayerNum};
 use name::{city_namer,unit_namer};
 use ui::DefaultUI;
@@ -137,6 +146,18 @@ fn main() {
                     width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
                 })
             )
+            .arg(Arg::with_name("colors")
+                .short("c")
+                .long("colors")
+                .help("Colors supported. 16=16 colors, 256=256 colors, 24=24-bit color")
+                .takes_value(true)
+                .default_value("256")
+                .possible_values(&["16","256","24"])
+                .validator(|s| {
+                    let width: Result<u16,_> = s.trim().parse();
+                    width.map(|_n| ()).map_err(|_e| format!("Invalid colors '{}'", s))
+                })
+            )
         .get_matches();
 
         print_loading_screen();
@@ -146,6 +167,7 @@ fn main() {
         let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
         let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
         let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
+        let color_depth: u16 = matches.value_of("colors").unwrap().parse().unwrap();
 
         let map_dims: Dims = Dims::new(map_width, map_height);
 
@@ -155,21 +177,43 @@ fn main() {
                     Ok(unit_namer) => {
 
                         let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
+                        let dims = Dims{ width: term_width, height: term_height };
 
-                        if let Err(msg) = ui::run(game, Dims{ width: term_width, height: term_height }, use_alt_screen) {
-                            println!("Error running UI: {}", msg);
+                        match color_depth {
+                            16 | 256 => {
+                                let palette: Palette<AnsiValue> = match color_depth {
+                                    16 => palette16(),
+                                    256 => palette256(),
+                                    _ => unreachable!()
+                                };
+                                run_ui(game, dims, use_alt_screen, palette);
+
+                            },
+                            24 => {
+                                match palette24(num_players) {
+                                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette),
+                                    Err(err) => eprintln!("Error loading truecolor palette: {}", err)
+                                }
+                            },
+                            x => eprintln!("Unsupported color palette {}", x)
                         }
                     },
                     Err(err) => {
-                        println!("Error loading unit namer: {}", err);
+                        eprintln!("Error loading unit namer: {}", err);
                     }
                 }
             },
             Err(msg) => {
-                println!("Error loading city names: {}", msg);
+                eprintln!("Error loading city names: {}", msg);
             }
         }
     } else {
-        println!("Unable to get terminal size");
+        eprintln!("Unable to get terminal size");
+    }
+}
+
+fn run_ui<C:Color+Copy>(game: Game, dims: Dims, use_alt_screen: bool, palette: Palette<C>) {
+    if let Err(msg) = ui::run(game, dims, use_alt_screen, palette) {
+        eprintln!("Error running UI: {}", msg);
     }
 }

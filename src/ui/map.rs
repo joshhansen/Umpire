@@ -1,11 +1,13 @@
 use std::io::Write;
+use std::rc::Rc;
 
-use termion::color::{Fg, Bg, White, Black};
+use termion::color::{Color,Fg, Bg, White, Black};
 use termion::cursor::Hide;
 use termion::style::{Blink,Bold,Invert,Italic,Underline};
 
-use color::{BLACK,WHITE};
+use color::{PairColorized,Palette,PaletteT,BLACK,WHITE};
 use game::{AlignedMaybe,Game};
+use game::obs::Obs;
 use map::{LocationGrid,Tile};
 use ui::{Component,Draw};
 use ui::scroll::{ScrollableComponent};
@@ -15,12 +17,13 @@ use util::{Dims,Location,Rect,Vec2d};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
     let mut result = x;
+    let max = i32::from(max);
 
     while result < 0 {
-        result += max as i32;
+        result += max;
     }
 
-    (result % max as i32) as u16
+    (result % max) as u16
 }
 
 pub fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
@@ -50,9 +53,9 @@ fn map_to_viewport_coord(map_coord: u16, viewport_offset: u16, viewport_width: u
         return Err(format!("Map coordinate {} is larger than map dimension size {}", map_coord, map_dimension_width));
     }
 
-    let unoffset_coord: i32 = map_coord as i32 - viewport_offset as i32;
+    let unoffset_coord: i32 = i32::from(map_coord) - i32::from(viewport_offset);
     let wrapped_coord = if unoffset_coord < 0 {
-        map_dimension_width as i32 + unoffset_coord
+        i32::from(map_dimension_width) + unoffset_coord
     } else {
         unoffset_coord
     } as u16;
@@ -118,34 +121,36 @@ pub fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, vi
 }
 
 /// The map widget
-pub struct Map {
+pub struct Map<C:Color+Copy> {
     rect: Rect,
     map_dims: Dims,
     old_viewport_offset: Vec2d<u16>,
     viewport_offset: Vec2d<u16>,
-    displayed_tiles: LocationGrid<Option<Tile>>
+    displayed_tiles: LocationGrid<Option<Tile>>,
+    palette: Rc<Palette<C>>,
 }
-impl Map {
-    pub fn new(rect: Rect, map_dims: Dims) -> Self {
+impl <C:Color+Copy> Map<C> {
+    pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette<C>>) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
             rect,
             map_dims,
             old_viewport_offset: Vec2d::new(0, 0),
             viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2),
-            displayed_tiles
+            displayed_tiles,
+            palette
         }
     }
 
     pub fn shift_viewport(&mut self, shift: Vec2d<i32>) {
-        let mut new_x_offset:i32 = ( self.viewport_offset.x as i32 ) + shift.x;
-        let mut new_y_offset:i32 = ( self.viewport_offset.y as i32 ) + shift.y;
+        let mut new_x_offset:i32 = ( i32::from(self.viewport_offset.x) ) + shift.x;
+        let mut new_y_offset:i32 = ( i32::from(self.viewport_offset.y) ) + shift.y;
 
         while new_x_offset < 0 {
-            new_x_offset += self.map_dims.width as i32;
+            new_x_offset += i32::from(self.map_dims.width);
         }
         while new_y_offset < 0 {
-            new_y_offset += self.map_dims.height as i32;
+            new_y_offset += i32::from(self.map_dims.height);
         }
 
         let new_viewport_offset = Vec2d{
@@ -168,11 +173,11 @@ impl Map {
     pub fn center_viewport(&mut self, map_location: Location) {
         let new_viewport_offset = Vec2d {
             x: nonnegative_mod(
-                map_location.x as i32 - (self.rect.width as i32 / 2),
+                i32::from(map_location.x) - (i32::from(self.rect.width) / 2),
                 self.map_dims.width
             ),
             y: nonnegative_mod(
-                map_location.y as i32 - (self.rect.height as i32 / 2),
+                i32::from(map_location.y) - (i32::from(self.rect.height) / 2),
                 self.map_dims.height
             )
         };
@@ -180,7 +185,9 @@ impl Map {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    pub fn draw_tile<W:Write>(&mut self, game: &Game, stdout: &mut W,
+    pub fn draw_tile<W:Write>(&mut self,
+            game: &Game,
+            stdout: &mut W,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -193,6 +200,9 @@ impl Map {
         }
 
         write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
+        
+
+        let currently_observed = game.current_player_obs(tile_loc) == Some(&Obs::Current);
 
         if let Some(tile) = game.current_player_tile(tile_loc) {
             if highlight {
@@ -203,8 +213,8 @@ impl Map {
                 write!(stdout, "{}{}", Blink, Bold).unwrap();
             }
 
-            if let Some(fg_color) = tile.fg_color() {
-                write!(stdout, "{}", Fg(fg_color)).unwrap();
+            if let Some(fg_color) = tile.color_pair(&self.palette) {
+                write!(stdout, "{}", Fg(fg_color.get(currently_observed))).unwrap();
             }
 
             if let Some(ref unit) = tile.unit {
@@ -216,7 +226,7 @@ impl Map {
             }
 
             write!(stdout, "{}{}",
-                Bg(tile.bg_color()),
+                Bg(tile.terrain.color_pair(&self.palette).unwrap().get(currently_observed)),
                 symbol.unwrap_or(tile.sym())
             ).unwrap();
 
@@ -241,7 +251,7 @@ impl Map {
     }
 }
 
-impl ScrollableComponent for Map {
+impl <C:Color+Copy> ScrollableComponent for Map<C> {
     fn scroll_relative(&mut self, offset: Vec2d<i32>) {
         self.shift_viewport(offset);
     }
@@ -249,7 +259,7 @@ impl ScrollableComponent for Map {
     fn offset(&self) -> Vec2d<u16> { self.viewport_offset }
 }
 
-impl Component for Map {
+impl <C:Color+Copy> Component for Map<C> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
     }
@@ -261,7 +271,7 @@ impl Component for Map {
     fn is_done(&self) -> bool { false }
 }
 
-impl Draw for Map {
+impl <C:Color+Copy> Draw for Map<C> {
     fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
