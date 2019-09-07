@@ -4,23 +4,32 @@
 //! This implements the game logic without regard for user interface.
 
 pub mod obs;
+pub mod unit;
 
 
 use std::collections::{BTreeSet,HashMap};
 
-use color::{Colors,Colorized};
-use game::obs::{Obs,Observer,ObsTracker};
-use log::{LogTarget,Message,MessageSource};
-use map::Tile;
-use map::gen::MapGenerator;
-use map::dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths};
-use map::newmap::{CityID,MapData,NewUnitError,UnitID};
-use name::{Namer,CompoundNamer,ListNamer,WeightedNamer};
-use ui::MoveAnimator;
-use unit::{City,Unit,UnitType};
-use unit::combat::{CombatCapable,CombatOutcome};
-use unit::orders::{Orders,OrdersStatus};
-use util::{Dims,Location,Wrap,Wrap2d};
+use crate::{
+    color::{Colors,Colorized},
+    game::{
+        obs::{Obs,Observer,ObsTracker},
+        unit::{
+            City,Unit,UnitType,
+            combat::{CombatCapable,CombatOutcome},
+            orders::{Orders,OrdersStatus}
+        },
+    },
+    log::{LogTarget,Message,MessageSource},
+    map::{
+        Tile,
+        gen::MapGenerator,
+        dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths},
+        newmap::{CityID,MapData,NewUnitError,UnitID},
+    },
+    name::{Namer,CompoundNamer,ListNamer,WeightedNamer},
+    ui::MoveAnimator,
+    util::{Dims,Location,Wrap,Wrap2d}
+};
 
 
 pub type TurnNum = u32;
@@ -714,11 +723,11 @@ mod test {
     use std::convert::TryFrom;
 
     use game::{Alignment,Game};
+    use game::unit::{UnitType};
     use log::{DefaultLog,LogTarget};
     use map::Terrain;
     use map::newmap::{MapData,UnitID};
-    use name::{test_unit_namer};
-    use unit::{UnitType};
+    use name::unit_namer;
     use util::{Dims,Location};
 
     /// 10x10 grid of land only with two cities:
@@ -748,7 +757,7 @@ mod test {
         let fog_of_war = true;
 
         let map = map1();
-        let unit_namer = test_unit_namer().unwrap();
+        let unit_namer = unit_namer().unwrap();
         Game::new_with_map(map, players, fog_of_war, unit_namer, log)
     }
 
@@ -831,7 +840,7 @@ mod test {
         }
 
         let mut log = DefaultLog;
-        let mut game = Game::new_with_map(map, 2, false, test_unit_namer().unwrap(), &mut log);
+        let mut game = Game::new_with_map(map, 2, false, unit_namer().unwrap(), &mut log);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Armor), Ok(()));

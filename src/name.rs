@@ -1,11 +1,12 @@
 //! Name generation for units and cities.
 
 use std::fmt::Debug;
-use std::path::Path;
 use std::ops::AddAssign;
 use std::str::FromStr;
 
 use csv;
+use flate2::read::GzDecoder;
+
 use rand::{thread_rng, Rng, ThreadRng};
 use rand::distributions::{IndependentSample, Range};
 use rand::distributions::range::SampleRange;
@@ -99,28 +100,26 @@ pub struct CumWeight<T,N> {
 /// Load a CSV file with no header but the form $string,$weight
 /// The strings and _cumulative_ weights are loaded into a vector.
 /// Implemented generically to allow a variety of numeric types to be used for the weight
-fn load_cumulative_weights<N>(filename: &'static str) -> Result<Vec<CumWeight<String,N>>,String>
+fn load_cumulative_weights<N>(bytes: &[u8]) -> Vec<CumWeight<String,N>>
     where N: AddAssign+Copy+Debug+Default+FromStr,
           N::Err: Debug {
 
-    let path = Path::new(filename);
-    csv::Reader::from_file(path)
-    .map_err(|csv_err| format!("Error reading CSV from file {:?}: {}", path, csv_err))
-    .map(|reader| {
-        let mut weighted_names = Vec::new();
-        let mut reader = reader.has_headers(false);
-        let mut cumulative_weight: N = Default::default();
-        for row in reader.records() {
-            let row = row.unwrap();
-            let weight = row[1].parse::<N>().unwrap();
-            cumulative_weight += weight;
-            weighted_names.push(CumWeight {
-                cum_weight: cumulative_weight,
-                item: row[0].clone()
-            });
-        }
-        weighted_names
-    })
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(bytes);
+
+    let mut weighted_names = Vec::new();
+    let mut cumulative_weight: N = Default::default();
+    for row in reader.records() {
+        let row: csv::StringRecord = row.unwrap();
+        let weight = row[1].parse::<N>().unwrap();
+        cumulative_weight += weight;
+        weighted_names.push(CumWeight {
+            cum_weight: cumulative_weight,
+            item: row[0].into()
+        });
+    }
+    weighted_names
 }
 
 /// From Geonames schema
@@ -129,46 +128,22 @@ static CITY_NAME_COL: usize = 1;
 /// The default city namer.
 ///
 /// Loads city names from the geonames 1000 cities database and returns them randomly.
-pub fn city_namer() -> Result<ListNamer,String> {
-    let path = Path::new("data/geonames_cities1000_2017-02-27_02:01.tsv");
+pub fn city_namer() -> ListNamer {
+    let bytes_gz: &[u8] = include_bytes!("../data/geonames_cities1000_2017-02-27_02:01__pop-and-name.tsv.gz");
+    let d = GzDecoder::new(bytes_gz);
 
-    // match csv::Reader::from_file(path) {
-    //     Ok(reader) => {},
-    //     Err(csv_err) => Err(format!("Error reading CSV from file {}: {}", path, csv_err))
-    // }
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .delimiter(b'\t')
+        .from_reader(d);
+    
+    let mut names = Vec::new();
+    for row in reader.records() {
+        let row = row.unwrap();
+        names.push(row[CITY_NAME_COL].into());
+    }
 
-    csv::Reader::from_file(path)
-    .map_err(|csv_err| format!("Error reading CSV from file {:?}: {}", path, csv_err))
-    .map(|reader| {
-        let mut names = Vec::new();
-        let mut reader = reader.has_headers(false).delimiter(b'\t');
-        for row in reader.records() {
-            let row = row.unwrap();
-            // println!("{}, {}: {}", n1, n2, dist);
-            // println!("{:?}", row);
-            names.push(row[CITY_NAME_COL].clone());
-        }
-        // println!("Cities loaded.");
-        ListNamer::new(shuffle(names))
-    })
-
-    // match csv::Reader::from_file(path) {
-    //     Ok(reader) => {
-    //         let mut names = Vec::new();
-    //         let mut reader = reader.has_headers(false).delimiter(b'\t');
-    //         for row in reader.records() {
-    //             let row = row.unwrap();
-    //             // println!("{}, {}: {}", n1, n2, dist);
-    //             // println!("{:?}", row);
-    //             names.push(row[CITY_NAME_COL].clone());
-    //         }
-    //         println!("Cities loaded.");
-    //         Ok(ListNamer::new(shuffle(names)))
-    //     },
-    //     Err(err) => {
-    //         return Err(format!("Error reading cities data file: {}", err));
-    //     }
-    // }
+    ListNamer::new(shuffle(names))
 }
 
 /// Generate names by deferring to two sub-namers and joining their output
@@ -196,23 +171,15 @@ impl<N1:Namer,N2:Namer> Namer for CompoundNamer<N1,N2> {
 ///
 /// Loads given names and surnames from census data and combines them randomly in accordance with
 /// their prevalence in the American population.
-pub fn unit_namer() -> Result<CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>, String> {
-    let givennames = load_cumulative_weights("data/us-census/1990/givenname_rel_freqs.csv")?;
-    let surnames = load_cumulative_weights("data/us-census/2010/surname_freqs.csv")?;
-    Ok(CompoundNamer::new(
-        " ",
-        WeightedNamer::new(givennames),
-        WeightedNamer::new(surnames)
-    ))
-}
+pub fn unit_namer() -> CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>> {
+    let givenname_bytes: &[u8] = include_bytes!("../data/us-census/1990/givenname_rel_freqs.csv");
+    let givennames = load_cumulative_weights(givenname_bytes);
 
-#[allow(dead_code)]
-pub fn test_unit_namer() -> Result<CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>, String> {
-    let givennames = load_cumulative_weights("data/us-census/1990/givenname_rel_freqs-test.csv")?;
-    let surnames = load_cumulative_weights("data/us-census/2010/surname_freqs-test.csv")?;
-    Ok(CompoundNamer::new(
+    let surname_bytes: &[u8] = include_bytes!("../data/us-census/2010/surname_freqs.csv");
+    let surnames = load_cumulative_weights(surname_bytes);
+    CompoundNamer::new(
         " ",
         WeightedNamer::new(givennames),
         WeightedNamer::new(surnames)
-    ))
+    )
 }

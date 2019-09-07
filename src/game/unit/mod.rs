@@ -331,9 +331,9 @@ mod test {
     use std::iter::FromIterator;
 
     use game::obs::{Obs,ObsTracker};
+    use game::unit::{Alignment,Observer,Unit,UnitType};
     use map::{LocationGrid,Terrain,Tile};
     use map::newmap::UnitID;
-    use unit::{Alignment,Observer,Unit,UnitType};
     use util::{Dims,Location,WRAP_BOTH};
 
 

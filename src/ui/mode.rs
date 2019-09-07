@@ -8,15 +8,19 @@ use termion::event::Key;
 use termion::input::TermRead;
 
 use conf;
-use game::{AlignedMaybe,Game,GameError};
+use game::{
+    AlignedMaybe,Game,GameError,
+    unit::{
+        UnitType,
+        orders::Orders,
+    },
+};
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
 use map::newmap::UnitID;
 use ui::{Draw,MoveAnimator,TermUI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
 use ui::sym::Sym;
-use unit::{UnitType};
-use unit::orders::Orders;
 use util::{Direction,Location,Rect,WRAP_NEITHER};
 
 fn get_key() -> Key {

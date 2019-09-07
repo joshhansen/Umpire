@@ -6,13 +6,19 @@
 
 use rand::{Rng, ThreadRng, thread_rng};
 
-use conf;
-use game::{Alignment,PlayerNum};
-use map::{Terrain,Tile};
-use map::dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL};
-use map::newmap::MapData;
-use name::{ListNamer,Namer};
-use util::{Dims,Location,WRAP_NEITHER};
+use crate::{
+    conf,
+    game::{Alignment,PlayerNum},
+    map::{
+        Terrain,
+        Tile,
+        dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL},
+        newmap::MapData,
+    },
+    name::{ListNamer,Namer},
+    util::{Dims,Location,WRAP_NEITHER},
+};
+
 
 fn land_cardinal_neighbors<T:Source<Tile>>(tiles: &T, loc: Location) -> u16 {
     neighbors(tiles, loc, RELATIVE_NEIGHBORS_CARDINAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16

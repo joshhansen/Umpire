@@ -6,7 +6,7 @@ use std::fmt;
 
 use crate::color::{Colors,Colorized};
 use game::{Aligned,AlignedMaybe,Alignment};
-use unit::{City,Unit};
+use game::unit::{City,Unit};
 use util::Location;
 
 
@@ -117,9 +117,9 @@ pub use self::grid::LocationGrid;
 #[cfg(test)]
 mod test {
     use game::Alignment;
+    use game::unit::{Unit,UnitType};
     use map::{Terrain,Tile};
     use map::newmap::UnitID;
-    use unit::{Unit,UnitType};
     use util::Location;
 
 

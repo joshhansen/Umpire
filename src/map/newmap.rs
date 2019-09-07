@@ -3,11 +3,11 @@ use std::convert::TryFrom;
 use std::iter::FromIterator;
 
 use game::{AlignedMaybe,Alignment,PlayerNum};
+use game::unit::{City,Unit,UnitType};
 use map::{Terrain,Tile};
 use map::dijkstra::Source;
 use map::grid::LocationGrid;
 use util::{Dims,Location};
-use unit::{City,Unit,UnitType};
 
 #[derive(Clone,Copy,Debug,Eq,Hash,PartialEq)]
 pub struct CityID {

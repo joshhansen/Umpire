@@ -10,6 +10,7 @@ use crate::{
     game::{
         AlignedMaybe,Game,
         obs::Obs,
+        unit::orders::Orders,
     },
     map::{LocationGrid,Tile},
     ui::{
@@ -18,7 +19,6 @@ use crate::{
         style::StrongReset,
         sym::Sym,
     },
-    unit::orders::Orders,
     util::{Dims,Location,Rect,Vec2d}
 };
 

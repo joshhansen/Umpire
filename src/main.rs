@@ -23,6 +23,7 @@
 // TODO Show possible orders / shortcuts in move unit mode
 // TODO Zoomed-out map view?
 // TODO AI
+// TODO Unit names that better reflect current world naming patterns rather than just the US from 10/20 years ago.
 
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::let_and_return)]
@@ -37,11 +38,11 @@ mod macros;
 pub mod map;
 pub mod name;
 pub mod ui;
-pub mod unit;
 pub mod util;
 
 extern crate clap;
 extern crate csv;
+extern crate flate2;
 extern crate pastel;
 extern crate rand;
 extern crate termion;
@@ -50,7 +51,6 @@ extern crate unicode_segmentation;
 // extern crate portaudio as pa;
 // extern crate sample;
 
-use std::fs::File;
 use std::io::{BufRead,BufReader,Write,stdout};
 
 use clap::{Arg, App};
@@ -69,9 +69,11 @@ use ui::DefaultUI;
 use util::Dims;
 
 fn print_loading_screen() {
-    let f = File::open("images/1945_Baseball_Umpire.txt").unwrap();
-    let file = BufReader::new(&f);
-    for line in file.lines() {
+    // let f = File::open("images/1945_Baseball_Umpire.txt").unwrap();
+    // let file = BufReader::new(&f);
+    let bytes: &[u8] = include_bytes!("../images/1945_Baseball_Umpire.txt");
+    let r = BufReader::new(bytes);
+    for line in r.lines() {
         let l = line.unwrap();
         println!("{}", l);
     }
@@ -185,42 +187,32 @@ fn main() {
 
         let map_dims: Dims = Dims::new(map_width, map_height);
 
-        match city_namer() {
-            Ok(city_namer) => {
-                match unit_namer() {
-                    Ok(unit_namer) => {
+        let city_namer = city_namer();
+        let unit_namer = unit_namer();
 
-                        let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
-                        let dims = Dims{ width: term_width, height: term_height };
 
-                        match color_depth {
-                            16 | 256 => {
-                                let palette: Palette<AnsiValue> = match color_depth {
-                                    16 => palette16(),
-                                    256 => palette256(),
-                                    _ => unreachable!()
-                                };
-                                run_ui(game, dims, use_alt_screen, palette, unicode);
+        let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
+        let dims = Dims{ width: term_width, height: term_height };
 
-                            },
-                            24 => {
-                                match palette24(num_players, fog_darkness) {
-                                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette, unicode),
-                                    Err(err) => eprintln!("Error loading truecolor palette: {}", err)
-                                }
-                            },
-                            x => eprintln!("Unsupported color palette {}", x)
-                        }
-                    },
-                    Err(err) => {
-                        eprintln!("Error loading unit namer: {}", err);
-                    }
+        match color_depth {
+            16 | 256 => {
+                let palette: Palette<AnsiValue> = match color_depth {
+                    16 => palette16(),
+                    256 => palette256(),
+                    _ => unreachable!()
+                };
+                run_ui(game, dims, use_alt_screen, palette, unicode);
+
+            },
+            24 => {
+                match palette24(num_players, fog_darkness) {
+                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette, unicode),
+                    Err(err) => eprintln!("Error loading truecolor palette: {}", err)
                 }
             },
-            Err(msg) => {
-                eprintln!("Error loading city names: {}", msg);
-            }
+            x => eprintln!("Unsupported color palette {}", x)
         }
+        
     } else {
         eprintln!("Unable to get terminal size");
     }

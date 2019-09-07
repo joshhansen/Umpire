@@ -6,10 +6,14 @@ use std::collections::{BinaryHeap,HashSet};
 use std::fmt;
 use std::ops::{Index,IndexMut};
 
-use game::obs::Obs;
-use map::{LocationGrid,Terrain,Tile};
-use unit::{Unit,UnitType};
-use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
+use crate::{
+    game::{
+        obs::Obs,
+        unit::{Unit,UnitType},
+    },
+    map::{LocationGrid,Terrain,Tile},
+    util::{Dims,Location,Vec2d,Wrap2d,wrapped_add},
+};
 
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
@@ -90,28 +94,16 @@ impl <'a> UnitMovementFilter<'a> {
 }
 impl <'a> Filter<Tile> for UnitMovementFilter<'a> {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        // if let Some(neighb_tile) = neighb_tile {
-            self.unit.can_move_on_tile(neighb_tile)
-        // } else {
-        //     false
-        // }
+        self.unit.can_move_on_tile(neighb_tile)
     }
 }
 impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
     fn include(&self, obs: &Obs) -> bool {
-        // UnitMovementFilter::include(self, obs.map(|obs| obs.tile()))
         if let Obs::Observed{tile,..} = obs {
             UnitMovementFilter::include(self, tile)
         } else {
             false
         }
-        // match *obs {
-        //     Obs::Unobserved => false,
-        //     Obs::Observed {ref tile, ..} => {
-        //         UnitMovementFilter::include(self, tile)
-        //     },
-        //     Obs::Current => unimplemented!()
-        // }
     }
 }
 pub struct TerrainFilter {
@@ -119,19 +111,14 @@ pub struct TerrainFilter {
 }
 impl Filter<Tile> for TerrainFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        // if let Some(neighb_tile) = neighb_tile {
-            self.terrain == neighb_tile.terrain
-        // } else {
-        //     false
-        // }
-        // self.terrain == neighb_tile.terrain
+        self.terrain == neighb_tile.terrain
     }
 }
 
-pub trait OwnedSource<T> {
-    fn get(&self, loc: Location) -> Option<T>;
-    fn dims(&self) -> Dims;
-}
+// pub trait OwnedSource<T> {
+//     fn get(&self, loc: Location) -> Option<T>;
+//     fn dims(&self) -> Dims;
+// }
 
 pub trait Source<T> {
     fn get(&self, loc: Location) -> &T;
@@ -141,41 +128,10 @@ pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
 }
 
-// impl <T> Source<T> for OwnedSource<T> {
-//     fn get(&self, loc: Location) -> Option<&T> {
-//         OwnedSource::get(self, loc).as_ref()
-//     }
-//     fn dims(&self) -> Dims {
-//         OwnedSource::dims(self)
-//     }
-// }
-
-// impl Source<Tile> for LocationGrid<Tile> {
-//     fn get(&self, loc: Location) -> Option<&Tile> {
-//         self.get(loc)
-//     }
-//     fn dims(&self) -> Dims {
-//         self.dims()
-//     }
-// }
-
-// #[allow(dead_code)]
-struct UnobservedFilter {}
-impl Filter<Obs> for UnobservedFilter {
-    fn include(&self, obs: &Obs) -> bool {
-        *obs == Obs::Unobserved
-        // obs.is_none()
-    }
-}
 struct ObservedFilter {}
 impl Filter<Obs> for ObservedFilter {
     fn include(&self, obs: &Obs) -> bool {
-        if let Obs::Observed{..} = *obs {
-            true
-        } else {
-            false
-        }
-        // obs.is_some()
+        obs.is_observed()
     }
 }
 
@@ -348,10 +304,10 @@ mod test {
 
     use game::Alignment;
     use game::obs::Obs;
+    use game::unit::{Unit,UnitType};
     use map::{LocationGrid,Tile};
     use map::dijkstra::{Source,UnitMovementFilter,Xenophile,neighbors,neighbors_terrain_only,old_shortest_paths,shortest_paths,RELATIVE_NEIGHBORS};
     use map::newmap::UnitID;
-    use unit::{Unit,UnitType};
     use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
     fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {

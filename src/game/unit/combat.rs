@@ -1,6 +1,6 @@
 use rand::{thread_rng,Rng};
 
-use unit::{City,Unit,CITY_MAX_HP};
+use crate::game::unit::{City,Unit,CITY_MAX_HP};
 
 #[derive(Debug,PartialEq)]
 pub enum CombatParticipant {

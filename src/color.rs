@@ -145,10 +145,10 @@ pub fn palette16() -> Palette<AnsiValue> {
         ocean: ColorPair::new_ansi(12, 4),
         players: vec![
             ColorPair::new_ansi(9, 1),// red
-            ColorPair::new_ansi(11, 3),// yellow
-            ColorPair::new_ansi(13, 5),// purple
-            ColorPair::new_ansi(14, 6),// cyan
             ColorPair::new_ansi(15, 7),// white
+            ColorPair::new_ansi(13, 5),// purple
+            ColorPair::new_ansi(11, 3),// yellow
+            ColorPair::new_ansi(14, 6),// cyan
         ],
         neutral: ColorPair::new_ansi(8, 8),// gray
         text: AnsiValue(15),
@@ -166,10 +166,10 @@ pub fn palette256() -> Palette<AnsiValue> {
         ocean: ColorPair::new_ansi(12, 4),
         players: vec![
             ColorPair::new_ansi(9, 1),// red
-            ColorPair::new_ansi(11, 3),// yellow
-            ColorPair::new_ansi(13, 5),// purple
-            ColorPair::new_ansi(14, 6),// cyan
             ColorPair::new_ansi(15, 7),// white
+            ColorPair::new_ansi(13, 5),// purple
+            ColorPair::new_ansi(11, 3),// yellow
+            ColorPair::new_ansi(14, 6),// cyan
         ],
         neutral: ColorPair::new_ansi(8, 8),// gray
         text: AnsiValue(15),
@@ -253,11 +253,11 @@ impl ColorPair<AnsiValue> {
     }
 }
 
-impl ColorPair<Rgb> {
-    fn new_rgb(
-        active_r: u8, active_g: u8, active_b: u8,
-        foggy_r: u8, foggy_g: u8, foggy_b: u8
-    ) -> Self {
-        Self::new( Rgb(active_r, active_g, active_b), Rgb(foggy_r, foggy_g, foggy_b) )
-    }
-}
+// impl ColorPair<Rgb> {
+//     fn new_rgb(
+//         active_r: u8, active_g: u8, active_b: u8,
+//         foggy_r: u8, foggy_g: u8, foggy_b: u8
+//     ) -> Self {
+//         Self::new( Rgb(active_r, active_g, active_b), Rgb(foggy_r, foggy_g, foggy_b) )
+//     }
+// }

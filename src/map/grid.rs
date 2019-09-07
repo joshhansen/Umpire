@@ -5,10 +5,10 @@ use std::ops::{Index,IndexMut};
 
 use game::{Alignment,PlayerNum};
 use game::obs::Obs;
+use game::unit::City;
 use map::{Terrain,Tile};
 use map::dijkstra::Source;
 use map::newmap::CityID;
-use unit::{City};
 use util::{Dims,Location};
 
 pub struct LocationGrid<T> {

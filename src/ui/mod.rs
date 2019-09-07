@@ -13,15 +13,26 @@ use termion::color::{Bg,Color,Rgb};
 use termion::raw::IntoRawMode;
 use termion::screen::{AlternateScreen,ToMainScreen};
 
-use crate::ui::sym::Sym;
-use color::{Colors,Palette};
-use conf;
-use conf::HEADER_HEIGHT;
-use game::{Game,MoveResult};
-use game::obs::{Observer,visible_coords_iter};
-use log::{LogTarget,Message,MessageSource};
-use ui::style::StrongReset;
-use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
+use crate::{
+    color::{Colors,Palette},
+    conf::{
+        self,
+        HEADER_HEIGHT,
+    },
+    game::{
+        Game,
+        MoveResult,
+        obs::{Observer,visible_coords_iter},
+        unit::combat::{CombatCapable,CombatOutcome,CombatParticipant},
+    },
+    log::{LogTarget,Message,MessageSource},
+    ui::{
+        style::StrongReset,
+        sym::Sym,
+    },
+};
+
+
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
 
 pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool) -> Result<(),String> {
