@@ -343,7 +343,7 @@ mod test {
     use std::convert::TryFrom;
     use std::iter::FromIterator;
 
-    use game::obs::{FogOfWarTracker,Obs,ObsTracker};
+    use game::obs::{Obs,ObsTracker};
     use map::{LocationGrid,Terrain,Tile};
     use map::newmap::UnitID;
     use unit::{Alignment,Observer,Unit,UnitType};
@@ -359,7 +359,7 @@ x ooioo  x
 x  ooo   x
 x   o    x";
 
-        match LocationGrid::try_from(map_s) {
+        match LocationGrid::<Tile>::try_from(map_s) {
             Err(err) => {
                 panic!("Error parsing map: {}", err);
             },
@@ -376,15 +376,16 @@ x   o    x";
 
                 let infantry = Unit::new(UnitID::new(0), infantry_loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
 
-                let mut obs_tracker: Box<dyn ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
+                // let mut obs_tracker: ObsTracker = ObsTracker::new_fog_of_war(map.dims());
+                let mut obs_tracker = ObsTracker::new(map.dims());
 
                 for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), Obs::Unobserved);
+                    assert_eq!(*obs_tracker.get(tile.loc), Obs::Unobserved);
                 }
 
                 let turn = 0;
 
-                infantry.observe(infantry_loc, &map, turn, WRAP_BOTH, &mut *obs_tracker);
+                infantry.observe(infantry_loc, &map, turn, WRAP_BOTH, &mut obs_tracker);
 
                 let observed_locs_arr = [
                     Location{x:4, y:0},
@@ -404,8 +405,8 @@ x   o    x";
                 let observed_locs: HashSet<&Location> = HashSet::from_iter(observed_locs_arr.iter());
 
                 for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) {
-                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn }
+                    assert_eq!(*obs_tracker.get(tile.loc), if observed_locs.contains(&tile.loc) {
+                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn, current: false }
                     } else {
                         Obs::Unobserved
                     });
@@ -420,7 +421,7 @@ x   o    x";
                 */
                 let infantry_loc_2 = Location{x:5, y:2};
 
-                infantry.observe(infantry_loc_2, &map, turn, WRAP_BOTH, &mut *obs_tracker);
+                infantry.observe(infantry_loc_2, &map, turn, WRAP_BOTH, &mut obs_tracker);
 
                 let observed_locs_arr_2 = [
                     Location{x:5, y:0},
@@ -432,8 +433,8 @@ x   o    x";
                 let observed_locs_2: HashSet<&Location> = HashSet::from_iter(observed_locs_arr_2.iter());
 
                 for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) || observed_locs_2.contains(&tile.loc) {
-                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn }
+                    assert_eq!(*obs_tracker.get(tile.loc), if observed_locs.contains(&tile.loc) || observed_locs_2.contains(&tile.loc) {
+                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn, current: false }
                     } else {
                         Obs::Unobserved
                     });

@@ -185,35 +185,40 @@ fn pastel_color_to_rgb(pastel_color: &PastelColor) -> Rgb {
     Rgb(rgba.r, rgba.g, rgba.b)
 }
 
-fn pastel_color_to_dim_rgb(pastel_color: &PastelColor) -> Rgb {
-    let pastel_color = pastel_color.darken(0.66);
+fn pastel_color_to_dim_rgb(pastel_color: &PastelColor, darken_percent: f64) -> Rgb {
+    let pastel_color = pastel_color.darken(darken_percent);
     pastel_color_to_rgb(&pastel_color)
 }
 
-fn pastel_color_to_rgb_pair(pastel_color: &PastelColor) -> ColorPair<Rgb> {
-    ColorPair::new(pastel_color_to_rgb(pastel_color), pastel_color_to_dim_rgb(pastel_color))
+fn pastel_color_to_rgb_pair(pastel_color: &PastelColor, darken_percent: f64) -> ColorPair<Rgb> {
+    ColorPair::new(pastel_color_to_rgb(pastel_color), pastel_color_to_dim_rgb(pastel_color, darken_percent))
 }
 
-pub fn palette24(num_players: PlayerNum) -> Result<Palette<Rgb>,String> {
+fn color_to_rgb_pair(color: Rgb, darken_percent: f64) -> ColorPair<Rgb> {
+    let pastel_color = &PastelColor::from_rgb(color.0, color.1, color.2);
+    ColorPair::new(pastel_color_to_rgb(pastel_color), pastel_color_to_dim_rgb(pastel_color, darken_percent))
+}
+
+pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette<Rgb>,String> {
     let player_colors: Vec<ColorPair<Rgb>> = if num_players == 0 {
         Vec::new()
     } else if num_players == 1 {
         vec![
-            pastel_color_to_rgb_pair(&Vivid.generate())
+            pastel_color_to_rgb_pair(&Vivid.generate(), darken_percent)
         ]
     } else {
         let pastel_colors: Vec<PastelColor> = distinct_colors(usize::from(num_players), DistanceMetric::CIE76, false, true).unwrap().0;
         
-        let rgb_pairs: Vec<ColorPair<Rgb>> = pastel_colors.iter().map(pastel_color_to_rgb_pair).collect();
+        let rgb_pairs: Vec<ColorPair<Rgb>> = pastel_colors.iter().map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent)).collect();
         rgb_pairs
     };
 
     Ok(Palette {
         background: Rgb(0,0,0),
-        land: ColorPair::new_rgb(24,216,67, 141,185,138),
-        ocean: ColorPair::new_rgb(60,27,225, 78,50,171),
+        land: color_to_rgb_pair(Rgb(24,216,67), darken_percent),//ColorPair::new_rgb(24,216,67, 141,185,138),
+        ocean: color_to_rgb_pair(Rgb(60,27,225), darken_percent),//ColorPair::new_rgb(60,27,225, 78,50,171),
         players: player_colors,
-        neutral: ColorPair::new_rgb(202,202,202, 102,102,102),
+        neutral: color_to_rgb_pair(Rgb(202,202,202), darken_percent),//ColorPair::new_rgb(202,202,202, 102,102,102),
         text: Rgb(255,255,255),
         notice: Rgb(232,128,56),
         combat: Rgb(237,89,66),

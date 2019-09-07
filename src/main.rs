@@ -157,6 +157,17 @@ fn main() {
                     width.map(|_n| ()).map_err(|_e| format!("Invalid colors '{}'", s))
                 })
             )
+            .arg(Arg::with_name("fog_darkness")
+                .short("d")
+                .long("fogdarkness")
+                .help("Number between 0.0 and 1.0 indicating how dark the fog effect should be")
+                .takes_value(true)
+                .default_value("0.1")
+                .validator(|s| {
+                    let width: Result<f64,_> = s.trim().parse();
+                    width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
+                })
+            )
         .get_matches();
 
         print_loading_screen();
@@ -167,6 +178,7 @@ fn main() {
         let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
         let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
         let color_depth: u16 = matches.value_of("colors").unwrap().parse().unwrap();
+        let fog_darkness: f64 = matches.value_of("fog_darkness").unwrap().parse().unwrap();
 
         let map_dims: Dims = Dims::new(map_width, map_height);
 
@@ -189,7 +201,7 @@ fn main() {
 
                             },
                             24 => {
-                                match palette24(num_players) {
+                                match palette24(num_players, fog_darkness) {
                                     Ok(palette) => run_ui(game, dims, use_alt_screen, palette),
                                     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
                                 }

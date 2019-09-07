@@ -9,7 +9,7 @@ pub mod obs;
 use std::collections::{BTreeSet,HashMap};
 
 use color::{Colors,Colorized};
-use game::obs::{FogOfWarTracker,Obs,Observer,ObsTracker,UniversalVisibilityTracker};
+use game::obs::{Obs,Observer,ObsTracker};
 use log::{LogTarget,Message,MessageSource};
 use map::Tile;
 use map::gen::MapGenerator;
@@ -162,12 +162,13 @@ pub enum GameError {
 pub struct Game {
     // tiles: LocationGrid<Tile>, // tiles[col][row]
     map: MapData,
-    player_observations: HashMap<PlayerNum,Box<dyn ObsTracker>>,
+    player_observations: HashMap<PlayerNum,ObsTracker>,
     turn: TurnNum,
     num_players: PlayerNum,
     current_player: PlayerNum,
     wrapping: Wrap2d,
     unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+    fog_of_war: bool,
 }
 impl Game {
     /// Creates a new game instance
@@ -195,12 +196,13 @@ impl Game {
 
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
-            let tracker: Box<dyn ObsTracker> = if fog_of_war {
-                Box::new(FogOfWarTracker::new(map.dims()))
-            } else {
-                Box::new(UniversalVisibilityTracker::new())
-            };
-            player_observations.insert(player_num, tracker);
+            // let tracker: ObsTracker = if fog_of_war {
+            //     ObsTracker::new_fog_of_war(map.dims())
+            // } else {
+            //     ObsTracker::UniversalVisibility
+            // };
+            // player_observations.insert(player_num, tracker);
+            player_observations.insert(player_num, ObsTracker::new(map.dims()));
         }
 
         log.log_message(format!("Starting new game with {} players, grid size {}, and fog of war {}",
@@ -216,7 +218,8 @@ impl Game {
             num_players,
             current_player: 0,
             wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
-            unit_namer
+            unit_namer,
+            fog_of_war,
         };
 
         game.begin_turn(log);
@@ -343,6 +346,9 @@ impl Game {
     /// At the end of a turn, production counts will be incremented.
     pub fn end_turn<L:LogTarget>(&mut self, log: &mut L) -> Result<PlayerNum,PlayerNum> {
         if self.turn_is_done() {
+
+            self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+
             self.current_player = (self.current_player + 1) % self.num_players;
             if self.current_player == 0 {
                 self.turn += 1;
@@ -357,7 +363,8 @@ impl Game {
     }
 
     fn update_current_player_observations(&mut self) {
-        let obs_tracker: &mut dyn ObsTracker = &mut ** (self.player_observations.get_mut(&self.current_player).unwrap()) ;
+        // let obs_tracker: &mut dyn ObsTracker = &mut ** (self.player_observations.get_mut(&self.current_player).unwrap()) ;
+        let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
 
         let mut loc = Location{x: 0, y: 0};
         for x in 0..self.map.dims().width {
@@ -366,21 +373,34 @@ impl Game {
                 loc.y = y;
 
                 let tile = self.map.tile(loc).unwrap();
-                if let Some(ref city) = tile.city {
-                    if let Alignment::Belligerent{player} = city.alignment {
-                        if player==self.current_player {
-                            city.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+
+                if self.fog_of_war {
+
+                    // With "fog of war" we only get updated observations where there are units and cities in the player's control
+                    
+                    if let Some(ref city) = tile.city {
+                        if let Alignment::Belligerent{player} = city.alignment {
+                            if player==self.current_player {
+                                city.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+                            }
                         }
                     }
+
+                    if let Some(ref unit) = tile.unit {
+                        if let Alignment::Belligerent{player} = unit.alignment {
+                            if player==self.current_player {
+                                unit.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+                            }
+                        }
+                    }
+
+                } else {
+                    // Without "fog of war" we get updated observations everywhere
+
+                    obs_tracker.observe(loc, tile, self.turn);
                 }
 
-                if let Some(ref unit) = tile.unit {
-                    if let Alignment::Belligerent{player} = unit.alignment {
-                        if player==self.current_player {
-                            unit.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
-                        }
-                    }
-                }
+                
             }
         }
     }
@@ -395,16 +415,22 @@ impl Game {
     // }
 
     pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
-        let obs = self.current_player_obs(loc).unwrap();
-
-        match *obs {
-            Obs::Current => self.tile(loc),
-            Obs::Observed{ref tile,turn:_turn} => Some(tile),
-            Obs::Unobserved => None
+        if let Obs::Observed{tile,..} = self.current_player_obs(loc) {
+            Some(tile)
+        } else {
+            None
         }
+        // self.current_player_obs(loc).map(|obs| obs.tile())
+        // let obs = self.current_player_obs(loc).unwrap();
+
+        // match *obs {
+        //     Obs::Current{ref tile,turn:_turn} => Some(tile),// self.tile(loc),
+        //     Obs::Observed{ref tile,turn:_turn} => Some(tile),
+        //     Obs::Unobserved => None
+        // }
     }
 
-    pub fn current_player_obs(&self, loc: Location) -> Option<&Obs> {
+    pub fn current_player_obs(&self, loc: Location) -> &Obs {
         self.player_observations[&self.current_player()].get(loc)
     }
 
@@ -569,8 +595,8 @@ impl Game {
 
                 for move_ in moves.iter() {
                     if move_.moved_successfully() {
-                        let obs_tracker: &mut Box<dyn ObsTracker> = self.player_observations.get_mut(&self.current_player).unwrap();
-                        unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, &mut **obs_tracker);
+                        let mut obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+                        unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, &mut obs_tracker);
                     }
                 }
 
@@ -660,15 +686,15 @@ but there is no city at that location",
 }
 
 impl Source<Tile> for Game {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.current_player_tile(loc)
+    fn get(&self, loc: Location) -> &Tile {
+        self.current_player_tile(loc).unwrap()
     }
     fn dims(&self) -> Dims {
         self.map_dims()
     }
 }
 impl Source<Obs> for Game {
-    fn get(&self, loc: Location) -> Option<&Obs> {
+    fn get(&self, loc: Location) -> &Obs {
         self.current_player_obs(loc)
     }
     fn dims(&self) -> Dims {

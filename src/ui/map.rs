@@ -127,17 +127,20 @@ pub struct Map<C:Color+Copy> {
     old_viewport_offset: Vec2d<u16>,
     viewport_offset: Vec2d<u16>,
     displayed_tiles: LocationGrid<Option<Tile>>,
+    displayed_tile_currentness: LocationGrid<Option<bool>>,
     palette: Rc<Palette<C>>,
 }
 impl <C:Color+Copy> Map<C> {
     pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette<C>>) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
+        let displayed_tile_currentness = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
             rect,
             map_dims,
             old_viewport_offset: Vec2d::new(0, 0),
             viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2),
             displayed_tiles,
+            displayed_tile_currentness,
             palette
         }
     }
@@ -185,6 +188,7 @@ impl <C:Color+Copy> Map<C> {
         self.set_viewport_offset(new_viewport_offset);
     }
 
+    //TODO Replace this with draw_obs
     pub fn draw_tile<W:Write>(&mut self,
             game: &Game,
             stdout: &mut W,
@@ -202,7 +206,12 @@ impl <C:Color+Copy> Map<C> {
         write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
         
 
-        let currently_observed = game.current_player_obs(tile_loc) == Some(&Obs::Current);
+        // let currently_observed = game.current_player_obs(tile_loc) == Some(&Obs::Current);
+        let currently_observed = if let Obs::Observed{turn,..} = game.current_player_obs(tile_loc) {
+            *turn == game.turn()
+        } else {
+            false
+        };
 
         if let Some(tile) = game.current_player_tile(tile_loc) {
             if highlight {
@@ -232,6 +241,7 @@ impl <C:Color+Copy> Map<C> {
             ).unwrap();
 
             self.displayed_tiles[viewport_loc] = Some(tile.clone());
+            self.displayed_tile_currentness[viewport_loc] = Some(currently_observed);
         } else {
             if highlight {
                 write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
@@ -240,6 +250,7 @@ impl <C:Color+Copy> Map<C> {
             }
             write!(stdout, " ").unwrap();
             self.displayed_tiles[viewport_loc] = None;
+            self.displayed_tile_currentness[viewport_loc] = None;
         }
 
         write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
@@ -284,9 +295,22 @@ impl <C:Color+Copy> Draw for Map<C> {
                     let old_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.old_viewport_offset);
                     let new_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
+                    let new_obs = game.current_player_obs(new_map_loc);
+
+                    let old_currentness = self.displayed_tile_currentness[viewport_loc];
+                    let new_currentness = if let Obs::Observed{current,..} = new_obs {
+                        Some(*current)
+                    } else {
+                        None
+                    };
+
+                    
+
                     let old_tile = self.displayed_tiles[viewport_loc].as_ref();
                     let new_tile = &game.current_player_tile(new_map_loc);
+                    // let new_tile = &new_obs.tile;
 
+                    (old_currentness != new_currentness) ||
                     (old_tile.is_some() && new_tile.is_none()) ||
                     (old_tile.is_none() && new_tile.is_some()) ||
                     (old_tile.is_some() && new_tile.is_some() && {

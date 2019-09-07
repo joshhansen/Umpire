@@ -90,18 +90,28 @@ impl <'a> UnitMovementFilter<'a> {
 }
 impl <'a> Filter<Tile> for UnitMovementFilter<'a> {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        self.unit.can_move_on_tile(neighb_tile)
+        // if let Some(neighb_tile) = neighb_tile {
+            self.unit.can_move_on_tile(neighb_tile)
+        // } else {
+        //     false
+        // }
     }
 }
 impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
     fn include(&self, obs: &Obs) -> bool {
-        match *obs {
-            Obs::Unobserved => false,
-            Obs::Observed {ref tile, ..} => {
-                UnitMovementFilter::include(self, tile)
-            },
-            Obs::Current => unimplemented!()
+        // UnitMovementFilter::include(self, obs.map(|obs| obs.tile()))
+        if let Obs::Observed{tile,..} = obs {
+            UnitMovementFilter::include(self, tile)
+        } else {
+            false
         }
+        // match *obs {
+        //     Obs::Unobserved => false,
+        //     Obs::Observed {ref tile, ..} => {
+        //         UnitMovementFilter::include(self, tile)
+        //     },
+        //     Obs::Current => unimplemented!()
+        // }
     }
 }
 pub struct TerrainFilter {
@@ -109,7 +119,12 @@ pub struct TerrainFilter {
 }
 impl Filter<Tile> for TerrainFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        self.terrain == neighb_tile.terrain
+        // if let Some(neighb_tile) = neighb_tile {
+            self.terrain == neighb_tile.terrain
+        // } else {
+        //     false
+        // }
+        // self.terrain == neighb_tile.terrain
     }
 }
 
@@ -119,7 +134,7 @@ pub trait OwnedSource<T> {
 }
 
 pub trait Source<T> {
-    fn get(&self, loc: Location) -> Option<&T>;
+    fn get(&self, loc: Location) -> &T;
     fn dims(&self) -> Dims;
 }
 pub trait Filter<T> {
@@ -144,11 +159,12 @@ pub trait Filter<T> {
 //     }
 // }
 
-#[allow(dead_code)]
+// #[allow(dead_code)]
 struct UnobservedFilter {}
 impl Filter<Obs> for UnobservedFilter {
     fn include(&self, obs: &Obs) -> bool {
         *obs == Obs::Unobserved
+        // obs.is_none()
     }
 }
 struct ObservedFilter {}
@@ -159,6 +175,7 @@ impl Filter<Obs> for ObservedFilter {
         } else {
             false
         }
+        // obs.is_some()
     }
 }
 
@@ -174,6 +191,11 @@ impl <F:Filter<Obs>> Xenophile<F> {
 }
 impl <F:Filter<Obs>> Filter<Obs> for Xenophile<F> {
     fn include(&self, obs: &Obs) -> bool {
+        // if obs.is_some() {
+        //     self.sub_filter.include(obs)
+        // } else {
+        //     true
+        // }
         if *obs == Obs::Unobserved {
             true
         } else {
@@ -189,11 +211,14 @@ pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
     let mut neighbs = HashSet::new();
     for rel_neighb in rel_neighbs {
         if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
-            if let Some(tile) = tiles.get(neighb_loc) {
-                if filter.include(tile) {
-                    neighbs.insert(neighb_loc);
-                }
+            if filter.include(tiles.get(neighb_loc))  {
+                neighbs.insert(neighb_loc);
             }
+            // if let Some(tile) = tiles.get(neighb_loc) {
+            //     if filter.include(tile) {
+            //         neighbs.insert(neighb_loc);
+            //     }
+            // }
         }
     }
 
@@ -205,7 +230,11 @@ struct UnitTypeFilter {
 }
 impl Filter<Tile> for UnitTypeFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        self.unit_type.can_move_on_tile(neighb_tile)
+        // if let Some(neighb_tile) = neighb_tile {
+            self.unit_type.can_move_on_tile(neighb_tile)
+        // } else {
+        //     false
+        // }
     }
 }
 pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
@@ -290,7 +319,7 @@ pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: 
     while let Some(loc) = q.pop() {
         visited.insert(loc);
 
-        let observed_neighbors = neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter{}, wrapping);
+        let observed_neighbors: HashSet<Location> = neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter{}, wrapping);
         if observed_neighbors.len() < RELATIVE_NEIGHBORS.len() {
         // if adjacent_to_unknown {
             return Some(loc);
@@ -299,8 +328,9 @@ pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: 
         let unit_filter = UnitMovementFilter{unit};
 
         for neighb in observed_neighbors.iter().filter(|neighb|{
-            let tile: &Tile = tiles.get(**neighb).unwrap();
+            let tile: &Tile = tiles.get(**neighb);
             unit_filter.include(tile)
+            // unit_filter.include(tiles.get(**neighb))
         }) {
             if !visited.contains(neighb) {
                 q.push(*neighb);

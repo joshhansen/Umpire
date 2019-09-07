@@ -276,8 +276,8 @@ impl MapData {
 }
 
 impl Source<Tile> for MapData {
-    fn get(&self, loc: Location) -> Option<&Tile> {
-        self.tile(loc)
+    fn get(&self, loc: Location) -> &Tile {
+        self.tile(loc).unwrap()
     }
     fn dims(&self) -> Dims {
         self.dims
