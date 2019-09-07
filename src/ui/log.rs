@@ -1,31 +1,36 @@
 use std::collections::VecDeque;
 use std::io::Write;
 
-use termion::color::{Bg,Fg,Rgb};
-use termion::style::Underline;
+use termion::{
+    color::{Bg,Color,Fg},
+    style::Underline
+};
 
-use game::Game;
-use log::{Message,MessageSource};
-use ui::{Component,Draw};
-use ui::style::StrongReset;
-use util::{Rect,grapheme_len,grapheme_substr};
+use crate::{
+    color::{Colors,Palette},
+    game::Game,
+    log::{Message},
+    ui::{
+        Component,
+        Draw,
+        style::StrongReset
+    },
+    util::{Rect,grapheme_len,grapheme_substr}
+};
 
 pub struct LogArea {
     rect: Rect,
     messages: VecDeque<Message>,
     empty_message: Message,
-    white: Rgb,
-    black: Rgb
+    
 }
 
 impl LogArea {
-    pub fn new(rect: &Rect) -> Self {
+    pub fn new(rect: Rect) -> Self {
         LogArea {
-            rect: *rect,
+            rect,
             messages: VecDeque::new(),
             empty_message: Message::from(String::from("")),
-            white: Rgb(255,255,255),
-            black: Rgb(0,0,0)
         }
     }
 
@@ -34,9 +39,9 @@ impl LogArea {
     }
 
     pub fn log(&mut self, message: Message) {
-        if message.source == Some(MessageSource::Game) {
-            return;
-        }
+        // if message.source == Some(MessageSource::Game) {
+        //     return;
+        // }
         self.messages.push_back(message);
         if self.messages.len() > self.max_messages() as usize {
             self.messages.pop_front();
@@ -49,10 +54,10 @@ impl LogArea {
     }
 
     pub fn replace(&mut self, message: Message) {
-        if let Some(item) = self.messages.back_mut() {
-            *item = message;
-            return;// TODO maybe when non-lexical lifetimes arrive we can get rid of this awkward return construct
-        }
+        // if let Some(item) = self.messages.back_mut() {
+        //     *item = message;
+        //     return;// TODO maybe when non-lexical lifetimes arrive we can get rid of this awkward return construct
+        // }
         self.log(message);
     }
 
@@ -61,12 +66,12 @@ impl LogArea {
         self.replace(Message::from(message));
     }
 
-    pub fn draw_lite<W:Write>(&self, stdout: &mut W) {
+    pub fn draw_lite<C:Color+Copy,W:Write>(&self, stdout: &mut W, palette: &Palette<C>) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),
             Underline,
-            StrongReset
+            StrongReset::new(palette),
         ).unwrap();
 
         for i in 0..self.rect.height {
@@ -79,8 +84,15 @@ impl LogArea {
             }
 
             let mark = message.mark.unwrap_or(' ');
-            let fg_color = message.fg_color.unwrap_or(self.white);
-            let bg_color = message.bg_color.unwrap_or(self.black);
+            let fg_color: C = message.fg_color.map_or_else(
+                || palette.get_single(Colors::Text),
+                |fg_color| palette.get_single(fg_color)
+            );
+
+            let bg_color: C = message.bg_color.map_or_else(
+                || palette.get_single(Colors::Background),
+                |bg_color| palette.get_single(bg_color)
+            );
 
             write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
         }
@@ -90,8 +102,8 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw<W:Write>(&mut self, _game: &Game, stdout: &mut W) {
-        self.draw_lite(stdout);
+    fn draw<C:Color+Copy,W:Write>(&mut self, _game: &Game, stdout: &mut W, palette: &Palette<C>) {
+        self.draw_lite(stdout, palette);
     }
 }
 

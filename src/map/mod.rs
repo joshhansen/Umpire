@@ -4,9 +4,9 @@
 
 use std::fmt;
 
-use termion::color::AnsiValue;
-
-use unit::{Alignment,City,Sym,Unit};
+use crate::color::{Colors,Colorized};
+use game::{Aligned,AlignedMaybe,Alignment};
+use game::unit::{City,Unit};
 use util::Location;
 
 
@@ -18,13 +18,12 @@ pub enum Terrain {
     //ice, lava, river, deep sea vs shallow, etc.
 }
 
-impl Terrain {
-    pub fn color(&self) -> AnsiValue {
-        match *self {
-            Terrain::Water => AnsiValue(12),
-            Terrain::Land => AnsiValue(10),
-            // Terrain::CITY => AnsiValue(245)
-        }
+impl Colorized for Terrain {
+    fn color(&self) -> Option<Colors> {
+        Some(match *self {
+            Terrain::Water => Colors::Ocean,
+            Terrain::Land => Colors::Land
+        })
     }
 }
 
@@ -53,31 +52,7 @@ pub struct Tile {
 
 impl Tile {
     pub fn new(terrain: Terrain, loc: Location) -> Tile {
-        Tile{ terrain: terrain, unit: None, city: None, loc: loc }
-    }
-
-    pub fn sym(&self) -> &'static str {
-        if let Some(ref unit) = self.unit {
-            unit.sym()
-        } else if let Some(ref city) = self.city {
-            city.sym()
-        } else {
-            " "
-        }
-    }
-
-    pub fn fg_color(&self) -> Option<AnsiValue> {
-        match self.unit {
-            Some(ref last_unit) => Some(last_unit.alignment.color()),
-            None => match self.city {
-                Some(ref city) => Some(city.alignment().color()),
-                None => None
-            }
-        }
-    }
-
-    pub fn bg_color(&self) -> AnsiValue {
-        self.terrain.color()
+        Tile{ terrain, unit: None, city: None, loc }
     }
 
     pub fn pop_unit(&mut self) -> Option<Unit> {
@@ -89,8 +64,22 @@ impl Tile {
     pub fn set_unit(&mut self, unit: Unit) {
         self.unit = Some(unit);
     }
+}
 
-    pub fn alignment(&self) -> Option<Alignment> {
+impl Colorized for Tile {
+    fn color(&self) -> Option<Colors> {
+        if let Some(ref last_unit) = self.unit {
+            last_unit.alignment.color()
+        } else if let Some(ref city) = self.city {
+            city.alignment().color()
+        } else {
+            None
+        }
+    }
+}
+
+impl AlignedMaybe for Tile {
+    fn alignment_maybe(&self) -> Option<Alignment> {
         if let Some(ref city) = self.city {
             Some(city.alignment())
         } else if let Some(ref unit) = self.unit {
@@ -105,9 +94,9 @@ impl fmt::Display for Tile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref city) = self.city {
             if let Some(ref unit) = self.unit {
-                write!(f, "{} with {} garrisoned", city, unit)
+                write!(f, "{} with {} garrisoned; {}", city, unit, self.terrain)
             } else {
-                write!(f, "{}", city)
+                write!(f, "{}; {}", city, self.terrain)
             }
         } else if let Some(ref unit) = self.unit {
             write!(f, "{} on {}", unit, self.terrain)
@@ -118,19 +107,19 @@ impl fmt::Display for Tile {
 }
 
 
-
-
-
 pub mod dijkstra;
 pub mod gen;
 mod grid;
+pub mod newmap;
 
 pub use self::grid::LocationGrid;
 
 #[cfg(test)]
 mod test {
+    use game::Alignment;
+    use game::unit::{Unit,UnitType};
     use map::{Terrain,Tile};
-    use unit::{Alignment,Unit,UnitType};
+    use map::newmap::UnitID;
     use util::Location;
 
 
@@ -145,7 +134,7 @@ mod test {
 
         let mut tile = tile;
 
-        let unit = Unit::new(UnitType::Infantry, Alignment::Neutral, "Mordai Nowhere");
+        let unit = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Neutral, "Mordai Nowhere");
         let unit2 = unit.clone();
         tile.set_unit(unit);
         assert_eq!(tile.unit, Some(unit2));

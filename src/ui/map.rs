@@ -1,25 +1,36 @@
 use std::io::Write;
+use std::rc::Rc;
 
-use termion::color::{Fg, Bg, White, Black};
+use termion::color::{Color,Fg, Bg};
 use termion::cursor::Hide;
-use termion::style::{Blink,Bold,Invert,Underline};
+use termion::style::{Blink,Bold,Invert,Italic,Underline};
 
-use game::Game;
-use map::{LocationGrid,Tile};
-use ui::{Component,Draw};
-use ui::color::{BLACK,WHITE};
-use ui::scroll::{ScrollableComponent};
-use ui::style::StrongReset;
-use util::{Dims,Location,Rect,Vec2d};
+use crate::{
+    color::{Colors,Colorized,Palette},
+    game::{
+        AlignedMaybe,Game,
+        obs::Obs,
+        unit::orders::Orders,
+    },
+    map::{LocationGrid,Tile},
+    ui::{
+        Component,Draw,
+        scroll::ScrollableComponent,
+        style::StrongReset,
+        sym::Sym,
+    },
+    util::{Dims,Location,Rect,Vec2d}
+};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
     let mut result = x;
+    let max = i32::from(max);
 
     while result < 0 {
-        result += max as i32;
+        result += max;
     }
 
-    (result % max as i32) as u16
+    (result % max) as u16
 }
 
 pub fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
@@ -49,9 +60,9 @@ fn map_to_viewport_coord(map_coord: u16, viewport_offset: u16, viewport_width: u
         return Err(format!("Map coordinate {} is larger than map dimension size {}", map_coord, map_dimension_width));
     }
 
-    let unoffset_coord: i32 = map_coord as i32 - viewport_offset as i32;
+    let unoffset_coord: i32 = i32::from(map_coord) - i32::from(viewport_offset);
     let wrapped_coord = if unoffset_coord < 0 {
-        map_dimension_width as i32 + unoffset_coord
+        i32::from(map_dimension_width) + unoffset_coord
     } else {
         unoffset_coord
     } as u16;
@@ -116,34 +127,42 @@ pub fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, vi
     None
 }
 
-pub struct Map {
+/// The map widget
+pub struct Map<C:Color+Copy> {
     rect: Rect,
     map_dims: Dims,
     old_viewport_offset: Vec2d<u16>,
     viewport_offset: Vec2d<u16>,
-    displayed_tiles: LocationGrid<Option<Tile>>
+    displayed_tiles: LocationGrid<Option<Tile>>,
+    displayed_tile_currentness: LocationGrid<Option<bool>>,
+    palette: Rc<Palette<C>>,
+    unicode: bool,
 }
-impl Map {
-    pub fn new(rect: Rect, map_dims: Dims) -> Self {
+impl <C:Color+Copy> Map<C> {
+    pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette<C>>, unicode: bool) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
+        let displayed_tile_currentness = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
-            rect: rect,
-            map_dims: map_dims,
+            rect,
+            map_dims,
             old_viewport_offset: Vec2d::new(0, 0),
             viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2),
-            displayed_tiles: displayed_tiles
+            displayed_tiles,
+            displayed_tile_currentness,
+            palette,
+            unicode,
         }
     }
 
     pub fn shift_viewport(&mut self, shift: Vec2d<i32>) {
-        let mut new_x_offset:i32 = ( self.viewport_offset.x as i32 ) + shift.x;
-        let mut new_y_offset:i32 = ( self.viewport_offset.y as i32 ) + shift.y;
+        let mut new_x_offset:i32 = ( i32::from(self.viewport_offset.x) ) + shift.x;
+        let mut new_y_offset:i32 = ( i32::from(self.viewport_offset.y) ) + shift.y;
 
         while new_x_offset < 0 {
-            new_x_offset += self.map_dims.width as i32;
+            new_x_offset += i32::from(self.map_dims.width);
         }
         while new_y_offset < 0 {
-            new_y_offset += self.map_dims.height as i32;
+            new_y_offset += i32::from(self.map_dims.height);
         }
 
         let new_viewport_offset = Vec2d{
@@ -166,11 +185,11 @@ impl Map {
     pub fn center_viewport(&mut self, map_location: Location) {
         let new_viewport_offset = Vec2d {
             x: nonnegative_mod(
-                map_location.x as i32 - (self.rect.width as i32 / 2),
+                i32::from(map_location.x) - (i32::from(self.rect.width) / 2),
                 self.map_dims.width
             ),
             y: nonnegative_mod(
-                map_location.y as i32 - (self.rect.height as i32 / 2),
+                i32::from(map_location.y) - (i32::from(self.rect.height) / 2),
                 self.map_dims.height
             )
         };
@@ -178,11 +197,16 @@ impl Map {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    pub fn draw_tile<W:Write>(&mut self, game: &Game, stdout: &mut W,
+    /// Renders a particular location in the viewport
+    pub fn draw_tile<W:Write>(&mut self,
+            game: &Game,
+            stdout: &mut W,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
-            symbol: Option<&'static str>) {
+
+            // A symbol to show instead of what's actually at this location
+            symbol_override: Option<&'static str>) {
 
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
@@ -192,7 +216,7 @@ impl Map {
 
         write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
 
-        if let Some(tile) = game.current_player_tile(tile_loc) {
+        if let Obs::Observed{tile, turn, current} = game.current_player_obs(tile_loc) {
             if highlight {
                 write!(stdout, "{}", Invert).unwrap();
             }
@@ -201,37 +225,52 @@ impl Map {
                 write!(stdout, "{}{}", Blink, Bold).unwrap();
             }
 
-            if let Some(fg_color) = tile.fg_color() {
-                write!(stdout, "{}", Fg(fg_color)).unwrap();
-            }
+            let (sym, fg_color, bg_color) = if let Some(ref unit) = tile.unit {
+                if let Some(orders) = unit.orders() {
+                    if *orders == Orders::Sentry {
+                        write!(stdout, "{}", Italic).unwrap();
+                    }
+                }
 
-            write!(stdout, "{}{}",
-                Bg(tile.bg_color()),
-                symbol.unwrap_or(tile.sym())
-            ).unwrap();
+                (unit.sym(self.unicode), unit.color(), tile.terrain.color())
+            } else if let Some(ref city) = tile.city {
+                (city.sym(self.unicode), city.alignment.color(), tile.terrain.color())
+            } else {
+                (tile.sym(self.unicode), None, tile.terrain.color())
+            };
+
+            if let Some(fg_color) = fg_color {
+                write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
+            }
+            if let Some(bg_color) = bg_color {
+                write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
+            }
+            write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
 
             self.displayed_tiles[viewport_loc] = Some(tile.clone());
+            self.displayed_tile_currentness[viewport_loc] = Some(*current);
         } else {
             if highlight {
-                write!(stdout, "{}{}", Bg(White), Bg(WHITE)).unwrap();// Use ansi white AND rgb white. Terminals supporting rgb will get a brighter white
+                write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
             } else {
-                write!(stdout, "{}{}", Bg(Black), Bg(BLACK)).unwrap();
+                write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
             }
             write!(stdout, " ").unwrap();
             self.displayed_tiles[viewport_loc] = None;
+            self.displayed_tile_currentness[viewport_loc] = None;
         }
 
-        write!(stdout, "{}", StrongReset).unwrap();
+        write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
         stdout.flush().unwrap();
     }
 
-    pub fn tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
+    pub fn current_player_tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
         game.current_player_tile(tile_loc)
     }
 }
 
-impl ScrollableComponent for Map {
+impl <C:Color+Copy> ScrollableComponent for Map<C> {
     fn scroll_relative(&mut self, offset: Vec2d<i32>) {
         self.shift_viewport(offset);
     }
@@ -239,7 +278,7 @@ impl ScrollableComponent for Map {
     fn offset(&self) -> Vec2d<u16> { self.viewport_offset }
 }
 
-impl Component for Map {
+impl <C:Color+Copy> Component for Map<C> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
     }
@@ -251,8 +290,8 @@ impl Component for Map {
     fn is_done(&self) -> bool { false }
 }
 
-impl Draw for Map {
-    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
+impl <C:Color+Copy> Draw for Map<C> {
+    fn draw<C2:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C2>) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;
@@ -263,9 +302,22 @@ impl Draw for Map {
                     let old_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.old_viewport_offset);
                     let new_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
+                    let new_obs = game.current_player_obs(new_map_loc);
+
+                    let old_currentness = self.displayed_tile_currentness[viewport_loc];
+                    let new_currentness = if let Obs::Observed{current,..} = new_obs {
+                        Some(*current)
+                    } else {
+                        None
+                    };
+
+                    
+
                     let old_tile = self.displayed_tiles[viewport_loc].as_ref();
                     let new_tile = &game.current_player_tile(new_map_loc);
+                    // let new_tile = &new_obs.tile;
 
+                    (old_currentness != new_currentness) ||
                     (old_tile.is_some() && new_tile.is_none()) ||
                     (old_tile.is_none() && new_tile.is_some()) ||
                     (old_tile.is_some() && new_tile.is_some() && {
@@ -273,8 +325,8 @@ impl Draw for Map {
                         let new = new_tile.unwrap();
                         let redraw_for_mismatch = !(
                             old.terrain==new.terrain &&
-                            old.sym() == new.sym() &&
-                            old.alignment() == new.alignment()
+                            old.sym(self.unicode) == new.sym(self.unicode) &&
+                            old.alignment_maybe() == new.alignment_maybe()
                         );
                         redraw_for_mismatch
                     }) || {
@@ -294,7 +346,7 @@ impl Draw for Map {
             }
         }
 
-        write!(stdout, "{}{}", StrongReset, Hide).unwrap();
+        write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
         stdout.flush().unwrap();
     }
 }

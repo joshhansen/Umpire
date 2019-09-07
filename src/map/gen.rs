@@ -6,12 +6,19 @@
 
 use rand::{Rng, ThreadRng, thread_rng};
 
-use conf;
-use map::{LocationGrid,Terrain,Tile};
-use map::dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL};
-use name::{ListNamer,Namer};
-use unit::{Alignment,City,PlayerNum};
-use util::{Dims,Location,WRAP_NEITHER};
+use crate::{
+    conf,
+    game::{Alignment,PlayerNum},
+    map::{
+        Terrain,
+        Tile,
+        dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL},
+        newmap::MapData,
+    },
+    name::{ListNamer,Namer},
+    util::{Dims,Location,WRAP_NEITHER},
+};
+
 
 fn land_cardinal_neighbors<T:Source<Tile>>(tiles: &T, loc: Location) -> u16 {
     neighbors(tiles, loc, RELATIVE_NEIGHBORS_CARDINAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
@@ -38,18 +45,18 @@ fn rand_loc(rng: &mut ThreadRng, map_dims: Dims) -> Location {
 
 impl MapGenerator {
     pub fn new(city_namer: ListNamer) -> Self {
-        MapGenerator{ city_namer: city_namer }
+        MapGenerator{ city_namer }
     }
 
-    pub fn generate(&mut self, map_dims: Dims, num_players: PlayerNum) -> LocationGrid<Tile> {
-        let mut tiles = LocationGrid::new(map_dims, |loc| Tile::new(Terrain::Water, loc));
+    pub fn generate(&mut self, map_dims: Dims, num_players: PlayerNum) -> MapData {
+        let mut map = MapData::new(map_dims);
 
         let mut rng = thread_rng();
 
         // Seed the continents/islands
         for _ in 0..conf::LANDMASSES {
             let loc = rand_loc(&mut rng, map_dims);
-            tiles[loc].terrain = Terrain::Land;
+            map.set_terrain(loc, Terrain::Land);
         }
 
         // Grow landmasses
@@ -59,7 +66,7 @@ impl MapGenerator {
                 loc.x = x;
                 for y in 0..map_dims.height {
                     loc.y = y;
-                    match tiles[loc].terrain {
+                    match map.terrain(loc).unwrap() {
                         Terrain::Land => {
 
                             // for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
@@ -73,11 +80,11 @@ impl MapGenerator {
                             // }
                         },
                         Terrain::Water => {
-                            let cardinal_growth_prob = land_cardinal_neighbors(&tiles, loc) as f32 / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
-                            let diagonal_growth_prob = land_diagonal_neighbors(&tiles, loc) as f32 / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
+                            let cardinal_growth_prob = f32::from(land_cardinal_neighbors(&map, loc)) / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
+                            let diagonal_growth_prob = f32::from(land_diagonal_neighbors(&map, loc)) / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
 
                             if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
-                                tiles[loc].terrain = Terrain::Land;
+                                map.set_terrain(loc, Terrain::Land);
                             }
                         }
                     }
@@ -88,10 +95,10 @@ impl MapGenerator {
         // Populate neutral cities
         for x in 0..map_dims.width {
             for y in 0..map_dims.height {
-                let loc = Location{x:x, y:y};
-                let tile = &mut tiles[loc];
-                if tile.terrain == Terrain::Land && rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
-                    tile.city = Some(City::new(Alignment::Neutral, loc, self.city_namer.name()));
+                let loc = Location{x, y};
+
+                if *map.terrain(loc).unwrap() == Terrain::Land && rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
+                    map.new_city(loc, Alignment::Neutral, self.city_namer.name()).unwrap();
                 }
             }
         }
@@ -101,14 +108,12 @@ impl MapGenerator {
         while player_num < num_players {
             let loc = rand_loc(&mut rng, map_dims);
 
-            let tile = &mut tiles[loc];
-
-            if tile.terrain == Terrain::Land && tile.city.is_none() {
-                tile.city = Some(City::new(Alignment::Belligerent{ player: player_num }, loc, self.city_namer.name()));
+            if *map.terrain(loc).unwrap() == Terrain::Land && map.city_by_loc(loc).is_none() {
+                map.new_city(loc, Alignment::Belligerent{ player: player_num }, self.city_namer.name()).unwrap();
                 player_num += 1;
             }
         }
 
-        tiles
+        map
     }
 }

@@ -29,10 +29,10 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub fn right(&self) -> u16 { self.left + self.width }
-    pub fn bottom(&self) -> u16 { self.top + self.height }
+    pub fn right(self) -> u16 { self.left + self.width }
+    pub fn bottom(self) -> u16 { self.top + self.height }
 
-    pub fn dims(&self) -> Dims {
+    pub fn dims(self) -> Dims {
         Dims{ width: self.width, height: self.height }
     }
 }
@@ -41,6 +41,18 @@ impl Rect {
 pub struct Dims {
     pub width: u16,
     pub height: u16
+}
+
+impl Dims {
+    pub fn new(width: u16, height: u16) -> Self {
+        Self { width, height }
+    }
+
+    pub fn in_bounds(self, loc: Location) -> bool {
+        // loc.x >= 0 && 
+        // loc.y >= 0 &&
+        loc.x < self.width && loc.y < self.height
+    }
 }
 
 impl fmt::Display for Dims {
@@ -59,7 +71,7 @@ pub struct Vec2d<T> {
 
 impl<T> Vec2d<T> {
     pub fn new(x: T, y: T) -> Self {
-        Vec2d{ x: x, y: y }
+        Vec2d{ x, y }
     }
 }
 
@@ -83,6 +95,7 @@ impl <T:fmt::Display> fmt::Display for Vec2d<T> {
     }
 }
 
+#[derive(Clone,Copy)]
 pub enum Direction {
     Up,
     Down,
@@ -95,8 +108,8 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn vec2d(&self) -> Vec2d<i32> {
-        match *self {
+    pub fn vec2d(self) -> Vec2d<i32> {
+        match self {
             Direction::Up         => Vec2d{x: 0, y:-1},
             Direction::Down       => Vec2d{x: 0, y: 1},
             Direction::Left       => Vec2d{x:-1, y: 0},
@@ -183,35 +196,35 @@ pub static WRAP_NEITHER: Wrap2d = Wrap2d {
 /// If the result is out of bounds, return None
 ///
 pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
-    let mut new_x: i32 = loc.x as i32 + inc.x as i32;
+    let mut new_x: i32 = i32::from(loc.x) + inc.x;
     if let Wrap::Wrapping = wrapping.horiz {
         if new_x < 0 {
             loop {
-                new_x += dims.width as i32;
+                new_x += i32::from(dims.width);
                 if new_x >= 0 {
                     break;
                 }
             }
         } else {
-            new_x %= dims.width as i32
+            new_x %= i32::from(dims.width);
         }
-    } else if new_x < 0 || new_x >= dims.width as i32 {
+    } else if new_x < 0 || new_x >= i32::from(dims.width) {
         return None;
     }
 
-    let mut new_y: i32 = loc.y as i32 + inc.y as i32;
+    let mut new_y: i32 = i32::from(loc.y) + inc.y;
     if let Wrap::Wrapping = wrapping.vert {
         if new_y < 0 {
             loop {
-                new_y += dims.height as i32;
+                new_y += i32::from(dims.height);
                 if new_y >= 0 {
                     break;
                 }
             }
         } else {
-            new_y %= dims.height as i32
+            new_y %= i32::from(dims.height);
         }
-    } else if new_y < 0 || new_y >= dims.height as i32 {
+    } else if new_y < 0 || new_y >= i32::from(dims.height) {
         return None;
     }
 
@@ -224,8 +237,8 @@ pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d)
 pub type Location = Vec2d<u16>;
 
 impl Location {
-    pub fn shift_wrapped(&self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
-        wrapped_add(*self, dir.vec2d(), dims, wrapping)
+    pub fn shift_wrapped(self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
+        wrapped_add(self, dir.vec2d(), dims, wrapping)
     }
 }
 

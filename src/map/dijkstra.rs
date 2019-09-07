@@ -6,10 +6,14 @@ use std::collections::{BinaryHeap,HashSet};
 use std::fmt;
 use std::ops::{Index,IndexMut};
 
-use game::obs::Obs;
-use map::{LocationGrid,Terrain,Tile};
-use unit::{Unit,UnitType};
-use util::{Dims,Location,Vec2d,Wrap2d,wrapped_add};
+use crate::{
+    game::{
+        obs::Obs,
+        unit::{Unit,UnitType},
+    },
+    map::{LocationGrid,Terrain,Tile},
+    util::{Dims,Location,Vec2d,Wrap2d,wrapped_add},
+};
 
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
@@ -84,7 +88,7 @@ pub struct UnitMovementFilter<'a> {
 impl <'a> UnitMovementFilter<'a> {
     pub fn new(unit: &'a Unit) -> Self {
         UnitMovementFilter {
-            unit: unit
+            unit
         }
     }
 }
@@ -95,12 +99,10 @@ impl <'a> Filter<Tile> for UnitMovementFilter<'a> {
 }
 impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
     fn include(&self, obs: &Obs) -> bool {
-        match *obs {
-            Obs::Unobserved => false,
-            Obs::Observed {ref tile, ..} => {
-                UnitMovementFilter::include(self, tile)
-            },
-            Obs::Current => unimplemented!()
+        if let Obs::Observed{tile,..} = obs {
+            UnitMovementFilter::include(self, tile)
+        } else {
+            false
         }
     }
 }
@@ -113,52 +115,23 @@ impl Filter<Tile> for TerrainFilter {
     }
 }
 
-pub trait OwnedSource<T> {
-    fn get(&self, loc: Location) -> Option<T>;
-    fn dims(&self) -> Dims;
-}
+// pub trait OwnedSource<T> {
+//     fn get(&self, loc: Location) -> Option<T>;
+//     fn dims(&self) -> Dims;
+// }
 
 pub trait Source<T> {
-    fn get(&self, loc: Location) -> Option<&T>;
+    fn get(&self, loc: Location) -> &T;
     fn dims(&self) -> Dims;
 }
 pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
 }
 
-// impl <T> Source<T> for OwnedSource<T> {
-//     fn get(&self, loc: Location) -> Option<&T> {
-//         OwnedSource::get(self, loc).as_ref()
-//     }
-//     fn dims(&self) -> Dims {
-//         OwnedSource::dims(self)
-//     }
-// }
-
-// impl Source<Tile> for LocationGrid<Tile> {
-//     fn get(&self, loc: Location) -> Option<&Tile> {
-//         self.get(loc)
-//     }
-//     fn dims(&self) -> Dims {
-//         self.dims()
-//     }
-// }
-
-#[allow(dead_code)]
-struct UnobservedFilter {}
-impl Filter<Obs> for UnobservedFilter {
-    fn include(&self, obs: &Obs) -> bool {
-        *obs == Obs::Unobserved
-    }
-}
 struct ObservedFilter {}
 impl Filter<Obs> for ObservedFilter {
     fn include(&self, obs: &Obs) -> bool {
-        if let Obs::Observed{..} = *obs {
-            true
-        } else {
-            false
-        }
+        obs.is_observed()
     }
 }
 
@@ -168,12 +141,17 @@ pub struct Xenophile<F:Filter<Obs>> {
 impl <F:Filter<Obs>> Xenophile<F> {
     pub fn new(sub_filter: F) -> Self {
         Xenophile {
-            sub_filter: sub_filter
+            sub_filter
         }
     }
 }
 impl <F:Filter<Obs>> Filter<Obs> for Xenophile<F> {
     fn include(&self, obs: &Obs) -> bool {
+        // if obs.is_some() {
+        //     self.sub_filter.include(obs)
+        // } else {
+        //     true
+        // }
         if *obs == Obs::Unobserved {
             true
         } else {
@@ -189,11 +167,14 @@ pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
     let mut neighbs = HashSet::new();
     for rel_neighb in rel_neighbs {
         if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
-            if let Some(tile) = tiles.get(neighb_loc) {
-                if filter.include(tile) {
-                    neighbs.insert(neighb_loc);
-                }
+            if filter.include(tiles.get(neighb_loc))  {
+                neighbs.insert(neighb_loc);
             }
+            // if let Some(tile) = tiles.get(neighb_loc) {
+            //     if filter.include(tile) {
+            //         neighbs.insert(neighb_loc);
+            //     }
+            // }
         }
     }
 
@@ -205,11 +186,15 @@ struct UnitTypeFilter {
 }
 impl Filter<Tile> for UnitTypeFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        self.unit_type.can_move_on_terrain(&neighb_tile.terrain)
+        // if let Some(neighb_tile) = neighb_tile {
+            self.unit_type.can_move_on_tile(neighb_tile)
+        // } else {
+        //     false
+        // }
     }
 }
 pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
-    neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type: unit_type}, wrapping)
+    neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type}, wrapping)
 }
 
 #[derive(Eq,PartialEq)]
@@ -271,11 +256,11 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
         }
     }
 
-    ShortestPaths { dist: dist, prev: prev }
+    ShortestPaths { dist, prev }
 }
 
 pub fn old_shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
-    shortest_paths(tiles, source, &UnitMovementFilter{unit: unit}, wrapping)
+    shortest_paths(tiles, source, &UnitMovementFilter{unit}, wrapping)
 }
 
 /// Return the (or a) closest tile to the source which is reachable by the given
@@ -290,17 +275,18 @@ pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: 
     while let Some(loc) = q.pop() {
         visited.insert(loc);
 
-        let observed_neighbors = neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter{}, wrapping);
+        let observed_neighbors: HashSet<Location> = neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter{}, wrapping);
         if observed_neighbors.len() < RELATIVE_NEIGHBORS.len() {
         // if adjacent_to_unknown {
             return Some(loc);
         }
 
-        let unit_filter = UnitMovementFilter{unit: unit};
+        let unit_filter = UnitMovementFilter{unit};
 
         for neighb in observed_neighbors.iter().filter(|neighb|{
-            let tile: &Tile = tiles.get(**neighb).unwrap();
+            let tile: &Tile = tiles.get(**neighb);
             unit_filter.include(tile)
+            // unit_filter.include(tiles.get(**neighb))
         }) {
             if !visited.contains(neighb) {
                 q.push(*neighb);
@@ -316,14 +302,16 @@ mod test {
     use std::collections::HashSet;
     use std::convert::TryFrom;
 
+    use game::Alignment;
     use game::obs::Obs;
+    use game::unit::{Unit,UnitType};
     use map::{LocationGrid,Tile};
     use map::dijkstra::{Source,UnitMovementFilter,Xenophile,neighbors,neighbors_terrain_only,old_shortest_paths,shortest_paths,RELATIVE_NEIGHBORS};
-    use unit::{Alignment,Unit,UnitType};
+    use map::newmap::UnitID;
     use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
 
     fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
-        neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit:unit}, wrapping)
+        neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit}, wrapping)
     }
 
     #[test]
@@ -378,7 +366,7 @@ mod test {
                                           xxx").unwrap();
 
         let loc = Location{x:0, y:2};
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
+        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
         let neighbs_both = neighbors_all_unit(&map, loc, &infantry, WRAP_BOTH);
         assert!(neighbs_both.contains(&Location{x:0, y:0}));
         assert!(neighbs_both.contains(&Location{x:0, y:1}));
@@ -428,7 +416,7 @@ mod test {
             *xx").unwrap();
 
         let loc = Location{x:0, y:2};
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
+        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
         {
             let neighbs_both = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_BOTH);
             assert!( neighbs_both.contains(&Location{x:0, y:0}));
@@ -454,7 +442,7 @@ mod test {
             assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
             assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
         }
-        
+
         {
             let neighbs_vert = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_VERT);
             assert!( neighbs_vert.contains(&Location{x:0, y:0}));
@@ -467,7 +455,7 @@ mod test {
             assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
             assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
         }
-        
+
         {
             let neighbs_neither = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_NEITHER);
             assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
@@ -491,7 +479,7 @@ mod test {
     *xx").unwrap();
 
         let loc = Location{x:0, y:0};
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
+        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
         let shortest_neither = old_shortest_paths(&map, loc, &infantry, WRAP_NEITHER);
         println!("{:?}", shortest_neither);
         assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
@@ -557,7 +545,7 @@ mod test {
             *xx").unwrap();
 
         let loc = Location{x:0, y:0};
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
+        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
 
         let shortest_neither = shortest_paths(
             &map,

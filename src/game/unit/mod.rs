@@ -6,37 +6,22 @@ pub mod orders;
 use std::cmp::Ordering;
 use std::fmt;
 
-use termion::color::AnsiValue;
+use crate::{
+    color::{Colorized,Colors},
+    game::{
+        Aligned,Alignment,
+        obs::Observer,
+    },
+    map::{Terrain,Tile},
+    map::newmap::{CityID,UnitID},
+    util::Location,
+};
 
-use game::obs::Observer;
-use map::{Terrain,Tile};
-use util::Location;
 use self::orders::Orders;
 
-pub type PlayerNum = u8;
-
-#[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
-pub enum Alignment {
-    Neutral,
-    Belligerent { player: PlayerNum }
-    // active neutral, chaotic, etc.
-}
-
-impl Alignment {
-    pub fn color(&self) -> AnsiValue {
-        match *self {
-            Alignment::Neutral => AnsiValue(8),
-            Alignment::Belligerent{player} => AnsiValue(player + 9 + if player >= 1 { 1 } else { 0 })
-        }
-    }
-}
 
 pub trait Located {
     fn loc(&self) -> Location;
-}
-
-pub trait Sym {
-    fn sym(&self) -> &'static str;
 }
 
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
@@ -69,8 +54,8 @@ impl UnitType {
         ]
     }
 
-    fn max_hp(&self) -> u16 {
-        match *self {
+    fn max_hp(self) -> u16 {
+        match self {
             UnitType::Infantry | UnitType::Fighter | UnitType::Bomber => 1,
             UnitType::Armor | UnitType::Destroyer | UnitType::Submarine => 2,
             UnitType::Transport => 3,
@@ -80,8 +65,8 @@ impl UnitType {
         }
     }
 
-    pub fn cost(&self) -> u16 {
-        match *self {
+    pub fn cost(self) -> u16 {
+        match self {
             UnitType::Infantry => 6,
             UnitType::Armor | UnitType::Fighter | UnitType::Bomber => 12,
             UnitType::Transport => 30,
@@ -92,8 +77,8 @@ impl UnitType {
         }
     }
 
-    pub fn key(&self) -> char {
-        match *self {
+    pub fn key(self) -> char {
+        match self {
             UnitType::Infantry => 'i',
             UnitType::Armor => 'a',
             UnitType::Fighter => 'f',
@@ -107,37 +92,53 @@ impl UnitType {
         }
     }
 
-    pub fn sight_distance(&self) -> u16 {
-        match *self {
+    pub fn sight_distance(self) -> u16 {
+        match self {
             UnitType::Infantry | UnitType::Armor | UnitType::Transport => 2,
             UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser => 3,
             UnitType::Fighter | UnitType::Bomber | UnitType::Battleship | UnitType::Carrier => 4,
         }
     }
 
-    pub fn from_key(c: &char) -> Option<UnitType> {
+    pub fn from_key(c: char) -> Option<UnitType> {
         for unit_type in &UnitType::values() {
-            if unit_type.key() == *c {
+            if unit_type.key() == c {
                 return Some(*unit_type);
             }
         }
         None
     }
 
-    pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
-        match *self {
+    // pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
+    //     match *self {
+    //         UnitType::Infantry | UnitType::Armor =>
+    //                 *terrain==Terrain::Land,
+    //         UnitType::Fighter | UnitType::Bomber =>
+    //                 *terrain==Terrain::Land || *terrain==Terrain::Water,
+    //         UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
+    //         UnitType::Battleship | UnitType::Carrier =>
+    //                 *terrain==Terrain::Water,
+    //     }
+    // }
+
+    /// Determine whether this unit can move onto a particular tile (potentially requiring combat to do so).
+    /// 
+    /// If a city is present, this will always be true. Otherwise, it will be determined by the match between
+    /// the unit's capabilities and the terrain (e.g. planes over water, but not tanks over water).
+    pub fn can_move_on_tile(self, tile: &Tile) -> bool {
+        tile.city.is_some() || match self {
             UnitType::Infantry | UnitType::Armor =>
-                    *terrain==Terrain::Land,
+                    tile.terrain==Terrain::Land,
             UnitType::Fighter | UnitType::Bomber =>
-                    *terrain==Terrain::Land || *terrain==Terrain::Water,
+                    tile.terrain==Terrain::Land || tile.terrain==Terrain::Water,
             UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
             UnitType::Battleship | UnitType::Carrier =>
-                    *terrain==Terrain::Water,
+                    tile.terrain==Terrain::Water,
         }
     }
 
-    pub fn name(&self) -> &'static str {
-        match *self {
+    pub fn name(self) -> &'static str {
+        match self {
             UnitType::Infantry => "Infantry",
             UnitType::Armor => "Armor",
             UnitType::Fighter => "Fighter",
@@ -177,6 +178,8 @@ impl Ord for UnitType {
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct Unit {
+    pub id: UnitID,
+    pub loc: Location,
     pub type_: UnitType,
     pub alignment: Alignment,
     hp: u16,
@@ -187,13 +190,15 @@ pub struct Unit {
 }
 
 impl Unit {
-    pub fn new<S:Into<String>>(type_: UnitType, alignment: Alignment, name: S) -> Self {
+    pub fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
         let max_hp =type_.max_hp();
         Unit {
-            type_: type_,
-            alignment: alignment,
+            id,
+            loc,
+            type_,
+            alignment,
             hp: max_hp,
-            max_hp: max_hp,
+            max_hp,
             moves_remaining: 0,
             name: name.into(),
             orders: None
@@ -215,7 +220,7 @@ impl Unit {
     /// The presence of cities makes no difference, because either we'll go as a visitor to our own
     /// city, or attempt to capture a hostile city.
     pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
-        if !self.type_.can_move_on_terrain(&tile.terrain) {
+        if !self.type_.can_move_on_tile(tile) {
             return false;
         }
 
@@ -226,29 +231,22 @@ impl Unit {
         true
     }
 
-    pub fn alignment(&self) -> Alignment { self.alignment }
-
     pub fn orders(&self) -> Option<&Orders> { self.orders.as_ref() }
 
-    pub fn give_orders(&mut self, orders: Option<Orders>) {
+    pub fn set_orders(&mut self, orders: Option<Orders>) {
         self.orders = orders;
     }
 }
 
-impl Sym for Unit {
-    fn sym(&self) -> &'static str {
-        match self.type_ {
-            UnitType::Infantry => "i",
-            UnitType::Armor => "A",
-            UnitType::Fighter => "f",//"✈",
-            UnitType::Bomber => "b",
-            UnitType::Transport => "t",
-            UnitType::Destroyer => "d",
-            UnitType::Submarine => "—",
-            UnitType::Cruiser => "c",
-            UnitType::Battleship => "B",
-            UnitType::Carrier => "C"
-        }
+impl Aligned for Unit {
+    fn alignment(&self) -> Alignment {
+        self.alignment
+    }
+}
+
+impl Colorized for Unit {
+    fn color(&self) -> Option<Colors> {
+        self.alignment.color()
     }
 }
 
@@ -260,7 +258,7 @@ impl Observer for Unit {
 
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} \"{}\"", self.type_, self.name)
+        write!(f, "{} \"{}\" [{}/{}]", self.type_, self.name, self.hp, self.max_hp)
     }
 }
 
@@ -268,6 +266,7 @@ const CITY_MAX_HP: u16 = 1;
 
 #[derive(Clone,Hash,PartialEq,Eq)]
 pub struct City {
+    pub id: CityID,
     pub alignment: Alignment,
     pub loc: Location,//NOTE City location is also reflected in the Game::grid matrix, so this could be stale
     hp: u16,
@@ -276,10 +275,11 @@ pub struct City {
     name: String
 }
 impl City {
-    pub fn new<S:Into<String>>(alignment: Alignment, loc: Location, name: S) -> City {
+    pub fn new<S:Into<String>>(id: CityID, alignment: Alignment, loc: Location, name: S) -> City {
         City {
-            loc: loc,
-            alignment: alignment,
+            id,
+            loc,
+            alignment,
             hp: CITY_MAX_HP,
             unit_under_production: None,
             production_progress: 0,
@@ -290,8 +290,6 @@ impl City {
     pub fn name(&self) -> &String {
         &self.name
     }
-
-    pub fn alignment(&self) -> Alignment { self.alignment }
 }
 
 impl fmt::Display for City {
@@ -314,14 +312,16 @@ impl Located for City {
     fn loc(&self) -> Location { self.loc }
 }
 
+impl Aligned for City {
+    fn alignment(&self) -> Alignment {
+        self.alignment
+    }
+}
+
 impl Observer for City {
     fn sight_distance(&self) -> u16 {
         3
     }
-}
-
-impl Sym for City {
-    fn sym(&self) -> &'static str { "#" }
 }
 
 #[cfg(test)]
@@ -330,9 +330,10 @@ mod test {
     use std::convert::TryFrom;
     use std::iter::FromIterator;
 
-    use game::obs::{FogOfWarTracker,Obs,ObsTracker};
+    use game::obs::{Obs,ObsTracker};
+    use game::unit::{Alignment,Observer,Unit,UnitType};
     use map::{LocationGrid,Terrain,Tile};
-    use unit::{Alignment,Observer,Unit,UnitType};
+    use map::newmap::UnitID;
     use util::{Dims,Location,WRAP_BOTH};
 
 
@@ -345,9 +346,9 @@ x ooioo  x
 x  ooo   x
 x   o    x";
 
-        match LocationGrid::try_from(map_s) {
+        match LocationGrid::<Tile>::try_from(map_s) {
             Err(err) => {
-                assert!(false, "Error parsing map: {}", err);
+                panic!("Error parsing map: {}", err);
             },
             Ok(map) => {
                 assert_eq!(map.dims(), Dims{width:10, height:5});
@@ -360,12 +361,13 @@ x   o    x";
 
                 let infantry_loc = Location{x:4, y:2};
 
-                let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
+                let infantry = Unit::new(UnitID::new(0), infantry_loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
 
-                let mut obs_tracker: Box<ObsTracker> = Box::new(FogOfWarTracker::new(map.dims()));
+                // let mut obs_tracker: ObsTracker = ObsTracker::new_fog_of_war(map.dims());
+                let mut obs_tracker = ObsTracker::new(map.dims());
 
                 for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), Obs::Unobserved);
+                    assert_eq!(*obs_tracker.get(tile.loc), Obs::Unobserved);
                 }
 
                 let turn = 0;
@@ -390,8 +392,8 @@ x   o    x";
                 let observed_locs: HashSet<&Location> = HashSet::from_iter(observed_locs_arr.iter());
 
                 for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) {
-                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn }
+                    assert_eq!(*obs_tracker.get(tile.loc), if observed_locs.contains(&tile.loc) {
+                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn, current: false }
                     } else {
                         Obs::Unobserved
                     });
@@ -418,8 +420,8 @@ x   o    x";
                 let observed_locs_2: HashSet<&Location> = HashSet::from_iter(observed_locs_arr_2.iter());
 
                 for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc).unwrap(), if observed_locs.contains(&tile.loc) || observed_locs_2.contains(&tile.loc) {
-                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn }
+                    assert_eq!(*obs_tracker.get(tile.loc), if observed_locs.contains(&tile.loc) || observed_locs_2.contains(&tile.loc) {
+                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn, current: false }
                     } else {
                         Obs::Unobserved
                     });
@@ -430,11 +432,11 @@ x   o    x";
 
     #[test]
     fn test_mobility() {
-        let infantry = Unit::new(UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
-        let friendly_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:0}, "Lynn Stone");
-        let enemy_unit = Unit::new(UnitType::Armor, Alignment::Belligerent{player:1}, "James Lindsey");
-
         let loc = Location{x:5, y:5};
+
+        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
+        let friendly_unit = Unit::new(UnitID::new(1), loc, UnitType::Armor, Alignment::Belligerent{player:0}, "Lynn Stone");
+        let enemy_unit = Unit::new(UnitID::new(2), loc, UnitType::Armor, Alignment::Belligerent{player:1}, "James Lindsey");
 
         let tile1 = Tile::new(Terrain::Land, loc);
         assert!(infantry.can_move_on_tile(&tile1));

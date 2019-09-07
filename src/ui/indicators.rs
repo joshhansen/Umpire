@@ -1,8 +1,13 @@
 use std::io::Write;
 
-use game::Game;
-use ui::{Component,Draw};
-use util::Rect;
+use termion::color::Color;
+
+use crate::{
+    color::Palette,
+    game::Game,
+    ui::{Component,Draw},
+    util::Rect
+};
 
 pub struct CurrentPlayer {
     rect: Rect
@@ -11,13 +16,13 @@ pub struct CurrentPlayer {
 impl CurrentPlayer {
     pub fn new(rect: Rect) -> Self {
         CurrentPlayer {
-            rect: rect
+            rect
         }
     }
 }
 
 impl Draw for CurrentPlayer {
-    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
+    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>) {
         write!(*stdout,
             "{}Current Player: {}  ",
             self.goto(0, 0),
@@ -41,13 +46,13 @@ pub struct Turn {
 }
 
 impl Turn {
-    pub fn new(rect: &Rect) -> Self {
-        Turn{ rect: *rect }
+    pub fn new(rect: Rect) -> Self {
+        Turn{ rect }
     }
 }
 
 impl Draw for Turn {
-    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W) {
+    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>) {
         write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
     }
 }

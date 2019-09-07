@@ -1,13 +1,14 @@
 use std::convert::TryFrom;
 use std::fmt;
-use std::iter::{FlatMap,FromIterator};
-use std::slice::Iter;
+use std::iter::FromIterator;
 use std::ops::{Index,IndexMut};
 
+use game::{Alignment,PlayerNum};
 use game::obs::Obs;
+use game::unit::City;
 use map::{Terrain,Tile};
 use map::dijkstra::Source;
-use unit::{Alignment,City,PlayerNum};
+use map::newmap::CityID;
 use util::{Dims,Location};
 
 pub struct LocationGrid<T> {
@@ -17,7 +18,7 @@ pub struct LocationGrid<T> {
 
 impl<T> LocationGrid<T> {
     pub fn new_from_vec(dims: Dims, grid: Vec<Vec<T>>) -> Self {
-        LocationGrid{ grid: grid, dims: dims }
+        LocationGrid{ grid, dims }
     }
 
     pub fn new<I>(dims: Dims, initializer: I) -> Self
@@ -39,7 +40,7 @@ impl<T> LocationGrid<T> {
             grid.push(col);
         }
 
-        LocationGrid{ grid: grid, dims: dims }
+        LocationGrid{ grid, dims }
     }
 
     pub fn get(&self, loc: Location) -> Option<&T> {
@@ -61,36 +62,44 @@ impl<T> LocationGrid<T> {
     pub fn dims(&self) -> Dims {
         self.dims
     }
+
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item=&'a T> {
+        self.grid.iter().flat_map(|item: &Vec<T>| item.iter())
+    }
+
+    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item=&'a mut T> {
+        self.grid.iter_mut().flat_map(|item: &mut Vec<T>| item.iter_mut())
+    }
 }
 
-impl <T> Source<T> for LocationGrid<T> {
-    fn get(&self, loc: Location) -> Option<&T> {
-        self.get(loc)
+// impl <T> Source<T> for LocationGrid<T> {
+//     fn get(&self, loc: Location) -> &T {
+//         self.get(loc)
+//     }
+//     fn dims(&self) -> Dims {
+//         self.dims
+//     }
+// }
+
+impl Source<Tile> for LocationGrid<Tile> {
+    fn get(&self, loc: Location) -> &Tile {
+        self.get(loc).unwrap()
     }
     fn dims(&self) -> Dims {
         self.dims
     }
 }
 
-impl LocationGrid<Tile> {
-    fn map1(item: &Vec<Tile>) -> Iter<Tile> {
-        item.iter()
-    }
-
-    pub fn iter(&self) -> LocationGridIter {
-        LocationGridIter {
-            iter: self.grid.iter().flat_map(LocationGrid::map1)
+impl Source<Obs> for LocationGrid<Obs> {
+    fn get(&self, loc: Location) -> &Obs {
+        if let Some(obs) = self.get(loc) {
+            obs
+        } else {
+            &Obs::Unobserved
         }
     }
-}
-
-pub struct LocationGridIter<'a> {
-    iter: FlatMap<Iter<'a, Vec<Tile>>, Iter<'a, Tile>, fn(&Vec<Tile>) -> Iter<Tile> >
-}
-impl <'b> Iterator for LocationGridIter<'b> {
-    type Item = &'b Tile;
-    fn next(&mut self) -> Option<&'b Tile> {
-        self.iter.next()
+    fn dims(&self) -> Dims {
+        self.dims
     }
 }
 
@@ -121,7 +130,7 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
                 }
                 result = result.and(self[Location{x:j_, y:i}].fmt(f));
             }
-            result = result.and(write!(f, "\n"));
+            result = result.and(writeln!(f));
         }
 
         result
@@ -162,9 +171,11 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
             }
         }
 
+        let height = lines.len() as u16;
+
         Ok(
             LocationGrid::new(
-                Dims{width: width as u16, height: lines.len() as u16 },
+                Dims{width: width as u16, height: height as u16 },
                 |loc| {
                     let c = lines[loc.y as usize][loc.x as usize];
                     let mut tile = Tile::new(
@@ -175,8 +186,10 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
                         },
                         loc
                     );
+                    let id: u64 = u64::from(loc.x * height + loc.y);
                     if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                         tile.city = Some(City::new(
+                            CityID::new(id),
                             Alignment::Belligerent{player: player_num},
                             loc,
                             format!("City_{}_{}", loc.x, loc.y)
@@ -225,13 +238,16 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
             }
         }
 
+        let height = lines.len() as u16;
+
         Ok(
             LocationGrid::new(
-                Dims{width: width as u16, height: lines.len() as u16 },
+                Dims{width: width as u16, height },
                 |loc| {
                     let c = lines[loc.y as usize][loc.x as usize];
                     if c == '?' {
                         Obs::Unobserved
+                        // None
                     } else {
                         let mut tile = Tile::new(
                             if c==' ' {
@@ -242,15 +258,18 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
                             loc
                         );
 
+                        let id: u64 = u64::from(loc.x * height + loc.y);
                         if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                             tile.city = Some(City::new(
+                                CityID::new(id),
                                 Alignment::Belligerent{player: player_num},
                                 loc,
                                 format!("City_{}_{}", loc.x, loc.y)
                             ));
                         }
 
-                        Obs::Observed{tile: tile, turn: 0}
+                        // Obs::Observed{tile, turn: 0}
+                        Obs::Observed{ tile, turn: 0, current: false }
                     }
                 }
             )
@@ -351,26 +370,26 @@ mod test {
                 assert_eq!(map.dims.width, 6);
                 assert_eq!(map.dims.height, 3);
 
-                assert_eq!(map[Location{x:0,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:0,y:0}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:1,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:1,y:0}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:2,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:2,y:0}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:3,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:3,y:0}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:4,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:4,y:0}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:5,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:5,y:0}, city: None, unit: None }, turn: 0});
+                assert_eq!(map[Location{x:0,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:0,y:0}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:1,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:1,y:0}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:2,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:2,y:0}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:3,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:3,y:0}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:4,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:4,y:0}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:5,y:0}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:5,y:0}, city: None, unit: None }, turn: 0, current: false});
 
-                assert_eq!(map[Location{x:0,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:0,y:1}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:1,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:1,y:1}, city: None, unit: None }, turn: 0});
+                assert_eq!(map[Location{x:0,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:0,y:1}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:1,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:1,y:1}, city: None, unit: None }, turn: 0, current: false});
                 assert_eq!(map[Location{x:2,y:1}], Obs::Unobserved);
-                assert_eq!(map[Location{x:3,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:3,y:1}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:4,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:4,y:1}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:5,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:5,y:1}, city: None, unit: None }, turn: 0});
+                assert_eq!(map[Location{x:3,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:3,y:1}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:4,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:4,y:1}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:5,y:1}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:5,y:1}, city: None, unit: None }, turn: 0, current: false});
 
-                assert_eq!(map[Location{x:0,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:0,y:2}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:1,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:1,y:2}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:2,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:2,y:2}, city: None, unit: None }, turn: 0});
+                assert_eq!(map[Location{x:0,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:0,y:2}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:1,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:1,y:2}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:2,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:2,y:2}, city: None, unit: None }, turn: 0, current: false});
                 assert_eq!(map[Location{x:3,y:2}], Obs::Unobserved);
-                assert_eq!(map[Location{x:4,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:4,y:2}, city: None, unit: None }, turn: 0});
-                assert_eq!(map[Location{x:5,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:5,y:2}, city: None, unit: None }, turn: 0});
+                assert_eq!(map[Location{x:4,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Water, loc: Location{x:4,y:2}, city: None, unit: None }, turn: 0, current: false});
+                assert_eq!(map[Location{x:5,y:2}], Obs::Observed{tile: Tile{ terrain: Terrain::Land, loc: Location{x:5,y:2}, city: None, unit: None }, turn: 0, current: false});
             }
         }
     }
@@ -388,7 +407,7 @@ mod test {
             Location{x:2,y:0}, Location{x:2,y:1}, Location{x:2,y:2}
         ];
 
-        let grid = LocationGrid::try_from("abc\nd f\nhij").unwrap();
+        let grid: LocationGrid<Tile> = LocationGrid::try_from("abc\nd f\nhij").unwrap();
 
         let mut count = 0;
         for (i, tile) in grid.iter().enumerate() {

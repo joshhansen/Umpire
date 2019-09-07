@@ -5,66 +5,74 @@
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
 use std::io::{Write,stdout};
+use std::rc::Rc;
 
 use termion;
 use termion::clear;
-use termion::color::{Bg,Rgb};
+use termion::color::{Bg,Color,Rgb};
 use termion::raw::IntoRawMode;
 use termion::screen::{AlternateScreen,ToMainScreen};
 
-use conf;
-use conf::HEADER_HEIGHT;
-use game::{Game,MoveResult};
-use game::obs::{Observer,visible_coords_iter};
-use log::{LogTarget,Message,MessageSource};
-use ui::style::StrongReset;
-use unit::Sym;
-use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
+use crate::{
+    color::{Colors,Palette},
+    conf::{
+        self,
+        HEADER_HEIGHT,
+    },
+    game::{
+        Game,
+        MoveResult,
+        obs::{Observer,visible_coords_iter},
+        unit::combat::{CombatCapable,CombatOutcome,CombatParticipant},
+    },
+    log::{LogTarget,Message,MessageSource},
+    ui::{
+        style::StrongReset,
+        sym::Sym,
+    },
+};
+
+
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
 
-pub fn run(mut game: Game, term_dims: Dims) -> Result<(),String> {
+pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
-        let screen = AlternateScreen::from(stdout().into_raw_mode().unwrap());
-        let mut ui = TermUI::new(
-            game.map_dims(),
-            term_dims,
-            screen,
-        );
 
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
-        while mode.run(&mut game, &mut ui, &mut prev_mode) {
-            // nothing here
+        if use_alt_screen {//FIXME find a way to not duplicate code in both arms of this if statement
+            let mut ui = TermUI::new(
+                game.map_dims(),
+                term_dims,
+                AlternateScreen::from(stdout().into_raw_mode().unwrap()),
+                palette,
+                unicode,
+            );
+
+            while mode.run(&mut game, &mut ui, &mut prev_mode) {
+                // nothing here
+            }
+        } else {
+            let mut ui = TermUI::new(
+                game.map_dims(),
+                term_dims,
+                stdout().into_raw_mode().unwrap(),
+                palette,
+                unicode,
+            );
+
+            while mode.run(&mut game, &mut ui, &mut prev_mode) {
+                // nothing here
+            }
         }
     }
 
-    // println!("\n\n\t\tUmpire\n
-    // \tO Muse! the causes and the crimes relate;
-    // \tWhat goddess was provok'd, and whence her hate;
-    // \tFor what offense the Queen of Heav'n began
-    // \tTo persecute so brave, so just a man;
-    // \tInvolv'd his anxious life in endless cares,
-    // \tExpos'd to wants, and hurried into wars!
-    // \tCan heav'nly minds such high resentment show,
-    // \tOr exercise Their spite in human woe?");
-
-println!("\n\n\tFor Hot, Cold, Moist, and Dry, four champions fierce,
-\tStrive here for mastery, and to battle bring
-\tTheir embryon atoms: they around the flag
-\tOf each his faction, in their several clans,
-\tLight-armed or heavy, sharp, smooth, swift, or slow,
-\tSwarm populous, unnumbered as the sands
-\tOf Barca or Cyrene's torrid soil,
-\tLevied to side with warring winds, and poise
-\tTheir lighter wings.  To whom these most adhere
-\tHe rules a moment: Chaos umpire sits,
+println!("\n\n\tHe rules a moment: Chaos umpire sits,
 \tAnd by decision more embroils the fray
 \tBy which he reigns: next him, high arbiter,
 \tChance governs all.
 
-\t\t\t\tParadise Lost (2.898-910)\n");
-
-    // println!("\nThe quest awaits you.");
+\t\t\t\tParadise Lost (2.907-910)\n");
 
     Ok(())
 }
@@ -104,7 +112,7 @@ pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
 }
 
 pub trait Draw {
-    fn draw<W:Write>(&mut self, game: &Game, stdout: &mut W);
+    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>);
 }
 
 pub trait Component : Draw {
@@ -134,13 +142,13 @@ pub trait Component : Draw {
 
 mod scroll;
 
-mod color;
 mod indicators;
 pub mod log;
 mod map;
 pub mod mode;
 // pub mod sound;
 mod style;
+pub mod sym;
 
 use self::scroll::Scroller;
 use self::indicators::{CurrentPlayer,Turn};
@@ -188,7 +196,7 @@ fn current_player_rect() -> Rect {
     }
 }
 
-fn turn_rect(current_player_rect: &Rect) -> Rect {
+fn turn_rect(current_player_rect: Rect) -> Rect {
     Rect {
         left: current_player_rect.right() + 2,
         top: 0,
@@ -197,7 +205,7 @@ fn turn_rect(current_player_rect: &Rect) -> Rect {
     }
 }
 
-fn log_area_rect(viewport_rect: &Rect, term_dims: &Dims) -> Rect {
+fn log_area_rect(viewport_rect: Rect, term_dims: Dims) -> Rect {
     Rect {
         left: 0,
         top: viewport_rect.bottom() + 2,
@@ -225,28 +233,34 @@ const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
 /// The termion-based user interface.
-pub struct TermUI<W:Write> {
+pub struct TermUI<C:Color+Copy,W:Write> {
     stdout: W,
     term_dims: Dims,
     viewport_size: ViewportSize,
 
-    map_scroller: Scroller<Map>,
+    map_scroller: Scroller<Map<C>>,
     log: LogArea,
     current_player: CurrentPlayer,
     turn: Turn,
-    first_draw: bool
+    first_draw: bool,
+    palette: Rc<Palette<C>>,
+    unicode: bool,
 }
 
-impl<W:Write> TermUI<W> {
+impl<C:Color+Copy,W:Write> TermUI<C,W> {
     pub fn new(
         map_dims: Dims,
         term_dims: Dims,
         stdout: W,
+        palette: Palette<C>,
+        unicode: bool,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
 
-        let map = Map::new(viewport_rect, map_dims);
+        let palette = Rc::new(palette);
+
+        let map = Map::new(viewport_rect, map_dims, palette.clone(), unicode);
 
         let map_scroller_rect = Rect {
             left: viewport_rect.left,
@@ -257,24 +271,28 @@ impl<W:Write> TermUI<W> {
         let mut map_scroller = Scroller::new(map_scroller_rect, map);
         map_scroller.set_rect(viewport_rect);
 
-        let log_rect = log_area_rect(&viewport_rect, &term_dims);
-        let log = LogArea::new(&log_rect);
+        let log_rect = log_area_rect(viewport_rect, term_dims);
+        let log = LogArea::new(log_rect);
 
         let cp_rect = current_player_rect();
         let current_player = CurrentPlayer::new(cp_rect);
 
         let mut ui = TermUI {
-            stdout: stdout,
-            term_dims: term_dims,
-            viewport_size: viewport_size,
+            stdout,
+            term_dims,
+            viewport_size,
 
-            map_scroller: map_scroller,
-            log: log,
-            current_player: current_player,
+            map_scroller,
+            log,
+            current_player,
 
-            turn: Turn::new(&turn_rect(&cp_rect)),
+            turn: Turn::new(turn_rect(cp_rect)),
 
-            first_draw: true
+            first_draw: true,
+            
+            palette,
+
+            unicode
         };
 
         ui.clear();
@@ -316,23 +334,23 @@ impl<W:Write> TermUI<W> {
                 goto(0,0),
                 termion::style::Underline,
                 conf::APP_NAME,
-                StrongReset
+                StrongReset::new(&self.palette)
             ).unwrap();
             self.first_draw = false;
         }
 
-        self.log.draw_lite(&mut self.stdout);
-        self.current_player.draw(game, &mut self.stdout);
-        self.map_scroller.draw(game, &mut self.stdout);
-        self.turn.draw(game, &mut self.stdout);
+        self.log.draw_lite(&mut self.stdout, &self.palette);
+        self.current_player.draw(game, &mut self.stdout, &self.palette);
+        self.map_scroller.draw(game, &mut self.stdout, &self.palette);
+        self.turn.draw(game, &mut self.stdout, &self.palette);
 
-        write!(self.stdout, "{}{}", StrongReset, termion::cursor::Hide).unwrap();
+        write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         self.stdout.flush().unwrap();
     }
 
-    fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location) {
-        let unit = game.unit(unit_loc).unwrap();
-        for inc in visible_coords_iter(unit.sight_distance()) {
+    fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location, unit_sight_distance: u16) {
+        // let unit = game.unit_by_loc(unit_loc).unwrap();
+        for inc in visible_coords_iter(unit_sight_distance) {
             if let Some(loc) = wrapped_add(unit_loc, inc, game.map_dims(), game.wrapping()) {
 
                 if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
@@ -342,16 +360,20 @@ impl<W:Write> TermUI<W> {
         }
     }
 
-    fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(&mut self, game: &Game, outcome: &CombatOutcome<A,D>, attacker_loc: Location,
-                defender_loc: Location) {
+    fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(
+        &mut self,
+        game: &Game,
+        outcome: &CombatOutcome<A,D>,
+        attacker_loc: Location,
+        defender_loc: Location) {
 
         let viewport_dims = self.map_scroller.viewport_dims();
         let map = &mut self.map_scroller.scrollable;
 
         let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc, viewport_dims);
         let defender_viewport_loc = map.map_to_viewport_coords(defender_loc, viewport_dims);
-        let attacker_sym = outcome.attacker().sym();
-        let defender_sym = outcome.defender().sym();
+        let attacker_sym = outcome.attacker().sym(self.unicode);
+        let defender_sym = outcome.defender().sym(self.unicode);
 
         for damage_recipient in outcome.received_damage_sequence() {
             let viewport_loc = match *damage_recipient {
@@ -381,38 +403,45 @@ impl<W:Write> TermUI<W> {
         write!(self.stdout, "{}", ToMainScreen).unwrap();
     }
 
-    pub fn cursor_viewport_loc(&self, mode: &Mode) -> Option<Location> {
+    pub fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
         let viewport_dims = self.map_scroller.viewport_dims();
         let map = &self.map_scroller.scrollable;
 
         match *mode {
-            Mode::SetProduction{loc} | Mode::GetUnitOrders{loc,..} =>
-                    map.map_to_viewport_coords(loc, viewport_dims),
+            Mode::SetProduction{city_loc} => map.map_to_viewport_coords(city_loc, viewport_dims),
+            Mode::GetUnitOrders{unit_id,..} => {
+                let unit_loc = game.unit_loc(unit_id).unwrap();
+                map.map_to_viewport_coords(unit_loc, viewport_dims)
+            },
             _ => None
         }
     }
 
-    pub fn cursor_map_loc(&self, mode: &Mode) -> Option<Location> {
+    pub fn cursor_map_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
         match *mode {
-            Mode::SetProduction{loc} | Mode::GetUnitOrders{loc,..} => Some(loc),
+            Mode::SetProduction{city_loc} => Some(city_loc),
+            Mode::GetUnitOrders{unit_id,..} => {
+                let unit_loc = game.unit_loc(unit_id).unwrap();
+                Some(unit_loc)
+            },
             _ => None
         }
     }
 }
 
-impl <W:Write> LogTarget for TermUI<W> {
+impl <C:Color+Copy,W:Write> LogTarget for TermUI<C,W> {
     fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
-        self.log.draw_lite(&mut self.stdout);
+        self.log.draw_lite(&mut self.stdout, &self.palette);
     }
 
     fn replace_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.replace(Message::from(message));
-        self.log.draw_lite(&mut self.stdout);
+        self.log.draw_lite(&mut self.stdout, &self.palette);
     }
 }
 
-impl <W:Write> MoveAnimator for TermUI<W> {
+impl <C:Color+Copy,W:Write> MoveAnimator for TermUI<C,W> {
     fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
         let mut current_loc = move_result.starting_loc();
 
@@ -435,7 +464,7 @@ impl <W:Write> MoveAnimator for TermUI<W> {
                     if was_combat {"victorious"} else {"moved successfully"}
                 } else {"destroyed"}),
                 mark: Some('*'),
-                fg_color: Some(Rgb(240, 5, 5)),
+                fg_color: Some(Colors::Combat),
                 bg_color: None,
                 source: Some(MessageSource::UI)
             });
@@ -451,7 +480,7 @@ impl <W:Write> MoveAnimator for TermUI<W> {
             }
 
             if move_.moved_successfully() {
-                self.draw_unit_observations(game, target_loc);
+                self.draw_unit_observations(game, target_loc, move_result.unit().sight_distance());
             }
 
             current_loc = target_loc;
