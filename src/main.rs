@@ -7,17 +7,13 @@
 // FIXME Don't let aircraft or naval vessels conquer cities
 // FIXME Require production to be re-set when a city is conquered from another player
 // FIXME Make it clear when a unit is inside a city
-// FIXME Don't let units have land or water color
 // FIXME Make Map::draw_tile faster, maybe by eliminating tile cloning
 // FIXME Fix problems with small map sizes: 1) crash if viewport is larger than map 2) limitless wrapping where we should only wrap once
 // TODO Implement transport functionality
 // TODO Implement carrier functionality
-// TODO Allow sentry
-// TODO Allow skipping a turn for a particular unit
 // TODO Auto-explore mode for units
 // TODO Fuel limits for aircraft
 // TODO Long-range movement from examine mode
-// TODO Allow activation of a unit from examine mode
 // TODO Show owner of city or unit in examine mode
 // TODO Game save/load
 // TODO Announce new unit creation
