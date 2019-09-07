@@ -6,7 +6,7 @@ use std::fmt;
 
 use crate::color::{Colors,Colorized};
 use game::{Aligned,AlignedMaybe,Alignment};
-use unit::{City,Sym,Unit};
+use unit::{City,Unit};
 use util::Location;
 
 
@@ -53,16 +53,6 @@ pub struct Tile {
 impl Tile {
     pub fn new(terrain: Terrain, loc: Location) -> Tile {
         Tile{ terrain, unit: None, city: None, loc }
-    }
-
-    pub fn sym(&self) -> &'static str {
-        if let Some(ref unit) = self.unit {
-            unit.sym()
-        } else if let Some(ref city) = self.city {
-            city.sym()
-        } else {
-            " "
-        }
     }
 
     pub fn pop_unit(&mut self) -> Option<Unit> {

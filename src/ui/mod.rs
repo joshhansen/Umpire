@@ -13,6 +13,7 @@ use termion::color::{Bg,Color,Rgb};
 use termion::raw::IntoRawMode;
 use termion::screen::{AlternateScreen,ToMainScreen};
 
+use crate::ui::sym::Sym;
 use color::{Colors,Palette};
 use conf;
 use conf::HEADER_HEIGHT;
@@ -20,11 +21,10 @@ use game::{Game,MoveResult};
 use game::obs::{Observer,visible_coords_iter};
 use log::{LogTarget,Message,MessageSource};
 use ui::style::StrongReset;
-use unit::Sym;
 use unit::combat::{CombatCapable,CombatOutcome,CombatParticipant};
 use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
 
-pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>) -> Result<(),String> {
+pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
 
         let mut prev_mode: Option<Mode> = None;
@@ -35,6 +35,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
                 term_dims,
                 AlternateScreen::from(stdout().into_raw_mode().unwrap()),
                 palette,
+                unicode,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
@@ -46,6 +47,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
                 term_dims,
                 stdout().into_raw_mode().unwrap(),
                 palette,
+                unicode,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
@@ -135,6 +137,7 @@ mod map;
 pub mod mode;
 // pub mod sound;
 mod style;
+pub mod sym;
 
 use self::scroll::Scroller;
 use self::indicators::{CurrentPlayer,Turn};
@@ -230,6 +233,7 @@ pub struct TermUI<C:Color+Copy,W:Write> {
     turn: Turn,
     first_draw: bool,
     palette: Rc<Palette<C>>,
+    unicode: bool,
 }
 
 impl<C:Color+Copy,W:Write> TermUI<C,W> {
@@ -238,13 +242,14 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
         term_dims: Dims,
         stdout: W,
         palette: Palette<C>,
+        unicode: bool,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
 
         let palette = Rc::new(palette);
 
-        let map = Map::new(viewport_rect, map_dims, palette.clone());
+        let map = Map::new(viewport_rect, map_dims, palette.clone(), unicode);
 
         let map_scroller_rect = Rect {
             left: viewport_rect.left,
@@ -274,7 +279,9 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
 
             first_draw: true,
             
-            palette
+            palette,
+
+            unicode
         };
 
         ui.clear();
@@ -354,8 +361,8 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
 
         let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc, viewport_dims);
         let defender_viewport_loc = map.map_to_viewport_coords(defender_loc, viewport_dims);
-        let attacker_sym = outcome.attacker().sym();
-        let defender_sym = outcome.defender().sym();
+        let attacker_sym = outcome.attacker().sym(self.unicode);
+        let defender_sym = outcome.defender().sym(self.unicode);
 
         for damage_recipient in outcome.received_damage_sequence() {
             let viewport_loc = match *damage_recipient {

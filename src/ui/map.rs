@@ -5,15 +5,22 @@ use termion::color::{Color,Fg, Bg};
 use termion::cursor::Hide;
 use termion::style::{Blink,Bold,Invert,Italic,Underline};
 
-use color::{Colors,Colorized,Palette};
-use game::{AlignedMaybe,Game};
-use game::obs::Obs;
-use map::{LocationGrid,Tile};
-use ui::{Component,Draw};
-use ui::scroll::{ScrollableComponent};
-use ui::style::StrongReset;
-use unit::orders::Orders;
-use util::{Dims,Location,Rect,Vec2d};
+use crate::{
+    color::{Colors,Colorized,Palette},
+    game::{
+        AlignedMaybe,Game,
+        obs::Obs,
+    },
+    map::{LocationGrid,Tile},
+    ui::{
+        Component,Draw,
+        scroll::ScrollableComponent,
+        style::StrongReset,
+        sym::Sym,
+    },
+    unit::orders::Orders,
+    util::{Dims,Location,Rect,Vec2d}
+};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
     let mut result = x;
@@ -129,9 +136,10 @@ pub struct Map<C:Color+Copy> {
     displayed_tiles: LocationGrid<Option<Tile>>,
     displayed_tile_currentness: LocationGrid<Option<bool>>,
     palette: Rc<Palette<C>>,
+    unicode: bool,
 }
 impl <C:Color+Copy> Map<C> {
-    pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette<C>>) -> Self {
+    pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette<C>>, unicode: bool) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
         let displayed_tile_currentness = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
@@ -141,7 +149,8 @@ impl <C:Color+Copy> Map<C> {
             viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2),
             displayed_tiles,
             displayed_tile_currentness,
-            palette
+            palette,
+            unicode,
         }
     }
 
@@ -188,14 +197,16 @@ impl <C:Color+Copy> Map<C> {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    //TODO Replace this with draw_obs
+    /// Renders a particular location in the viewport
     pub fn draw_tile<W:Write>(&mut self,
             game: &Game,
             stdout: &mut W,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
-            symbol: Option<&'static str>) {
+
+            // A symbol to show instead of what's actually at this location
+            symbol_override: Option<&'static str>) {
 
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
@@ -204,16 +215,8 @@ impl <C:Color+Copy> Map<C> {
         }
 
         write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
-        
 
-        // let currently_observed = game.current_player_obs(tile_loc) == Some(&Obs::Current);
-        let currently_observed = if let Obs::Observed{turn,..} = game.current_player_obs(tile_loc) {
-            *turn == game.turn()
-        } else {
-            false
-        };
-
-        if let Some(tile) = game.current_player_tile(tile_loc) {
+        if let Obs::Observed{tile, turn, current} = game.current_player_obs(tile_loc) {
             if highlight {
                 write!(stdout, "{}", Invert).unwrap();
             }
@@ -222,26 +225,30 @@ impl <C:Color+Copy> Map<C> {
                 write!(stdout, "{}{}", Blink, Bold).unwrap();
             }
 
-            // if let Some(fg_color) = tile.color_pair(&self.palette) {
-            if let Some(fg_color) = tile.color() {
-                write!(stdout, "{}", Fg(self.palette.get(fg_color, currently_observed))).unwrap();
-            }
-
-            if let Some(ref unit) = tile.unit {
+            let (sym, fg_color, bg_color) = if let Some(ref unit) = tile.unit {
                 if let Some(orders) = unit.orders() {
                     if *orders == Orders::Sentry {
                         write!(stdout, "{}", Italic).unwrap();
                     }
                 }
-            }
 
-            write!(stdout, "{}{}",
-                Bg(self.palette.get(tile.terrain.color().unwrap(), currently_observed)),
-                symbol.unwrap_or(tile.sym())
-            ).unwrap();
+                (unit.sym(self.unicode), unit.color(), tile.terrain.color())
+            } else if let Some(ref city) = tile.city {
+                (city.sym(self.unicode), city.alignment.color(), tile.terrain.color())
+            } else {
+                (tile.sym(self.unicode), None, tile.terrain.color())
+            };
+
+            if let Some(fg_color) = fg_color {
+                write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
+            }
+            if let Some(bg_color) = bg_color {
+                write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
+            }
+            write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
 
             self.displayed_tiles[viewport_loc] = Some(tile.clone());
-            self.displayed_tile_currentness[viewport_loc] = Some(currently_observed);
+            self.displayed_tile_currentness[viewport_loc] = Some(*current);
         } else {
             if highlight {
                 write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
@@ -318,7 +325,7 @@ impl <C:Color+Copy> Draw for Map<C> {
                         let new = new_tile.unwrap();
                         let redraw_for_mismatch = !(
                             old.terrain==new.terrain &&
-                            old.sym() == new.sym() &&
+                            old.sym(self.unicode) == new.sym(self.unicode) &&
                             old.alignment_maybe() == new.alignment_maybe()
                         );
                         redraw_for_mismatch

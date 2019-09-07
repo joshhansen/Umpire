@@ -164,6 +164,12 @@ fn main() {
                     width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
                 })
             )
+            .arg(Arg::with_name("unicode")
+                .short("u")
+                .long("unicode")
+                .help("Enable Unicode support")
+                
+            )
         .get_matches();
 
         print_loading_screen();
@@ -175,6 +181,7 @@ fn main() {
         let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
         let color_depth: u16 = matches.value_of("colors").unwrap().parse().unwrap();
         let fog_darkness: f64 = matches.value_of("fog_darkness").unwrap().parse().unwrap();
+        let unicode: bool = matches.is_present("unicode");
 
         let map_dims: Dims = Dims::new(map_width, map_height);
 
@@ -193,12 +200,12 @@ fn main() {
                                     256 => palette256(),
                                     _ => unreachable!()
                                 };
-                                run_ui(game, dims, use_alt_screen, palette);
+                                run_ui(game, dims, use_alt_screen, palette, unicode);
 
                             },
                             24 => {
                                 match palette24(num_players, fog_darkness) {
-                                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette),
+                                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette, unicode),
                                     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
                                 }
                             },
@@ -219,8 +226,8 @@ fn main() {
     }
 }
 
-fn run_ui<C:Color+Copy>(game: Game, dims: Dims, use_alt_screen: bool, palette: Palette<C>) {
-    if let Err(msg) = ui::run(game, dims, use_alt_screen, palette) {
+fn run_ui<C:Color+Copy>(game: Game, dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool) {
+    if let Err(msg) = ui::run(game, dims, use_alt_screen, palette, unicode) {
         eprintln!("Error running UI: {}", msg);
     }
 }

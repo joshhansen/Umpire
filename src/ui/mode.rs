@@ -14,6 +14,7 @@ use map::Tile;
 use map::newmap::UnitID;
 use ui::{Draw,MoveAnimator,TermUI,sidebar_rect};
 use ui::scroll::ScrollableComponent;
+use ui::sym::Sym;
 use unit::{UnitType};
 use unit::orders::Orders;
 use util::{Direction,Location,Rect,WRAP_NEITHER};
@@ -51,7 +52,7 @@ impl Mode {
             Mode::SetProduction{city_loc} => {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                SetProductionMode{rect, loc:city_loc}.run(game, ui, self, prev_mode)
+                SetProductionMode{rect, loc:city_loc, unicode: ui.unicode}.run(game, ui, self, prev_mode)
             },
             Mode::GetOrders =>          GetOrdersMode{}.run(game, ui, self, prev_mode),
             Mode::GetUnitOrders{unit_id,first_move} =>      {
@@ -218,9 +219,11 @@ impl IMode for SetProductionsMode {
     }
 }
 
+const PROD_COL_WIDTH: u16 = 21;
 struct SetProductionMode {
     loc: Location,
-    rect: Rect
+    rect: Rect,
+    unicode: bool,
 }
 impl SetProductionMode {
     fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
@@ -232,8 +235,8 @@ impl SetProductionMode {
         for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
             let y = i as u16 + 2;
 
-            let mut char_and_name = format!(" {} - {}", unit_type.key(), unit_type.name());
-            while char_and_name.len() < 16 {
+            let mut char_and_name = format!(" [{}] {} - {}", unit_type.key(), unit_type.sym(self.unicode), unit_type.name());
+            while char_and_name.len() < PROD_COL_WIDTH as usize {
                 char_and_name.push(' ');
             }
 
@@ -241,7 +244,7 @@ impl SetProductionMode {
                 self.goto(0, y),
                 char_and_name).unwrap();
             write!(*stdout, "{}[{}]       ",
-                self.goto(16, y),
+                self.goto(PROD_COL_WIDTH, y),
                 unit_type.cost()).unwrap();
         }
 

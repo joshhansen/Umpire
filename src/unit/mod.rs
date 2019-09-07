@@ -6,20 +6,22 @@ pub mod orders;
 use std::cmp::Ordering;
 use std::fmt;
 
-use game::{Aligned,Alignment};
-use game::obs::Observer;
-use map::{Terrain,Tile};
-use map::newmap::{CityID,UnitID};
-use util::Location;
+use crate::{
+    color::{Colorized,Colors},
+    game::{
+        Aligned,Alignment,
+        obs::Observer,
+    },
+    map::{Terrain,Tile},
+    map::newmap::{CityID,UnitID},
+    util::Location,
+};
+
 use self::orders::Orders;
 
 
 pub trait Located {
     fn loc(&self) -> Location;
-}
-
-pub trait Sym {
-    fn sym(&self) -> &'static str;
 }
 
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
@@ -236,26 +238,15 @@ impl Unit {
     }
 }
 
-impl Sym for Unit {
-    fn sym(&self) -> &'static str {
-        match self.type_ {
-            UnitType::Infantry => "i",
-            UnitType::Armor => "A",
-            UnitType::Fighter => "f",//"✈",
-            UnitType::Bomber => "b",
-            UnitType::Transport => "t",
-            UnitType::Destroyer => "d",
-            UnitType::Submarine => "—",
-            UnitType::Cruiser => "c",
-            UnitType::Battleship => "B",
-            UnitType::Carrier => "C"
-        }
-    }
-}
-
 impl Aligned for Unit {
     fn alignment(&self) -> Alignment {
         self.alignment
+    }
+}
+
+impl Colorized for Unit {
+    fn color(&self) -> Option<Colors> {
+        self.alignment.color()
     }
 }
 
@@ -331,10 +322,6 @@ impl Observer for City {
     fn sight_distance(&self) -> u16 {
         3
     }
-}
-
-impl Sym for City {
-    fn sym(&self) -> &'static str { "#" }
 }
 
 #[cfg(test)]

@@ -405,29 +405,12 @@ impl Game {
         }
     }
 
-    fn tile(&self, loc: Location) -> Option<&Tile> {
-        self.map.tile(loc)
-    }
-
-    // #[deprecated]
-    // fn tile_mut(&mut self, loc: Location) -> Option<&mut Tile> {
-    //     self.map.tile_mut(loc)
-    // }
-
     pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
         if let Obs::Observed{tile,..} = self.current_player_obs(loc) {
             Some(tile)
         } else {
             None
         }
-        // self.current_player_obs(loc).map(|obs| obs.tile())
-        // let obs = self.current_player_obs(loc).unwrap();
-
-        // match *obs {
-        //     Obs::Current{ref tile,turn:_turn} => Some(tile),// self.tile(loc),
-        //     Obs::Observed{ref tile,turn:_turn} => Some(tile),
-        //     Obs::Unobserved => None
-        // }
     }
 
     pub fn current_player_obs(&self, loc: Location) -> &Obs {
