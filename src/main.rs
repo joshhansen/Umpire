@@ -35,7 +35,6 @@ pub mod game;
 pub mod log;
 #[macro_use]
 mod macros;
-pub mod map;
 pub mod name;
 pub mod ui;
 pub mod util;

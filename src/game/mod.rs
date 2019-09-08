@@ -3,6 +3,7 @@
 //!
 //! This implements the game logic without regard for user interface.
 
+pub mod map;
 pub mod obs;
 pub mod unit;
 
@@ -12,6 +13,12 @@ use std::collections::{BTreeSet,HashMap};
 use crate::{
     color::{Colors,Colorized},
     game::{
+        map::{
+            Tile,
+            gen::MapGenerator,
+            dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths},
+            newmap::{CityID,MapData,NewUnitError,UnitID},
+        },
         obs::{Obs,Observer,ObsTracker},
         unit::{
             City,Unit,UnitType,
@@ -20,12 +27,6 @@ use crate::{
         },
     },
     log::{LogTarget,Message,MessageSource},
-    map::{
-        Tile,
-        gen::MapGenerator,
-        dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths},
-        newmap::{CityID,MapData,NewUnitError,UnitID},
-    },
     name::{Namer,CompoundNamer,ListNamer,WeightedNamer},
     ui::MoveAnimator,
     util::{Dims,Location,Wrap,Wrap2d}

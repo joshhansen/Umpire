@@ -2,12 +2,21 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::iter::FromIterator;
 
-use game::{AlignedMaybe,Alignment,PlayerNum};
-use game::unit::{City,Unit,UnitType};
-use map::{Terrain,Tile};
-use map::dijkstra::Source;
-use map::grid::LocationGrid;
-use util::{Dims,Location};
+use crate::{
+    game::{
+        AlignedMaybe,
+        Alignment,
+        PlayerNum,
+        unit::{City,Unit,UnitType},
+        map::{
+            Terrain,
+            Tile,
+            dijkstra::Source,
+            grid::LocationGrid,
+        },
+    },
+    util::{Dims,Location},
+};
 
 #[derive(Clone,Copy,Debug,Eq,Hash,PartialEq)]
 pub struct CityID {

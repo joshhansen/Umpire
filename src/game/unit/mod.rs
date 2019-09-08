@@ -9,11 +9,15 @@ use std::fmt;
 use crate::{
     color::{Colorized,Colors},
     game::{
-        Aligned,Alignment,
+        Aligned,
+        Alignment,
+        map::{
+            Terrain,
+            Tile,
+            newmap::{CityID,UnitID},
+        },
         obs::Observer,
     },
-    map::{Terrain,Tile},
-    map::newmap::{CityID,UnitID},
     util::Location,
 };
 

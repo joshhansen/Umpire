@@ -1,9 +1,20 @@
-use game::Game;
-use log::LogTarget;
-use map::dijkstra::{UnitMovementFilter,Xenophile,nearest_reachable_adjacent_unobserved,shortest_paths};
-use map::newmap::UnitID;
-use ui::MoveAnimator;
-use util::Location;
+use crate::{
+    game::{
+        Game,
+        map::{
+            dijkstra::{
+                UnitMovementFilter,
+                Xenophile,
+                nearest_reachable_adjacent_unobserved,
+                shortest_paths
+            },
+            newmap::UnitID,
+        }
+    },
+    log::LogTarget,
+    ui::MoveAnimator,
+    util::Location
+};
 
 #[derive(Clone,Debug,PartialEq)]
 pub enum Orders {

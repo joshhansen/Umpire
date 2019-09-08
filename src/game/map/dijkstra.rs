@@ -8,10 +8,10 @@ use std::ops::{Index,IndexMut};
 
 use crate::{
     game::{
+        map::{LocationGrid,Terrain,Tile},
         obs::Obs,
         unit::{Unit,UnitType},
     },
-    map::{LocationGrid,Terrain,Tile},
     util::{Dims,Location,Vec2d,Wrap2d,wrapped_add},
 };
 

@@ -1,7 +1,12 @@
 use crate::{
-    game::TurnNum,
-    map::{LocationGrid,Tile},
-    map::dijkstra::Source,
+    game::{
+        TurnNum,
+        map::{
+            LocationGrid,
+            Tile,
+            dijkstra::Source,
+        },
+    },
     util::{Dims,Location,Vec2d,Wrap2d,wrapped_add},
 };
 

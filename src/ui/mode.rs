@@ -7,21 +7,30 @@ use termion::cursor::Goto;
 use termion::event::Key;
 use termion::input::TermRead;
 
-use conf;
-use game::{
-    AlignedMaybe,Game,GameError,
-    unit::{
-        UnitType,
-        orders::Orders,
+use crate::{
+    conf,
+    game::{
+        AlignedMaybe,
+        Game,
+        GameError,
+        map::Tile,
+        map::newmap::UnitID,
+        unit::{
+            UnitType,
+            orders::Orders,
+        },
     },
+    log::{LogTarget,Message,MessageSource},
+    ui::{
+        Draw,
+        MoveAnimator,
+        TermUI,
+        sidebar_rect,
+        scroll::ScrollableComponent,
+        sym::Sym,
+    },
+    util::{Direction,Location,Rect,WRAP_NEITHER},
 };
-use log::{LogTarget,Message,MessageSource};
-use map::Tile;
-use map::newmap::UnitID;
-use ui::{Draw,MoveAnimator,TermUI,sidebar_rect};
-use ui::scroll::ScrollableComponent;
-use ui::sym::Sym;
-use util::{Direction,Location,Rect,WRAP_NEITHER};
 
 fn get_key() -> Key {
     let stdin = stdin();

@@ -3,13 +3,21 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::ops::{Index,IndexMut};
 
-use game::{Alignment,PlayerNum};
-use game::obs::Obs;
-use game::unit::City;
-use map::{Terrain,Tile};
-use map::dijkstra::Source;
-use map::newmap::CityID;
-use util::{Dims,Location};
+use crate::{
+    game::{
+        Alignment,
+        PlayerNum,
+        map::{
+            Terrain,
+            Tile,
+            dijkstra::Source,
+            newmap::CityID,
+        },
+        obs::Obs,
+        unit::City,
+    },
+    util::{Dims,Location},
+};
 
 pub struct LocationGrid<T> {
     grid: Vec<Vec<T>>,//grid[col i.e. x][row i.e. y]

@@ -1,8 +1,14 @@
 //! Symbols used by the text UI
 
 use crate::{
-    game::unit::{City,Unit,UnitType},
-    map::{Terrain,Tile},
+    game::{
+        map::{Terrain,Tile},
+        unit::{
+            City,
+            Unit,
+            UnitType,
+        },
+    },
 };
 
 pub trait Sym {

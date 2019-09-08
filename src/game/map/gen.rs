@@ -8,12 +8,15 @@ use rand::{Rng, ThreadRng, thread_rng};
 
 use crate::{
     conf,
-    game::{Alignment,PlayerNum},
-    map::{
-        Terrain,
-        Tile,
-        dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL},
-        newmap::MapData,
+    game::{
+        Alignment,
+        PlayerNum,
+        map::{
+            Terrain,
+            Tile,
+            dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL},
+            newmap::MapData,
+        },
     },
     name::{ListNamer,Namer},
     util::{Dims,Location,WRAP_NEITHER},

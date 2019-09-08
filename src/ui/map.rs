@@ -8,11 +8,12 @@ use termion::style::{Blink,Bold,Invert,Italic,Underline};
 use crate::{
     color::{Colors,Colorized,Palette},
     game::{
-        AlignedMaybe,Game,
+        AlignedMaybe,
+        Game,
+        map::{LocationGrid,Tile},
         obs::Obs,
         unit::orders::Orders,
     },
-    map::{LocationGrid,Tile},
     ui::{
         Component,Draw,
         scroll::ScrollableComponent,
