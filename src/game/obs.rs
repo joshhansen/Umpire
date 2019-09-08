@@ -84,12 +84,20 @@ pub trait Observer {
 
 #[cfg(test)]
 mod test {
-    use game::Alignment;
-    use game::obs::{Obs,Observer,ObsTracker};
-    use game::unit::{Unit,UnitType};
-    use map::{LocationGrid,Terrain,Tile};
-    use map::newmap::UnitID;
-    use util::{Dims,Location,WRAP_BOTH};
+    use crate::{
+        game::{
+            Alignment,
+            map::{
+                LocationGrid,
+                Terrain,
+                Tile,
+                newmap::UnitID,
+            },
+            obs::{Obs,Observer,ObsTracker},
+            unit::{Unit,UnitType},
+        },
+        util::{Dims,Location,WRAP_BOTH},
+    };
     
     #[test]
     fn test_fog_of_war_tracker() {

@@ -289,9 +289,13 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
 mod test {
     use std::convert::TryFrom;
 
-    use game::obs::Obs;
-    use map::{Terrain,Tile};
-    use util::{Dims,Location};
+    use crate::{
+        game::{
+            obs::Obs,
+            map::{Terrain,Tile},
+        },
+        util::{Dims,Location},
+    };
 
     use super::LocationGrid;
 

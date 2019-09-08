@@ -1,8 +1,11 @@
 use crate::{
     game::{
         Game,
+        MoveComponent,
+        MoveResult,
         map::{
             dijkstra::{
+                ObservedFilter,
                 UnitMovementFilter,
                 Xenophile,
                 nearest_reachable_adjacent_unobserved,
@@ -11,12 +14,10 @@ use crate::{
             newmap::UnitID,
         }
     },
-    log::LogTarget,
-    ui::MoveAnimator,
     util::Location
 };
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 pub enum Orders {
     Skip,
     Sentry,
@@ -24,28 +25,78 @@ pub enum Orders {
     Explore
 }
 
+#[derive(Copy,Clone)]
 pub enum OrdersStatus {
     InProgress,
     Completed
 }
 
-type OrdersResult = Result<OrdersStatus,String>;
+// pub enum OrdersResult {
+//     Skip,
+//     Sentry,
+//     GoTo {
+//         move_: MoveResult,
+//         status: OrdersStatus,
+//     },
+//     Explore {
+//         move_: MoveResult,
+
+//     }
+// }
+
+pub struct OrdersOutcome {
+    pub move_result: Option<MoveResult>,
+    pub status: OrdersStatus,
+}
+impl OrdersOutcome {
+    pub fn completed_without_move() -> Self {
+        Self { move_result: None, status: OrdersStatus::Completed }
+    }
+
+    pub fn in_progress_without_move() -> Self {
+        Self { move_result: None, status: OrdersStatus::InProgress }
+    }
+
+    pub fn in_progress_with_move(move_result: MoveResult) -> Self {
+        Self { move_result: Some(move_result), status: OrdersStatus::InProgress }
+    }
+
+    pub fn completed_with_move(move_result: MoveResult) -> Self {
+        Self { move_result: Some(move_result), status: OrdersStatus::Completed }
+    }
+
+    pub fn move_result(&self) -> Option<&MoveResult> {
+        self.move_result.as_ref()
+    }
+
+    pub fn status(&self) -> OrdersStatus  {
+        self.status
+    }
+}
+
+// type GoToResult = Result<(MoveResult,OrdersStatus),String>;
+
+// type ExploreResult = Result<(MoveResult,OrdersStatus),String>;
+
+// type OrdersResult = Result<OrdersStatus,String>;
+pub type OrdersResult = Result<OrdersOutcome,String>;
 
 impl Orders {
-    pub fn carry_out<U:LogTarget+MoveAnimator>(&self, unit_id: UnitID, game: &mut Game, ui: &mut U) -> OrdersResult {
+    pub fn carry_out(&self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
         match *self {
             Orders::Skip => {
-                game.give_orders(unit_id, None, ui, false).map(|_| OrdersStatus::Completed)
+                game.set_orders(unit_id, None).map(|_| OrdersOutcome::completed_without_move())
             },
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
-                Ok(OrdersStatus::InProgress)
+                Ok(OrdersOutcome::in_progress_without_move())
+
             },
             Orders::GoTo{dest} => {
-                go_to(game, unit_id, dest, ui)
+                go_to(game, unit_id, dest)
             },
             Orders::Explore => {
-                explore(game, unit_id, ui)
+                explore(game, unit_id)
             }
         }//match orders
     }
@@ -66,7 +117,7 @@ www
 
 
 */
-pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &mut U) -> OrdersResult {
+pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
     // // Shortest paths emanating from the starting location, considering only observed tiles
     // let shortest_paths_observed = shortest_paths_unit_limited(game, starting_loc,
     //                                             game.unit(starting_loc).unwrap(), game.wrapping());
@@ -78,22 +129,44 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &
     //
     //
     let mut current_loc = game.unit_by_id(unit_id).unwrap().loc;
+    let starting_loc = current_loc;
+    let mut moves: Vec<MoveComponent> = Vec::new();
+    // let mut unit = None;
     loop {
-        let unit = game.unit_by_id(unit_id).unwrap();
+        let mut unit = game.unit_by_id(unit_id).unwrap().clone();
+        if unit.moves_remaining() == 0 {
+            return Ok(OrdersOutcome::in_progress_with_move(MoveResult::new(unit, starting_loc, moves).unwrap()));
+        }
 
-        if let Some(goal) = nearest_reachable_adjacent_unobserved(game, current_loc, unit, game.wrapping()) {
+        if let Some(mut goal) = nearest_reachable_adjacent_unobserved(game, current_loc, &unit, game.wrapping()) {
 
-            if unit.moves_remaining == 0 {
-                return Ok(OrdersStatus::InProgress);
+            // if unit.moves_remaining == 0 {
+            //     return Ok(OrdersStatus::InProgress);
+            // }
+
+            let shortest_paths = shortest_paths(game, unit.loc, &ObservedFilter{}, game.wrapping());
+
+            let mut dist_to_real_goal = shortest_paths.dist[goal].unwrap();
+            while dist_to_real_goal > unit.moves_remaining() {
+                goal = shortest_paths.prev[goal].unwrap();
+                dist_to_real_goal -= 1;
             }
 
+
             match game.move_unit_by_id(unit_id, goal) {
-                Ok(move_result) => {
-                    ui.animate_move(game, &move_result);
+                Ok(mut move_result) => {
+                    // ui.animate_move(game, &move_result);
 
                     if move_result.moved_successfully() {
                         current_loc = move_result.ending_loc().unwrap();
+                        moves.append(&mut move_result.moves);
                     }
+
+                    // Update the unit so that if/when we return it, it has the correct number of moves
+                    // unit.moves_remaining -= move_result.moves.len();
+
+                    unit.loc = move_result.ending_loc().unwrap();
+                    unit.record_movement(move_result.moves.len() as u16).unwrap();
                 },
                 Err(msg) => {
                     return Err(format!("Error moving unit toward {}: {}", goal, msg));
@@ -101,8 +174,13 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &
             }
 
         } else {
-            game.give_orders(unit_id, None, ui, false).unwrap();
-            return Ok(OrdersStatus::Completed);
+            // game.give_orders(unit_id, None, ui, false).unwrap();
+            return game.set_orders(unit_id, None)
+                .map(|_| OrdersOutcome::completed_with_move(
+                    MoveResult::new(unit, starting_loc, moves).unwrap()
+                )
+            );
+            // return Ok(OrdersStatus::Completed);
         }
     }
 }
@@ -119,8 +197,8 @@ pub fn explore<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, ui: &
 /// So, in all cases, the right thing to do is to go to the observed, accessible tile nearest the
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
-pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: Location, ui: &mut U) -> OrdersResult {
-    ui.log_message(format!("Destination 1: {}", dest));
+pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
+    // ui.log_message(format!("Destination 1: {}", dest));
     // let moves_remaining = {
     //     game.unit_by_id(unit_id).unwrap().moves_remaining
     // };
@@ -142,7 +220,7 @@ pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: L
         (moves_remaining, shortest_paths)
     };
 
-    ui.log_message(format!("Destination 3: {}", dest));
+    // ui.log_message(format!("Destination 3: {}", dest));
     // Find the observed tile on the path from source to destination that is nearest to the
     // destination but also within reach of this unit's limited moves
     let mut dest = dest;
@@ -161,26 +239,33 @@ pub fn go_to<U:LogTarget+MoveAnimator>(game: &mut Game, unit_id: UnitID, dest: L
     }
     let dest = dest;
 
-    ui.log_message(format!("Destination 4: {}", dest));
+    // ui.log_message(format!("Destination 4: {}", dest));
     //
     // let dest = {
     //     let unit = game.unit(src).unwrap();
     //     nearest_reachable_adjacent_unobserved(game, src, &unit, game.wrapping())
     // };
 
-    match game.move_unit_by_id(unit_id, dest) {
-        Ok(move_result) => {
-            ui.animate_move(game, &move_result);
+    game.move_unit_by_id(unit_id, dest)
+        .map(|move_result| {
+            // ui.animate_move(game, &move_result);
 
-            if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
-                game.give_orders(unit_id, None, ui, false).unwrap();
-                Ok(OrdersStatus::Completed)
+            let status = if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
+                // game.give_orders(unit_id, None, ui, false).unwrap();
+                game.set_orders(unit_id, None).unwrap();
+                // Ok(OrdersStatus::Completed)
+                OrdersStatus::Completed
+                
             } else {
-                Ok(OrdersStatus::InProgress)
+                // Ok(OrdersStatus::InProgress)
+                OrdersStatus::InProgress
+            };
+            OrdersOutcome {
+                move_result: Some(move_result),
+                status
             }
-        },
-        Err(msg) => {
-            Err(format!("Error moving unit toward {}: {}", dest, msg))
-        }
-    }
+        })
+        .map_err(|msg| {
+            format!("Error moving unit toward {}: {}", dest, msg)
+        })
 }

@@ -227,8 +227,8 @@ impl <C:Color+Copy> Map<C> {
             }
 
             let (sym, fg_color, bg_color) = if let Some(ref unit) = tile.unit {
-                if let Some(orders) = unit.orders() {
-                    if *orders == Orders::Sentry {
+                if let Some(orders) = unit.orders {
+                    if orders == Orders::Sentry {
                         write!(stdout, "{}", Italic).unwrap();
                     }
                 }

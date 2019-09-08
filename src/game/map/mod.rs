@@ -116,11 +116,18 @@ pub use self::grid::LocationGrid;
 
 #[cfg(test)]
 mod test {
-    use game::Alignment;
-    use game::unit::{Unit,UnitType};
-    use map::{Terrain,Tile};
-    use map::newmap::UnitID;
-    use util::Location;
+    use crate::{
+        game::{
+            Alignment,
+            map::{
+                Terrain,
+                Tile,
+                newmap::UnitID,
+            },
+            unit::{Unit,UnitType},
+        },
+        util::Location
+    };
 
 
     #[test]

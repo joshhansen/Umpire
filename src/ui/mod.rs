@@ -488,7 +488,7 @@ impl <C:Color+Copy,W:Write> MoveAnimator for TermUI<C,W> {
             self.stdout.flush().unwrap();
         }
 
-        if move_result.unit().moves_remaining == 0 {
+        if move_result.unit().moves_remaining() == 0 {
             sleep_millis(250);
         }
     }

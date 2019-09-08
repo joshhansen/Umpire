@@ -188,9 +188,9 @@ pub struct Unit {
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
-    pub moves_remaining: u16,
+    moves_remaining: u16,
     name: String,
-    orders: Option<Orders>
+    pub orders: Option<Orders>
 }
 
 impl Unit {
@@ -235,10 +235,33 @@ impl Unit {
         true
     }
 
+    #[deprecated]
     pub fn orders(&self) -> Option<&Orders> { self.orders.as_ref() }
 
+    #[deprecated]
     pub fn set_orders(&mut self, orders: Option<Orders>) {
         self.orders = orders;
+    }
+
+    pub fn moves_remaining(&self) -> u16 {
+        self.moves_remaining
+    }
+
+    pub fn movement_complete(&mut self) {
+        self.moves_remaining = 0;
+    }
+
+    pub fn record_movement(&mut self, moves: u16) -> Result<u16,String> {
+        if self.moves_remaining >= moves {
+            self.moves_remaining -= moves;
+            Ok(self.moves_remaining)
+        } else {
+            Err(format!("Could not move {} moves because only {} remain", moves, self.moves_remaining))
+        }
+    }
+
+    pub fn refresh_moves_remaining(&mut self) {
+        self.moves_remaining = self.movement_per_turn();
     }
 }
 
@@ -334,11 +357,19 @@ mod test {
     use std::convert::TryFrom;
     use std::iter::FromIterator;
 
-    use game::obs::{Obs,ObsTracker};
-    use game::unit::{Alignment,Observer,Unit,UnitType};
-    use map::{LocationGrid,Terrain,Tile};
-    use map::newmap::UnitID;
-    use util::{Dims,Location,WRAP_BOTH};
+    use crate::{
+        game::{
+            map::{
+                LocationGrid,
+                Terrain,
+                Tile,
+                newmap::UnitID,
+            },
+            obs::{Obs,ObsTracker},
+            unit::{Alignment,Observer,Unit,UnitType},
+        },
+        util::{Dims,Location,WRAP_BOTH},
+    };
 
 
     #[test]

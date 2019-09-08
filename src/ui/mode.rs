@@ -17,7 +17,6 @@ use crate::{
         map::newmap::UnitID,
         unit::{
             UnitType,
-            orders::Orders,
         },
     },
     log::{LogTarget,Message,MessageSource},
@@ -51,7 +50,7 @@ pub enum Mode {
     Examine{
         cursor_viewport_loc:Location,
         first: bool,
-        most_recently_active_unit_id: UnitID
+        most_recently_active_unit_id: Option<UnitID>
     }
 }
 
@@ -123,7 +122,7 @@ trait IMode {
                 conf::KEY_EXAMINE => {
                     if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(mode, game) {
                         let most_recently_active_unit_loc = ui.cursor_map_loc(mode, game).unwrap();
-                        let most_recently_active_unit_id = game.unit_by_loc(most_recently_active_unit_loc).unwrap().id;
+                        let most_recently_active_unit_id = game.unit_by_loc(most_recently_active_unit_loc).map(|unit| unit.id);
 
                         *mode = Mode::Examine{
                             cursor_viewport_loc,
@@ -412,16 +411,23 @@ impl IMode for GetUnitOrdersMode {
                                 }
                             }
                         } else if c == conf::KEY_SKIP {
-                            game.give_orders(self.unit_id, Some(Orders::Skip), ui, false).unwrap();
+                            game.order_unit_skip(self.unit_id).unwrap();
+                            // game.give_orders(self.unit_id, Some(Orders::Skip), ui, false).unwrap();
                             *mode = Mode::GetOrders;
                             self.clear(&mut ui.stdout);
                             return true;
                         } else if c == conf::KEY_SENTRY {
                             ui.log_message("Going sentry");
-                            game.give_orders(self.unit_id, Some(Orders::Sentry), ui, false).unwrap();
+                            // game.give_orders(self.unit_id, Some(Orders::Sentry), ui, false).unwrap();
+                            game.order_unit_sentry(self.unit_id).unwrap();
                             *mode = Mode::GetOrders;
                             self.clear(&mut ui.stdout);
                             return true;
+                        } else if c == conf::KEY_EXPLORE {
+                            let outcome = game.order_unit_explore(self.unit_id).unwrap();
+                            if let Some(move_result) = outcome.move_result() {
+                                ui.animate_move(game, &move_result);
+                            }
                         }
                     }
                 },
@@ -442,7 +448,7 @@ impl IMode for CarryOutOrdersMode {
     fn run<C:Color+Copy,W:Write>(&self, game: &mut Game, _ui: &mut TermUI<C,W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         if let Some(unit_id) = game.units_with_pending_orders().next() {
             let unit = game.unit_by_id(unit_id).unwrap();
-            if unit.moves_remaining > 0 {
+            if unit.moves_remaining() > 0 {
                 *mode = Mode::CarryOutUnitOrders{unit_id};
             }
         } else {
@@ -488,10 +494,13 @@ impl IMode for CarryOutUnitOrdersMode {
 
         self.draw(game, &mut ui.stdout);
 
-        let orders = unit.orders().unwrap().clone();
+        let orders = unit.orders.as_ref().unwrap().clone();
 
-        match orders.carry_out(self.unit_id, game, ui) {
-            Ok(_orders_status) => {
+        match orders.carry_out(self.unit_id, game) {
+            Ok(orders_outcome) => {
+                if let Some(move_result) = orders_outcome.move_result() {
+                    ui.animate_move(game, &move_result);
+                }
                 *mode = Mode::CarryOutOrders{};
             },
             Err(msg) => {
@@ -529,7 +538,7 @@ impl IMode for QuitMode {
 struct ExamineMode {
     cursor_viewport_loc: Location,
     first: bool,
-    most_recently_active_unit_id: UnitID
+    most_recently_active_unit_id: Option<UnitID>
 }
 impl ExamineMode {
     fn clean_up<C:Color+Copy,W:Write>(&self, game: &Game, ui: &mut TermUI<C,W>) {
@@ -609,28 +618,36 @@ impl IMode for ExamineMode {
                         }
                     }
 
-                    ui.log_message("Might move unit".to_string());
-                    let (can_move, dest) = {
-                        let unit = game.unit_by_id(self.most_recently_active_unit_id).unwrap();
+                    // If there was a recently active unit, see if we can give it orders to move to the current location
+                    if let Some(most_recently_active_unit_id) = self.most_recently_active_unit_id {
+                        ui.log_message("Might move unit".to_string());
+                        let (can_move, dest) = {
+                            let unit = game.unit_by_id(most_recently_active_unit_id).unwrap();
 
-                        let can_move = if let Some(tile) = self.current_player_tile(game, ui) {
-                            unit.can_move_on_tile(tile)
-                        } else {
-                            false
+                            let can_move = if let Some(tile) = self.current_player_tile(game, ui) {
+                                unit.can_move_on_tile(tile)
+                            } else {
+                                false
+                            };
+                            let dest = self.current_player_tile(game, ui).map(|tile| tile.loc);
+                            (can_move, dest)
                         };
-                        let dest = self.current_player_tile(game, ui).map(|tile| tile.loc);
-                        (can_move, dest)
-                    };
 
-                    if can_move {
-                        let dest = dest.unwrap();
-                        game.give_orders(self.most_recently_active_unit_id, Some(Orders::GoTo{dest}), ui, true).unwrap();
-                        ui.log_message(format!("Ordered unit to go to {}", dest));
+                        if can_move {
+                            let dest = dest.unwrap();
+                            // game.give_orders(self.most_recently_active_unit_id, Some(Orders::GoTo{dest}), ui, true).unwrap();
+                            let outcome = game.order_unit_go_to(most_recently_active_unit_id, dest).unwrap();
+                            if let Some(move_result) = outcome.move_result() {
+                                ui.animate_move(game, &move_result);
+                            }
 
-                        *mode = Mode::TurnResume;
+                            ui.log_message(format!("Ordered unit to go to {}", dest));
 
-                        self.clean_up(game, ui);
-                        return true;
+                            *mode = Mode::TurnResume;
+
+                            self.clean_up(game, ui);
+                            return true;
+                        }
                     }
                 } else if let Key::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {

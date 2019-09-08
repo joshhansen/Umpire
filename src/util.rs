@@ -268,8 +268,10 @@ pub fn grapheme_len(s: &str) -> usize {
 
 #[cfg(test)]
 mod test {
-    use map::dijkstra::RELATIVE_NEIGHBORS;
-    use util::{Dims,Location,Vec2d,wrapped_add,WRAP_NEITHER,WRAP_VERT,WRAP_HORIZ,WRAP_BOTH};
+    use crate::{
+        game::map::dijkstra::RELATIVE_NEIGHBORS,
+        util::{Dims,Location,Vec2d,wrapped_add,WRAP_NEITHER,WRAP_VERT,WRAP_HORIZ,WRAP_BOTH}
+    };
 
     #[test]
     fn test_wrapped_add() {

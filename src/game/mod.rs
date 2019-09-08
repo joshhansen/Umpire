@@ -23,13 +23,17 @@ use crate::{
         unit::{
             City,Unit,UnitType,
             combat::{CombatCapable,CombatOutcome},
-            orders::{Orders,OrdersStatus}
+            orders::{
+                Orders,
+                OrdersStatus,
+                OrdersOutcome,
+                OrdersResult,
+            },
         },
     },
     log::{LogTarget,Message,MessageSource},
     name::{Namer,CompoundNamer,ListNamer,WeightedNamer},
-    ui::MoveAnimator,
-    util::{Dims,Location,Wrap,Wrap2d}
+    util::{Dims,Location,Wrap,Wrap2d},
 };
 
 
@@ -86,6 +90,7 @@ pub struct MoveResult {
     moves: Vec<MoveComponent>
 }
 impl MoveResult {
+    /// unit represents the unit _after_ the move is completed
     fn new(unit: Unit, starting_loc: Location, moves: Vec<MoveComponent>) -> Result<Self,String> {
         if moves.is_empty() {
             Err(String::from("Attempted to create MoveResult with no moves"))
@@ -111,7 +116,8 @@ impl MoveResult {
 
     pub fn ending_loc(&self) -> Option<Location> {
         if self.moved_successfully() {
-            Some(self.moves.last().unwrap().loc)
+            self.moves.last().map(|move_| move_.loc)
+            // Some(self.moves.last().unwrap().loc)
         } else {
             None
         }
@@ -315,7 +321,8 @@ impl Game {
 
     fn refresh_moves_remaining(&mut self) {
         for unit in self.player_units_mut() {
-            unit.moves_remaining = unit.movement_per_turn();
+            // unit.moves_remaining = unit.movement_per_turn();
+            unit.refresh_moves_remaining();
         }
     }
 
@@ -451,27 +458,6 @@ impl Game {
         self.map.mut_unit_by_id(id)
     }
 
-
-    /// If a unit at the location owned by the current player exists, activate it
-    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
-        let current_player = self.current_player;
-        if let Some(unit) = self.mut_unit_by_loc(loc) {
-            if unit.belongs_to_player(current_player) {
-                unit.set_orders(None);
-                Ok(())
-            } else {
-                Err(GameError::UnitNotControlledByCurrentPlayer{
-                    msg: format!("Could not activate unit at location {} because it does not belong to current player {}", loc, self.current_player)
-                })
-            }
-        } else {
-            Err(GameError::NoUnitAtLocation{
-                msg: format!("Could not activate unit at location {} because no such unit exists", loc),
-                loc
-            })
-        }
-    }
-
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
         self.map.unit_loc(id)
     }
@@ -485,13 +471,13 @@ impl Game {
     /// In other words, which of the current player's units have no orders and have moves remaining?
     pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
         self.map.player_units(self.current_player)
-            .filter(|unit| unit.orders().is_none() && unit.moves_remaining > 0)
+            .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
             .map(|unit| unit.id)
     }
 
     pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
         self.player_units()
-            .filter(|unit| unit.moves_remaining > 0 && unit.orders().is_some() && *unit.orders().unwrap() != Orders::Sentry)
+            .filter(|unit| unit.moves_remaining() > 0 && unit.orders.is_some() && *unit.orders.as_ref().unwrap() != Orders::Sentry)
             .map(|unit| unit.id)
     }
 
@@ -512,9 +498,9 @@ impl Game {
         };
         if let Some(distance) = shortest_paths.dist[dest] {
             if let Some(unit) = self.map.unit_by_loc(src) {
-                if distance > unit.moves_remaining {
+                if distance > unit.moves_remaining() {
                     return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
-                                unit, src, dest, distance, unit.moves_remaining));
+                                unit, src, dest, distance, unit.moves_remaining()));
                 }
 
                 let mut unit = self.map.pop_unit_by_loc(src).unwrap();
@@ -575,9 +561,11 @@ impl Game {
                 }
 
                 if conquered_city {
-                    unit.moves_remaining = 0;
+                    // unit.moves_remaining = 0;
+                    unit.movement_complete();
                 } else {
-                    unit.moves_remaining -= moves.len() as u16;
+                    // unit.moves_remaining -= moves.len() as u16;
+                    unit.record_movement(moves.len() as u16).unwrap();
                 }
 
                 if let Some(move_) = moves.last() {
@@ -652,28 +640,79 @@ but there is no city at that location",
         }).collect()
     }
 
-    pub fn give_orders<U:LogTarget+MoveAnimator>(&mut self, unit_id: UnitID, orders: Option<Orders>, ui: &mut U, carry_out_now: bool) -> Result<(),String> {
+    pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
+        self.mut_unit_by_id(unit_id)
+            .map(|unit| {
+                unit.orders = None;
+                OrdersOutcome::completed_without_move()
+            })
+            .ok_or(format!("Cannot order unit {:?} to sentry because unit does not exist", unit_id))
+    }
 
-        if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
-            unit.set_orders(orders);
+    pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
+        self.set_orders(unit_id, Some(Orders::Skip)).map(|_| OrdersOutcome::in_progress_without_move())
+    }
+
+    pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
+        self.set_orders(unit_id, Some(Orders::GoTo{dest}))?;
+        self.follow_orders(unit_id)
+    }
+
+    pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
+        self.set_orders(unit_id, Some(Orders::Explore))?;
+        self.follow_orders(unit_id)
+    }
+
+    /// If a unit at the location owned by the current player exists, activate it
+    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
+        let current_player = self.current_player;
+        if let Some(unit) = self.mut_unit_by_loc(loc) {
+            if unit.belongs_to_player(current_player) {
+                unit.orders = None;
+                Ok(())
+            } else {
+                Err(GameError::UnitNotControlledByCurrentPlayer{
+                    msg: format!("Could not activate unit at location {} because it does not belong to current player {}", loc, self.current_player)
+                })
+            }
         } else {
-            return Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id));
+            Err(GameError::NoUnitAtLocation{
+                msg: format!("Could not activate unit at location {} because no such unit exists", loc),
+                loc
+            })
         }
+    }
 
+    fn set_orders(&mut self, unit_id: UnitID, orders: Option<Orders>) -> Result<(),String> {
+        if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
+            unit.orders = orders;
+            Ok(())
+        } else {
+            Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
+        }
+    }
+
+    fn follow_orders(&mut self, unit_id: UnitID) -> OrdersResult {
+        let orders = self.unit_by_id(unit_id).unwrap().orders.as_ref().unwrap().clone();//FIXME Do we really need this clone?
+
+        let result = orders.carry_out(unit_id, self);
+
+        // If the orders are already complete, clear them out
+        if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
+            self.mut_unit_by_id(unit_id).unwrap().orders = None;
+        }
+        
+        result
+    }
+
+    #[deprecated]
+    fn give_orders(&mut self, unit_id: UnitID, orders: Option<Orders>, carry_out_now: bool) -> OrdersResult {
+        self.set_orders(unit_id, orders)?;
 
         if carry_out_now {
-            let orders = self.unit_by_id(unit_id).unwrap().orders().unwrap().clone();//FIXME Is there some way to dance around the borrow checker without cloning here?
-
-            let result = orders.carry_out(unit_id, self, ui);
-
-            // If the orders are already complete, clear them out
-            if let Ok(OrdersStatus::Completed) = result {
-                self.mut_unit_by_id(unit_id).unwrap().set_orders(None);
-            }
-            
-            result.map(|_ok| ())
+            self.follow_orders(unit_id)
         } else {
-            Ok(())
+            Ok(OrdersOutcome::completed_without_move())
         }
     }
 }
@@ -723,13 +762,20 @@ impl Source<Obs> for Game {
 mod test {
     use std::convert::TryFrom;
 
-    use game::{Alignment,Game};
-    use game::unit::{UnitType};
-    use log::{DefaultLog,LogTarget};
-    use map::Terrain;
-    use map::newmap::{MapData,UnitID};
-    use name::unit_namer;
-    use util::{Dims,Location};
+    use crate::{
+        game::{
+            Alignment,
+            Game,
+            map::{
+                Terrain,
+                newmap::{MapData,UnitID},
+            },
+            unit::{UnitType},
+        },
+        log::{DefaultLog,LogTarget},
+        name::unit_namer,
+        util::{Dims,Location},
+    };
 
     /// 10x10 grid of land only with two cities:
     /// * Player 0's Machang at 0,0
@@ -758,7 +804,7 @@ mod test {
         let fog_of_war = true;
 
         let map = map1();
-        let unit_namer = unit_namer().unwrap();
+        let unit_namer = unit_namer();
         Game::new_with_map(map, players, fog_of_war, unit_namer, log)
     }
 
@@ -841,7 +887,7 @@ mod test {
         }
 
         let mut log = DefaultLog;
-        let mut game = Game::new_with_map(map, 2, false, unit_namer().unwrap(), &mut log);
+        let mut game = Game::new_with_map(map, 2, false, unit_namer(), &mut log);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Armor), Ok(()));

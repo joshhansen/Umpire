@@ -128,7 +128,7 @@ pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
 }
 
-struct ObservedFilter {}
+pub struct ObservedFilter {}
 impl Filter<Obs> for ObservedFilter {
     fn include(&self, obs: &Obs) -> bool {
         obs.is_observed()
@@ -259,6 +259,7 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
     ShortestPaths { dist, prev }
 }
 
+#[deprecated]
 pub fn old_shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     shortest_paths(tiles, source, &UnitMovementFilter{unit}, wrapping)
 }
@@ -302,14 +303,31 @@ mod test {
     use std::collections::HashSet;
     use std::convert::TryFrom;
 
-    use game::Alignment;
-    use game::obs::Obs;
-    use game::unit::{Unit,UnitType};
-    use map::{LocationGrid,Tile};
-    use map::dijkstra::{Source,UnitMovementFilter,Xenophile,neighbors,neighbors_terrain_only,old_shortest_paths,shortest_paths,RELATIVE_NEIGHBORS};
-    use map::newmap::UnitID;
-    use util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER};
-
+    use crate::{
+        game::{
+            Alignment,
+            map::{
+                LocationGrid,
+                Tile,
+                dijkstra::{
+                    Source,
+                    UnitMovementFilter,
+                    Xenophile,
+                    neighbors,
+                    neighbors_terrain_only,
+                    old_shortest_paths,
+                    shortest_paths,
+                    RELATIVE_NEIGHBORS
+                },
+                newmap::UnitID,
+            },
+            obs::Obs,
+            unit::{Unit,UnitType},
+        },
+        
+        util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER},
+    };
+    
     fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
         neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit}, wrapping)
     }
