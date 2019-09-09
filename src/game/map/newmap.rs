@@ -272,15 +272,15 @@ impl MapData {
     }
 
     pub fn player_cities_with_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
-        self.player_cities(player).filter(|city| city.unit_under_production.is_some())
+        self.player_cities(player).filter(|city| city.production().is_some())
     }
 
     pub fn player_cities_with_production_target_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut City> {
-        self.player_cities_mut(player).filter(|city| city.unit_under_production.is_some())
+        self.player_cities_mut(player).filter(|city| city.production().is_some())
     }
 
     pub fn player_cities_lacking_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
-        self.player_cities(player).filter(|city| city.unit_under_production.is_none())
+        self.player_cities(player).filter(|city| city.production().is_none() && !city.ignore_cleared_production())
     }
 }
 

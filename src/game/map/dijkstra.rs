@@ -4,10 +4,12 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap,HashSet};
 // use std::u16::MAX as u16_max;
 use std::fmt;
+use std::marker::PhantomData;
 use std::ops::{Index,IndexMut};
 
 use crate::{
     game::{
+        Alignment,
         map::{LocationGrid,Terrain,Tile},
         obs::Obs,
         unit::{Unit,UnitType},
@@ -128,6 +130,49 @@ pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
 }
 
+struct AndFilter<T,F1,F2> where F1:Filter<T>,F2:Filter<T> {
+    filter1: F1,
+    filter2: F2,
+    phantom: PhantomData<T>,
+}
+impl <T,F1:Filter<T>,F2:Filter<T>> AndFilter<T,F1,F2> {
+    fn new(filter1: F1, filter2: F2) -> Self {
+        Self { filter1, filter2, phantom: PhantomData }
+    }
+}
+impl <T,F1:Filter<T>,F2:Filter<T>> Filter<T> for AndFilter<T,F1,F2> {
+    fn include(&self, item: &T) -> bool {
+        if !self.filter1.include(item) {
+            return false;
+        }
+        self.filter2.include(item)
+    }
+}
+
+struct OrFilter<T,F1,F2> where F1:Filter<T>,F2:Filter<T> {
+    filter1: F1,
+    filter2: F2,
+    phantom: PhantomData<T>,
+}
+impl <T,F1:Filter<T>,F2:Filter<T>> OrFilter<T,F1,F2> {
+    fn new(filter1: F1, filter2: F2) -> Self {
+        Self {
+            filter1,
+            filter2,
+            phantom: PhantomData,
+        }
+    }
+}
+impl <T,F1:Filter<T>,F2:Filter<T>> Filter<T> for OrFilter<T,F1,F2> {
+    fn include(&self, item: &T) -> bool {
+        if self.filter1.include(item) {
+            return true;
+        }
+        self.filter2.include(item)
+
+    }
+}
+
 pub struct ObservedFilter {}
 impl Filter<Obs> for ObservedFilter {
     fn include(&self, obs: &Obs) -> bool {
@@ -135,6 +180,52 @@ impl Filter<Obs> for ObservedFilter {
     }
 }
 
+
+struct NoUnitsFilter;
+impl Filter<Tile> for NoUnitsFilter {
+    fn include(&self, tile: &Tile) -> bool {
+        tile.unit.is_none()
+    }
+}
+impl Filter<Obs> for NoUnitsFilter {
+    fn include(&self, obs: &Obs) -> bool {
+        if let Obs::Observed { tile, turn, current } = obs {
+            Filter::<Tile>::include(self, tile)
+        } else {
+            // NOTE: This is a misleading response---if the tile isn't observed, we can't tell if it has a unit or not
+            // However, in practice this shouldn't be an issue as we should always observe it prior to reaching it
+            true
+        }
+    }
+}
+
+struct NoCitiesButOursFilter {
+    alignment: Alignment
+}
+impl Filter<Tile> for NoCitiesButOursFilter {
+    fn include(&self, tile: &Tile) -> bool {
+        if let Some(ref city) = tile.city {
+            return city.alignment == self.alignment;
+        }
+        true
+    }
+}
+impl Filter<Obs> for NoCitiesButOursFilter {
+    fn include(&self, obs: &Obs) -> bool {
+        if let Obs::Observed { tile, turn, current } = obs {
+            if let Some(ref city) = tile.city {
+                return city.alignment == self.alignment;
+            }
+        }
+
+        // NOTE: This is a misleading response---if the tile isn't observed, we can't tell if it has a
+        // city not belonging to this player. However, in practice this shouldn't be an issue as we should always
+        // observe the tile prior to reaching it.
+        true
+    }
+}
+
+/// A filter that _always_ includes unobserved tiles. Otherwise it defers to a sub-filter.
 pub struct Xenophile<F:Filter<Obs>> {
     sub_filter: F
 }
@@ -264,10 +355,34 @@ pub fn old_shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Un
     shortest_paths(tiles, source, &UnitMovementFilter{unit}, wrapping)
 }
 
+// fn observed_no_units_no_cities_but_ours(alignment: Alignment) -> impl Filter<Obs> {
+//     AndFilter::new(
+//         AndFilter::new(
+//             ObservedFilter{},
+//             NoUnitsFilter{},
+//         ),
+//         NoCitiesButOursFilter{alignment},
+//     )
+// }
+
 /// Return the (or a) closest tile to the source which is reachable by the given
 /// unit and is adjacent to at least one unobserved tile. If no such tile exists
 /// then return None
-pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: &S, src: Location, unit: &Unit, wrapping: Wrap2d) -> Option<Location> {
+pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>+Source<Tile>>(
+    tiles: &S,
+    src: Location,
+    unit: &Unit,
+    wrapping: Wrap2d
+) -> Option<Location> {
+
+    let unit_filter = AndFilter::new(
+        AndFilter::new(
+            NoUnitsFilter{},
+            NoCitiesButOursFilter{alignment: unit.alignment }
+        ),
+        UnitMovementFilter{unit}
+    );
+
     let mut q = BinaryHeap::new();
     q.push(src);
 
@@ -282,7 +397,7 @@ pub fn nearest_reachable_adjacent_unobserved<S:Source<Obs>+Source<Tile>>(tiles: 
             return Some(loc);
         }
 
-        let unit_filter = UnitMovementFilter{unit};
+        
 
         for neighb in observed_neighbors.iter().filter(|neighb|{
             let tile: &Tile = tiles.get(**neighb);
@@ -582,5 +697,17 @@ mod test {
         assert_eq!(shortest_neither.dist[Location{x:0, y:2}], Some(2));
         assert_eq!(shortest_neither.dist[Location{x:1, y:2}], Some(2));
         assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(2));
+    }
+
+    #[test]
+    fn test_nearest_reachable_adjacent_unobserved() {
+        //TODO //FIXME
+
+
+        let map: LocationGrid<Obs> = LocationGrid::try_from(
+            "\
+            xxx\n\
+            ???\n\
+            *xx").unwrap();
     }
 }

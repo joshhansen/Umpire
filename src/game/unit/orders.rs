@@ -8,7 +8,7 @@ use crate::{
                 ObservedFilter,
                 UnitMovementFilter,
                 Xenophile,
-                nearest_reachable_adjacent_unobserved,
+                nearest_adjacent_unobserved_reachable_without_attacking,
                 shortest_paths
             },
             newmap::UnitID,
@@ -133,12 +133,14 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
     let mut moves: Vec<MoveComponent> = Vec::new();
     // let mut unit = None;
     loop {
-        let mut unit = game.unit_by_id(unit_id).unwrap().clone();
+        // Get a fresh copy of the unit
+        let mut unit = game.mut_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
+
         if unit.moves_remaining() == 0 {
             return Ok(OrdersOutcome::in_progress_with_move(MoveResult::new(unit, starting_loc, moves).unwrap()));
         }
 
-        if let Some(mut goal) = nearest_reachable_adjacent_unobserved(game, current_loc, &unit, game.wrapping()) {
+        if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(game, current_loc, &unit, game.wrapping()) {
 
             // if unit.moves_remaining == 0 {
             //     return Ok(OrdersStatus::InProgress);
@@ -152,8 +154,9 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
                 dist_to_real_goal -= 1;
             }
 
+            let move_result = game.move_unit_by_id(unit_id, goal);
 
-            match game.move_unit_by_id(unit_id, goal) {
+            match move_result {
                 Ok(mut move_result) => {
                     // ui.animate_move(game, &move_result);
 
@@ -164,9 +167,10 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
 
                     // Update the unit so that if/when we return it, it has the correct number of moves
                     // unit.moves_remaining -= move_result.moves.len();
+                    
 
-                    unit.loc = move_result.ending_loc().unwrap();
-                    unit.record_movement(move_result.moves.len() as u16).unwrap();
+                    // unit.loc = move_result.ending_loc().unwrap();
+                    // unit.record_movement(move_result.moves.len() as u16).unwrap();
                 },
                 Err(msg) => {
                     return Err(format!("Error moving unit toward {}: {}", goal, msg));

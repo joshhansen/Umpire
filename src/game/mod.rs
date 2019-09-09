@@ -242,6 +242,10 @@ impl Game {
         game
     }
 
+    fn player_cities(&self) -> impl Iterator<Item=&City> {
+        self.map.player_cities(self.current_player)
+    }
+
     fn player_cities_with_production_target(&self) -> impl Iterator<Item=&City> {
         self.map.player_cities_with_production_target(self.current_player)
     }
@@ -265,7 +269,7 @@ impl Game {
 
         let producing_city_locs: Vec<Location> = self.player_cities_with_production_target()
             .filter(|city| {
-                let unit_under_production = city.unit_under_production.unwrap();
+                let unit_under_production = city.production().unwrap();
 
                 city.production_progress >= unit_under_production.cost()
             }).map(|city| city.loc).collect()
@@ -275,7 +279,7 @@ impl Game {
 
             let (city_loc, city_alignment, city_desc, unit_under_production) = {
                 let city = self.map.mut_city_by_loc(city_loc).unwrap();
-                let unit_under_production = city.unit_under_production.unwrap();
+                let unit_under_production = city.production().unwrap();
                 (city.loc, city.alignment, format!("{}", city), unit_under_production)
             };
 
@@ -595,16 +599,38 @@ impl Game {
         self.move_unit_by_loc(src, dest)
     }
 
-    //FIXME Make set_production return Err rather than panic if location is out of bounds
-    pub fn set_production(&mut self, location: Location, production: UnitType) -> Result<(),String> {
-        if let Some(city) = self.map.mut_city_by_loc(location) {
-            city.unit_under_production = Some(production);
+    pub fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
+        if let Some(city) = self.map.mut_city_by_loc(loc) {
+            city.set_production(production);
             Ok(())
         } else {
             Err(format!(
-                "Attempted to set production for city at location {}
-but there is no city at that location",
-                location
+                "Attempted to set production for city at location {} but there is no city at that location",
+                loc
+            ))
+        }
+    }
+
+    pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(),String> {
+        if let Some(city) = self.map.mut_city_by_loc(loc) {
+            city.clear_production_without_ignoring();
+            Ok(())
+        } else {
+            Err(format!(
+                "Attempted to clear production for city at location {} but there is no city at that location",
+                loc
+            ))
+        }
+    }
+
+    pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(),String> {
+        if let Some(city) = self.map.mut_city_by_loc(loc) {
+            city.clear_production_and_ignore();
+            Ok(())
+        } else {
+            Err(format!(
+                "Attempted to clear production for city at location {} but there is no city at that location",
+                loc
             ))
         }
     }
@@ -643,7 +669,7 @@ but there is no city at that location",
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         self.mut_unit_by_id(unit_id)
             .map(|unit| {
-                unit.orders = None;
+                unit.orders = Some(Orders::Sentry);
                 OrdersOutcome::completed_without_move()
             })
             .ok_or(format!("Cannot order unit {:?} to sentry because unit does not exist", unit_id))
@@ -714,6 +740,10 @@ but there is no city at that location",
         } else {
             Ok(OrdersOutcome::completed_without_move())
         }
+    }
+
+    pub fn player_cities_producing_or_not_ignored(&self) -> usize {
+        self.player_cities().filter(|city| city.production().is_some() || !city.ignore_cleared_production()).count()
     }
 }
 

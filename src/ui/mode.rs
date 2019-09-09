@@ -8,6 +8,7 @@ use termion::event::Key;
 use termion::input::TermRead;
 
 use crate::{
+    color::Colors,
     conf,
     game::{
         AlignedMaybe,
@@ -238,27 +239,58 @@ struct SetProductionMode {
     unicode: bool,
 }
 impl SetProductionMode {
+    fn char_and_name(&self, key: char, sym: &'static str, name: &'static str) -> String {
+        let mut char_and_name = format!(" [{}] {} - {}", key, sym, name);
+        while char_and_name.len() < PROD_COL_WIDTH as usize {
+            char_and_name.push(' ');
+        }
+        char_and_name
+    }
+
+    fn write_row<W:Write>(&self, stdout: &mut W, key: char, sym: &'static str, name: &'static str, cost: Option<u16>, y: u16) -> std::io::Result<()> {
+        let char_and_name = self.char_and_name(key, sym, name);
+        write!(*stdout, "{}{}",
+                self.goto(0, y),
+                char_and_name).unwrap();
+        if let Some(cost) = cost {
+            write!(*stdout, "{}[{}]       ",
+                self.goto(PROD_COL_WIDTH, y),
+                cost)
+        } else {
+            Ok(())
+        }
+    }
+
     fn draw<W:Write>(&self, game: &Game, stdout: &mut W) {
         let tile = &game.current_player_tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
         write!(*stdout, "{}Set Production for {}          ", self.goto(0, 0), city).unwrap();
 
+        
+        let mut highest_y = 0;
+
         for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
             let y = i as u16 + 2;
+            self.write_row(stdout, unit_type.key(), unit_type.sym(self.unicode), unit_type.name(), Some(unit_type.cost()), y).unwrap();
 
-            let mut char_and_name = format!(" [{}] {} - {}", unit_type.key(), unit_type.sym(self.unicode), unit_type.name());
-            while char_and_name.len() < PROD_COL_WIDTH as usize {
-                char_and_name.push(' ');
-            }
+            // let mut char_and_name = format!(" [{}] {} - {}", unit_type.key(), unit_type.sym(self.unicode), unit_type.name());
+            // while char_and_name.len() < PROD_COL_WIDTH as usize {
+            //     char_and_name.push(' ');
+            // }
+            // let mut char_and_name = self.char_and_name(unit_type);
 
-            write!(*stdout, "{}{}",
-                self.goto(0, y),
-                char_and_name).unwrap();
-            write!(*stdout, "{}[{}]       ",
-                self.goto(PROD_COL_WIDTH, y),
-                unit_type.cost()).unwrap();
+            // write!(*stdout, "{}{}",
+            //     self.goto(0, y),
+            //     char_and_name).unwrap();
+            // write!(*stdout, "{}[{}]       ",
+            //     self.goto(PROD_COL_WIDTH, y),
+            //     unit_type.cost()).unwrap();
+
+            highest_y = y;
         }
+
+        self.write_row(stdout, conf::KEY_NO_PRODUCTION, " ", "None", None, highest_y + 2).unwrap();
 
         stdout.flush().unwrap();
     }
@@ -293,6 +325,26 @@ impl IMode for SetProductionMode {
                             });
 
                             self.clear(&mut ui.stdout);
+
+                            *mode = Mode::TurnResume;
+                            return true;
+                        } else if c == conf::KEY_NO_PRODUCTION {
+                            
+                            if game.player_cities_producing_or_not_ignored() <= 1 {
+                                game.clear_production_without_ignoring(self.loc).unwrap();
+                                // let cursor_viewport_loc = ui.cursor_viewport_loc(mode, game).unwrap();
+
+                                // *mode = Mode::Examine {
+                                //     cursor_viewport_loc,
+                                //     first: true,
+                                //     most_recently_active_unit_id: None,
+                                // };
+
+                            } else {
+                                // game.set_production(self.loc, None).unwrap();
+                                game.clear_production_and_ignore(self.loc).unwrap();
+                                
+                            }
 
                             *mode = Mode::TurnResume;
                             return true;
@@ -428,6 +480,8 @@ impl IMode for GetUnitOrdersMode {
                             if let Some(move_result) = outcome.move_result() {
                                 ui.animate_move(game, &move_result);
                             }
+                            *mode = Mode::GetOrders;
+                            return true;
                         }
                     }
                 },
@@ -504,7 +558,14 @@ impl IMode for CarryOutUnitOrdersMode {
                 *mode = Mode::CarryOutOrders{};
             },
             Err(msg) => {
-                panic!(msg);
+                // panic!(msg);
+                ui.log_message(Message {
+                    text: msg,
+                    mark: Some('!'),
+                    fg_color: Some(Colors::Text),
+                    bg_color: Some(Colors::Notice),
+                    source: None,
+                });
             }
         }
 
