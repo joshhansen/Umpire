@@ -4,7 +4,11 @@
 
 // use std::num::Zero;
 
-use rand::{Rng, ThreadRng, thread_rng};
+use rand::{
+    thread_rng,
+    Rng,
+    rngs::ThreadRng,
+};
 
 use crate::{
     conf,
@@ -86,7 +90,7 @@ impl MapGenerator {
                             let cardinal_growth_prob = f32::from(land_cardinal_neighbors(&map, loc)) / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
                             let diagonal_growth_prob = f32::from(land_diagonal_neighbors(&map, loc)) / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
 
-                            if rng.next_f32() <= cardinal_growth_prob || rng.next_f32() <= diagonal_growth_prob {
+                            if rng.gen::<f32>() <= cardinal_growth_prob || rng.gen::<f32>() <= diagonal_growth_prob {
                                 map.set_terrain(loc, Terrain::Land);
                             }
                         }
@@ -100,7 +104,7 @@ impl MapGenerator {
             for y in 0..map_dims.height {
                 let loc = Location{x, y};
 
-                if *map.terrain(loc).unwrap() == Terrain::Land && rng.next_f32() <= conf::NEUTRAL_CITY_DENSITY {
+                if *map.terrain(loc).unwrap() == Terrain::Land && rng.gen::<f32>() <= conf::NEUTRAL_CITY_DENSITY {
                     map.new_city(loc, Alignment::Neutral, self.city_namer.name()).unwrap();
                 }
             }

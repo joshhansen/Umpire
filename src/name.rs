@@ -7,9 +7,18 @@ use std::str::FromStr;
 use csv;
 use flate2::read::GzDecoder;
 
-use rand::{thread_rng, Rng, ThreadRng};
-use rand::distributions::{IndependentSample, Range};
-use rand::distributions::range::SampleRange;
+use rand::{
+    thread_rng,
+    prelude::SliceRandom,
+    rngs::ThreadRng,
+    distributions::{
+        Distribution,
+        uniform::{
+            SampleUniform,
+            Uniform,
+        }
+    }
+};
 
 /// Something that generates names.
 pub trait Namer {
@@ -35,16 +44,16 @@ impl Namer for ListNamer {
 }
 
 /// Generate names by sampling from a weighted distribution of names.
-pub struct WeightedNamer<N:Default> {
+pub struct WeightedNamer<N:Default+SampleUniform> {
     cumulatively_weighted_names: Vec<CumWeight<String,N>>,
-    sample_range: Range<N>,
+    sample_range: Uniform<N>,
     rng: ThreadRng
 }
-impl <N: Copy+Default+PartialOrd+SampleRange> WeightedNamer<N> {
+impl <N: Copy+Default+PartialOrd+SampleUniform> WeightedNamer<N> {
     pub fn new(cumulatively_weighted_names: Vec<CumWeight<String,N>>) -> Self {
         // let total_weight = weighted_names.iter().fold(0, |acc, &weighted| acc + weighted.weight);
         let zero: N = Default::default();
-        let weight_range = Range::new(zero, cumulatively_weighted_names[cumulatively_weighted_names.len()-1].cum_weight);
+        let weight_range = Uniform::new_inclusive(zero, cumulatively_weighted_names[cumulatively_weighted_names.len()-1].cum_weight);
 
         // let mut cumulatively_weighted_names
         // WeightedNamer {
@@ -61,23 +70,23 @@ impl <N: Copy+Default+PartialOrd+SampleRange> WeightedNamer<N> {
         }
     }
 }
-impl <N: Default+PartialOrd+SampleRange> Namer for WeightedNamer<N> {
+impl <N: Default+PartialOrd+SampleUniform> Namer for WeightedNamer<N> {
     fn name(&mut self) -> String {
         // self.weighted_names_dist.ind_sample(&mut self.rng)
-        let x = self.sample_range.ind_sample(&mut self.rng);
+        let x = self.sample_range.sample(&mut self.rng);
         for cumulatively_weighted_name in &self.cumulatively_weighted_names {
             if cumulatively_weighted_name.cum_weight >= x {
                 return cumulatively_weighted_name.item.clone();
             }
         }
-        panic!("In theory this code is unreachable. In practice, bugs happen.");
+        unreachable!("In theory this code is unreachable. In practice, bugs happen.");
     }
 }
 
 fn shuffle(names: Vec<String>) -> Vec<String> {
     let mut names = names;
     let mut rng = thread_rng();
-    rng.shuffle(&mut names);
+    names.shuffle(&mut rng);
     names
 }
 
