@@ -11,4 +11,4 @@ pastel = { path = "../External/pastel" }
 #sample = "0.6.2"
 termion = "1.3.0"
 rand = "0.7.0"
-unicode-segmentation = "1.1.0"
+unicode-segmentation = "1.3.0"
