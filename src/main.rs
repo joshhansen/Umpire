@@ -3,7 +3,8 @@
 //!
 
 // FIXME Ask for production assignment immediately after city is conquered
-// FIXME Resolve conflict between movement b and bomber b
+// FIXME Resolve conflict between movement B and battleship B
+// FIXME Disallow selecting units on cities where such units make no sense
 // FIXME Don't let aircraft or naval vessels conquer cities
 // FIXME Require production to be re-set when a city is conquered from another player
 // FIXME Make it clear when a unit is inside a city
