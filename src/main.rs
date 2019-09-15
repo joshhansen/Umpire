@@ -47,8 +47,10 @@ extern crate rand;
 extern crate termion;
 extern crate unicode_segmentation;
 
-// extern crate portaudio as pa;
-// extern crate sample;
+extern crate cpal;
+extern crate pitch_calc;
+extern crate sample;
+extern crate synth;
 
 use std::io::{BufRead,BufReader,Write,stdout};
 
@@ -169,7 +171,11 @@ fn main() {
                 .short("u")
                 .long("unicode")
                 .help("Enable Unicode support")
-                
+            )
+            .arg(Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .help("Don't produce sound")
             )
         .get_matches();
 
@@ -183,6 +189,7 @@ fn main() {
         let color_depth: u16 = matches.value_of("colors").unwrap().parse().unwrap();
         let fog_darkness: f64 = matches.value_of("fog_darkness").unwrap().parse().unwrap();
         let unicode: bool = matches.is_present("unicode");
+        let quiet: bool = matches.is_present("quiet");
 
         let map_dims: Dims = Dims::new(map_width, map_height);
 
@@ -200,12 +207,12 @@ fn main() {
                     256 => palette256(),
                     _ => unreachable!()
                 };
-                run_ui(game, dims, use_alt_screen, palette, unicode);
+                run_ui(game, dims, use_alt_screen, palette, unicode, quiet);
 
             },
             24 => {
                 match palette24(num_players, fog_darkness) {
-                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette, unicode),
+                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette, unicode, quiet),
                     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
                 }
             },
@@ -217,8 +224,8 @@ fn main() {
     }
 }
 
-fn run_ui<C:Color+Copy>(game: Game, dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool) {
-    if let Err(msg) = ui::run(game, dims, use_alt_screen, palette, unicode) {
+fn run_ui<C:Color+Copy>(game: Game, dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool, quiet: bool) {
+    if let Err(msg) = ui::run(game, dims, use_alt_screen, palette, unicode, quiet) {
         eprintln!("Error running UI: {}", msg);
     }
 }

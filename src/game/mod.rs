@@ -944,7 +944,7 @@ mod test {
             println!("Result: {:?}", move_result);
             assert_eq!(move_result.unit().type_, UnitType::Armor);
             assert_eq!(move_result.unit().alignment, Alignment::Belligerent{player:0});
-            assert_eq!(move_result.unit().moves_remaining, 0);
+            assert_eq!(move_result.unit().moves_remaining(), 0);
 
             assert_eq!(move_result.moves().len(), 2);
             let ref move1 = move_result.moves()[0];

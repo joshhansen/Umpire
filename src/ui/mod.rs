@@ -4,8 +4,15 @@
 //! The abstract game logic is implemented in `game::Game`. This user interface references that
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
-use std::io::{Write,stdout};
-use std::rc::Rc;
+use std::{
+    io::{Write,stdout},
+    rc::Rc,
+    sync::mpsc::{
+        channel,
+        Sender,
+    },
+    thread,
+};
 
 use termion;
 use termion::clear;
@@ -26,20 +33,36 @@ use crate::{
         unit::combat::{CombatCapable,CombatOutcome,CombatParticipant},
     },
     log::{LogTarget,Message,MessageSource},
-    ui::{
-        style::StrongReset,
-        sym::Sym,
-    },
+    util::{Dims,Rect,Location,sleep_millis,wrapped_add}
 };
 
+use self::{
+    audio::{
+        play_sounds,
+        Sounds,
+    },
+    style::StrongReset,
+    sym::Sym,
+};
 
-use util::{Dims,Rect,Location,sleep_millis,wrapped_add};
-
-pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool) -> Result<(),String> {
+pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool, quiet: bool) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
 
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
+
+        let (audio_thread_handle, audio_thread_tx) = if !quiet {
+            let (tx, rx) = channel();
+            let handle = thread::spawn(move || {
+                play_sounds(rx,Sounds::Silence).unwrap();
+
+            });
+            (Some(handle), Some(tx))
+        } else {
+            (None, None)
+        };
+
+
         if use_alt_screen {//FIXME find a way to not duplicate code in both arms of this if statement
             let mut ui = TermUI::new(
                 game.map_dims(),
@@ -47,6 +70,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
                 AlternateScreen::from(stdout().into_raw_mode().unwrap()),
                 palette,
                 unicode,
+                audio_thread_tx,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
@@ -59,10 +83,16 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
                 stdout().into_raw_mode().unwrap(),
                 palette,
                 unicode,
+                audio_thread_tx,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
                 // nothing here
+            }
+
+            if let Some(audio_thread_handle) = audio_thread_handle {
+                ui.audio_thread_tx.unwrap().send(Sounds::Exit).unwrap();
+                audio_thread_handle.join().expect("Error closing audio thread");
             }
         }
     }
@@ -140,6 +170,7 @@ pub trait Component : Draw {
     // }
 }
 
+mod audio;
 mod scroll;
 
 mod indicators;
@@ -245,6 +276,7 @@ pub struct TermUI<C:Color+Copy,W:Write> {
     first_draw: bool,
     palette: Rc<Palette<C>>,
     unicode: bool,
+    audio_thread_tx: Option<Sender<Sounds>>
 }
 
 impl<C:Color+Copy,W:Write> TermUI<C,W> {
@@ -254,6 +286,7 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
         stdout: W,
         palette: Palette<C>,
         unicode: bool,
+        audio_thread_tx: Option<Sender<Sounds>>,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
@@ -292,7 +325,9 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
             
             palette,
 
-            unicode
+            unicode,
+
+            audio_thread_tx,
         };
 
         ui.clear();
