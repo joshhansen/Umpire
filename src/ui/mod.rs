@@ -91,7 +91,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
             }
 
             if let Some(audio_thread_handle) = audio_thread_handle {
-                ui.audio_thread_tx.unwrap().send(Sounds::Exit).unwrap();
+                ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
                 audio_thread_handle.join().expect("Error closing audio thread");
             }
         }
@@ -460,6 +460,12 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
                 Some(unit_loc)
             },
             _ => None
+        }
+    }
+
+    fn play_sound(&self, sound: Sounds) {
+        if let Some(tx) = self.audio_thread_tx.as_ref() {
+            tx.send(sound).unwrap();
         }
     }
 }

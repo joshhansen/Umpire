@@ -22,6 +22,7 @@ use crate::{
     },
     log::{LogTarget,Message,MessageSource},
     ui::{
+        audio::Sounds,
         Draw,
         MoveAnimator,
         TermUI,
@@ -300,6 +301,7 @@ impl IMode for SetProductionMode {
     fn run<C:Color+Copy,W:Write>(&self, game: &mut Game, ui: &mut TermUI<C,W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
+        ui.play_sound(Sounds::Silence);
         ui.draw(game);
         self.draw(game, &mut ui.stdout);
 
@@ -421,13 +423,14 @@ impl GetUnitOrdersMode {
 }
 impl IMode for GetUnitOrdersMode {
     fn run<C:Color+Copy,W:Write>(&self, game: &mut Game, ui: &mut TermUI<C,W>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        let unit_loc = {
+        let (unit_loc,unit_type) = {
             let unit = game.unit_by_id(self.unit_id).unwrap();
             ui.log_message(format!("Requesting orders for unit {} at {}", unit, unit.loc));
-            unit.loc
+            (unit.loc,unit.type_)
         };
 
         if self.first_move {
+            ui.play_sound(Sounds::Unit(unit_type));
             ui.map_scroller.scrollable.center_viewport(unit_loc);
         }
         ui.draw(game);
