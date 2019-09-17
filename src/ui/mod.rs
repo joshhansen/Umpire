@@ -57,7 +57,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
 
         // The input thread
         let (input_thread_tx, input_thread_rx) = channel();
-        let input_thread_handle = thread::spawn(move || {
+        let input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
             loop {
                 let key = stdin().keys().next().unwrap().unwrap();
                 input_thread_tx.send(key).unwrap();
@@ -67,7 +67,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
         // The audio thread (if applicable)
         let (audio_thread_handle, audio_thread_tx) = if !quiet {
             let (tx, rx) = channel();
-            let handle = thread::spawn(move || {
+            let handle = thread::Builder::new().name("audio".to_string()).spawn(move || {
                 play_sounds(rx, Sounds::Silence).unwrap();
             });
             (Some(handle), Some(tx))
