@@ -20,8 +20,6 @@
 // TODO Announce new unit creation
 // TODO Color console text announcing turn start to correspond to player colors?
 // TODO Show unit stats in examine mode
-// TODO Show production cost / time when setting productions
-// TODO Show possible orders / shortcuts in move unit mode
 // TODO Zoomed-out map view?
 // TODO AI
 // TODO Unit names that better reflect current world naming patterns rather than just the US from 10/20 years ago.
