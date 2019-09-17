@@ -5,20 +5,24 @@
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
 use std::{
-    io::{Write,stdout},
+    io::{Write,stdin,stdout},
     rc::Rc,
     sync::mpsc::{
         channel,
+        Receiver,
         Sender,
     },
     thread,
 };
 
-use termion;
-use termion::clear;
-use termion::color::{Bg,Color,Rgb};
-use termion::raw::IntoRawMode;
-use termion::screen::{AlternateScreen,ToMainScreen};
+use termion::{
+    clear,
+    event::Key,
+    color::{Bg,Color,Rgb},
+    input::TermRead,
+    raw::IntoRawMode,
+    screen::{AlternateScreen,ToMainScreen}
+};
 
 use crate::{
     color::{Colors,Palette},
@@ -51,17 +55,25 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
 
+        // The input thread
+        let (input_thread_tx, input_thread_rx) = channel();
+        let input_thread_handle = thread::spawn(move || {
+            loop {
+                let key = stdin().keys().next().unwrap().unwrap();
+                input_thread_tx.send(key).unwrap();
+            }
+        });
+
+        // The audio thread (if applicable)
         let (audio_thread_handle, audio_thread_tx) = if !quiet {
             let (tx, rx) = channel();
             let handle = thread::spawn(move || {
-                play_sounds(rx,Sounds::Silence).unwrap();
-
+                play_sounds(rx, Sounds::Silence).unwrap();
             });
             (Some(handle), Some(tx))
         } else {
             (None, None)
         };
-
 
         if use_alt_screen {//FIXME find a way to not duplicate code in both arms of this if statement
             let mut ui = TermUI::new(
@@ -71,6 +83,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
                 palette,
                 unicode,
                 audio_thread_tx,
+                input_thread_rx,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
@@ -84,6 +97,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
                 palette,
                 unicode,
                 audio_thread_tx,
+                input_thread_rx,
             );
 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
@@ -276,7 +290,8 @@ pub struct TermUI<C:Color+Copy,W:Write> {
     first_draw: bool,
     palette: Rc<Palette<C>>,
     unicode: bool,
-    audio_thread_tx: Option<Sender<Sounds>>
+    audio_thread_tx: Option<Sender<Sounds>>,
+    input_thread_rx: Receiver<Key>,
 }
 
 impl<C:Color+Copy,W:Write> TermUI<C,W> {
@@ -287,6 +302,7 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
         palette: Palette<C>,
         unicode: bool,
         audio_thread_tx: Option<Sender<Sounds>>,
+        input_thread_rx: Receiver<Key>,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
@@ -328,6 +344,7 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
             unicode,
 
             audio_thread_tx,
+            input_thread_rx,
         };
 
         ui.clear();
@@ -467,6 +484,16 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
         if let Some(tx) = self.audio_thread_tx.as_ref() {
             tx.send(sound).unwrap();
         }
+    }
+
+    /// Block until a key is pressed; return that key
+    fn get_key(&self) -> Key {
+        self.input_thread_rx.recv().unwrap()
+    }
+
+    /// Return Some(key) if a key from the input thread is waiting for us, otherwise return None
+    fn try_get_key(&self) -> Option<Key> {
+        self.input_thread_rx.try_recv().ok()
     }
 }
 

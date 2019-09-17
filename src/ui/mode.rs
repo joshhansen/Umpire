@@ -33,11 +33,6 @@ use crate::{
     util::{Direction,Location,Rect,WRAP_NEITHER},
 };
 
-fn get_key() -> Key {
-    let stdin = stdin();
-    stdin.keys().next().unwrap().unwrap()
-}
-
 #[derive(Clone,Copy,Debug)]
 pub enum Mode {
     TurnStart,
@@ -108,7 +103,7 @@ trait IMode {
     fn run<C:Color+Copy,W:Write>(&self, game: &mut Game, ui: &mut TermUI<C,W>, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool;
 
     fn get_key<C:Color+Copy,W:Write>(&self, game: &Game, ui: &mut TermUI<C,W>, mode: &mut Mode) -> KeyStatus {
-        let key = get_key();
+        let key = ui.get_key();
         if let Key::Char(c) = key {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 ui.map_scroller.scrollable.scroll_relative(dir.vec2d());
