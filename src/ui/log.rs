@@ -66,7 +66,7 @@ impl LogArea {
         self.replace(Message::from(message));
     }
 
-    pub fn draw_lite<C:Color+Copy,W:Write>(&self, stdout: &mut W, palette: &Palette<C>) {
+    pub fn draw_lite<C:Color+Copy>(&self, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
         write!(*stdout,
             "{}{}Message Log{}",
             self.goto(0, 0),
@@ -102,7 +102,7 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw<C:Color+Copy,W:Write>(&mut self, _game: &Game, stdout: &mut W, palette: &Palette<C>) {
+    fn draw<C:Color+Copy>(&mut self, _game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
         self.draw_lite(stdout, palette);
     }
 }

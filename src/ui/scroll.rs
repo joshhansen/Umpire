@@ -38,7 +38,7 @@ impl<S:ScrollableComponent> Scroller<S> {
         (self.rect.height as f32 * (self.scrollable.offset().y as f32 / map_height as f32)) as u16
     }
 
-    fn draw_scroll_bars<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>) {
+    fn draw_scroll_bars<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(game.map_dims().width);
         let h_scroll_y = viewport_rect.bottom();
@@ -66,7 +66,7 @@ impl<S:ScrollableComponent> Scroller<S> {
     }
 
     /// Utility method
-    fn draw_scroll_mark<C:Color+Copy,W:Write>(&self, stdout: &mut W, x: u16, y: u16, sym: char, palette: &Palette<C>) {
+    fn draw_scroll_mark<C:Color+Copy>(&self, stdout: &mut Box<dyn Write>, x: u16, y: u16, sym: char, palette: &Palette<C>) {
         write!(*stdout, "{}{}{}{}",
             StrongReset::new(palette),
             self.goto(x,y),
@@ -76,7 +76,7 @@ impl<S:ScrollableComponent> Scroller<S> {
     }
 
     /// Utility method
-    fn erase<C:Color+Copy,W:Write>(&self, stdout: &mut W, x: u16, y: u16, palette: &Palette<C>) {
+    fn erase<C:Color+Copy>(&self, stdout: &mut Box<dyn Write>, x: u16, y: u16, palette: &Palette<C>) {
         write!(*stdout, "{}{} ",
             StrongReset::new(palette),
             self.goto(x,y)
@@ -92,7 +92,7 @@ impl<S:ScrollableComponent> Scroller<S> {
 }
 
 impl<S:ScrollableComponent> Draw for Scroller<S> {
-    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>) {
+    fn draw<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
         self.draw_scroll_bars(game, stdout, palette);
         self.scrollable.draw(game, stdout, palette);
     }

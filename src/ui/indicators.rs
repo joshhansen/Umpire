@@ -22,7 +22,7 @@ impl CurrentPlayer {
 }
 
 impl Draw for CurrentPlayer {
-    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>) {
+    fn draw<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
         write!(*stdout,
             "{}Current Player: {}  ",
             self.goto(0, 0),
@@ -52,7 +52,7 @@ impl Turn {
 }
 
 impl Draw for Turn {
-    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>) {
+    fn draw<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
         write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
     }
 }

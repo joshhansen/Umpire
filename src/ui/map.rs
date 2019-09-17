@@ -199,9 +199,9 @@ impl <C:Color+Copy> Map<C> {
     }
 
     /// Renders a particular location in the viewport
-    pub fn draw_tile<W:Write>(&mut self,
+    pub fn draw_tile(&mut self,
             game: &Game,
-            stdout: &mut W,
+            stdout: &mut Box<dyn Write>,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -292,7 +292,7 @@ impl <C:Color+Copy> Component for Map<C> {
 }
 
 impl <C:Color+Copy> Draw for Map<C> {
-    fn draw<C2:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C2>) {
+    fn draw<C2:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C2>) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;

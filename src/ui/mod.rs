@@ -75,53 +75,38 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
             (None, None)
         };
 
-        if use_alt_screen {//FIXME find a way to not duplicate code in both arms of this if statement
-            let mut ui = TermUI::new(
-                game.map_dims(),
-                term_dims,
-                AlternateScreen::from(stdout().into_raw_mode().unwrap()),
-                palette,
-                unicode,
-                audio_thread_tx,
-                input_thread_rx,
-            );
-
-            while mode.run(&mut game, &mut ui, &mut prev_mode) {
-                // nothing here
-            }
-
-            if let Some(audio_thread_handle) = audio_thread_handle {
-                ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
-                audio_thread_handle.join().expect("Error closing audio thread");
-            }
+        let w: Box<dyn Write> = if use_alt_screen {
+            Box::new(AlternateScreen::from(stdout().into_raw_mode().unwrap()))
         } else {
-            let mut ui = TermUI::new(
-                game.map_dims(),
-                term_dims,
-                stdout().into_raw_mode().unwrap(),
-                palette,
-                unicode,
-                audio_thread_tx,
-                input_thread_rx,
-            );
+            Box::new(stdout().into_raw_mode().unwrap())
+        };
 
-            while mode.run(&mut game, &mut ui, &mut prev_mode) {
-                // nothing here
-            }
+        let mut ui = TermUI::new(
+            game.map_dims(),
+            term_dims,
+            w,
+            palette,
+            unicode,
+            audio_thread_tx,
+            input_thread_rx,
+        );
 
-            if let Some(audio_thread_handle) = audio_thread_handle {
-                ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
-                audio_thread_handle.join().expect("Error closing audio thread");
-            }
+        while mode.run(&mut game, &mut ui, &mut prev_mode) {
+            // nothing here
+        }
+
+        if let Some(audio_thread_handle) = audio_thread_handle {
+            ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
         }
     }
 
-println!("\n\n\tHe rules a moment: Chaos umpire sits,
+    println!("\n\n\tHe rules a moment: Chaos umpire sits,
 \tAnd by decision more embroils the fray
 \tBy which he reigns: next him, high arbiter,
 \tChance governs all.
 
-\t\t\t\tParadise Lost (2.907-910)\n");
+\t\t\t\tParadise Lost (2.907-910)\n"
+    );
 
     Ok(())
 }
@@ -161,7 +146,7 @@ pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
 }
 
 pub trait Draw {
-    fn draw<C:Color+Copy,W:Write>(&mut self, game: &Game, stdout: &mut W, palette: &Palette<C>);
+    fn draw<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>);
 }
 
 pub trait Component : Draw {
@@ -283,8 +268,8 @@ const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
 /// The termion-based user interface.
-pub struct TermUI<C:Color+Copy,W:Write> {
-    stdout: W,
+pub struct TermUI<C:Color+Copy> {
+    stdout: Box<dyn Write>,
     term_dims: Dims,
     viewport_size: ViewportSize,
 
@@ -299,11 +284,11 @@ pub struct TermUI<C:Color+Copy,W:Write> {
     input_thread_rx: Receiver<Key>,
 }
 
-impl<C:Color+Copy,W:Write> TermUI<C,W> {
+impl<C:Color+Copy> TermUI<C> {
     pub fn new(
         map_dims: Dims,
         term_dims: Dims,
-        stdout: W,
+        stdout: Box<dyn Write>,
         palette: Palette<C>,
         unicode: bool,
         audio_thread_tx: Option<Sender<Sounds>>,
@@ -502,7 +487,7 @@ impl<C:Color+Copy,W:Write> TermUI<C,W> {
     }
 }
 
-impl <C:Color+Copy,W:Write> LogTarget for TermUI<C,W> {
+impl <C:Color+Copy> LogTarget for TermUI<C> {
     fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
         self.log.draw_lite(&mut self.stdout, &self.palette);
@@ -514,7 +499,7 @@ impl <C:Color+Copy,W:Write> LogTarget for TermUI<C,W> {
     }
 }
 
-impl <C:Color+Copy,W:Write> MoveAnimator for TermUI<C,W> {
+impl <C:Color+Copy> MoveAnimator for TermUI<C> {
     fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
         let mut current_loc = move_result.starting_loc();
 
