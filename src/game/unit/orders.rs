@@ -154,7 +154,7 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
                 dist_to_real_goal -= 1;
             }
 
-            let move_result = game.move_unit_by_id(unit_id, goal);
+            let move_result = game.move_unit_by_id_avoiding_combat(unit_id, goal);
 
             match move_result {
                 Ok(mut move_result) => {
@@ -163,6 +163,8 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
                     if move_result.moved_successfully() {
                         current_loc = move_result.ending_loc().unwrap();
                         moves.append(&mut move_result.moves);
+                    } else {
+                        panic!("Unit was unexpectedly destroyed during exploration");
                     }
 
                     // Update the unit so that if/when we return it, it has the correct number of moves

@@ -85,7 +85,7 @@ pub static RELATIVE_NEIGHBORS_DIAGONAL: [Vec2d<i32>; 4] = [
 pub trait NeighbFilter : Filter<Tile> {}
 
 pub struct UnitMovementFilter<'a> {
-    unit: &'a Unit
+    pub unit: &'a Unit
 }
 impl <'a> UnitMovementFilter<'a> {
     pub fn new(unit: &'a Unit) -> Self {
@@ -130,13 +130,13 @@ pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
 }
 
-struct AndFilter<T,F1,F2> where F1:Filter<T>,F2:Filter<T> {
+pub struct AndFilter<T,F1,F2> where F1:Filter<T>,F2:Filter<T> {
     filter1: F1,
     filter2: F2,
     phantom: PhantomData<T>,
 }
 impl <T,F1:Filter<T>,F2:Filter<T>> AndFilter<T,F1,F2> {
-    fn new(filter1: F1, filter2: F2) -> Self {
+    pub fn new(filter1: F1, filter2: F2) -> Self {
         Self { filter1, filter2, phantom: PhantomData }
     }
 }
@@ -181,7 +181,7 @@ impl Filter<Obs> for ObservedFilter {
 }
 
 
-struct NoUnitsFilter;
+pub struct NoUnitsFilter;
 impl Filter<Tile> for NoUnitsFilter {
     fn include(&self, tile: &Tile) -> bool {
         tile.unit.is_none()
@@ -199,8 +199,8 @@ impl Filter<Obs> for NoUnitsFilter {
     }
 }
 
-struct NoCitiesButOursFilter {
-    alignment: Alignment
+pub struct NoCitiesButOursFilter {
+    pub alignment: Alignment
 }
 impl Filter<Tile> for NoCitiesButOursFilter {
     fn include(&self, tile: &Tile) -> bool {

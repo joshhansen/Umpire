@@ -16,7 +16,16 @@ use crate::{
         map::{
             Tile,
             gen::MapGenerator,
-            dijkstra::{Source,UnitMovementFilter,neighbors_terrain_only,shortest_paths},
+            dijkstra::{
+                AndFilter,
+                NoCitiesButOursFilter,
+                NoUnitsFilter,
+                ShortestPaths,
+                Source,
+                UnitMovementFilter,
+                neighbors_terrain_only,
+                shortest_paths
+            },
             newmap::{CityID,MapData,NewUnitError,UnitID},
         },
         obs::{Obs,Observer,ObsTracker},
@@ -500,6 +509,25 @@ impl Game {
             let unit = self.map.unit_by_loc(src).unwrap();
             shortest_paths(&self.map, src, &UnitMovementFilter::new(unit), self.wrapping)
         };
+        self.move_unit_by_loc_following_shortest_paths(src, dest, shortest_paths)
+    }
+
+    pub fn move_unit_by_loc_avoiding_combat(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
+        let shortest_paths = {
+            let unit = self.map.unit_by_loc(src).unwrap();
+                let unit_filter = AndFilter::new(
+                    AndFilter::new(
+                        NoUnitsFilter{},
+                        NoCitiesButOursFilter{alignment: unit.alignment }
+                    ),
+                    UnitMovementFilter{unit}
+                );
+            shortest_paths(&self.map, src, &unit_filter, self.wrapping)
+        };
+        self.move_unit_by_loc_following_shortest_paths(src, dest, shortest_paths)
+    }
+
+    fn move_unit_by_loc_following_shortest_paths(&mut self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> Result<MoveResult,String> {
         if let Some(distance) = shortest_paths.dist[dest] {
             if let Some(unit) = self.map.unit_by_loc(src) {
                 if distance > unit.moves_remaining() {
@@ -597,6 +625,11 @@ impl Game {
     pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> Result<MoveResult,String> {
         let src = self.map.unit_loc(unit_id).unwrap();
         self.move_unit_by_loc(src, dest)
+    }
+
+    pub fn move_unit_by_id_avoiding_combat(&mut self, unit_id: UnitID, dest: Location) -> Result<MoveResult,String> {
+        let src = self.map.unit_loc(unit_id).unwrap();
+        self.move_unit_by_loc_avoiding_combat(src, dest)
     }
 
     pub fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {

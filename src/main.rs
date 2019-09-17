@@ -12,7 +12,9 @@
 // FIXME Fix problems with small map sizes: 1) crash if viewport is larger than map 2) limitless wrapping where we should only wrap once
 // TODO Implement transport functionality
 // TODO Implement carrier functionality
-// TODO Auto-explore mode for units
+// FIXME Auto-explore mode for units is broken
+//       - the search for the next goal is somtimes really slow
+//       - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
 // TODO Fuel limits for aircraft
 // TODO Long-range movement from examine mode
 // TODO Show owner of city or unit in examine mode
@@ -23,6 +25,9 @@
 // TODO Zoomed-out map view?
 // TODO AI
 // TODO Unit names that better reflect current world naming patterns rather than just the US from 10/20 years ago.
+// TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
+// TODO Wake up sentried units when an enemy comes within their sight.
+// TODO Make splash screen respect color palette
 
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::let_and_return)]
