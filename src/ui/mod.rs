@@ -49,7 +49,9 @@ use self::{
     sym::Sym,
 };
 
-pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool, quiet: bool) -> Result<(),String> {
+pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool, quiet: bool,
+    confirm_turn_end: bool
+) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
 
         let mut prev_mode: Option<Mode> = None;
@@ -87,6 +89,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
             w,
             palette,
             unicode,
+            confirm_turn_end,
             audio_thread_tx,
             input_thread_rx,
         );
@@ -280,6 +283,7 @@ pub struct TermUI<C:Color+Copy> {
     first_draw: bool,
     palette: Rc<Palette<C>>,
     unicode: bool,
+    confirm_turn_end: bool,
     audio_thread_tx: Option<Sender<Sounds>>,
     input_thread_rx: Receiver<Key>,
 }
@@ -291,6 +295,7 @@ impl<C:Color+Copy> TermUI<C> {
         stdout: Box<dyn Write>,
         palette: Palette<C>,
         unicode: bool,
+        confirm_turn_end: bool,
         audio_thread_tx: Option<Sender<Sounds>>,
         input_thread_rx: Receiver<Key>,
     ) -> Self {
@@ -332,6 +337,8 @@ impl<C:Color+Copy> TermUI<C> {
             palette,
 
             unicode,
+
+            confirm_turn_end,
 
             audio_thread_tx,
             input_thread_rx,
@@ -484,6 +491,10 @@ impl<C:Color+Copy> TermUI<C> {
     /// Return Some(key) if a key from the input thread is waiting for us, otherwise return None
     fn try_get_key(&self) -> Option<Key> {
         self.input_thread_rx.try_recv().ok()
+    }
+
+    fn confirm_turn_end(&self) -> bool {
+        self.confirm_turn_end
     }
 }
 

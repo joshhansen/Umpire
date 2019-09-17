@@ -101,26 +101,7 @@ fn main() {
             .version("0.1")
             .author("Josh Hansen <hansen.joshuaa@gmail.com>")
             .about(conf::APP_SUBTITLE)
-            .arg(Arg::with_name("fog")
-              .short("f")
-              .long("fog")
-              .help("Enable or disable fog of war")
-              .takes_value(true)
-              .default_value(conf::FOG_OF_WAR)
-              .possible_values(&["on","off"])
-            )
-            .arg(Arg::with_name("players")
-                .short("p")
-                .long("players")
-                .help("Number of players")
-                .takes_value(true)
-                .required(true)
-                .default_value(conf::NUM_PLAYERS)
-                .validator(|s| {
-                    let players: Result<PlayerNum,_> = s.trim().parse();
-                    players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
-                })
-            )
+
             .arg(Arg::with_name("use_alt_screen")
                 .short("a")
                 .long("altscreen")
@@ -128,28 +109,6 @@ fn main() {
                 .takes_value(true)
                 .default_value(conf::USE_ALTERNATE_SCREEN)
                 .possible_values(&["on","off"])
-            )
-            .arg(Arg::with_name("map_width")
-                .short("W")
-                .long("width")
-                .help("Map width")
-                .takes_value(true)
-                .default_value(map_width_s)
-                .validator(|s| {
-                    let width: Result<u16,_> = s.trim().parse();
-                    width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))
-                })
-            )
-            .arg(Arg::with_name("map_height")
-                .short("H")
-                .long("height")
-                .help("Map height")
-                .takes_value(true)
-                .default_value(map_height_s)
-                .validator(|s| {
-                    let width: Result<u16,_> = s.trim().parse();
-                    width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
-                })
             )
             .arg(Arg::with_name("colors")
                 .short("c")
@@ -174,20 +133,67 @@ fn main() {
                     width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
                 })
             )
-            .arg(Arg::with_name("unicode")
-                .short("u")
-                .long("unicode")
-                .help("Enable Unicode support")
+            .arg(Arg::with_name("fog")
+              .short("f")
+              .long("fog")
+              .help("Enable or disable fog of war")
+              .takes_value(true)
+              .default_value(conf::FOG_OF_WAR)
+              .possible_values(&["on","off"])
+            )
+            .arg(Arg::with_name("nosplash")
+                .short("n")
+                .long("nosplash")
+                .help("Don't show the splash screen")
+            )
+            .arg(Arg::with_name("players")
+                .short("p")
+                .long("players")
+                .help("Number of players")
+                .takes_value(true)
+                .required(true)
+                .default_value(conf::NUM_PLAYERS)
+                .validator(|s| {
+                    let players: Result<PlayerNum,_> = s.trim().parse();
+                    players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
+                })
             )
             .arg(Arg::with_name("quiet")
                 .short("q")
                 .long("quiet")
                 .help("Don't produce sound")
             )
-            .arg(Arg::with_name("nosplash")
-                .short("n")
-                .long("nosplash")
-                .help("Don't show the splash screen")
+            .arg(Arg::with_name("unicode")
+                .short("u")
+                .long("unicode")
+                .help("Enable Unicode support")
+            )
+            .arg(Arg::with_name("confirm_turn_end")
+                .short("C")
+                .long("confirm")
+                .help("Wait for explicit confirmation of turn end.")
+            )
+            .arg(Arg::with_name("map_height")
+                .short("H")
+                .long("height")
+                .help("Map height")
+                .takes_value(true)
+                .default_value(map_height_s)
+                .validator(|s| {
+                    let width: Result<u16,_> = s.trim().parse();
+                    width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
+                })
+            )
+            .arg(Arg::with_name("map_width")
+                .short("W")
+                .long("width")
+                .help("Map width")
+                .takes_value(true)
+                .default_value(map_width_s)
+                .validator(|s| {
+                    let width: Result<u16,_> = s.trim().parse();
+                    width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))
+                })
             )
         .get_matches();
 
@@ -201,6 +207,7 @@ fn main() {
         let unicode: bool = matches.is_present("unicode");
         let quiet: bool = matches.is_present("quiet");
         let nosplash: bool = matches.is_present("nosplash");
+        let confirm_turn_end: bool = matches.is_present("confirm_turn_end");
 
         if !nosplash {
             print_loading_screen();
@@ -232,12 +239,12 @@ fn main() {
                     256 => palette256(),
                     _ => unreachable!()
                 };
-                run_ui(game, dims, use_alt_screen, palette, unicode, quiet);
+                run_ui(game, dims, use_alt_screen, palette, unicode, quiet, confirm_turn_end);
 
             },
             24 => {
                 match palette24(num_players, fog_darkness) {
-                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette, unicode, quiet),
+                    Ok(palette) => run_ui(game, dims, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
                     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
                 }
             },
@@ -249,8 +256,9 @@ fn main() {
     }
 }
 
-fn run_ui<C:Color+Copy>(game: Game, dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool, quiet: bool) {
-    if let Err(msg) = ui::run(game, dims, use_alt_screen, palette, unicode, quiet) {
+fn run_ui<C:Color+Copy>(game: Game, dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool, quiet: bool,
+    confirm_turn_end: bool) {
+    if let Err(msg) = ui::run(game, dims, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
         eprintln!("Error running UI: {}", msg);
     }
 }

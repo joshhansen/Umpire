@@ -14,6 +14,7 @@ use crate::{
         AlignedMaybe,
         Game,
         GameError,
+        PlayerNum,
         map::Tile,
         map::newmap::UnitID,
         unit::{
@@ -37,6 +38,7 @@ use crate::{
 pub enum Mode {
     TurnStart,
     TurnResume,
+    TurnOver,
     SetProductions,
     SetProduction{city_loc:Location},
     GetOrders,
@@ -57,6 +59,7 @@ impl Mode {
         let continue_ = match *self {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self, prev_mode),
             Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self, prev_mode),
+            Mode::TurnOver   =>         TurnOverMode{}.run(game, ui, self, prev_mode),
             Mode::SetProductions =>     SetProductionsMode{}.run(game, ui, self, prev_mode),
             Mode::SetProduction{city_loc} => {
                 let viewport_rect = ui.viewport_rect();
@@ -117,19 +120,27 @@ trait IMode {
                     return KeyStatus::Handled(StateDisposition::Quit);
                 },
                 conf::KEY_EXAMINE => {
-                    if let Some(cursor_viewport_loc) = ui.cursor_viewport_loc(mode, game) {
-                        let most_recently_active_unit_loc = ui.cursor_map_loc(mode, game).unwrap();
-                        let most_recently_active_unit_id = game.unit_by_loc(most_recently_active_unit_loc).map(|unit| unit.id);
+                    // println!("Rect: {:?}", ui.viewport_rect());
+                    // println!("Center: {:?}", ui.viewport_rect().center());
 
-                        *mode = Mode::Examine{
-                            cursor_viewport_loc,
-                            first: true,
-                            most_recently_active_unit_id
-                        };
-                        return KeyStatus::Handled(StateDisposition::Next);
-                    } else {
-                        ui.log_message(String::from("Couldn't get cursor loc"));
-                    }
+                    let cursor_viewport_loc = ui.cursor_viewport_loc(mode, game).unwrap_or(
+                        ui.viewport_rect().center()
+                    );
+
+                    let most_recently_active_unit_id =
+                        if let Some(most_recently_active_unit_loc) = ui.cursor_map_loc(mode, game) {
+                            game.unit_by_loc(most_recently_active_unit_loc).map(|unit| unit.id)
+                        } else {
+                            None
+                        }
+                    ;
+
+                    *mode = Mode::Examine{
+                        cursor_viewport_loc,
+                        first: true,
+                        most_recently_active_unit_id
+                    };
+                    return KeyStatus::Handled(StateDisposition::Next);
                 },
                 conf::KEY_VIEWPORT_SIZE_ROTATE => {
                     ui.rotate_viewport_size(game);
@@ -203,9 +214,67 @@ impl IMode for TurnResumeMode {
             return true;
         }
 
-        if let Ok(_player_num) = game.end_turn(ui) {
-            *mode = Mode::TurnStart;
+        if game.turn_is_done() {
+            *mode = Mode::TurnOver;
         }
+
+        true
+    }
+}
+
+struct TurnOverMode {}
+impl IMode for TurnOverMode {
+    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+
+        let over_for: PlayerNum = game.current_player();
+
+        if ui.confirm_turn_end() {
+            ui.log_message(Message {
+                text: format!("Turn over for player {}. Press Enter to continue.", over_for),
+                mark: Some('X'),
+                fg_color: Some(Colors::Text),
+                bg_color: None,
+                source: None
+            });
+
+            loop {
+                match self.get_key(game, ui, mode) {
+                    KeyStatus::Unhandled(key) => {
+                        if let Key::Char('\n') = key {
+
+                            // If the user has altered productions using examine mode then the turn might not be over anymore
+                            // Recheck
+
+                            match game.end_turn(ui) {
+                                Ok(_over_for) => {
+                                    *mode = Mode::TurnStart;
+                                },
+                                Err(_not_over_for) => {
+                                    *mode = Mode::TurnResume;
+                                }
+                            }
+
+                            return true;
+                        }
+                    },
+                    KeyStatus::Handled(state_disposition) => {
+                        match state_disposition {
+                            StateDisposition::Quit => return false,
+                            StateDisposition::Next => return true,
+                            StateDisposition::Stay => {}
+                        }
+                    }
+                }
+            }
+        } else {
+            // We shouldn't be in this state unless game.turn_is_done() is true
+            // so this unwrap should always succeed
+            game.end_turn(ui).unwrap();
+            *mode = Mode::TurnStart;
+            return true;
+        }
+
+        
 
         true
     }

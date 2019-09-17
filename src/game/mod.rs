@@ -346,7 +346,7 @@ impl Game {
         self.update_current_player_observations();
     }
 
-    fn turn_is_done(&self) -> bool {
+    pub fn turn_is_done(&self) -> bool {
         self.production_set_requests().next().is_none() && self.unit_orders_requests().next().is_none()
     }
 

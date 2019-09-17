@@ -20,7 +20,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use conf;
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Debug)]
 pub struct Rect {
     pub left: u16,
     pub top: u16,
@@ -31,6 +31,13 @@ pub struct Rect {
 impl Rect {
     pub fn right(self) -> u16 { self.left + self.width }
     pub fn bottom(self) -> u16 { self.top + self.height }
+
+    pub fn center(self) -> Location {
+        Location {
+            x: self.left + self.width / 2,
+            y: self.top + self.height / 2,
+        }
+    }
 
     pub fn dims(self) -> Dims {
         Dims{ width: self.width, height: self.height }
