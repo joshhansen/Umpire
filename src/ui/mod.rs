@@ -89,6 +89,11 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
             while mode.run(&mut game, &mut ui, &mut prev_mode) {
                 // nothing here
             }
+
+            if let Some(audio_thread_handle) = audio_thread_handle {
+                ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
+                audio_thread_handle.join().expect("Error closing audio thread");
+            }
         } else {
             let mut ui = TermUI::new(
                 game.map_dims(),
