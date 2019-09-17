@@ -434,8 +434,8 @@ x   o    x";
                 // let mut obs_tracker: ObsTracker = ObsTracker::new_fog_of_war(map.dims());
                 let mut obs_tracker = ObsTracker::new(map.dims());
 
-                for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc), Obs::Unobserved);
+                for loc in map.iter_locs() {
+                    assert_eq!(*obs_tracker.get(loc), Obs::Unobserved);
                 }
 
                 let turn = 0;
@@ -459,9 +459,9 @@ x   o    x";
                 ];
                 let observed_locs: HashSet<&Location> = HashSet::from_iter(observed_locs_arr.iter());
 
-                for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc), if observed_locs.contains(&tile.loc) {
-                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn, current: false }
+                for loc in map.iter_locs() {
+                    assert_eq!(*obs_tracker.get(loc), if observed_locs.contains(&loc) {
+                        Obs::Observed{ tile: map[loc].clone(), turn: turn, current: true }
                     } else {
                         Obs::Unobserved
                     });
@@ -487,9 +487,19 @@ x   o    x";
                 ];
                 let observed_locs_2: HashSet<&Location> = HashSet::from_iter(observed_locs_arr_2.iter());
 
-                for tile in map.iter() {
-                    assert_eq!(*obs_tracker.get(tile.loc), if observed_locs.contains(&tile.loc) || observed_locs_2.contains(&tile.loc) {
-                        Obs::Observed{ tile: map[tile.loc].clone(), turn: turn, current: false }
+                for loc in map.iter_locs() {
+                    assert_eq!(*obs_tracker.get(loc), if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
+                        Obs::Observed{ tile: map[loc].clone(), turn: turn, current: true }
+                    } else {
+                        Obs::Unobserved
+                    });
+                }
+
+                obs_tracker.archive();
+
+                for loc in map.iter_locs() {
+                    assert_eq!(*obs_tracker.get(loc), if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
+                        Obs::Observed{ tile: map[loc].clone(), turn: turn, current: false }
                     } else {
                         Obs::Unobserved
                     });

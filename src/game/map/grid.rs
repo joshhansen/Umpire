@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::iter::FromIterator;
-use std::ops::{Index,IndexMut};
+use std::ops::{Index,IndexMut,Range};
 
 use crate::{
     game::{
@@ -77,6 +77,16 @@ impl<T> LocationGrid<T> {
 
     pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item=&'a mut T> {
         self.grid.iter_mut().flat_map(|item: &mut Vec<T>| item.iter_mut())
+    }
+
+    pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
+        let width: u16 = self.dims.width;
+        let height: u16 = self.dims.height;
+        (0..width).flat_map(move |x| {
+            (0..height).map(move |y| {
+                Location{x,y}
+            })
+        })
     }
 }
 

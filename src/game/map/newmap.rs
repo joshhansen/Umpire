@@ -68,11 +68,12 @@ pub struct MapData {
 }
 
 impl MapData {
+    pub fn new<F>(dims: Dims, terrain_initializer: F) -> Self
+        where F: Fn(Location)->Terrain {
 
-    pub fn new(dims: Dims) -> Self {
         Self {
             dims,
-            tiles: LocationGrid::new(dims, |loc| Tile::new(Terrain::Water, loc)),
+            tiles: LocationGrid::new(dims, |loc| Tile::new(terrain_initializer(loc), loc)),
             unit_loc_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
             next_unit_id: UnitID{id: 0},
@@ -282,6 +283,10 @@ impl MapData {
     pub fn player_cities_lacking_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
         self.player_cities(player).filter(|city| city.production().is_none() && !city.ignore_cleared_production())
     }
+
+    pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
+        self.tiles.iter_locs()
+    }
 }
 
 impl Source<Tile> for MapData {
@@ -328,23 +333,20 @@ impl TryFrom<&'static str> for MapData {
         }
 
         let dims = Dims{width: width as u16, height: lines.len() as u16 };
-        let mut map = Self::new(dims);
-        let mut loc = Location{x: 0, y: 0};
-        for x in 0..dims.width {
-            loc.x = x;
-            for y in 0..dims.height {
-                loc.y = y;
+        let mut map = Self::new(dims, |loc| {
+            let c = lines[loc.y as usize][loc.x as usize];
 
-                let c = lines[loc.y as usize][loc.x as usize];
-                map.set_terrain(loc, if c==' ' {
-                    Terrain::Water
-                } else {
-                    Terrain::Land
-                });
+            if c==' ' {
+                Terrain::Water
+            } else {
+                Terrain::Land
+            }
+        });
 
-                if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
-                    map.new_city(loc, Alignment::Belligerent{player: player_num}, format!("City_{}_{}", loc.x, loc.y)).unwrap();
-                }
+        for loc in map.iter_locs() {
+            let c = lines[loc.y as usize][loc.x as usize];
+            if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
+                map.new_city(loc, Alignment::Belligerent{player: player_num}, format!("City_{}_{}", loc.x, loc.y)).unwrap();
             }
         }
 

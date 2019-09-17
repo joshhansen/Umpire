@@ -56,7 +56,7 @@ impl MapGenerator {
     }
 
     pub fn generate(&mut self, map_dims: Dims, num_players: PlayerNum) -> MapData {
-        let mut map = MapData::new(map_dims);
+        let mut map = MapData::new(map_dims, |loc| Terrain::Water);
 
         let mut rng = thread_rng();
 

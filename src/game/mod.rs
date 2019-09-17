@@ -845,7 +845,7 @@ mod test {
     /// * Player 1's Zanzibar at 0,1
     fn map1() -> MapData {
         let dims = Dims{width: 10, height: 10};
-        let mut map = MapData::new(dims);
+        let mut map = MapData::new(dims, |loc| Terrain::Land);
         map.new_city(Location{x:0,y:0}, Alignment::Belligerent{player:0}, "Machang").unwrap();
         map.new_city(Location{x:0,y:1}, Alignment::Belligerent{player:1}, "Zanzibar").unwrap();
         // LocationGrid::new(dims, |loc| {
