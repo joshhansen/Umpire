@@ -53,7 +53,11 @@ extern crate pitch_calc;
 extern crate sample;
 extern crate synth;
 
-use std::io::{BufRead,BufReader,Write,stdout};
+use std::{
+    io::{BufRead,BufReader,Write,stdout},
+    thread,
+    time::{Duration,SystemTime},
+};
 
 use clap::{Arg, App};
 use termion::{
@@ -69,6 +73,8 @@ use game::{Game,PlayerNum};
 use name::{city_namer,unit_namer};
 use ui::DefaultUI;
 use util::Dims;
+
+const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 
 fn print_loading_screen() {
     // let f = File::open("images/1945_Baseball_Umpire.txt").unwrap();
@@ -178,9 +184,12 @@ fn main() {
                 .long("quiet")
                 .help("Don't produce sound")
             )
+            .arg(Arg::with_name("nosplash")
+                .short("n")
+                .long("nosplash")
+                .help("Don't show the splash screen")
+            )
         .get_matches();
-
-        print_loading_screen();
 
         let fog_of_war = matches.value_of("fog").unwrap() == "on";
         let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
@@ -191,6 +200,13 @@ fn main() {
         let fog_darkness: f64 = matches.value_of("fog_darkness").unwrap().parse().unwrap();
         let unicode: bool = matches.is_present("unicode");
         let quiet: bool = matches.is_present("quiet");
+        let nosplash: bool = matches.is_present("nosplash");
+
+        if !nosplash {
+            print_loading_screen();
+        }
+
+        let start_time = SystemTime::now();
 
         let map_dims: Dims = Dims::new(map_width, map_height);
 
@@ -200,6 +216,14 @@ fn main() {
 
         let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
         let dims = Dims{ width: term_width, height: term_height };
+
+        if !nosplash {
+            let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();
+            if elapsed_time < MIN_LOAD_SCREEN_DISPLAY_TIME {
+                let remaining = MIN_LOAD_SCREEN_DISPLAY_TIME - elapsed_time;
+                thread::sleep(remaining);
+            }
+        }
 
         match color_depth {
             16 | 256 => {
