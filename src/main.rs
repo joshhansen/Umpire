@@ -16,7 +16,7 @@
 //       - the search for the next goal is somtimes really slow
 //       - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
 // TODO Fuel limits for aircraft
-// TODO Long-range movement from examine mode
+// FIXME Long-range movement from examine mode is broken
 // TODO Show owner of city or unit in examine mode
 // TODO Game save/load
 // TODO Announce new unit creation
