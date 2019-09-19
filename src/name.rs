@@ -138,7 +138,7 @@ static CITY_NAME_COL: usize = 1;
 ///
 /// Loads city names from the geonames 1000 cities database and returns them randomly.
 pub fn city_namer() -> ListNamer {
-    let bytes_gz: &[u8] = include_bytes!("../data/geonames_cities1000_2017-02-27_02:01__pop-and-name.tsv.gz");
+    let bytes_gz: &[u8] = include_bytes!("../data/geonames_cities1000_2017-02-27_0201__pop-and-name.tsv.gz");
     let d = GzDecoder::new(bytes_gz);
 
     let mut reader = csv::ReaderBuilder::new()
