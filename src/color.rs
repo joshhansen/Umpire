@@ -200,6 +200,10 @@ fn color_to_rgb_pair(color: Rgb, darken_percent: f64) -> ColorPair<Rgb> {
 }
 
 pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette<Rgb>,String> {
+    let land_color_pair = color_to_rgb_pair(Rgb(24,216,67), darken_percent);
+    let ocean_color_pair = color_to_rgb_pair(Rgb(60,27,225), darken_percent);
+
+
     let player_colors: Vec<ColorPair<Rgb>> = if num_players == 0 {
         Vec::new()
     } else if num_players == 1 {
@@ -207,7 +211,16 @@ pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette<
             pastel_color_to_rgb_pair(&Vivid.generate(), darken_percent)
         ]
     } else {
-        let pastel_colors: Vec<PastelColor> = distinct_colors(usize::from(num_players), DistanceMetric::CIE76, false, true).unwrap().0;
+        let land_color: PastelColor = PastelColor::from_rgb(land_color_pair.active.0, land_color_pair.active.1, land_color_pair.active.2);
+        let ocean_color: PastelColor = PastelColor::from_rgb(ocean_color_pair.active.0, ocean_color_pair.active.1, ocean_color_pair.active.2);
+        let preexisting_colors = vec![land_color, ocean_color];
+        // let callback = |&mut stats| {};
+        let pastel_colors: Vec<PastelColor> = distinct_colors(
+            usize::from(num_players),
+            DistanceMetric::CIE76,
+            preexisting_colors,
+            Box::new(|_| {})
+        ).0;
         
         let rgb_pairs: Vec<ColorPair<Rgb>> = pastel_colors.iter().map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent)).collect();
         rgb_pairs
@@ -215,8 +228,8 @@ pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette<
 
     Ok(Palette {
         background: Rgb(0,0,0),
-        land: color_to_rgb_pair(Rgb(24,216,67), darken_percent),//ColorPair::new_rgb(24,216,67, 141,185,138),
-        ocean: color_to_rgb_pair(Rgb(60,27,225), darken_percent),//ColorPair::new_rgb(60,27,225, 78,50,171),
+        land: land_color_pair,//ColorPair::new_rgb(24,216,67, 141,185,138),
+        ocean: ocean_color_pair,//ColorPair::new_rgb(60,27,225, 78,50,171),
         players: player_colors,
         neutral: color_to_rgb_pair(Rgb(202,202,202), darken_percent),//ColorPair::new_rgb(202,202,202, 102,102,102),
         text: Rgb(255,255,255),
