@@ -78,9 +78,15 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
         };
 
         let w: Box<dyn Write> = if use_alt_screen {
-            Box::new(AlternateScreen::from(stdout().into_raw_mode().unwrap()))
+            match stdout().into_raw_mode() {
+                Ok(stdout_raw) => Box::new(AlternateScreen::from(stdout_raw)),
+                Err(err) => return Err(format!("Error communicating with terminal: {}", err))
+            }
         } else {
-            Box::new(stdout().into_raw_mode().unwrap())
+            match stdout().into_raw_mode() {
+                Ok(stdout_raw) => Box::new(stdout_raw),
+                Err(err) => return Err(format!("Error communicating with terminal: {}", err))
+            }
         };
 
         let mut ui = TermUI::new(
