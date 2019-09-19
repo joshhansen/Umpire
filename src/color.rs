@@ -216,11 +216,11 @@ pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette<
         let preexisting_colors = vec![land_color, ocean_color];
         // let callback = |&mut stats| {};
         let pastel_colors: Vec<PastelColor> = distinct_colors(
-            usize::from(num_players),
+            usize::from(num_players) + 2,
             DistanceMetric::CIE76,
             preexisting_colors,
             Box::new(|_| {})
-        ).0;
+        ).0.iter().skip(2).cloned().collect();
         
         let rgb_pairs: Vec<ColorPair<Rgb>> = pastel_colors.iter().map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent)).collect();
         rgb_pairs
