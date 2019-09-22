@@ -149,29 +149,29 @@ impl <T,F1:Filter<T>,F2:Filter<T>> Filter<T> for AndFilter<T,F1,F2> {
     }
 }
 
-struct OrFilter<T,F1,F2> where F1:Filter<T>,F2:Filter<T> {
-    filter1: F1,
-    filter2: F2,
-    phantom: PhantomData<T>,
-}
-impl <T,F1:Filter<T>,F2:Filter<T>> OrFilter<T,F1,F2> {
-    fn new(filter1: F1, filter2: F2) -> Self {
-        Self {
-            filter1,
-            filter2,
-            phantom: PhantomData,
-        }
-    }
-}
-impl <T,F1:Filter<T>,F2:Filter<T>> Filter<T> for OrFilter<T,F1,F2> {
-    fn include(&self, item: &T) -> bool {
-        if self.filter1.include(item) {
-            return true;
-        }
-        self.filter2.include(item)
+// struct OrFilter<T,F1,F2> where F1:Filter<T>,F2:Filter<T> {
+//     filter1: F1,
+//     filter2: F2,
+//     phantom: PhantomData<T>,
+// }
+// impl <T,F1:Filter<T>,F2:Filter<T>> OrFilter<T,F1,F2> {
+//     fn new(filter1: F1, filter2: F2) -> Self {
+//         Self {
+//             filter1,
+//             filter2,
+//             phantom: PhantomData,
+//         }
+//     }
+// }
+// impl <T,F1:Filter<T>,F2:Filter<T>> Filter<T> for OrFilter<T,F1,F2> {
+//     fn include(&self, item: &T) -> bool {
+//         if self.filter1.include(item) {
+//             return true;
+//         }
+//         self.filter2.include(item)
 
-    }
-}
+//     }
+// }
 
 pub struct ObservedFilter {}
 impl Filter<Obs> for ObservedFilter {
@@ -189,7 +189,7 @@ impl Filter<Tile> for NoUnitsFilter {
 }
 impl Filter<Obs> for NoUnitsFilter {
     fn include(&self, obs: &Obs) -> bool {
-        if let Obs::Observed { tile, turn, current } = obs {
+        if let Obs::Observed { tile, turn:_, current:_ } = obs {
             Filter::<Tile>::include(self, tile)
         } else {
             // NOTE: This is a misleading response---if the tile isn't observed, we can't tell if it has a unit or not
@@ -212,7 +212,7 @@ impl Filter<Tile> for NoCitiesButOursFilter {
 }
 impl Filter<Obs> for NoCitiesButOursFilter {
     fn include(&self, obs: &Obs) -> bool {
-        if let Obs::Observed { tile, turn, current } = obs {
+        if let Obs::Observed { tile, turn:_, current:_ } = obs {
             if let Some(ref city) = tile.city {
                 return city.alignment == self.alignment;
             }

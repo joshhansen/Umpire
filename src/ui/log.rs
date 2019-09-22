@@ -1,9 +1,16 @@
-use std::collections::VecDeque;
-use std::io::Write;
+use std::{
+    collections::VecDeque,
+    io::{Stdout,Write},
+};
 
-use termion::{
-    color::{Bg,Color,Fg},
-    style::Underline
+use crossterm::{
+    Attribute,
+    Color,
+    Output,
+    SetAttr,
+    SetBg,
+    SetFg,
+    queue,
 };
 
 use crate::{
@@ -13,7 +20,6 @@ use crate::{
     ui::{
         Component,
         Draw,
-        style::StrongReset
     },
     util::{Rect,grapheme_len,grapheme_substr}
 };
@@ -66,12 +72,19 @@ impl LogArea {
         self.replace(Message::from(message));
     }
 
-    pub fn draw_lite<C:Color+Copy>(&self, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
-        write!(*stdout,
-            "{}{}Message Log{}",
+    pub fn draw_lite(&self, stdout: &mut Stdout, palette: &Palette) {
+        // write!(*stdout,
+        //     "{}{}Message Log{}",
+        //     self.goto(0, 0),
+        //     Underline,
+        //     StrongReset::new(palette),
+        // ).unwrap();
+
+        queue!(*stdout,
             self.goto(0, 0),
-            Underline,
-            StrongReset::new(palette),
+            SetAttr(Attribute::Underlined),
+            Output(String::from("Message Log")),
+            SetAttr(Attribute::Reset)
         ).unwrap();
 
         for i in 0..self.rect.height {
@@ -84,17 +97,23 @@ impl LogArea {
             }
 
             let mark = message.mark.unwrap_or(' ');
-            let fg_color: C = message.fg_color.map_or_else(
+            let fg_color: Color = message.fg_color.map_or_else(
                 || palette.get_single(Colors::Text),
                 |fg_color| palette.get_single(fg_color)
             );
 
-            let bg_color: C = message.bg_color.map_or_else(
+            let bg_color: Color = message.bg_color.map_or_else(
                 || palette.get_single(Colors::Background),
                 |bg_color| palette.get_single(bg_color)
             );
 
-            write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
+            // write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
+            queue!(*stdout,
+                self.goto(0, i as u16+1),
+                SetFg(fg_color),
+                SetBg(bg_color),
+                Output(format!("{} {}", mark, text))
+            ).unwrap();
         }
 
         stdout.flush().unwrap();
@@ -102,7 +121,7 @@ impl LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw<C:Color+Copy>(&mut self, _game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
+    fn draw(&mut self, _game: &Game, stdout: &mut Stdout, palette: &Palette) {
         self.draw_lite(stdout, palette);
     }
 }

@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::iter::FromIterator;
-use std::ops::{Index,IndexMut,Range};
+use std::ops::{Index,IndexMut};
 
 use crate::{
     game::{

@@ -6,7 +6,6 @@ extern crate synth;
 
 
 use cpal::{
-    OutputBuffer,
     traits::{DeviceTrait, EventLoopTrait, HostTrait}
 };
 
@@ -204,6 +203,4 @@ pub fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> Result<(), failure::E
             },
         }
     });
-
-    unreachable!();
 }

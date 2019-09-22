@@ -764,17 +764,6 @@ impl Game {
         result
     }
 
-    #[deprecated]
-    fn give_orders(&mut self, unit_id: UnitID, orders: Option<Orders>, carry_out_now: bool) -> OrdersResult {
-        self.set_orders(unit_id, orders)?;
-
-        if carry_out_now {
-            self.follow_orders(unit_id)
-        } else {
-            Ok(OrdersOutcome::completed_without_move())
-        }
-    }
-
     pub fn player_cities_producing_or_not_ignored(&self) -> usize {
         self.player_cities().filter(|city| city.production().is_some() || !city.ignore_cleared_production()).count()
     }

@@ -18,15 +18,13 @@
 //! * map: colors only used on the map
 //! * text: colors used in textual output outside of the map
 
+use crossterm::Color;
+
 use pastel::Color as PastelColor;
 use pastel::RGBA;
 use pastel::distinct::{DistanceMetric,distinct_colors};
 use pastel::random::RandomizationStrategy;
 use pastel::random::strategies::Vivid;
-
-use termion::color::AnsiValue;
-use termion::color::Color;
-use termion::color::Rgb;
 
 use game::PlayerNum;
 
@@ -67,40 +65,40 @@ pub trait Colorized {
     fn color(&self) -> Option<Colors>;
 }
 
-pub trait PairColorized<C:Color+Copy> {
-    fn color_pair(&self, palette: &Palette<C>) -> Option<ColorPair<C>>;
+pub trait PairColorized {
+    fn color_pair(&self, palette: &Palette) -> Option<ColorPair>;
 }
 
-pub trait PaletteT<C:Color> {
-    fn background(&self) -> C;
+pub trait PaletteT {
+    fn background(&self) -> Color;
 }
 
-pub struct Palette<C> {
+pub struct Palette {
     // general
-    background: C,
+    background: Color,
     
 
     // map
-    land: ColorPair<C>,
-    ocean: ColorPair<C>,
-    players: Vec<ColorPair<C>>,
-    neutral: ColorPair<C>,
+    land: ColorPair,
+    ocean: ColorPair,
+    players: Vec<ColorPair>,
+    neutral: ColorPair,
 
     // text
-    text: C,
+    text: Color,
 
-    notice: C,
+    notice: Color,
 
-    cursor: C,
+    cursor: Color,
 
-    combat: C,
+    combat: Color,
 
     // other
-    scroll_marks: C
+    scroll_marks: Color
 }
 
-impl <C:Color+Copy> Palette<C> {
-    pub fn get_single(&self, color: Colors) -> C {
+impl Palette {
+    pub fn get_single(&self, color: Colors) -> Color {
         match color {
             Colors::Background => self.background,
             Colors::Notice => self.notice,
@@ -112,7 +110,7 @@ impl <C:Color+Copy> Palette<C> {
         }
     }
 
-    pub fn get(&self, color: Colors, currently_observed: bool) -> C {
+    pub fn get(&self, color: Colors, currently_observed: bool) -> Color {
         match color {
             Colors::Background => self.background,
             Colors::Land => self.land.get(currently_observed),
@@ -127,7 +125,7 @@ impl <C:Color+Copy> Palette<C> {
         }
     }
 
-    pub fn get_pair(&self, color: Colors) -> ColorPair<C> {
+    pub fn get_pair(&self, color: Colors) -> ColorPair {
         match color {
             Colors::Land => self.land,
             Colors::Ocean => self.ocean,
@@ -138,81 +136,94 @@ impl <C:Color+Copy> Palette<C> {
     }
 }
 
-pub fn palette16() -> Palette<AnsiValue> {
+pub fn palette16() -> Palette {
     Palette {
-        background: AnsiValue(0),
-        land: ColorPair::new_ansi(10, 2),
-        ocean: ColorPair::new_ansi(12, 4),
+        background: Color::Black,
+        land: ColorPair::new(Color::Green, Color::DarkGreen),
+        ocean: ColorPair::new(Color::Blue, Color::DarkBlue),
         players: vec![
-            ColorPair::new_ansi(9, 1),// red
-            ColorPair::new_ansi(15, 7),// white
-            ColorPair::new_ansi(13, 5),// purple
-            ColorPair::new_ansi(11, 3),// yellow
-            ColorPair::new_ansi(14, 6),// cyan
+            ColorPair::new(Color::Red, Color::DarkRed),
+            ColorPair::new(Color::White, Color::Grey),
+            ColorPair::new(Color::Magenta, Color::DarkMagenta),
+            ColorPair::new(Color::Yellow, Color::DarkYellow),
+            ColorPair::new(Color::Cyan, Color::DarkCyan),
         ],
-        neutral: ColorPair::new_ansi(8, 8),// gray
-        text: AnsiValue(15),
-        notice: AnsiValue(14),
-        cursor: AnsiValue(15),
-        combat: AnsiValue(9),
-        scroll_marks: AnsiValue(11),
+        neutral: ColorPair::new(Color::DarkGrey, Color::DarkGrey),
+        text: Color::White,
+        notice: Color::Cyan,
+        cursor: Color::White,
+        combat: Color::Red,
+        scroll_marks: Color::Yellow,
     }
 }
 
-pub fn palette256() -> Palette<AnsiValue> {
-    Palette {
-        background: AnsiValue(0),
-        land: ColorPair::new_ansi(10, 2),
-        ocean: ColorPair::new_ansi(12, 4),
-        players: vec![
-            ColorPair::new_ansi(9, 1),// red
-            ColorPair::new_ansi(15, 7),// white
-            ColorPair::new_ansi(13, 5),// purple
-            ColorPair::new_ansi(11, 3),// yellow
-            ColorPair::new_ansi(14, 6),// cyan
-        ],
-        neutral: ColorPair::new_ansi(8, 8),// gray
-        text: AnsiValue(15),
-        notice: AnsiValue(14),
-        cursor: AnsiValue(15),
-        combat: AnsiValue(9),
-        scroll_marks: AnsiValue(11),
-    }
+pub fn palette256() -> Palette {
+    palette16()//These are the same for now
+    // Palette {
+    //     background: AnsiValue(0),
+    //     land: ColorPair::new_ansi(10, 2),
+    //     ocean: ColorPair::new_ansi(12, 4),
+    //     players: vec![
+    //         ColorPair::new_ansi(9, 1),// red
+    //         ColorPair::new_ansi(15, 7),// white
+    //         ColorPair::new_ansi(13, 5),// purple
+    //         ColorPair::new_ansi(11, 3),// yellow
+    //         ColorPair::new_ansi(14, 6),// cyan
+    //     ],
+    //     neutral: ColorPair::new_ansi(8, 8),// gray
+    //     text: AnsiValue(15),
+    //     notice: AnsiValue(14),
+    //     cursor: AnsiValue(15),
+    //     combat: AnsiValue(9),
+    //     scroll_marks: AnsiValue(11),
+    // }
 }
 
-fn pastel_color_to_rgb(pastel_color: &PastelColor) -> Rgb {
+fn pastel_color_to_rgb(pastel_color: &PastelColor) -> Color {
     let rgba: RGBA<u8> = pastel_color.to_rgba();
-    Rgb(rgba.r, rgba.g, rgba.b)
+    Color::Rgb {
+        r: rgba.r, g: rgba.g, b: rgba.b
+    }
 }
 
-fn pastel_color_to_dim_rgb(pastel_color: &PastelColor, darken_percent: f64) -> Rgb {
+fn pastel_color_to_dim_rgb(pastel_color: &PastelColor, darken_percent: f64) -> Color {
     let pastel_color = pastel_color.darken(darken_percent);
     pastel_color_to_rgb(&pastel_color)
 }
 
-fn pastel_color_to_rgb_pair(pastel_color: &PastelColor, darken_percent: f64) -> ColorPair<Rgb> {
+fn pastel_color_to_rgb_pair(pastel_color: &PastelColor, darken_percent: f64) -> ColorPair {
     ColorPair::new(pastel_color_to_rgb(pastel_color), pastel_color_to_dim_rgb(pastel_color, darken_percent))
 }
 
-fn color_to_rgb_pair(color: Rgb, darken_percent: f64) -> ColorPair<Rgb> {
-    let pastel_color = &PastelColor::from_rgb(color.0, color.1, color.2);
-    ColorPair::new(pastel_color_to_rgb(pastel_color), pastel_color_to_dim_rgb(pastel_color, darken_percent))
+fn color_to_rgb_pair(color: Color, darken_percent: f64) -> ColorPair {
+    let pastel_color = color_to_pastel_color(color);
+    ColorPair::new(pastel_color_to_rgb(&pastel_color), pastel_color_to_dim_rgb(&pastel_color, darken_percent))
 }
 
-pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette<Rgb>,String> {
-    let land_color_pair = color_to_rgb_pair(Rgb(24,216,67), darken_percent);
-    let ocean_color_pair = color_to_rgb_pair(Rgb(60,27,225), darken_percent);
+fn color_to_pastel_color(color: Color) -> PastelColor {
+    if let Color::Rgb{r,g,b} = color {
+        PastelColor::from_rgb(r,g,b)
+    } else {
+        panic!("Unsupported color type to convert to pastel color format")
+    }
+}
+
+pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette,String> {
+    let land_color_pair = color_to_rgb_pair(Color::Rgb{r:24, g:216, b:67}, darken_percent);
+    let ocean_color_pair = color_to_rgb_pair(Color::Rgb{r:60, g:27, b:225}, darken_percent);
 
 
-    let player_colors: Vec<ColorPair<Rgb>> = if num_players == 0 {
+    let player_colors: Vec<ColorPair> = if num_players == 0 {
         Vec::new()
     } else if num_players == 1 {
         vec![
             pastel_color_to_rgb_pair(&Vivid.generate(), darken_percent)
         ]
     } else {
-        let land_color: PastelColor = PastelColor::from_rgb(land_color_pair.active.0, land_color_pair.active.1, land_color_pair.active.2);
-        let ocean_color: PastelColor = PastelColor::from_rgb(ocean_color_pair.active.0, ocean_color_pair.active.1, ocean_color_pair.active.2);
+        // let land_color: PastelColor = PastelColor::from_rgb(land_color_pair.active.0, land_color_pair.active.1, land_color_pair.active.2);
+        // let ocean_color: PastelColor = PastelColor::from_rgb(ocean_color_pair.active.0, ocean_color_pair.active.1, ocean_color_pair.active.2);
+        let land_color: PastelColor = color_to_pastel_color(land_color_pair.active);
+        let ocean_color: PastelColor = color_to_pastel_color(ocean_color_pair.active);
         let preexisting_colors = vec![land_color, ocean_color];
         // let callback = |&mut stats| {};
         let pastel_colors: Vec<PastelColor> = distinct_colors(
@@ -222,36 +233,37 @@ pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette<
             Box::new(|_| {})
         ).0.iter().skip(2).cloned().collect();
         
-        let rgb_pairs: Vec<ColorPair<Rgb>> = pastel_colors.iter().map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent)).collect();
+        let rgb_pairs: Vec<ColorPair> = pastel_colors.iter().map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent)).collect();
         rgb_pairs
     };
 
     Ok(Palette {
-        background: Rgb(0,0,0),
+        background: Color::Rgb{r:0,g:0,b:0},
         land: land_color_pair,//ColorPair::new_rgb(24,216,67, 141,185,138),
         ocean: ocean_color_pair,//ColorPair::new_rgb(60,27,225, 78,50,171),
         players: player_colors,
-        neutral: color_to_rgb_pair(Rgb(202,202,202), darken_percent),//ColorPair::new_rgb(202,202,202, 102,102,102),
-        text: Rgb(255,255,255),
-        notice: Rgb(232,128,56),
-        combat: Rgb(237,89,66),
-        cursor: Rgb(255,154,71),
-        scroll_marks: Rgb(248,202,0),
+        neutral: color_to_rgb_pair(Color::Rgb{r:202,g:202,b:202}, darken_percent),//ColorPair::new_rgb(202,202,202, 102,102,102),
+        text: Color::Rgb{r:255,g:255,b:255},
+        notice: Color::Rgb{r:232,g:128,b:56},
+        combat: Color::Rgb{r:237,g:89,b:66},
+        cursor: Color::Rgb{r:255,g:154,b:71},
+        scroll_marks: Color::Rgb{r:248,g:202,b:0},
     })
 }
 
+
 #[derive(Copy,Clone)]
-pub struct ColorPair<C> {
-    active: C,
-    foggy: C
+pub struct ColorPair {
+    active: Color,
+    foggy: Color,
 }
 
-impl <C:Color+Copy> ColorPair<C> {
-    pub fn new(active: C, foggy: C) -> Self {
+impl ColorPair {
+    pub fn new(active: Color, foggy: Color) -> Self {
         Self { active, foggy }
     }
 
-    pub fn get(&self, currently_observed: bool) -> C {
+    pub fn get(&self, currently_observed: bool) -> Color {
         if currently_observed {
             self.active
         } else {
@@ -259,18 +271,3 @@ impl <C:Color+Copy> ColorPair<C> {
         }
     }
 }
-
-impl ColorPair<AnsiValue> {
-    fn new_ansi(active: u8, foggy: u8) -> Self {
-        Self::new( AnsiValue(active), AnsiValue(foggy) )
-    }
-}
-
-// impl ColorPair<Rgb> {
-//     fn new_rgb(
-//         active_r: u8, active_g: u8, active_b: u8,
-//         foggy_r: u8, foggy_g: u8, foggy_b: u8
-//     ) -> Self {
-//         Self::new( Rgb(active_r, active_g, active_b), Rgb(foggy_r, foggy_g, foggy_b) )
-//     }
-// }

@@ -1,15 +1,14 @@
-use conf::key_desc;
 use std::convert::TryFrom;
-use std::io::{Write, stdin};
+use std::io::{Stdout, Write};
 
-use termion::color::Color;
-use termion::cursor::Goto;
-use termion::event::Key;
-use termion::input::TermRead;
+use crossterm::{
+    Goto,
+    KeyEvent,
+};
 
 use crate::{
     color::Colors,
-    conf,
+    conf::{self, key_desc},
     game::{
         AlignedMaybe,
         Game,
@@ -55,7 +54,7 @@ pub enum Mode {
 
 impl Mode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    pub fn run<C:Color+Copy>(&mut self, game: &mut Game, ui: &mut TermUI<C>, prev_mode: &mut Option<Mode>) -> bool {
+    pub fn run(&mut self, game: &mut Game, ui: &mut TermUI, prev_mode: &mut Option<Mode>) -> bool {
         let continue_ = match *self {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self, prev_mode),
             Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self, prev_mode),
@@ -98,16 +97,16 @@ enum StateDisposition {
 
 enum KeyStatus {
     Handled(StateDisposition),
-    Unhandled(Key)
+    Unhandled(KeyEvent)
 }
 
 trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool;
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool;
 
-    fn get_key<C:Color+Copy>(&self, game: &Game, ui: &mut TermUI<C>, mode: &mut Mode) -> KeyStatus {
+    fn get_key(&self, game: &Game, ui: &mut TermUI, mode: &mut Mode) -> KeyStatus {
         let key = ui.get_key();
-        if let Key::Char(c) = key {
+        if let KeyEvent::Char(c) = key {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 ui.map_scroller.scrollable.scroll_relative(dir.vec2d());
                 ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
@@ -152,7 +151,7 @@ trait IMode {
         KeyStatus::Unhandled(key)
     }
 
-    fn map_loc_to_viewport_loc<C:Color+Copy>(ui: &mut TermUI<C>, map_loc: Location) -> Option<Location> {
+    fn map_loc_to_viewport_loc(ui: &mut TermUI, map_loc: Location) -> Option<Location> {
         let viewport_dims = ui.map_scroller.viewport_dims();
         let map = &ui.map_scroller.scrollable;
         map.map_to_viewport_coords(map_loc, viewport_dims)
@@ -167,7 +166,7 @@ trait IVisibleMode: IMode {
         Goto(rect.left + x + 1, rect.top + y + 1)
     }
 
-    fn clear(&self, stdout: &mut Box<dyn Write>) {
+    fn clear(&self, stdout: &mut Stdout) {
         let rect = self.rect();
         let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
         for y in 0..rect.height {
@@ -178,7 +177,7 @@ trait IVisibleMode: IMode {
 
 pub struct TurnStartMode {}
 impl IMode for TurnStartMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         ui.current_player.draw(game, &mut ui.stdout, &ui.palette);
 
         ui.log_message(Message {
@@ -197,7 +196,7 @@ impl IMode for TurnStartMode {
 
 struct TurnResumeMode{}
 impl IMode for TurnResumeMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, _ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         // Process production set requests
         if game.production_set_requests().next().is_some() {
             *mode = Mode::SetProductions;
@@ -224,7 +223,7 @@ impl IMode for TurnResumeMode {
 
 struct TurnOverMode {}
 impl IMode for TurnOverMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
 
         let over_for: PlayerNum = game.current_player();
 
@@ -240,7 +239,7 @@ impl IMode for TurnOverMode {
             loop {
                 match self.get_key(game, ui, mode) {
                     KeyStatus::Unhandled(key) => {
-                        if let Key::Char('\n') = key {
+                        if let KeyEvent::Char('\n') = key {
 
                             // If the user has altered productions using examine mode then the turn might not be over anymore
                             // Recheck
@@ -273,16 +272,12 @@ impl IMode for TurnOverMode {
             *mode = Mode::TurnStart;
             return true;
         }
-
-        
-
-        true
     }
 }
 
 struct SetProductionsMode{}
 impl IMode for SetProductionsMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
 
         if game.production_set_requests().next().is_none() {
             ui.log_message("Productions set.".to_string());
@@ -312,7 +307,7 @@ impl SetProductionMode {
         char_and_name
     }
 
-    fn write_row(&self, stdout: &mut Box<dyn Write>, key: char, sym: &'static str, name: &'static str, cost: Option<u16>, y: u16) -> std::io::Result<()> {
+    fn write_row(&self, stdout: &mut Stdout, key: char, sym: &'static str, name: &'static str, cost: Option<u16>, y: u16) -> std::io::Result<()> {
         let char_and_name = self.char_and_name(key, sym, name);
         write!(*stdout, "{}{}",
                 self.goto(0, y),
@@ -326,7 +321,7 @@ impl SetProductionMode {
         }
     }
 
-    fn draw(&self, game: &Game, stdout: &mut Box<dyn Write>) {
+    fn draw(&self, game: &Game, stdout: &mut Stdout) {
         let tile = &game.current_player_tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
@@ -362,7 +357,7 @@ impl SetProductionMode {
 }
 
 impl IMode for SetProductionMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
         ui.play_sound(Sounds::Silence);
@@ -377,7 +372,7 @@ impl IMode for SetProductionMode {
         loop {
             match self.get_key(game, ui, mode) {
                 KeyStatus::Unhandled(key) => {
-                    if let Key::Char(c) = key {
+                    if let KeyEvent::Char(c) = key {
                         if let Some(unit_type) = UnitType::from_key(c) {
                             game.set_production(self.loc, unit_type).unwrap();
 
@@ -437,7 +432,7 @@ impl IVisibleMode for SetProductionMode {
 
 struct GetOrdersMode {}
 impl IMode for GetOrdersMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, _ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, _ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         if let Some(unit_id) = game.unit_orders_requests().next() {
             *mode = Mode::GetUnitOrders{unit_id, first_move:true};
         } else {
@@ -459,7 +454,7 @@ impl IVisibleMode for GetUnitOrdersMode {
     }
 }
 impl GetUnitOrdersMode {
-    fn draw(&self, game: &Game, stdout: &mut Box<dyn Write>) {
+    fn draw(&self, game: &Game, stdout: &mut Stdout) {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
         write!(*stdout, "{}Get Orders for {}", self.goto(0, 0), unit).unwrap();
@@ -486,7 +481,7 @@ impl GetUnitOrdersMode {
     }
 }
 impl IMode for GetUnitOrdersMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         let (unit_loc,unit_type) = {
             let unit = game.unit_by_id(self.unit_id).unwrap();
             ui.log_message(format!("Requesting orders for unit {} at {}", unit, unit.loc));
@@ -508,7 +503,7 @@ impl IMode for GetUnitOrdersMode {
             match self.get_key(game, ui, mode) {
                 KeyStatus::Unhandled(key) => {
 
-                    if let Key::Char(c) = key {
+                    if let KeyEvent::Char(c) = key {
                         if let Ok(dir) = Direction::try_from(c) {
                             if let Some(dest) = unit_loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
                                 match game.move_unit_by_id(self.unit_id, dest) {
@@ -566,7 +561,7 @@ impl IMode for GetUnitOrdersMode {
 
 struct CarryOutOrdersMode {}
 impl IMode for CarryOutOrdersMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, _ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, _ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         if let Some(unit_id) = game.units_with_pending_orders().next() {
             let unit = game.unit_by_id(unit_id).unwrap();
             if unit.moves_remaining() > 0 {
@@ -591,7 +586,7 @@ impl IVisibleMode for CarryOutUnitOrdersMode {
     }
 }
 impl CarryOutUnitOrdersMode {
-    fn draw(&self, game: &Game, stdout: &mut Box<dyn Write>) {
+    fn draw(&self, game: &Game, stdout: &mut Stdout) {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
         write!(*stdout, "{}Unit {} carries out its orders", self.goto(0, 0), unit).unwrap();
@@ -606,7 +601,7 @@ impl CarryOutUnitOrdersMode {
     }
 }
 impl IMode for CarryOutUnitOrdersMode {
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
         ui.map_scroller.scrollable.center_viewport(unit.loc);
@@ -657,8 +652,8 @@ impl IMode for CarryOutUnitOrdersMode {
 
 struct QuitMode {}
 impl IMode for QuitMode {
-    fn run<C:Color+Copy>(&self, _game: &mut Game, ui: &mut TermUI<C>, _mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        ui.cleanup();
+    fn run(&self, _game: &mut Game, _ui: &mut TermUI, _mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+        // ui.cleanup();
         false
     }
 }
@@ -669,18 +664,18 @@ struct ExamineMode {
     most_recently_active_unit_id: Option<UnitID>
 }
 impl ExamineMode {
-    fn clean_up<C:Color+Copy>(&self, game: &Game, ui: &mut TermUI<C>) {
+    fn clean_up(&self, game: &Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
         map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
         ui.stdout.flush().unwrap();
     }
 
-    fn current_player_tile<'a, C:Color+Copy>(&'a self, game: &'a Game, ui: &TermUI<C>) -> Option<&'a Tile> {
+    fn current_player_tile<'a>(&'a self, game: &'a Game, ui: &TermUI) -> Option<&'a Tile> {
         let map = &ui.map_scroller.scrollable;
         map.current_player_tile(game, self.cursor_viewport_loc)
     }
 
-    fn draw_tile<'a, C:Color+Copy>(&'a self, game: &'a Game, ui: &mut TermUI<C>) {
+    fn draw_tile<'a>(&'a self, game: &'a Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
         map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
     }
@@ -688,7 +683,7 @@ impl ExamineMode {
 impl IMode for ExamineMode {
 
 
-    fn run<C:Color+Copy>(&self, game: &mut Game, ui: &mut TermUI<C>, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         self.draw_tile(game, ui);
 
         let description = {
@@ -710,9 +705,9 @@ impl IMode for ExamineMode {
 
         match self.get_key(game, ui, mode) {
             KeyStatus::Unhandled(key) => {
-                if key==Key::Esc {
+                if key==KeyEvent::Esc {
                     *mode = Mode::TurnResume;
-                } else if key==Key::Char(conf::KEY_EXAMINE_SELECT) {
+                } else if key==KeyEvent::Char(conf::KEY_EXAMINE_SELECT) {
 
                     if let Some(tile) = self.current_player_tile(game, ui).cloned() {// We clone to ease mutating the unit within this block
                         if let Some(ref city) = tile.city {
@@ -777,7 +772,7 @@ impl IMode for ExamineMode {
                             return true;
                         }
                     }
-                } else if let Key::Char(c) = key {
+                } else if let KeyEvent::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
 
                         if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_NEITHER) {

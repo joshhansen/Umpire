@@ -1,9 +1,21 @@
-use std::io::Write;
-use std::rc::Rc;
+use std::{
+    io::{Stdout,Write},
+    rc::Rc,
+};
 
-use termion::color::{Color,Fg, Bg};
-use termion::cursor::Hide;
-use termion::style::{Blink,Bold,Invert,Italic,Underline};
+// use termion::color::{Color,Fg, Bg};
+// use termion::cursor::Hide;
+// use termion::style::{Blink,Bold,Invert,Italic,Underline};
+
+use crossterm::{
+    Attribute,
+    Hide,
+    Output,
+    QueueableCommand,
+    SetAttr,
+    SetBg,
+    SetFg,
+};
 
 use crate::{
     color::{Colors,Colorized,Palette},
@@ -17,7 +29,6 @@ use crate::{
     ui::{
         Component,Draw,
         scroll::ScrollableComponent,
-        style::StrongReset,
         sym::Sym,
     },
     util::{Dims,Location,Rect,Vec2d}
@@ -129,18 +140,18 @@ pub fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, vi
 }
 
 /// The map widget
-pub struct Map<C:Color+Copy> {
+pub struct Map {
     rect: Rect,
     map_dims: Dims,
     old_viewport_offset: Vec2d<u16>,
     viewport_offset: Vec2d<u16>,
     displayed_tiles: LocationGrid<Option<Tile>>,
     displayed_tile_currentness: LocationGrid<Option<bool>>,
-    palette: Rc<Palette<C>>,
+    palette: Rc<Palette>,
     unicode: bool,
 }
-impl <C:Color+Copy> Map<C> {
-    pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette<C>>, unicode: bool) -> Self {
+impl Map {
+    pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
         let displayed_tile_currentness = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
@@ -201,7 +212,7 @@ impl <C:Color+Copy> Map<C> {
     /// Renders a particular location in the viewport
     pub fn draw_tile(&mut self,
             game: &Game,
-            stdout: &mut Box<dyn Write>,
+            stdout: &mut Stdout,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -212,24 +223,30 @@ impl <C:Color+Copy> Map<C> {
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
         if tile_loc.y == game.map_dims().height - 1 {
-            write!(stdout, "{}", Underline).unwrap();
+            stdout.queue(SetAttr(Attribute::Underlined));
+            // write!(stdout, "{}", Underline).unwrap();
         }
 
-        write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
+        // write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
+        stdout.queue(self.goto(viewport_loc.x, viewport_loc.y));
 
-        if let Obs::Observed{tile, turn, current} = game.current_player_obs(tile_loc) {
+        if let Obs::Observed{tile, turn:_, current} = game.current_player_obs(tile_loc) {
             if highlight {
-                write!(stdout, "{}", Invert).unwrap();
+                // write!(stdout, "{}", Invert).unwrap();
+                stdout.queue(SetAttr(Attribute::Reverse));
             }
 
             if unit_active {
-                write!(stdout, "{}{}", Blink, Bold).unwrap();
+                // write!(stdout, "{}{}", Blink, Bold).unwrap();
+                stdout.queue(SetAttr(Attribute::SlowBlink));
+                stdout.queue(SetAttr(Attribute::Bold));
             }
 
             let (sym, fg_color, bg_color) = if let Some(ref unit) = tile.unit {
                 if let Some(orders) = unit.orders {
                     if orders == Orders::Sentry {
-                        write!(stdout, "{}", Italic).unwrap();
+                        // write!(stdout, "{}", Italic).unwrap();
+                        stdout.queue(SetAttr(Attribute::Italic));
                     }
                 }
 
@@ -241,27 +258,34 @@ impl <C:Color+Copy> Map<C> {
             };
 
             if let Some(fg_color) = fg_color {
-                write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
+                // write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
+                stdout.queue(SetFg(self.palette.get(fg_color, *current)));
             }
             if let Some(bg_color) = bg_color {
-                write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
+                // write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
+                stdout.queue(SetBg(self.palette.get(bg_color, *current)));
             }
-            write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
+            // write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
+            stdout.queue(Output(String::from(symbol_override.unwrap_or(sym))));
 
             self.displayed_tiles[viewport_loc] = Some(tile.clone());
             self.displayed_tile_currentness[viewport_loc] = Some(*current);
         } else {
             if highlight {
-                write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
+                // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
+                stdout.queue(SetBg(self.palette.get_single(Colors::Cursor)));
             } else {
-                write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
+                // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
+                stdout.queue(SetBg(self.palette.get_single(Colors::Background)));
             }
-            write!(stdout, " ").unwrap();
+            // write!(stdout, " ").unwrap();
+            stdout.queue(Output(String::from(" ")));
             self.displayed_tiles[viewport_loc] = None;
             self.displayed_tile_currentness[viewport_loc] = None;
         }
 
-        write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
+        // write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
+        stdout.queue(SetAttr(Attribute::Reset));
         stdout.flush().unwrap();
     }
 
@@ -271,7 +295,7 @@ impl <C:Color+Copy> Map<C> {
     }
 }
 
-impl <C:Color+Copy> ScrollableComponent for Map<C> {
+impl ScrollableComponent for Map {
     fn scroll_relative(&mut self, offset: Vec2d<i32>) {
         self.shift_viewport(offset);
     }
@@ -279,7 +303,7 @@ impl <C:Color+Copy> ScrollableComponent for Map<C> {
     fn offset(&self) -> Vec2d<u16> { self.viewport_offset }
 }
 
-impl <C:Color+Copy> Component for Map<C> {
+impl Component for Map {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
     }
@@ -291,8 +315,8 @@ impl <C:Color+Copy> Component for Map<C> {
     fn is_done(&self) -> bool { false }
 }
 
-impl <C:Color+Copy> Draw for Map<C> {
-    fn draw<C2:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C2>) {
+impl Draw for Map {
+    fn draw(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;
@@ -347,7 +371,10 @@ impl <C:Color+Copy> Draw for Map<C> {
             }
         }
 
-        write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
+        // write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
+        stdout.queue(SetAttr(Attribute::Reset));
+        stdout.queue(SetBg(self.palette.get_single(Colors::Background)));
+        stdout.queue(Hide);
         stdout.flush().unwrap();
     }
 }

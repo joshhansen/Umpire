@@ -5,7 +5,7 @@
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
 use std::{
-    io::{Write,stdin,stdout},
+    io::{Stdout,Write,stdout},
     rc::Rc,
     sync::mpsc::{
         channel,
@@ -15,13 +15,21 @@ use std::{
     thread,
 };
 
-use termion::{
-    clear,
-    event::Key,
-    color::{Bg,Color,Rgb},
-    input::TermRead,
-    raw::IntoRawMode,
-    screen::{AlternateScreen,ToMainScreen}
+use crossterm::{
+    AlternateScreen,
+    Attribute,
+    Clear,
+    ClearType,
+    Hide,
+    InputEvent,
+    KeyEvent,
+    Goto,
+    Output,
+    SetAttr,
+    SetBg,
+    input,
+    queue,
+    terminal,
 };
 
 use crate::{
@@ -45,11 +53,10 @@ use self::{
         play_sounds,
         Sounds,
     },
-    style::StrongReset,
     sym::Sym,
 };
 
-pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, palette: Palette<C>, unicode: bool, quiet: bool,
+pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
     confirm_turn_end: bool
 ) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
@@ -57,13 +64,40 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
 
+        let _alt_screen_maybe: Option<AlternateScreen> = if use_alt_screen {
+            Some(
+                AlternateScreen::to_alternate(true)
+                .map_err(|err| format!("Error obtaining alternate screen in raw mode: {}", err))?
+            )
+        } else {
+            None
+        };
+
         // The input thread
         let (input_thread_tx, input_thread_rx) = channel();
-        let input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
-            loop {
-                let key = stdin().keys().next().unwrap().unwrap();
-                input_thread_tx.send(key).unwrap();
+        let _input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
+            let input = input();
+            let reader = input.read_sync();
+            for input_event in reader {
+                match input_event {
+                    InputEvent::Keyboard(key_event) => input_thread_tx.send(key_event).unwrap(),
+                    InputEvent::Mouse(_mouse_event) => {
+                        // do nothing
+                    },
+                    InputEvent::Unsupported(_data) => {
+                        // do nothing
+                    },
+                    InputEvent::Unknown => {
+                        // do nothing
+                    }
+                }
             }
+
+            // loop {
+
+            //     // let key = stdin().keys().next().unwrap().unwrap();
+            //     input_thread_tx.send(key).unwrap();
+            // }
         });
 
         // The audio thread (if applicable)
@@ -77,22 +111,33 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
             (None, None)
         };
 
-        let w: Box<dyn Write> = if use_alt_screen {
-            match stdout().into_raw_mode() {
-                Ok(stdout_raw) => Box::new(AlternateScreen::from(stdout_raw)),
-                Err(err) => return Err(format!("Error communicating with terminal: {}", err))
-            }
-        } else {
-            match stdout().into_raw_mode() {
-                Ok(stdout_raw) => Box::new(stdout_raw),
-                Err(err) => return Err(format!("Error communicating with terminal: {}", err))
-            }
-        };
+        // let w: Box<dyn Write> = if use_alt_screen {
+        //     match stdout().into_raw_mode() {
+        //         Ok(stdout_raw) => Box::new(AlternateScreen::from(stdout_raw)),
+        //         Err(err) => return Err(format!("Error communicating with terminal: {}", err))
+        //     }
+        // } else {
+        //     match stdout().into_raw_mode() {
+        //         Ok(stdout_raw) => Box::new(stdout_raw),
+        //         Err(err) => return Err(format!("Error communicating with terminal: {}", err))
+        //     }
+        // };
+
+        // let _raw_mode = match RawScreen::into_raw_mode().map_err(|err| format!("Error obtaining raw screen access: {}", err))?;
+
+        
+
+        let term = terminal();
+
+        let (width, height) = term.terminal_size();
+        let term_dims = Dims { width, height };
+
+        let stdout = stdout();
 
         let mut ui = TermUI::new(
             game.map_dims(),
             term_dims,
-            w,
+            stdout,
             palette,
             unicode,
             confirm_turn_end,
@@ -104,7 +149,7 @@ pub fn run<C:Color+Copy>(mut game: Game, term_dims: Dims, use_alt_screen: bool, 
             // nothing here
         }
 
-        if let Some(audio_thread_handle) = audio_thread_handle {
+        if audio_thread_handle.is_some() {
             ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
         }
     }
@@ -150,12 +195,15 @@ impl UI for DefaultUI {
 }
 
 /// 0-indexed variant of Goto
-pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
-    termion::cursor::Goto(x + 1, y + 1)
+// pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
+//     termion::cursor::Goto(x + 1, y + 1)
+// }
+pub fn goto(x: u16, y: u16) -> Goto {
+    Goto(x + 1, y + 1)
 }
 
 pub trait Draw {
-    fn draw<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>);
+    fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette);
 }
 
 pub trait Component : Draw {
@@ -165,16 +213,22 @@ pub trait Component : Draw {
 
     fn is_done(&self) -> bool;
 
-    fn goto(&self, x: u16, y: u16) -> termion::cursor::Goto {
+    // fn goto(&self, x: u16, y: u16) -> termion::cursor::Goto {
+    //     let rect = self.rect();
+    //     goto(rect.left + x, rect.top + y)
+    // }
+
+    fn goto(&self, x: u16, y: u16) -> Goto {
         let rect = self.rect();
         goto(rect.left + x, rect.top + y)
     }
 
-    fn clear<W:Write>(&self, stdout: &mut W) {
+    fn clear(&self, stdout: &mut Stdout) {
         let rect = self.rect();
         let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
         for y in 0..rect.height {
-            write!(*stdout, "{}{}", self.goto(0, y), blank_string).unwrap();
+            // write!(*stdout, "{}{}", self.goto(0, y), blank_string).unwrap();
+            queue!(*stdout, self.goto(0, y), Output(blank_string.clone())).unwrap();//FIXME clear component without cloning a bunch of strings
         }
     }
 
@@ -276,34 +330,34 @@ fn sidebar_rect(viewport_rect: Rect, term_dims: Dims) -> Rect {
 const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
-/// The termion-based user interface.
-pub struct TermUI<C:Color+Copy> {
-    stdout: Box<dyn Write>,
+/// The terminal-based user interface.
+pub struct TermUI {
+    stdout: Stdout,
     term_dims: Dims,
     viewport_size: ViewportSize,
 
-    map_scroller: Scroller<Map<C>>,
+    map_scroller: Scroller<Map>,
     log: LogArea,
     current_player: CurrentPlayer,
     turn: Turn,
     first_draw: bool,
-    palette: Rc<Palette<C>>,
+    palette: Rc<Palette>,
     unicode: bool,
     confirm_turn_end: bool,
     audio_thread_tx: Option<Sender<Sounds>>,
-    input_thread_rx: Receiver<Key>,
+    input_thread_rx: Receiver<KeyEvent>,
 }
 
-impl<C:Color+Copy> TermUI<C> {
+impl TermUI {
     pub fn new(
         map_dims: Dims,
         term_dims: Dims,
-        stdout: Box<dyn Write>,
-        palette: Palette<C>,
+        stdout: Stdout,
+        palette: Palette,
         unicode: bool,
         confirm_turn_end: bool,
         audio_thread_tx: Option<Sender<Sounds>>,
-        input_thread_rx: Receiver<Key>,
+        input_thread_rx: Receiver<KeyEvent>,
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
@@ -356,11 +410,14 @@ impl<C:Color+Copy> TermUI<C> {
     }
 
     fn clear(&mut self) {
-        write!(self.stdout, "{}", clear::All).unwrap();
+        // write!(self.stdout, "{}", clear::All).unwrap();
+        // self.stdout.queue(Clear(ClearType::All));
+        queue!(self.stdout, Clear(ClearType::All)).unwrap();
 
         for x in 0..self.term_dims.width {
             for y in 0..self.term_dims.height {
-                write!(self.stdout, "{}{} ", goto(x,y), Bg(Rgb(0,0,0))).unwrap();
+                // write!(self.stdout, "{}{} ", goto(x,y), Bg(Rgb(0,0,0))).unwrap();
+                queue!(self.stdout, goto(x,y), SetBg(self.palette.get_single(Colors::Background))).unwrap();
             }
         }
     }
@@ -384,13 +441,20 @@ impl<C:Color+Copy> TermUI<C> {
 
     fn draw(&mut self, game: &Game) {
         if self.first_draw {
-            write!(self.stdout, "{}{}{}{}",
-                // termion::clear::All,
-                goto(0,0),
-                termion::style::Underline,
-                conf::APP_NAME,
-                StrongReset::new(&self.palette)
+            // write!(self.stdout, "{}{}{}{}",
+            //     // termion::clear::All,
+            //     goto(0,0),
+            //     termion::style::Underline,
+            //     conf::APP_NAME,
+            //     StrongReset::new(&self.palette)
+            // ).unwrap();
+            queue!(self.stdout,
+                goto(0, 0),
+                SetAttr(Attribute::Underlined),
+                Output(conf::APP_NAME.to_string()),
+                SetAttr(Attribute::Reset)
             ).unwrap();
+
             self.first_draw = false;
         }
 
@@ -399,7 +463,12 @@ impl<C:Color+Copy> TermUI<C> {
         self.map_scroller.draw(game, &mut self.stdout, &self.palette);
         self.turn.draw(game, &mut self.stdout, &self.palette);
 
-        write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
+        // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
+        queue!(self.stdout,
+            SetAttr(Attribute::Reset),
+            SetBg(self.palette.get_single(Colors::Background)),
+            Hide
+        ).unwrap();
         self.stdout.flush().unwrap();
     }
 
@@ -454,10 +523,6 @@ impl<C:Color+Copy> TermUI<C> {
         self.viewport_size.rect(self.term_dims)
     }
 
-    fn cleanup(&mut self) {
-        write!(self.stdout, "{}", ToMainScreen).unwrap();
-    }
-
     pub fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
         let viewport_dims = self.map_scroller.viewport_dims();
         let map = &self.map_scroller.scrollable;
@@ -490,12 +555,12 @@ impl<C:Color+Copy> TermUI<C> {
     }
 
     /// Block until a key is pressed; return that key
-    fn get_key(&self) -> Key {
+    fn get_key(&self) -> KeyEvent {
         self.input_thread_rx.recv().unwrap()
     }
 
     /// Return Some(key) if a key from the input thread is waiting for us, otherwise return None
-    fn try_get_key(&self) -> Option<Key> {
+    fn try_get_key(&self) -> Option<KeyEvent> {
         self.input_thread_rx.try_recv().ok()
     }
 
@@ -504,7 +569,7 @@ impl<C:Color+Copy> TermUI<C> {
     }
 }
 
-impl <C:Color+Copy> LogTarget for TermUI<C> {
+impl LogTarget for TermUI {
     fn log_message<T>(&mut self, message: T) where Message:From<T> {
         self.log.log(Message::from(message));
         self.log.draw_lite(&mut self.stdout, &self.palette);
@@ -516,7 +581,7 @@ impl <C:Color+Copy> LogTarget for TermUI<C> {
     }
 }
 
-impl <C:Color+Copy> MoveAnimator for TermUI<C> {
+impl MoveAnimator for TermUI {
     fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
         let mut current_loc = move_result.starting_loc();
 

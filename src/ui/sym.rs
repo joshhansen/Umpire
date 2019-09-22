@@ -23,7 +23,7 @@ pub enum Symbols {
 }
 
 impl Symbols {
-    pub fn get(&self, unicode: bool) -> &'static str {
+    pub fn get(&self, _unicode: bool) -> &'static str {
         match *self {
             Symbols::Land => "·",
             Symbols::Ocean => "~",

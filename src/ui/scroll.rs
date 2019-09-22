@@ -1,11 +1,17 @@
-use std::io::Write;
+use std::io::{Stdout,Write};
 
-use termion::color::{Color,Fg};
+use crossterm::{
+    Attribute,
+    Output,
+    SetAttr,
+    SetBg,
+    SetFg,
+    queue,
+};
 
 use color::{Colors,Palette};
 use game::Game;
 use ui::{Component,Draw};
-use ui::style::StrongReset;
 use util::{Dims,Rect,Vec2d};
 
 pub trait ScrollableComponent : Component {
@@ -38,7 +44,7 @@ impl<S:ScrollableComponent> Scroller<S> {
         (self.rect.height as f32 * (self.scrollable.offset().y as f32 / map_height as f32)) as u16
     }
 
-    fn draw_scroll_bars<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
+    fn draw_scroll_bars(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(game.map_dims().width);
         let h_scroll_y = viewport_rect.bottom();
@@ -66,19 +72,31 @@ impl<S:ScrollableComponent> Scroller<S> {
     }
 
     /// Utility method
-    fn draw_scroll_mark<C:Color+Copy>(&self, stdout: &mut Box<dyn Write>, x: u16, y: u16, sym: char, palette: &Palette<C>) {
-        write!(*stdout, "{}{}{}{}",
-            StrongReset::new(palette),
+    fn draw_scroll_mark(&self, stdout: &mut Stdout, x: u16, y: u16, sym: char, palette: &Palette) {
+        // write!(*stdout, "{}{}{}{}",
+        //     StrongReset::new(palette),
+        //     self.goto(x,y),
+        //     Fg(palette.get_single(Colors::ScrollMarks)),
+        //     sym
+        // ).unwrap();
+        queue!(*stdout,
+            SetAttr(Attribute::Reset),
+            SetBg(palette.get_single(Colors::Background)),
             self.goto(x,y),
-            Fg(palette.get_single(Colors::ScrollMarks)),
-            sym
+            SetFg(palette.get_single(Colors::ScrollMarks)),
+            Output(sym.to_string())
         ).unwrap();
     }
 
     /// Utility method
-    fn erase<C:Color+Copy>(&self, stdout: &mut Box<dyn Write>, x: u16, y: u16, palette: &Palette<C>) {
-        write!(*stdout, "{}{} ",
-            StrongReset::new(palette),
+    fn erase(&self, stdout: &mut Stdout, x: u16, y: u16, palette: &Palette) {
+        // write!(*stdout, "{}{} ",
+        //     StrongReset::new(palette),
+        //     self.goto(x,y)
+        // ).unwrap();
+        queue!(*stdout,
+            SetAttr(Attribute::Reset),
+            SetBg(palette.get_single(Colors::Background)),
             self.goto(x,y)
         ).unwrap();
     }
@@ -92,7 +110,7 @@ impl<S:ScrollableComponent> Scroller<S> {
 }
 
 impl<S:ScrollableComponent> Draw for Scroller<S> {
-    fn draw<C:Color+Copy>(&mut self, game: &Game, stdout: &mut Box<dyn Write>, palette: &Palette<C>) {
+    fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
         self.draw_scroll_bars(game, stdout, palette);
         self.scrollable.draw(game, stdout, palette);
     }
