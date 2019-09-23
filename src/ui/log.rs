@@ -73,6 +73,8 @@ impl LogArea {
     }
 
     pub fn draw_lite(&self, stdout: &mut Stdout, palette: &Palette) {
+        return;
+
         // write!(*stdout,
         //     "{}{}Message Log{}",
         //     self.goto(0, 0),
@@ -84,7 +86,8 @@ impl LogArea {
             self.goto(0, 0),
             SetAttr(Attribute::Underlined),
             Output(String::from("Message Log")),
-            SetAttr(Attribute::Reset)
+            SetAttr(Attribute::Reset),
+            SetBg(palette.get_single(Colors::Background))
         ).unwrap();
 
         for i in 0..self.rect.height {
@@ -110,9 +113,10 @@ impl LogArea {
             // write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
             queue!(*stdout,
                 self.goto(0, i as u16+1),
+                Output(format!("|{}", mark)),
                 SetFg(fg_color),
                 SetBg(bg_color),
-                Output(format!("{} {}", mark, text))
+                Output(text)
             ).unwrap();
         }
 

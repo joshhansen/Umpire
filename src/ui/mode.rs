@@ -2,8 +2,11 @@ use std::convert::TryFrom;
 use std::io::{Stdout, Write};
 
 use crossterm::{
+    ErrorKind,
     Goto,
     KeyEvent,
+    Output,
+    queue,
 };
 
 use crate::{
@@ -170,7 +173,8 @@ trait IVisibleMode: IMode {
         let rect = self.rect();
         let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
         for y in 0..rect.height {
-            write!(*stdout, "{}{}", self.goto(0, y), blank_string).unwrap();
+            // write!(*stdout, "{}{}", self.goto(0, y), blank_string).unwrap();
+            queue!(stdout, self.goto(0, y), Output(blank_string.clone())).unwrap();//FIXME clear widget without cloning repeatedly
         }
     }
 }
@@ -307,15 +311,19 @@ impl SetProductionMode {
         char_and_name
     }
 
-    fn write_row(&self, stdout: &mut Stdout, key: char, sym: &'static str, name: &'static str, cost: Option<u16>, y: u16) -> std::io::Result<()> {
+    fn write_row(&self, stdout: &mut Stdout, key: char, sym: &'static str, name: &'static str, cost: Option<u16>, y: u16) -> Result<(),ErrorKind> {
         let char_and_name = self.char_and_name(key, sym, name);
-        write!(*stdout, "{}{}",
-                self.goto(0, y),
-                char_and_name).unwrap();
+
+        // write!(*stdout, "{}{}",
+        //         self.goto(0, y),
+        //         char_and_name).unwrap();
+        queue!(stdout, self.goto(0, y), Output(char_and_name)).unwrap();
+        
         if let Some(cost) = cost {
-            write!(*stdout, "{}[{}]       ",
-                self.goto(PROD_COL_WIDTH, y),
-                cost)
+            // write!(*stdout, "{}[{}]       ",
+            //     self.goto(PROD_COL_WIDTH, y),
+            //     cost)
+            queue!(stdout, self.goto(PROD_COL_WIDTH, y), Output(format!("[{}]       ", cost)))
         } else {
             Ok(())
         }
@@ -325,7 +333,8 @@ impl SetProductionMode {
         let tile = &game.current_player_tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
-        write!(*stdout, "{}Set Production for {}          ", self.goto(0, 0), city).unwrap();
+        // write!(*stdout, "{}Set Production for {}          ", self.goto(0, 0), city).unwrap();
+        queue!(stdout, self.goto(0, 0), Output(format!("Set Production for {}          ", city))).unwrap();
 
         
         let mut highest_y = 0;
@@ -457,25 +466,37 @@ impl GetUnitOrdersMode {
     fn draw(&self, game: &Game, stdout: &mut Stdout) {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
-        write!(*stdout, "{}Get Orders for {}", self.goto(0, 0), unit).unwrap();
-        write!(*stdout,
-"\
-{}Move: ↖ ↗          {} {}
-{}       ← ↓ ↑ →      {} {} {} {}
-{}      ↙ ↘          {} {}",
-            self.goto(0, 2), conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT,
-            self.goto(0, 3), conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT,
-            self.goto(0, 4), conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT).unwrap();
+//         write!(*stdout, "{}Get Orders for {}", self.goto(0, 0), unit).unwrap();
+//         write!(*stdout,
+// "\
+// {}Move: ↖ ↗          {} {}
+// {}       ← ↓ ↑ →      {} {} {} {}
+// {}      ↙ ↘          {} {}",
+//             self.goto(0, 2), conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT,
+//             self.goto(0, 3), conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT,
+//             self.goto(0, 4), conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT).unwrap();
 
-        write!(*stdout, "{}Examine:\t{}", self.goto(0, 6), conf::KEY_EXAMINE).unwrap();
+//         write!(*stdout, "{}Examine:\t{}", self.goto(0, 6), conf::KEY_EXAMINE).unwrap();
 
-        write!(*stdout, "{}Explore:\t{}", self.goto(0, 8), conf::KEY_EXPLORE).unwrap();
+//         write!(*stdout, "{}Explore:\t{}", self.goto(0, 8), conf::KEY_EXPLORE).unwrap();
 
-        write!(*stdout, "{}Skip:\t{}", self.goto(0, 10), key_desc(conf::KEY_SKIP)).unwrap();
+//         write!(*stdout, "{}Skip:\t{}", self.goto(0, 10), key_desc(conf::KEY_SKIP)).unwrap();
 
-        write!(*stdout, "{}Sentry:\t{}", self.goto(0, 12), conf::KEY_SENTRY).unwrap();
+//         write!(*stdout, "{}Sentry:\t{}", self.goto(0, 12), conf::KEY_SENTRY).unwrap();
 
-        write!(*stdout, "{}Quit:\t{}", self.goto(0, 14), conf::KEY_QUIT).unwrap();
+//         write!(*stdout, "{}Quit:\t{}", self.goto(0, 14), conf::KEY_QUIT).unwrap();
+
+        queue!(stdout,
+            self.goto(0, 0), Output(format!("Get Orders for {}", unit)),
+            self.goto(0, 2), Output(format!("Move: ↖ ↗          {} {}", conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT)),
+            self.goto(0, 3), Output(format!("       ← ↓ ↑ →      {} {} {} {}", conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT)),
+            self.goto(0, 4), Output(format!("      ↙ ↘          {} {}", conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT)),
+            self.goto(0, 6), Output(format!("Examine:\t{}", conf::KEY_EXAMINE)),
+            self.goto(0, 8), Output(format!("Explore:\t{}", conf::KEY_EXPLORE)),
+            self.goto(0, 10), Output(format!("Skip:\t{}", key_desc(conf::KEY_SKIP))),
+            self.goto(0, 12), Output(format!("Sentry:\t{}", conf::KEY_SENTRY)),
+            self.goto(0, 14), Output(format!("Quit:\t{}", conf::KEY_QUIT))
+        ).unwrap();
 
         stdout.flush().unwrap();
     }
@@ -589,7 +610,8 @@ impl CarryOutUnitOrdersMode {
     fn draw(&self, game: &Game, stdout: &mut Stdout) {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
-        write!(*stdout, "{}Unit {} carries out its orders", self.goto(0, 0), unit).unwrap();
+        // write!(*stdout, "{}Unit {} carries out its orders", self.goto(0, 0), unit).unwrap();
+        queue!(stdout, self.goto(0, 0), Output(format!("Unit {} carries out its orders", unit))).unwrap();
 
         // write!(*stdout, "{}Cancel:\tESC", self.goto(0, 2)).unwrap();
 

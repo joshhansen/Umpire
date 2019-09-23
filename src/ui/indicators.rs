@@ -31,7 +31,7 @@ impl Draw for CurrentPlayer {
         //     self.goto(0, 0),
         //     game.current_player()
         // ).unwrap();
-        queue!(*stdout, self.goto(0, 0), Output(format!("Current Player: {}", game.current_player()))).unwrap();
+        queue!(*stdout, self.goto(0, 0), Output(format!("Current Player: {}  ", game.current_player()))).unwrap();
     }
 }
 

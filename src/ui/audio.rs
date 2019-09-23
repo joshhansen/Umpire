@@ -1,10 +1,3 @@
-extern crate cpal;
-extern crate failure;
-extern crate pitch_calc;
-extern crate sample;
-extern crate synth;
-
-
 use cpal::{
     traits::{DeviceTrait, EventLoopTrait, HostTrait}
 };

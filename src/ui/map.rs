@@ -3,10 +3,6 @@ use std::{
     rc::Rc,
 };
 
-// use termion::color::{Color,Fg, Bg};
-// use termion::cursor::Hide;
-// use termion::style::{Blink,Bold,Invert,Italic,Underline};
-
 use crossterm::{
     Attribute,
     Hide,
@@ -223,8 +219,8 @@ impl Map {
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
         if tile_loc.y == game.map_dims().height - 1 {
-            stdout.queue(SetAttr(Attribute::Underlined));
             // write!(stdout, "{}", Underline).unwrap();
+            stdout.queue(SetAttr(Attribute::Underlined));
         }
 
         // write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
@@ -286,6 +282,7 @@ impl Map {
 
         // write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
         stdout.queue(SetAttr(Attribute::Reset));
+        stdout.queue(SetBg(self.palette.get_single(Colors::Background)));
         stdout.flush().unwrap();
     }
 
@@ -317,6 +314,8 @@ impl Component for Map {
 
 impl Draw for Map {
     fn draw(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
+        return;
+
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;

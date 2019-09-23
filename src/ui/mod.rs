@@ -417,7 +417,7 @@ impl TermUI {
         for x in 0..self.term_dims.width {
             for y in 0..self.term_dims.height {
                 // write!(self.stdout, "{}{} ", goto(x,y), Bg(Rgb(0,0,0))).unwrap();
-                queue!(self.stdout, goto(x,y), SetBg(self.palette.get_single(Colors::Background))).unwrap();
+                queue!(self.stdout, goto(x,y), SetBg(self.palette.get_single(Colors::Background)), Output(String::from(" "))).unwrap();
             }
         }
     }
@@ -452,7 +452,8 @@ impl TermUI {
                 goto(0, 0),
                 SetAttr(Attribute::Underlined),
                 Output(conf::APP_NAME.to_string()),
-                SetAttr(Attribute::Reset)
+                SetAttr(Attribute::Reset),
+                SetBg(self.palette.get_single(Colors::Background))
             ).unwrap();
 
             self.first_draw = false;
@@ -466,6 +467,7 @@ impl TermUI {
         // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         queue!(self.stdout,
             SetAttr(Attribute::Reset),
+            SetBg(self.palette.get_single(Colors::Background)),
             SetBg(self.palette.get_single(Colors::Background)),
             Hide
         ).unwrap();
