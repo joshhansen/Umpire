@@ -71,11 +71,11 @@ impl<T> LocationGrid<T> {
         self.dims
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item=&'a T> {
+    pub fn iter(&self) -> impl Iterator<Item=&T> {
         self.grid.iter().flat_map(|item: &Vec<T>| item.iter())
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item=&'a mut T> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut T> {
         self.grid.iter_mut().flat_map(|item: &mut Vec<T>| item.iter_mut())
     }
 
@@ -312,12 +312,12 @@ mod test {
     #[test]
     fn test_str_to_tile_map() {
         if let Ok(_map) = LocationGrid::<Tile>::try_from("") {
-            assert!(false, "Empty string should be an error");
+            panic!("Empty string should be an error");
         }
 
         match LocationGrid::<Tile>::try_from("   \n   ") {
-            Err(_) => {
-                assert!(false, "String should have parsed");
+            Err(err) => {
+                panic!("Error parsing grid string: {}", err);
             },
             Ok(map) => {
                 assert_eq!(map.dims, Dims{width: 3, height: 2});
@@ -328,8 +328,8 @@ mod test {
             "blah h\n\
              zzz zz\n\
              zz   z") {
-            Err(_) => {
-                assert!(false, "Any other string should be ok");
+            Err(err) => {
+                panic!("Error parsing grid string: {}", err);
             },
             Ok(map) => {
                 assert_eq!(map.dims.width, 6);
@@ -361,7 +361,7 @@ mod test {
 
     #[test]
     fn test_str_to_obs_map() {
-        let map: LocationGrid<Obs> = LocationGrid::try_from(
+        LocationGrid::<Obs>::try_from(
             "\
             *xx\n\
             ???\n\
@@ -369,12 +369,12 @@ mod test {
 
 
         if let Ok(_map) = LocationGrid::<Tile>::try_from("") {
-            assert!(false, "Empty string should be an error");
+            panic!("Empty string should be an error");
         }
 
         match LocationGrid::<Tile>::try_from("   \n   ") {
-            Err(_) => {
-                assert!(false, "String should have parsed");
+            Err(err) => {
+                panic!("Error parsing grid string: {}", err);
             },
             Ok(map) => {
                 assert_eq!(map.dims, Dims{width: 3, height: 2});
@@ -385,8 +385,8 @@ mod test {
             "blah h\n\
              zz? zz\n\
              zz ? z") {
-            Err(_) => {
-                assert!(false, "Any other string should be ok");
+            Err(err) => {
+                panic!("Error parsing grid string: {}", err);
             },
             Ok(map) => {
                 assert_eq!(map.dims.width, 6);
