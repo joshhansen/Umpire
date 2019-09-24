@@ -82,8 +82,8 @@ impl OrdersOutcome {
 pub type OrdersResult = Result<OrdersOutcome,String>;
 
 impl Orders {
-    pub fn carry_out(&self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
-        match *self {
+    pub fn carry_out(self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
+        match self {
             Orders::Skip => {
                 game.set_orders(unit_id, None).map(|_| OrdersOutcome::completed_without_move())
             },

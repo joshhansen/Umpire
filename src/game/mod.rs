@@ -752,7 +752,7 @@ impl Game {
     }
 
     fn follow_orders(&mut self, unit_id: UnitID) -> OrdersResult {
-        let orders = self.unit_by_id(unit_id).unwrap().orders.as_ref().unwrap().clone();//FIXME Do we really need this clone?
+        let orders = self.unit_by_id(unit_id).unwrap().orders.as_ref().unwrap();
 
         let result = orders.carry_out(unit_id, self);
 
@@ -834,7 +834,7 @@ mod test {
     /// * Player 1's Zanzibar at 0,1
     fn map1() -> MapData {
         let dims = Dims{width: 10, height: 10};
-        let mut map = MapData::new(dims, |loc| Terrain::Land);
+        let mut map = MapData::new(dims, |_loc| Terrain::Land);
         map.new_city(Location{x:0,y:0}, Alignment::Belligerent{player:0}, "Machang").unwrap();
         map.new_city(Location{x:0,y:1}, Alignment::Belligerent{player:1}, "Zanzibar").unwrap();
         // LocationGrid::new(dims, |loc| {
@@ -925,8 +925,8 @@ mod test {
             let loc1 = Location{x:2, y:0};
             let loc2 = Location{x:8, y:0};
 
-            let ref city1tile = map.tile(loc1).unwrap();
-            let ref city2tile = map.tile(loc2).unwrap();
+            let city1tile = map.tile(loc1).unwrap();
+            let city2tile = map.tile(loc2).unwrap();
             assert_eq!(city1tile.terrain, Terrain::Land);
             assert_eq!(city2tile.terrain, Terrain::Land);
 
@@ -969,12 +969,12 @@ mod test {
             assert_eq!(move_result.unit().moves_remaining(), 0);
 
             assert_eq!(move_result.moves().len(), 2);
-            let ref move1 = move_result.moves()[0];
+            let move1 = move_result.moves().get(0).unwrap();
             assert_eq!(move1.loc, Location{x:loc.x+1, y:loc.y});
             assert_eq!(move1.unit_combat, None);
             assert_eq!(move1.city_combat, None);
 
-            let ref move2 = move_result.moves()[1];
+            let move2 = move_result.moves().get(1).unwrap();
             assert_eq!(move2.loc, dest_loc);
             assert_eq!(move2.unit_combat, None);
             if round < 2 {

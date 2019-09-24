@@ -226,7 +226,7 @@ impl Map {
         // write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
         stdout.queue(self.goto(viewport_loc.x, viewport_loc.y));
 
-        if let Obs::Observed{tile, turn:_, current} = game.current_player_obs(tile_loc) {
+        if let Obs::Observed{tile, current, ..} = game.current_player_obs(tile_loc) {
             if highlight {
                 // write!(stdout, "{}", Invert).unwrap();
                 stdout.queue(SetAttr(Attribute::Reverse));
@@ -314,8 +314,6 @@ impl Component for Map {
 
 impl Draw for Map {
     fn draw(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
-        return;
-
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;

@@ -71,7 +71,7 @@ fn synth_for_sound(sound: Sounds) -> Synth<synth::instrument::mode::Poly, (), sy
         Sounds::Silence => Synth::poly(()),
         Sounds::Unit(unit_type) => {
             let freqs = unit_type.freqs();
-            if freqs.len() > 0 {
+            if !freqs.is_empty() {
 
                 let volume = unit_type.volume();
 
@@ -155,14 +155,10 @@ pub fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> Result<(), failure::E
     event_loop.run(move |_id, result| {
         let mut data = result.unwrap();
 
-        match rx.try_recv() {
-            Ok(sound_) => {
-                synth.stop();
-                synth = synth_for_sound(sound_);
-            },
-            Err(_) => {
-                // do nothing
-            },
+        // Check if we got a new assignment
+        if let Ok(sound_) = rx.try_recv() {
+            synth.stop();
+            synth = synth_for_sound(sound_);
         }
 
         //FIXME deduplicate this duplicated code which varies only by a type known at runtime but not compile time

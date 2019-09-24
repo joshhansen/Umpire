@@ -189,7 +189,7 @@ impl Filter<Tile> for NoUnitsFilter {
 }
 impl Filter<Obs> for NoUnitsFilter {
     fn include(&self, obs: &Obs) -> bool {
-        if let Obs::Observed { tile, turn:_, current:_ } = obs {
+        if let Obs::Observed { tile, .. } = obs {
             Filter::<Tile>::include(self, tile)
         } else {
             // NOTE: This is a misleading response---if the tile isn't observed, we can't tell if it has a unit or not
@@ -212,7 +212,7 @@ impl Filter<Tile> for NoCitiesButOursFilter {
 }
 impl Filter<Obs> for NoCitiesButOursFilter {
     fn include(&self, obs: &Obs) -> bool {
-        if let Obs::Observed { tile, turn:_, current:_ } = obs {
+        if let Obs::Observed { tile, .. } = obs {
             if let Some(ref city) = tile.city {
                 return city.alignment == self.alignment;
             }
@@ -350,8 +350,7 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
     ShortestPaths { dist, prev }
 }
 
-#[deprecated]
-pub fn old_shortest_paths<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
+pub fn old_shortest_paths_for_unit<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
     shortest_paths(tiles, source, &UnitMovementFilter{unit}, wrapping)
 }
 
@@ -430,7 +429,7 @@ mod test {
                     Xenophile,
                     neighbors,
                     neighbors_terrain_only,
-                    old_shortest_paths,
+                    old_shortest_paths_for_unit,
                     shortest_paths,
                     RELATIVE_NEIGHBORS
                 },
@@ -613,7 +612,7 @@ mod test {
 
         let loc = Location{x:0, y:0};
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
-        let shortest_neither = old_shortest_paths(&map, loc, &infantry, WRAP_NEITHER);
+        let shortest_neither = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_NEITHER);
         println!("{:?}", shortest_neither);
         assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
@@ -628,7 +627,7 @@ mod test {
         assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(3));
 
 
-        let shortest_horiz = old_shortest_paths(&map, loc, &infantry, WRAP_HORIZ);
+        let shortest_horiz = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_HORIZ);
         println!("{:?}", shortest_horiz);
         assert_eq!(shortest_horiz.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], Some(1));
@@ -642,7 +641,7 @@ mod test {
         assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], Some(2));
         assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], Some(2));
 
-        let shortest_vert = old_shortest_paths(&map, loc, &infantry, WRAP_VERT);
+        let shortest_vert = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_VERT);
         assert_eq!(shortest_vert.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_vert.dist[Location{x:1, y:0}], Some(1));
         assert_eq!(shortest_vert.dist[Location{x:2, y:0}], Some(2));
@@ -655,7 +654,7 @@ mod test {
         assert_eq!(shortest_vert.dist[Location{x:1, y:2}], Some(1));
         assert_eq!(shortest_vert.dist[Location{x:2, y:2}], Some(2));
 
-        let shortest_both = old_shortest_paths(&map, loc, &infantry, WRAP_BOTH);
+        let shortest_both = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_BOTH);
         assert_eq!(shortest_both.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_both.dist[Location{x:1, y:0}], Some(1));
         assert_eq!(shortest_both.dist[Location{x:2, y:0}], Some(1));

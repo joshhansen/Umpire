@@ -263,7 +263,7 @@ impl ColorPair {
         Self { active, foggy }
     }
 
-    pub fn get(&self, currently_observed: bool) -> Color {
+    pub fn get(self, currently_observed: bool) -> Color {
         if currently_observed {
             self.active
         } else {

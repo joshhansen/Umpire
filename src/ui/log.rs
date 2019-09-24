@@ -73,8 +73,6 @@ impl LogArea {
     }
 
     pub fn draw_lite(&self, stdout: &mut Stdout, palette: &Palette) {
-        return;
-
         // write!(*stdout,
         //     "{}{}Message Log{}",
         //     self.goto(0, 0),

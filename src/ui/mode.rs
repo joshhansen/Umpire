@@ -274,7 +274,7 @@ impl IMode for TurnOverMode {
             // so this unwrap should always succeed
             game.end_turn(ui).unwrap();
             *mode = Mode::TurnStart;
-            return true;
+            true
         }
     }
 }
@@ -632,7 +632,7 @@ impl IMode for CarryOutUnitOrdersMode {
 
         self.draw(game, &mut ui.stdout);
 
-        let orders = unit.orders.as_ref().unwrap().clone();
+        let orders = unit.orders.as_ref().unwrap();
 
         match orders.carry_out(self.unit_id, game) {
             Ok(orders_outcome) => {

@@ -37,11 +37,11 @@ impl<S:ScrollableComponent> Scroller<S> {
     }
 
     fn h_scroll_x(&self, map_width: u16) -> u16 {
-        ((self.rect.width-1) as f32 * (self.scrollable.offset().x as f32 / map_width as f32)) as u16
+        (f32::from(self.rect.width-1) * (f32::from(self.scrollable.offset().x) / f32::from(map_width))) as u16
     }
 
     fn v_scroll_y(&self, map_height: u16) -> u16 {
-        (self.rect.height as f32 * (self.scrollable.offset().y as f32 / map_height as f32)) as u16
+        (f32::from(self.rect.height)  * (f32::from(self.scrollable.offset().y) / f32::from(map_height))) as u16
     }
 
     fn draw_scroll_bars(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
