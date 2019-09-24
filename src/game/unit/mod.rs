@@ -237,14 +237,6 @@ impl Unit {
         true
     }
 
-    #[deprecated]
-    pub fn orders(&self) -> Option<&Orders> { self.orders.as_ref() }
-
-    #[deprecated]
-    pub fn set_orders(&mut self, orders: Option<Orders>) {
-        self.orders = orders;
-    }
-
     pub fn moves_remaining(&self) -> u16 {
         self.moves_remaining
     }
