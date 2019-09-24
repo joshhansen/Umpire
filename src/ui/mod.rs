@@ -179,17 +179,17 @@ pub trait UI : LogTarget + MoveAnimator {
 pub struct DefaultUI;
 
 impl LogTarget for DefaultUI {
-    fn log_message<T>(&mut self, message: T) where Message:From<T> {
-        println!("{}", Message::from(message).text);
+    fn log_message<T>(&mut self, _message: T) where Message:From<T> {
+        // println!("{}", Message::from(message).text);
     }
-    fn replace_message<T>(&mut self, message: T) where Message:From<T> {
-        println!("\r{}", Message::from(message).text);
+    fn replace_message<T>(&mut self, _message: T) where Message:From<T> {
+        // println!("\r{}", Message::from(message).text);
     }
 }
 
 impl MoveAnimator for DefaultUI {
-    fn animate_move(&mut self, _game: &Game, move_result: &MoveResult) {
-        println!("Moving: {:?}", *move_result);
+    fn animate_move(&mut self, _game: &Game, _move_result: &MoveResult) {
+        // println!("Moving: {:?}", *move_result);
     }
 }
 
