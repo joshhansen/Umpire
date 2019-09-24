@@ -21,13 +21,13 @@
 // TODO Game save/load
 // TODO Announce new unit creation
 // TODO Color console text announcing turn start to correspond to player colors?
-// TODO Show unit stats in examine mode
 // TODO Zoomed-out map view?
 // TODO AI
 // TODO Unit names that better reflect current world naming patterns rather than just the US from 10/20 years ago.
 // TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
 // TODO Wake up sentried units when an enemy comes within their sight.
 // TODO Make splash screen respect color palette
+// FIXME Make splash screen fit the terminal size
 
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::let_and_return)]
