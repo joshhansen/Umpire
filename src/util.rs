@@ -1,24 +1,16 @@
 //! Utility functions and structs
 
-// pub fn safe_minus_one(x:u16) -> u16 {
-//     if x > 0 { x - 1}
-//     else { 0 }
-// }
-//
-// pub fn safe_plus_one(x:u16, max:u16) -> u16 {
-//     if x < max { x + 1 }
-//     else { max }
-// }
-
-use std::convert::TryFrom;
-use std::fmt;
-use std::ops::Add;
-use std::thread::sleep;
-use std::time::Duration;
+use std::{
+    convert::TryFrom,
+    fmt,
+    ops::Add,
+    thread::sleep,
+    time::Duration,
+};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use conf;
+use crate::conf;
 
 #[derive(Clone,Copy,Debug)]
 pub struct Rect {
