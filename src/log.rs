@@ -45,14 +45,3 @@ pub trait LogTarget {
     fn log_message<T>(&mut self, message: T) where Message:From<T>;
     fn replace_message<T>(&mut self, message: T) where Message:From<T>;
 }
-
-/// A defualt implementation of `LogTarget` that just dumps messages unadorned to stdout
-pub struct DefaultLog;
-impl LogTarget for DefaultLog {
-    fn log_message<T>(&mut self, message: T) where Message:From<T> {
-        println!("{}", Message::from(message).text);
-    }
-    fn replace_message<T>(&mut self, message: T) where Message:From<T> {
-        println!("\r{}", Message::from(message).text);
-    }
-}
