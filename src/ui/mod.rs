@@ -194,14 +194,6 @@ impl UI for DefaultUI {
 
 }
 
-/// 0-indexed variant of Goto
-// pub fn goto(x: u16, y: u16) -> termion::cursor::Goto {
-//     termion::cursor::Goto(x + 1, y + 1)
-// }
-pub fn goto(x: u16, y: u16) -> Goto {
-    Goto(x + 1, y + 1)
-}
-
 pub trait Draw {
     fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette);
 }
@@ -220,7 +212,7 @@ pub trait Component : Draw {
 
     fn goto(&self, x: u16, y: u16) -> Goto {
         let rect = self.rect();
-        goto(rect.left + x, rect.top + y)
+        Goto(rect.left + x, rect.top + y)
     }
 
     fn clear(&self, stdout: &mut Stdout) {
@@ -412,14 +404,14 @@ impl TermUI {
     fn clear(&mut self) {
         // write!(self.stdout, "{}", clear::All).unwrap();
         // self.stdout.queue(Clear(ClearType::All));
-        queue!(self.stdout, Clear(ClearType::All)).unwrap();
+        queue!(self.stdout, Clear(ClearType::All), SetBg(self.palette.get_single(Colors::Background))).unwrap();
 
-        for x in 0..self.term_dims.width {
-            for y in 0..self.term_dims.height {
-                // write!(self.stdout, "{}{} ", goto(x,y), Bg(Rgb(0,0,0))).unwrap();
-                queue!(self.stdout, goto(x,y), SetBg(self.palette.get_single(Colors::Background)), Output(String::from(" "))).unwrap();
-            }
-        }
+        // for x in 0..self.term_dims.width {
+        //     for y in 0..self.term_dims.height {
+        //         // write!(self.stdout, "{}{} ", goto(x,y), Bg(Rgb(0,0,0))).unwrap();
+        //         queue!(self.stdout, goto(x,y), Output(String::from(" "))).unwrap();
+        //     }
+        // }
     }
 
     fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
@@ -449,7 +441,7 @@ impl TermUI {
             //     StrongReset::new(&self.palette)
             // ).unwrap();
             queue!(self.stdout,
-                goto(0, 0),
+                Goto(0, 0),
                 SetAttr(Attribute::Underlined),
                 Output(conf::APP_NAME.to_string()),
                 SetAttr(Attribute::Reset),

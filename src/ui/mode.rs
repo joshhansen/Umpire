@@ -166,7 +166,7 @@ trait IVisibleMode: IMode {
 
     fn goto(&self, x: u16, y: u16) -> Goto {
         let rect = self.rect();
-        Goto(rect.left + x + 1, rect.top + y + 1)
+        Goto(rect.left + x, rect.top + y)
     }
 
     fn clear(&self, stdout: &mut Stdout) {
@@ -611,7 +611,7 @@ impl CarryOutUnitOrdersMode {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
         // write!(*stdout, "{}Unit {} carries out its orders", self.goto(0, 0), unit).unwrap();
-        queue!(stdout, self.goto(0, 0), Output(format!("Unit {} carries out its orders", unit))).unwrap();
+        queue!(stdout, self.goto(0, 0), Output(format!("Unit {} is {}", unit, unit.orders.unwrap().present_progressive_description()))).unwrap();
 
         // write!(*stdout, "{}Cancel:\tESC", self.goto(0, 2)).unwrap();
 
