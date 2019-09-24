@@ -1,12 +1,8 @@
 use std::convert::TryFrom;
-use std::io::{Stdout, Write};
+use std::io::Write;
 
 use crossterm::{
-    ErrorKind,
-    Goto,
     KeyEvent,
-    Output,
-    queue,
 };
 
 use crate::{
@@ -26,6 +22,7 @@ use crate::{
     log::{LogTarget,Message,MessageSource},
     ui::{
         audio::Sounds,
+        buf::RectBuffer,
         Draw,
         MoveAnimator,
         TermUI,
@@ -164,19 +161,38 @@ trait IMode {
 trait IVisibleMode: IMode {
     fn rect(&self) -> Rect;
 
-    fn goto(&self, x: u16, y: u16) -> Goto {
-        let rect = self.rect();
-        Goto(rect.left + x, rect.top + y)
+    fn buf_mut(ui: &mut TermUI) -> &mut RectBuffer;
+
+    fn height(&self) -> u16 {
+        self.rect().height
     }
 
-    fn clear(&self, stdout: &mut Stdout) {
-        let rect = self.rect();
-        let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
-        for y in 0..rect.height {
-            // write!(*stdout, "{}{}", self.goto(0, y), blank_string).unwrap();
-            queue!(stdout, self.goto(0, y), Output(blank_string.clone())).unwrap();//FIXME clear widget without cloning repeatedly
-        }
+    fn width(&self) -> u16 {
+        self.rect().width
     }
+
+    fn clear_buf(ui: &mut TermUI) {
+        Self::buf_mut(ui).clear();
+    }
+}
+
+const COL_WIDTH: usize = 21;
+
+/// Concatenate two strings in a columnar fashion.
+/// 
+/// The width of the left column is set by `COL_WIDTH`. s1 is right-padded up to `COL_WIDTH`, then s2 is appended.
+fn cols<S1:ToString,S2:ToString>(s1: S1, s2: S2) -> String {
+    let s1 = s1.to_string();
+    let s2 = s2.to_string();
+
+    let mut c = String::with_capacity(COL_WIDTH + s2.len());
+    c.push_str(s1.as_str());
+
+    while c.len() < COL_WIDTH {
+        c.push(' ');
+    }
+    c.push_str(s2.as_str());
+    c
 }
 
 pub struct TurnStartMode {}
@@ -296,72 +312,50 @@ impl IMode for SetProductionsMode {
     }
 }
 
-const PROD_COL_WIDTH: u16 = 21;
+
 struct SetProductionMode {
     loc: Location,
     rect: Rect,
     unicode: bool,
 }
 impl SetProductionMode {
-    fn char_and_name(&self, key: char, sym: &'static str, name: &'static str) -> String {
+    fn char_and_name(key: char, sym: &'static str, name: &'static str) -> String {
         let mut char_and_name = format!(" [{}] {} - {}", key, sym, name);
-        while char_and_name.len() < PROD_COL_WIDTH as usize {
+        while char_and_name.len() < COL_WIDTH as usize {
             char_and_name.push(' ');
         }
         char_and_name
     }
 
-    fn write_row(&self, stdout: &mut Stdout, key: char, sym: &'static str, name: &'static str, cost: Option<u16>, y: u16) -> Result<(),ErrorKind> {
-        let char_and_name = self.char_and_name(key, sym, name);
-
-        // write!(*stdout, "{}{}",
-        //         self.goto(0, y),
-        //         char_and_name).unwrap();
-        queue!(stdout, self.goto(0, y), Output(char_and_name)).unwrap();
-        
+    fn row(&self, key: char, sym: &'static str, name: &'static str, cost: Option<u16>) -> String {
+        let mut row = Self::char_and_name(key, sym, name);
         if let Some(cost) = cost {
-            // write!(*stdout, "{}[{}]       ",
-            //     self.goto(PROD_COL_WIDTH, y),
-            //     cost)
-            queue!(stdout, self.goto(PROD_COL_WIDTH, y), Output(format!("[{}]       ", cost)))
-        } else {
-            Ok(())
+            row.push('[');
+            row.push_str(format!("{}", cost).as_str());
+            row.push(']');
         }
+        row
     }
 
-    fn draw(&self, game: &Game, stdout: &mut Stdout) {
+    fn write_buf(&self, game: &Game, ui: &mut TermUI) {
         let tile = &game.current_player_tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
-        // write!(*stdout, "{}Set Production for {}          ", self.goto(0, 0), city).unwrap();
-        queue!(stdout, self.goto(0, 0), Output(format!("Set Production for {}          ", city))).unwrap();
+        let buf = ui.sidebar_buf_mut();
+        buf.clear();
+        buf.set_row(0, format!("Set Production for {}", city));
 
-        
         let mut highest_y = 0;
 
         for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
-            let y = i as u16 + 2;
-            self.write_row(stdout, unit_type.key(), unit_type.sym(self.unicode), unit_type.name(), Some(unit_type.cost()), y).unwrap();
-
-            // let mut char_and_name = format!(" [{}] {} - {}", unit_type.key(), unit_type.sym(self.unicode), unit_type.name());
-            // while char_and_name.len() < PROD_COL_WIDTH as usize {
-            //     char_and_name.push(' ');
-            // }
-            // let mut char_and_name = self.char_and_name(unit_type);
-
-            // write!(*stdout, "{}{}",
-            //     self.goto(0, y),
-            //     char_and_name).unwrap();
-            // write!(*stdout, "{}[{}]       ",
-            //     self.goto(PROD_COL_WIDTH, y),
-            //     unit_type.cost()).unwrap();
-
+            let y = i + 2;
+            let row = self.row(unit_type.key(), unit_type.sym(self.unicode), unit_type.name(), Some(unit_type.cost()));
+            buf.set_row(y, row);
             highest_y = y;
         }
 
-        self.write_row(stdout, conf::KEY_NO_PRODUCTION, " ", "None", None, highest_y + 2).unwrap();
-
-        stdout.flush().unwrap();
+        let row = self.row(conf::KEY_NO_PRODUCTION, " ", "None", None);
+        buf.set_row(highest_y + 2, row);
     }
 }
 
@@ -370,8 +364,9 @@ impl IMode for SetProductionMode {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
         ui.play_sound(Sounds::Silence);
+
+        self.write_buf(game, ui);
         ui.draw(game);
-        self.draw(game, &mut ui.stdout);
 
         {
             let city = game.city_by_loc(self.loc).unwrap();
@@ -394,7 +389,7 @@ impl IMode for SetProductionMode {
                                 source: Some(MessageSource::Mode)
                             });
 
-                            self.clear(&mut ui.stdout);
+                            Self::clear_buf(ui);
 
                             *mode = Mode::TurnResume;
                             return true;
@@ -437,6 +432,10 @@ impl IVisibleMode for SetProductionMode {
     fn rect(&self) -> Rect {
         self.rect
     }
+
+    fn buf_mut(ui: &mut TermUI) -> &mut RectBuffer {
+        ui.sidebar_buf_mut()
+    }
 }
 
 struct GetOrdersMode {}
@@ -461,44 +460,25 @@ impl IVisibleMode for GetUnitOrdersMode {
     fn rect(&self) -> Rect {
         self.rect
     }
+
+    fn buf_mut(ui: &mut TermUI) -> &mut RectBuffer {
+        ui.sidebar_buf_mut()
+    }
 }
 impl GetUnitOrdersMode {
-    fn draw(&self, game: &Game, stdout: &mut Stdout) {
+    fn write_buf(&self, game: &Game, ui: &mut TermUI) {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
-//         write!(*stdout, "{}Get Orders for {}", self.goto(0, 0), unit).unwrap();
-//         write!(*stdout,
-// "\
-// {}Move: ↖ ↗          {} {}
-// {}       ← ↓ ↑ →      {} {} {} {}
-// {}      ↙ ↘          {} {}",
-//             self.goto(0, 2), conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT,
-//             self.goto(0, 3), conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT,
-//             self.goto(0, 4), conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT).unwrap();
-
-//         write!(*stdout, "{}Examine:\t{}", self.goto(0, 6), conf::KEY_EXAMINE).unwrap();
-
-//         write!(*stdout, "{}Explore:\t{}", self.goto(0, 8), conf::KEY_EXPLORE).unwrap();
-
-//         write!(*stdout, "{}Skip:\t{}", self.goto(0, 10), key_desc(conf::KEY_SKIP)).unwrap();
-
-//         write!(*stdout, "{}Sentry:\t{}", self.goto(0, 12), conf::KEY_SENTRY).unwrap();
-
-//         write!(*stdout, "{}Quit:\t{}", self.goto(0, 14), conf::KEY_QUIT).unwrap();
-
-        queue!(stdout,
-            self.goto(0, 0), Output(format!("Get Orders for {}", unit)),
-            self.goto(0, 2), Output(format!("Move: ↖ ↗          {} {}", conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT)),
-            self.goto(0, 3), Output(format!("       ← ↓ ↑ →      {} {} {} {}", conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT)),
-            self.goto(0, 4), Output(format!("      ↙ ↘          {} {}", conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT)),
-            self.goto(0, 6), Output(format!("Examine:\t{}", conf::KEY_EXAMINE)),
-            self.goto(0, 8), Output(format!("Explore:\t{}", conf::KEY_EXPLORE)),
-            self.goto(0, 10), Output(format!("Skip:\t{}", key_desc(conf::KEY_SKIP))),
-            self.goto(0, 12), Output(format!("Sentry:\t{}", conf::KEY_SENTRY)),
-            self.goto(0, 14), Output(format!("Quit:\t{}", conf::KEY_QUIT))
-        ).unwrap();
-
-        stdout.flush().unwrap();
+        let buf = ui.sidebar_buf_mut();
+        buf.set_row(0, format!("Get Orders for {}", unit));
+        buf.set_row(2, format!("Move: ↖ ↗          {} {}", conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT));
+        buf.set_row(3, format!("       ← ↓ ↑ →      {} {} {} {}", conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT));
+        buf.set_row(4, format!("      ↙ ↘          {} {}", conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT));
+        buf.set_row(6, cols("Examine:", conf::KEY_EXAMINE));
+        buf.set_row(8, cols("Explore:", conf::KEY_EXPLORE));
+        buf.set_row(10, cols("Skip:", key_desc(conf::KEY_SKIP)));
+        buf.set_row(12, cols("Sentry:", conf::KEY_SENTRY));
+        buf.set_row(14, cols("Quit:", conf::KEY_QUIT));
     }
 }
 impl IMode for GetUnitOrdersMode {
@@ -513,9 +493,9 @@ impl IMode for GetUnitOrdersMode {
             ui.play_sound(Sounds::Unit(unit_type));
             ui.map_scroller.scrollable.center_viewport(unit_loc);
         }
-        ui.draw(game);
 
-        self.draw(game, &mut ui.stdout);
+        self.write_buf(game, ui);
+        ui.draw(game);
 
         let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit_loc, ui.viewport_rect().dims()).unwrap();
         ui.map_scroller.scrollable.draw_tile(game, &mut ui.stdout, viewport_loc, false, true, None);
@@ -537,7 +517,7 @@ impl IMode for GetUnitOrdersMode {
                                             *mode = Mode::GetOrders;
                                         }
                                         
-                                        self.clear(&mut ui.stdout);
+                                        Self::clear_buf(ui);
                                         return true;
                                     },
                                     Err(msg) => {
@@ -549,14 +529,14 @@ impl IMode for GetUnitOrdersMode {
                             game.order_unit_skip(self.unit_id).unwrap();
                             // game.give_orders(self.unit_id, Some(Orders::Skip), ui, false).unwrap();
                             *mode = Mode::GetOrders;
-                            self.clear(&mut ui.stdout);
+                            Self::clear_buf(ui);
                             return true;
                         } else if c == conf::KEY_SENTRY {
                             ui.log_message("Going sentry");
                             // game.give_orders(self.unit_id, Some(Orders::Sentry), ui, false).unwrap();
                             game.order_unit_sentry(self.unit_id).unwrap();
                             *mode = Mode::GetOrders;
-                            self.clear(&mut ui.stdout);
+                            Self::clear_buf(ui);
                             return true;
                         } else if c == conf::KEY_EXPLORE {
                             let outcome = game.order_unit_explore(self.unit_id).unwrap();
@@ -605,21 +585,17 @@ impl IVisibleMode for CarryOutUnitOrdersMode {
     fn rect(&self) -> Rect {
         self.rect
     }
+
+    fn buf_mut(ui: &mut TermUI) -> &mut RectBuffer {
+        ui.sidebar_buf_mut()
+    }
 }
 impl CarryOutUnitOrdersMode {
-    fn draw(&self, game: &Game, stdout: &mut Stdout) {
+    fn write_buf(&self, game: &Game, ui: &mut TermUI) {
         let unit = game.unit_by_id(self.unit_id).unwrap();
 
-        // write!(*stdout, "{}Unit {} carries out its orders", self.goto(0, 0), unit).unwrap();
-        queue!(stdout, self.goto(0, 0), Output(format!("Unit {} is {}", unit, unit.orders.unwrap().present_progressive_description()))).unwrap();
-
-        // write!(*stdout, "{}Cancel:\tESC", self.goto(0, 2)).unwrap();
-
-        // write!(*stdout, "{}Examine:\t{}", self.goto(0, 4), conf::KEY_EXAMINE).unwrap();
-
-        // write!(*stdout, "{}Quit:\t{}", self.goto(0, 6), conf::KEY_QUIT).unwrap();
-
-        stdout.flush().unwrap();
+        let buf = ui.sidebar_buf_mut();
+        buf.set_row(0, format!("Unit {} is {}", unit, unit.orders.unwrap().present_progressive_description()));
     }
 }
 impl IMode for CarryOutUnitOrdersMode {
@@ -628,9 +604,9 @@ impl IMode for CarryOutUnitOrdersMode {
 
         ui.map_scroller.scrollable.center_viewport(unit.loc);
 
-        ui.draw(game);
+        self.write_buf(game, ui);
 
-        self.draw(game, &mut ui.stdout);
+        ui.draw(game);
 
         let orders = unit.orders.as_ref().unwrap();
 
@@ -653,7 +629,8 @@ impl IMode for CarryOutUnitOrdersMode {
             }
         }
 
-        self.clear(&mut ui.stdout);
+        // self.clear(&mut ui.stdout);
+        ui.sidebar_buf_mut().clear();
 
         true
     }

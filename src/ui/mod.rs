@@ -53,6 +53,7 @@ use self::{
         play_sounds,
         Sounds,
     },
+    buf::RectBuffer,
     sym::Sym,
 };
 
@@ -232,13 +233,12 @@ pub trait Component : Draw {
 }
 
 mod audio;
-mod scroll;
-
+mod buf;
 mod indicators;
 pub mod log;
 mod map;
 pub mod mode;
-// pub mod sound;
+mod scroll;
 mod style;
 pub mod sym;
 
@@ -332,6 +332,7 @@ pub struct TermUI {
 
     map_scroller: Scroller<Map>,
     log: LogArea,
+    sidebar_buf: RectBuffer,
     current_player: CurrentPlayer,
     turn: Turn,
     first_draw: bool,
@@ -355,6 +356,7 @@ impl TermUI {
     ) -> Self {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
+        let sidebar_rect = sidebar_rect(viewport_rect, term_dims);
 
         let palette = Rc::new(palette);
 
@@ -382,6 +384,7 @@ impl TermUI {
 
             map_scroller,
             log,
+            sidebar_buf: RectBuffer::new(sidebar_rect),
             current_player,
 
             turn: Turn::new(turn_rect(cp_rect)),
@@ -457,11 +460,11 @@ impl TermUI {
         self.current_player.draw(game, &mut self.stdout, &self.palette);
         self.map_scroller.draw(game, &mut self.stdout, &self.palette);
         self.turn.draw(game, &mut self.stdout, &self.palette);
+        self.sidebar_buf.draw(&mut self.stdout);
 
         // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         queue!(self.stdout,
             SetAttr(Attribute::Reset),
-            SetBg(self.palette.get_single(Colors::Background)),
             SetBg(self.palette.get_single(Colors::Background)),
             Hide
         ).unwrap();
@@ -562,6 +565,10 @@ impl TermUI {
 
     fn confirm_turn_end(&self) -> bool {
         self.confirm_turn_end
+    }
+
+    fn sidebar_buf_mut(&mut self) -> &mut RectBuffer {
+        &mut self.sidebar_buf
     }
 }
 
