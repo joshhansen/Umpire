@@ -17,13 +17,7 @@ use crate::{
     util::Location
 };
 
-#[derive(Copy,Clone,Debug,PartialEq)]
-pub enum Orders {
-    Skip,
-    Sentry,
-    GoTo{dest:Location},
-    Explore
-}
+
 
 #[derive(Copy,Clone)]
 pub enum OrdersStatus {
@@ -81,6 +75,15 @@ impl OrdersOutcome {
 // type OrdersResult = Result<OrdersStatus,String>;
 pub type OrdersResult = Result<OrdersOutcome,String>;
 
+
+#[derive(Copy,Clone,Debug,PartialEq)]
+pub enum Orders {
+    Skip,
+    Sentry,
+    GoTo{dest:Location},
+    Explore
+}
+
 impl Orders {
     pub fn carry_out(self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
         match self {
@@ -98,7 +101,26 @@ impl Orders {
             Orders::Explore => {
                 explore(game, unit_id)
             }
-        }//match orders
+        }
+    }
+
+    /// A present-tense, progressive aspect verb phrase describing the action of the unit as it carries out these orders
+    /// Example: "standing sentry" for a sentry unit.
+    pub fn present_progressive_description(self) -> String {
+        match self {
+            Orders::Skip => {
+                String::from("skipping its turn")
+            },
+            Orders::Sentry => {
+                String::from("standing sentry")
+            },
+            Orders::GoTo{dest} => {
+                format!("going to {}", dest)
+            },
+            Orders::Explore => {
+                String::from("exploring")
+            }
+        }
     }
 }
 
