@@ -61,8 +61,7 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
 ) -> Result<(),String> {
     {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
 
-        let mut prev_mode: Option<Mode> = None;
-        let mut mode = self::mode::Mode::TurnStart;
+        
 
         let _alt_screen_maybe: Option<AlternateScreen> = if use_alt_screen {
             Some(
@@ -144,6 +143,9 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
             audio_thread_tx,
             input_thread_rx,
         );
+
+        let mut prev_mode: Option<Mode> = None;
+        let mut mode = self::mode::Mode::TurnStart;
 
         while mode.run(&mut game, &mut ui, &mut prev_mode) {
             // nothing here
