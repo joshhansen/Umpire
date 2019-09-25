@@ -80,9 +80,9 @@ impl<S:ScrollableComponent> Scroller<S> {
         //     sym
         // ).unwrap();
         queue!(*stdout,
+            self.goto(x,y),
             SetAttr(Attribute::Reset),
             SetBg(palette.get_single(Colors::Background)),
-            self.goto(x,y),
             SetFg(palette.get_single(Colors::ScrollMarks)),
             Output(sym.to_string())
         ).unwrap();
@@ -95,9 +95,10 @@ impl<S:ScrollableComponent> Scroller<S> {
         //     self.goto(x,y)
         // ).unwrap();
         queue!(*stdout,
+            self.goto(x,y),
             SetAttr(Attribute::Reset),
             SetBg(palette.get_single(Colors::Background)),
-            self.goto(x,y)
+            Output(String::from(" "))
         ).unwrap();
     }
 
