@@ -25,6 +25,7 @@ use crossterm::{
     KeyEvent,
     Goto,
     Output,
+    RawScreen,
     SetAttr,
     SetBg,
     input,
@@ -76,6 +77,7 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
         // The input thread
         let (input_thread_tx, input_thread_rx) = channel();
         let _input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
+            let raw = RawScreen::into_raw_mode().unwrap();
             let input = input();
             let reader = input.read_sync();
             for input_event in reader {
