@@ -11,8 +11,7 @@ use crate::{
         AlignedMaybe,
         Game,
         GameError,
-        map::Tile,
-        map::newmap::UnitID,
+        map::{Tile,UnitID},
     },
     log::LogTarget,
     ui::{

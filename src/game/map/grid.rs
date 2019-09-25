@@ -7,16 +7,17 @@ use crate::{
     game::{
         Alignment,
         PlayerNum,
-        map::{
-            Terrain,
-            Tile,
-            dijkstra::Source,
-            newmap::CityID,
-        },
         obs::Obs,
         unit::City,
     },
     util::{Dims,Location},
+};
+
+use super::{
+    CityID,
+    Terrain,
+    Tile,
+    dijkstra::Source,
 };
 
 pub struct LocationGrid<T> {

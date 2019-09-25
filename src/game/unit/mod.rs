@@ -12,9 +12,10 @@ use crate::{
         Aligned,
         Alignment,
         map::{
+            CityID,
             Terrain,
             Tile,
-            newmap::{CityID,UnitID},
+            UnitID,
         },
         obs::Observer,
     },

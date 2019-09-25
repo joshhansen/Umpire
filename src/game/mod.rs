@@ -14,7 +14,11 @@ use crate::{
     color::{Colors,Colorized},
     game::{
         map::{
+            CityID,
+            MapData,
+            NewUnitError,
             Tile,
+            UnitID,
             gen::MapGenerator,
             dijkstra::{
                 AndFilter,
@@ -26,7 +30,6 @@ use crate::{
                 neighbors_terrain_only,
                 shortest_paths
             },
-            newmap::{CityID,MapData,NewUnitError,UnitID},
         },
         obs::{Obs,Observer,ObsTracker},
         unit::{

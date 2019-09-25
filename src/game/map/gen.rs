@@ -15,15 +15,16 @@ use crate::{
     game::{
         Alignment,
         PlayerNum,
-        map::{
-            Terrain,
-            Tile,
-            dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL},
-            newmap::MapData,
-        },
     },
     name::{ListNamer,Namer},
     util::{Dims,Location,WRAP_NEITHER},
+};
+
+use super::{
+    MapData,
+    Terrain,
+    Tile,
+    dijkstra::{Source,TerrainFilter,neighbors,RELATIVE_NEIGHBORS_CARDINAL,RELATIVE_NEIGHBORS_DIAGONAL},
 };
 
 

@@ -6,7 +6,7 @@ use crate::{
     conf,
     game::{
         Game,
-        map::newmap::UnitID,
+        map::UnitID,
     },
     ui::{
         buf::RectBuffer,
