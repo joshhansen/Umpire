@@ -220,29 +220,29 @@ impl Map {
 
         if tile_loc.y == game.map_dims().height - 1 {
             // write!(stdout, "{}", Underline).unwrap();
-            stdout.queue(SetAttr(Attribute::Underlined));
+            stdout.queue(SetAttr(Attribute::Underlined)).unwrap();
         }
 
         // write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
-        stdout.queue(self.goto(viewport_loc.x, viewport_loc.y));
+        stdout.queue(self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
 
         if let Obs::Observed{tile, current, ..} = game.current_player_obs(tile_loc) {
             if highlight {
                 // write!(stdout, "{}", Invert).unwrap();
-                stdout.queue(SetAttr(Attribute::Reverse));
+                stdout.queue(SetAttr(Attribute::Reverse)).unwrap();
             }
 
             if unit_active {
                 // write!(stdout, "{}{}", Blink, Bold).unwrap();
-                stdout.queue(SetAttr(Attribute::SlowBlink));
-                stdout.queue(SetAttr(Attribute::Bold));
+                stdout.queue(SetAttr(Attribute::SlowBlink)).unwrap();
+                stdout.queue(SetAttr(Attribute::Bold)).unwrap();
             }
 
             let (sym, fg_color, bg_color) = if let Some(ref unit) = tile.unit {
                 if let Some(orders) = unit.orders {
                     if orders == Orders::Sentry {
                         // write!(stdout, "{}", Italic).unwrap();
-                        stdout.queue(SetAttr(Attribute::Italic));
+                        stdout.queue(SetAttr(Attribute::Italic)).unwrap();
                     }
                 }
 
@@ -255,34 +255,34 @@ impl Map {
 
             if let Some(fg_color) = fg_color {
                 // write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
-                stdout.queue(SetFg(self.palette.get(fg_color, *current)));
+                stdout.queue(SetFg(self.palette.get(fg_color, *current))).unwrap();
             }
             if let Some(bg_color) = bg_color {
                 // write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
-                stdout.queue(SetBg(self.palette.get(bg_color, *current)));
+                stdout.queue(SetBg(self.palette.get(bg_color, *current))).unwrap();
             }
             // write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
-            stdout.queue(Output(String::from(symbol_override.unwrap_or(sym))));
+            stdout.queue(Output(String::from(symbol_override.unwrap_or(sym)))).unwrap();
 
             self.displayed_tiles[viewport_loc] = Some(tile.clone());
             self.displayed_tile_currentness[viewport_loc] = Some(*current);
         } else {
             if highlight {
                 // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
-                stdout.queue(SetBg(self.palette.get_single(Colors::Cursor)));
+                stdout.queue(SetBg(self.palette.get_single(Colors::Cursor))).unwrap();
             } else {
                 // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
-                stdout.queue(SetBg(self.palette.get_single(Colors::Background)));
+                stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
             }
             // write!(stdout, " ").unwrap();
-            stdout.queue(Output(String::from(" ")));
+            stdout.queue(Output(String::from(" "))).unwrap();
             self.displayed_tiles[viewport_loc] = None;
             self.displayed_tile_currentness[viewport_loc] = None;
         }
 
         // write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
-        stdout.queue(SetAttr(Attribute::Reset));
-        stdout.queue(SetBg(self.palette.get_single(Colors::Background)));
+        stdout.queue(SetAttr(Attribute::Reset)).unwrap();
+        stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
         stdout.flush().unwrap();
     }
 
@@ -369,9 +369,9 @@ impl Draw for Map {
         }
 
         // write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
-        stdout.queue(SetAttr(Attribute::Reset));
-        stdout.queue(SetBg(self.palette.get_single(Colors::Background)));
-        stdout.queue(Hide);
+        stdout.queue(SetAttr(Attribute::Reset)).unwrap();
+        stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
+        stdout.queue(Hide).unwrap();
         stdout.flush().unwrap();
     }
 }

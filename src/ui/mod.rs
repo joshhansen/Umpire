@@ -131,7 +131,7 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
 
         let term = terminal();
 
-        let (width, height) = term.terminal_size();
+        let (width, height) = term.size().map_err(|error_kind| format!("{}", error_kind))?;
         let term_dims = Dims { width, height };
 
         let stdout = stdout();
