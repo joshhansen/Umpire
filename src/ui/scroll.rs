@@ -9,10 +9,10 @@ use crossterm::{
     queue,
 };
 
-use color::{Colors,Palette};
-use game::Game;
-use ui::{Component,Draw};
-use util::{Dims,Rect,Vec2d};
+use crate::color::{Colors,Palette};
+use crate::game::Game;
+use crate::ui::{Component,Draw};
+use crate::util::{Dims,Rect,Vec2d};
 
 pub trait ScrollableComponent : Component {
     fn offset(&self) -> Vec2d<u16>;

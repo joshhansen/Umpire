@@ -379,7 +379,7 @@ impl Draw for Map {
 
 #[cfg(test)]
 mod test {
-    use ui::map::map_to_viewport_coord;
+    use crate::ui::map::map_to_viewport_coord;
 
     #[test]
     fn test_map_to_viewport_coord() {

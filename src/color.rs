@@ -26,7 +26,7 @@ use pastel::distinct::{DistanceMetric,distinct_colors};
 use pastel::random::RandomizationStrategy;
 use pastel::random::strategies::Vivid;
 
-use game::PlayerNum;
+use crate::game::PlayerNum;
 
 #[derive(Copy,Clone,Debug)]
 pub enum Colors {

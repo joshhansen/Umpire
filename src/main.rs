@@ -64,11 +64,11 @@ use std::{
 
 use clap::{Arg, App};
 
-use color::{Palette, palette16, palette256, palette24};
-use game::{Game,PlayerNum};
-use name::{city_namer,unit_namer};
-use ui::DefaultUI;
-use util::Dims;
+use crate::color::{Palette, palette16, palette256, palette24};
+use crate::game::{Game,PlayerNum};
+use crate::name::{city_namer,unit_namer};
+use crate::ui::DefaultUI;
+use crate::util::Dims;
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 

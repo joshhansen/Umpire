@@ -703,7 +703,7 @@ mod test {
         //TODO //FIXME
 
 
-        let map: LocationGrid<Obs> = LocationGrid::try_from(
+        let _map: LocationGrid<Obs> = LocationGrid::try_from(
             "\
             xxx\n\
             ???\n\
