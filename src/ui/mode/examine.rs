@@ -37,8 +37,7 @@ pub struct ExamineMode {
 impl ExamineMode {
     fn clean_up(&self, game: &Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
-        map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
-        ui.stdout.flush().unwrap();
+        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
     }
 
     fn current_player_tile<'a>(&'a self, game: &'a Game, ui: &TermUI) -> Option<&'a Tile> {
@@ -48,7 +47,7 @@ impl ExamineMode {
 
     fn draw_tile<'a>(&'a self, game: &'a Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
-        map.draw_tile(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
+        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
     }
 }
 impl IMode for ExamineMode {

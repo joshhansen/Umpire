@@ -76,7 +76,7 @@ impl IMode for GetUnitOrdersMode {
         ui.draw(game);
 
         let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit_loc, ui.viewport_rect().dims()).unwrap();
-        ui.map_scroller.scrollable.draw_tile(game, &mut ui.stdout, viewport_loc, false, true, None);
+        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, None);
 
         loop {
             match self.get_key(game, ui, mode) {

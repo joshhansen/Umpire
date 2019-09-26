@@ -206,7 +206,23 @@ impl Map {
     }
 
     /// Renders a particular location in the viewport
-    pub fn draw_tile(&mut self,
+    ///
+    /// Flushes stdout for convenience
+    pub fn draw_tile_and_flush(&mut self,
+            game: &Game,
+            stdout: &mut Stdout,
+            viewport_loc: Location,
+            highlight: bool,// Highlighting as for a cursor
+            unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+
+            // A symbol to show instead of what's actually at this location
+            symbol_override: Option<&'static str>) {
+        self.draw_tile_no_flush(game, stdout, viewport_loc, highlight, unit_active, symbol_override);
+        stdout.flush().unwrap();
+    }
+
+    /// Renders a particular location in the viewport
+    pub fn draw_tile_no_flush(&mut self,
             game: &Game,
             stdout: &mut Stdout,
             viewport_loc: Location,
@@ -216,6 +232,15 @@ impl Map {
             // A symbol to show instead of what's actually at this location
             symbol_override: Option<&'static str>) {
 
+
+
+        stdout.queue(SetAttr(Attribute::Reset)).unwrap();
+        stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
+
+
+
+
+
         let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
         if tile_loc.y == game.map_dims().height - 1 {
@@ -223,9 +248,12 @@ impl Map {
             stdout.queue(SetAttr(Attribute::Underlined)).unwrap();
         }
 
+
+
         // write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
         stdout.queue(self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
 
+        // stdout.queue(Output(String::from("X"))).unwrap();
         if let Obs::Observed{tile, current, ..} = game.current_player_obs(tile_loc) {
             if highlight {
                 // write!(stdout, "{}", Invert).unwrap();
@@ -270,9 +298,9 @@ impl Map {
             if highlight {
                 // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
                 stdout.queue(SetBg(self.palette.get_single(Colors::Cursor))).unwrap();
-            } else {
-                // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
-                stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
+            // } else {
+            //     // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
+            //     stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
             }
             // write!(stdout, " ").unwrap();
             stdout.queue(Output(String::from(" "))).unwrap();
@@ -283,7 +311,7 @@ impl Map {
         // write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
         stdout.queue(SetAttr(Attribute::Reset)).unwrap();
         stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
-        stdout.flush().unwrap();
+        // stdout.flush().unwrap();
     }
 
     pub fn current_player_tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
@@ -320,7 +348,7 @@ impl Draw for Map {
             for viewport_y in 0..self.rect.height {
                 viewport_loc.y = viewport_y;
 
-                let should_draw_tile = {
+                let should_draw_tile = true || {
                     let old_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.old_viewport_offset);
                     let new_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
@@ -362,7 +390,7 @@ impl Draw for Map {
                 };
 
                 if should_draw_tile {
-                    self.draw_tile(game, stdout, viewport_loc, false, false, None);
+                    self.draw_tile_no_flush(game, stdout, viewport_loc, false, false, None);
                 }
 
             }

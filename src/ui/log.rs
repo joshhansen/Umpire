@@ -64,7 +64,12 @@ impl LogArea {
         //     *item = message;
         //     return;// TODO maybe when non-lexical lifetimes arrive we can get rid of this awkward return construct
         // }
-        self.log(message);
+        // self.log(message);
+        if let Some(item) = self.messages.back_mut() {
+            *item = message;
+        } else {
+            self.log(message);
+        }
     }
 
     #[allow(dead_code)]

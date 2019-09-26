@@ -479,10 +479,12 @@ impl TermUI {
             if let Some(loc) = wrapped_add(unit_loc, inc, game.map_dims(), game.wrapping()) {
 
                 if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
-                    self.map_scroller.scrollable.draw_tile(game, &mut self.stdout, viewport_loc, false, false, None);
+                    self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, false, None);
                 }
             }
         }
+
+        self.stdout.flush().unwrap();
     }
 
     fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(
@@ -511,9 +513,9 @@ impl TermUI {
             };
 
             if let Some(viewport_loc) = viewport_loc {
-                map.draw_tile(game, &mut self.stdout, viewport_loc, true, false, Some(sym));
+                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, true, false, Some(sym));
                 sleep_millis(100);
-                map.draw_tile(game, &mut self.stdout, viewport_loc, false, false, Some(sym));
+                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, false, false, Some(sym));
             } else {
                 sleep_millis(100);
             }
@@ -620,7 +622,7 @@ impl MoveAnimator for TermUI {
 
                 // Erase the unit's symbol at its old location
                 if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
-                    map.draw_tile(game, &mut self.stdout, current_viewport_loc, false, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
+                    map.draw_tile_and_flush(game, &mut self.stdout, current_viewport_loc, false, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
                 }
             }
 
