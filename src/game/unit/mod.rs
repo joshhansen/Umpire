@@ -75,6 +75,10 @@ impl CarryingSpace {
     fn units_held(&self) -> usize {
         self.space.len()
     }
+
+    fn carried_units(&self) -> impl Iterator<Item=&Unit> {
+        self.space.iter()
+    }
 }
 
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
@@ -344,6 +348,10 @@ impl Unit {
         } else {
             None
         }
+    }
+
+    pub fn carried_units(&self) -> impl Iterator<Item=&Unit> {
+        self.carrying_space.iter().flat_map(|carrying_space| carrying_space.carried_units())
     }
 }
 

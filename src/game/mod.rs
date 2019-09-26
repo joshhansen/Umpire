@@ -502,7 +502,7 @@ impl Game {
     /// 
     /// In other words, which of the current player's units have no orders and have moves remaining?
     pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
-        self.map.player_units(self.current_player)
+        self.map.player_units_deep(self.current_player)
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
             .map(|unit| unit.id)
     }

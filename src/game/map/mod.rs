@@ -15,7 +15,10 @@ pub use self::grid::LocationGrid;
 use std::{
     collections::HashMap,
     convert::TryFrom,
-    iter::FromIterator,
+    iter::{
+        FromIterator,
+        once,
+    },
 };
 
 use crate::{
@@ -68,16 +71,43 @@ pub enum NewUnitError {
     }
 }
 
+/// An abstract, indexed representation of the map data.
+///
+/// The main role of this structure is to tracker the IDs, locations, and carried status of all
+/// units and cities, in addition to holding the tile data itself.
+/// 
+/// A given unit is either carried or not carried. Carried units are represented by a mapping of their UnitID's
+/// to the carrier UnitID's. Non-carried units are represented in the mapping from their UnitID's to the location
+/// of the tile containing them.
+///
+/// All cities are represented in the CityID->Location mapping.
+///
+/// Reasonable constraints on tiles, cities, and units are enforced. For example, if a carrier unit is destroyed,
+/// all of its carried units will also be destroyed.
 pub struct MapData {
+    /// The dimensions of the map
     dims: Dims,
+
+    /// A grid of map tiles. All cities and units are owned by the tiles that contain them.
     tiles: LocationGrid<Tile>,
+
+    /// What is the location of the tile that directly contains a particular unit (if any)?
+    ///
+    /// Carried units are not found here but rather in `unit_carrier_by_id`. The carrier unit's location can
+    /// then be looked up to find the current location of a carried unit.
     unit_loc_by_id: HashMap<UnitID,Location>,
+
+    /// Which unit carries a particular unit (if any)?
+    unit_carrier_by_id: HashMap<UnitID,UnitID>,
+
+    /// What is the location of a city with the given ID?
     city_loc_by_id: HashMap<CityID,Location>,
 
-    // player_observations: HashMap<PlayerNum,Box<ObsTracker>>,
-
+    /// The next UnitID, to be used upon the next unit's creation.
     next_unit_id: UnitID,
-    next_city_id: CityID
+
+    /// The next CityID, to be used upon the next city's creation.
+    next_city_id: CityID,
 }
 
 impl MapData {
@@ -88,6 +118,7 @@ impl MapData {
             dims,
             tiles: LocationGrid::new(dims, |loc| Tile::new(terrain_initializer(loc), loc)),
             unit_loc_by_id: HashMap::new(),
+            unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
             next_unit_id: UnitID{id: 0},
             next_city_id: CityID{id: 0}
@@ -150,7 +181,13 @@ impl MapData {
 
     pub fn pop_unit_by_loc(&mut self, loc: Location) -> Option<Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
-            tile.unit.take()
+            let popped_unit = tile.unit.take();
+            if let Some(ref popped_unit) = popped_unit {
+                for carried_unit in popped_unit.carried_units() {
+                    self.unit_carrier_by_id.remove(&carried_unit.id);
+                }
+            }
+            popped_unit
         } else {
             None
         }
@@ -159,6 +196,9 @@ impl MapData {
     pub fn set_unit(&mut self, loc: Location, mut unit: Unit) -> Option<Unit> {
         unit.loc = loc;
         self.unit_loc_by_id.insert(unit.id, loc);
+        for carried_unit in unit.carried_units() {
+            self.unit_carrier_by_id.insert(carried_unit.id, unit.id);
+        }
 
         let old_unit = self.pop_unit_by_loc(loc);
         self.tiles.get_mut(loc).unwrap().unit = Some(unit);
@@ -268,9 +308,18 @@ impl MapData {
     fn units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
         self.tiles.iter_mut().filter_map(|tile| tile.unit.as_mut())
     }
+    
+    fn units_deep(&self) -> impl Iterator<Item=&Unit> {
+        self.tiles.iter().filter_map(|tile| tile.unit.as_ref())
+        .flat_map(|unit| once(unit).chain(unit.carried_units()))
+    }
 
     pub fn player_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
         self.units().filter(move |unit| unit.belongs_to_player(player))
+    }
+
+    pub fn player_units_deep(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
+        self.units_deep().filter(move |unit| unit.belongs_to_player(player))
     }
 
     pub fn player_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
