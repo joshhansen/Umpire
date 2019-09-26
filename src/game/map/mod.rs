@@ -56,6 +56,7 @@ impl UnitID {
     }
 }
 
+#[derive(Debug)]
 pub enum NewUnitError {
     OutOfBounds {
         loc: Location,
@@ -321,6 +322,8 @@ impl Source<Tile> for MapData {
 /// would yield a map populated thus:
 /// * numerals represent land terrain with a city belonging to the player of that number
 ///   i.e. character "3" becomes a city belonging to player 3 located on land.
+/// * Letters the letter of the key for any unit yields that unit for player 0 on the appropriate terrain (land for air units).
+/// * The capital version of the letter for a unit's key yields that unit for player 1 on the appropriate terrain (land for air units).
 /// * other non-whitespace characters correspond to land
 /// * whitespace characters correspond to water
 ///
@@ -357,8 +360,13 @@ impl TryFrom<&'static str> for MapData {
 
         for loc in map.iter_locs() {
             let c = lines[loc.y as usize][loc.x as usize];
+            let c_lower = c.to_lowercase().next().unwrap();
             if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
                 map.new_city(loc, Alignment::Belligerent{player: player_num}, format!("City_{}_{}", loc.x, loc.y)).unwrap();
+            }
+            if let Some(unit_type) = UnitType::from_key(c_lower) {
+                let player_num = if c.is_lowercase() { 0 } else { 1 };
+                map.new_unit(loc, unit_type, Alignment::Belligerent{player: player_num}, format!("Unit_{}_{}", loc.x, loc.y)).unwrap();
             }
         }
 

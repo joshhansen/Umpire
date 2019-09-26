@@ -134,11 +134,26 @@ impl MoveResult {
             None
         }
     }
+
+    /// If the unit survived to the end of the move, which (if any) unit ended up carrying it?
+    pub fn ending_carrier(&self) -> Option<UnitID> {
+        if self.moved_successfully() {
+            if let Some(move_) = self.moves.last() {
+                move_.carrier
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct MoveComponent {
     loc: Location,
+    /// Was the unit carried by another unit? If so, which one?
+    carrier: Option<UnitID>,
     unit_combat: Option<CombatOutcome<Unit,Unit>>,
     city_combat: Option<CombatOutcome<Unit,City>>
 }
@@ -146,6 +161,7 @@ impl MoveComponent {
     fn new(loc: Location) -> Self {
         MoveComponent {
             loc,
+            carrier: None,
             unit_combat: None,
             city_combat: None
         }
@@ -568,7 +584,15 @@ impl Game {
                     // let mut dest_tile = &mut self.tiles[*loc];
                     // debug_assert_eq!(dest_tile.loc, *loc);
                     if let Some(ref other_unit) = self.map.unit_by_loc(*loc) {
-                        move_.unit_combat = Some(unit.fight(other_unit));
+                        if unit.is_friendly_to(other_unit) {
+                            // the friendly unit must have space for us in its carrying capacity or else the
+                            // path search wouldn't have included it
+                            // We won't actually insert this unit in the space yet since it might move/get destroyed later
+                            move_.carrier = Some(other_unit.id);
+                        } else {
+                            // On the other hand, we fight any unfriendly units
+                            move_.unit_combat = Some(unit.fight(other_unit));
+                        }
                     }
                     if let Some(ref outcome) = move_.unit_combat {
                         if outcome.destroyed() {
@@ -605,7 +629,12 @@ impl Game {
 
                 if let Some(move_) = moves.last() {
                     if move_.moved_successfully() {
-                        self.map.set_unit(dest, unit.clone());
+                        if let Some(carrier_unit_id) = move_.carrier {
+                            let carrier_unit = self.map.mut_unit_by_id(carrier_unit_id).unwrap();
+                            carrier_unit.carry(unit.clone()).unwrap();
+                        } else {
+                            self.map.set_unit(dest, unit.clone());
+                        }
                     }
                 }
 
@@ -822,8 +851,9 @@ mod test {
             Alignment,
             Game,
             map::{
+                MapData,
                 Terrain,
-                newmap::{MapData,UnitID},
+                UnitID,
             },
             unit::{UnitType},
         },
@@ -995,4 +1025,21 @@ mod test {
     // fn test_unit_stops_after_conquering_city {
     //
     // }
+
+    #[test]
+    fn test_unit_moves_onto_transport() {
+        let map = MapData::try_from("---it   ").unwrap();
+        let infantry_loc = Location{x: 3, y: 0};
+        let transport_loc = Location{x: 4, y: 0};
+
+        let transport_id: UnitID = map.unit_by_loc(transport_loc).unwrap().id;
+
+        let mut log = DefaultLog;
+        let mut game = Game::new_with_map(map, 1, false, unit_namer(), &mut log);
+        let move_result = game.move_unit_by_loc(infantry_loc, transport_loc).unwrap();
+        assert_eq!(move_result.starting_loc(), infantry_loc);
+        assert_eq!(move_result.ending_loc(), Some(transport_loc));
+        assert!(move_result.moved_successfully());
+        assert_eq!(move_result.ending_carrier(), Some(transport_id));
+    }
 }

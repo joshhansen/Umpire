@@ -433,7 +433,7 @@ mod test {
                     shortest_paths,
                     RELATIVE_NEIGHBORS
                 },
-                newmap::UnitID,
+                UnitID,
             },
             obs::Obs,
             unit::{Unit,UnitType},

@@ -86,7 +86,7 @@ mod test {
             map::{
                 Terrain,
                 Tile,
-                newmap::UnitID,
+                UnitID,
             },
             unit::{Unit,UnitType},
         },

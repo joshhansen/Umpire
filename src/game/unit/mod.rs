@@ -29,6 +29,54 @@ pub trait Located {
     fn loc(&self) -> Location;
 }
 
+#[derive(Clone,Debug,PartialEq)]
+enum TransportMode {
+    Land,
+    Sea,
+    Air,
+}
+
+#[derive(Clone,Debug,PartialEq)]
+struct CarryingSpace {
+    owner: Alignment,
+    accepted_transport_mode: TransportMode,
+    capacity: usize,
+    space: Vec<Unit>,
+}
+impl CarryingSpace {
+    fn new(owner: Alignment, accepted_transport_mode: TransportMode, capacity: usize) -> Self {
+        Self {
+            owner,
+            accepted_transport_mode,
+            capacity,
+            space: Vec::with_capacity(capacity),
+        }
+    }
+
+    fn can_carry_unit(&self, unit: &Unit) -> bool {
+        self.owner == unit.alignment                                &&
+        unit.type_.transport_mode() == self.accepted_transport_mode &&
+        self.space.len() < self.capacity
+    }
+
+    fn carry(&mut self, unit: Unit) -> Result<usize,String> {
+        if !self.can_carry_unit(&unit) {
+            return Err(format!("Cannot carry unit {}", unit));
+        }
+
+        self.space.push(unit);
+        Ok(self.space.len()-1)
+    }
+
+    fn release(&mut self) -> Option<Unit> {
+        self.space.pop()
+    }
+
+    fn units_held(&self) -> usize {
+        self.space.len()
+    }
+}
+
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
 pub enum UnitType {
     Infantry,
@@ -92,8 +140,8 @@ impl UnitType {
             UnitType::Destroyer => 'd',
             UnitType::Submarine => 's',
             UnitType::Cruiser => 'c',
-            UnitType::Battleship => 'B',
-            UnitType::Carrier => 'C'
+            UnitType::Battleship => 'p',
+            UnitType::Carrier => 'k'
         }
     }
 
@@ -114,31 +162,16 @@ impl UnitType {
         None
     }
 
-    // pub fn can_move_on_terrain(&self, terrain: &Terrain) -> bool {
-    //     match *self {
-    //         UnitType::Infantry | UnitType::Armor =>
-    //                 *terrain==Terrain::Land,
-    //         UnitType::Fighter | UnitType::Bomber =>
-    //                 *terrain==Terrain::Land || *terrain==Terrain::Water,
-    //         UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
-    //         UnitType::Battleship | UnitType::Carrier =>
-    //                 *terrain==Terrain::Water,
-    //     }
-    // }
-
-    /// Determine whether this unit can move onto a particular tile (potentially requiring combat to do so).
+    /// Determine whether a unit of this type could potentially move to a particular tile
+    /// (mabye requiring combat to do so).
     /// 
     /// If a city is present, this will always be true. Otherwise, it will be determined by the match between
     /// the unit's capabilities and the terrain (e.g. planes over water, but not tanks over water).
     pub fn can_move_on_tile(self, tile: &Tile) -> bool {
-        tile.city.is_some() || match self {
-            UnitType::Infantry | UnitType::Armor =>
-                    tile.terrain==Terrain::Land,
-            UnitType::Fighter | UnitType::Bomber =>
-                    tile.terrain==Terrain::Land || tile.terrain==Terrain::Water,
-            UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
-            UnitType::Battleship | UnitType::Carrier =>
-                    tile.terrain==Terrain::Water,
+        tile.city.is_some() || match self.transport_mode() {
+            TransportMode::Land => tile.terrain==Terrain::Land,
+            TransportMode::Sea  => tile.terrain==Terrain::Water,
+            TransportMode::Air  => tile.terrain==Terrain::Land || tile.terrain==Terrain::Water,
         }
     }
 
@@ -154,6 +187,15 @@ impl UnitType {
             UnitType::Cruiser => "Cruiser",
             UnitType::Battleship => "Battleship",
             UnitType::Carrier => "Carrier"
+        }
+    }
+
+    fn transport_mode(self) -> TransportMode {
+        match self {
+            UnitType::Infantry | UnitType::Armor => TransportMode::Land,
+            UnitType::Fighter | UnitType::Bomber => TransportMode::Air,
+            UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
+                UnitType::Battleship | UnitType::Carrier => TransportMode::Sea,
         }
     }
 }
@@ -193,7 +235,8 @@ pub struct Unit {
     max_hp: u16,
     moves_remaining: u16,
     name: String,
-    pub orders: Option<Orders>
+    pub orders: Option<Orders>,
+    carrying_space: Option<CarryingSpace>,
 }
 
 impl Unit {
@@ -208,7 +251,8 @@ impl Unit {
             max_hp,
             moves_remaining: 0,
             name: name.into(),
-            orders: None
+            orders: None,
+            carrying_space: Self::new_carrying_space_for(type_, alignment),
         }
     }
 
@@ -221,21 +265,27 @@ impl Unit {
         }
     }
 
-    /// Indicate whether this unit can move (if only theoretically) onto a given tile
-    /// Basically, the unit can (attempt to) move to any tile that is an appropriate terrain for
-    /// its unit type and that does not already contain a friendly unit.
-    /// The presence of cities makes no difference, because either we'll go as a visitor to our own
-    /// city, or attempt to capture a hostile city.
+    /// Indicate whether this unit can move (if only theoretically) onto a given tile.
+    ///
+    /// This is determined as follows:
+    ///
+    /// If the tile contains a unit:
+    ///    if the unit is unfriendly, then defer to terrain features / city presence
+    ///    if the unit is friendly:
+    ///        if the unit has appropriate carrying space for this unit, then we can move on the tile
+    ///        otherwise, we cannot move on the tile
+    /// otherwise, defer to terrain features / city presence
     pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
-        if !self.type_.can_move_on_tile(tile) {
-            return false;
-        }
 
         if let Some(ref unit) = tile.unit {
-            return self.alignment != unit.alignment;
+            if self.alignment != unit.alignment {
+                self.type_.can_move_on_tile(tile)
+            } else {
+                unit.can_carry_unit(self)
+            }
+        } else {
+            self.type_.can_move_on_tile(tile)
         }
-
-        true
     }
 
     pub fn moves_remaining(&self) -> u16 {
@@ -257,6 +307,43 @@ impl Unit {
 
     pub fn refresh_moves_remaining(&mut self) {
         self.moves_remaining = self.movement_per_turn();
+    }
+    
+    fn new_carrying_space_for(type_: UnitType, alignment: Alignment) -> Option<CarryingSpace> {
+        match type_ {
+            UnitType::Infantry | UnitType::Armor | UnitType::Fighter | UnitType::Bomber | UnitType::Destroyer |
+            UnitType::Submarine | UnitType::Cruiser | UnitType::Battleship => None,
+            UnitType::Transport => Some(CarryingSpace::new(alignment, TransportMode::Land, 4)),
+            UnitType::Carrier => Some(CarryingSpace::new(alignment, TransportMode::Air, 5)),
+        }
+    }
+
+    fn can_carry_unit(&self, unit: &Unit) -> bool {
+        if let Some(ref carrying_space) = self.carrying_space {
+            carrying_space.can_carry_unit(unit)
+        } else {
+            false
+        }
+    }
+
+    pub fn is_friendly_to(&self, unit: &Unit) -> bool {
+        self.alignment == unit.alignment
+    }
+
+    pub fn carry(&mut self, unit: Unit) -> Result<usize,String> {
+        if let Some(ref mut carrying_space) = self.carrying_space {
+            carrying_space.carry(unit)
+        } else {
+            Err(format!("Unit cannot carry unit {} as it has no carrying space at all", unit))
+        }
+    }
+
+    pub fn release(&mut self) -> Option<Unit> {
+        if let Some(ref mut carrying_space) = self.carrying_space {
+            carrying_space.release()
+        } else {
+            None
+        }
     }
 }
 
@@ -280,7 +367,11 @@ impl Observer for Unit {
 
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} \"{}\" [{}/{}]", self.type_, self.name, self.hp, self.max_hp)
+        let mut result = write!(f, "{} \"{}\" [{}/{}]", self.type_, self.name, self.hp, self.max_hp);
+        if let Some(ref carrying_space) = self.carrying_space {
+            result = result.and(write!(f, " carrying {} units", carrying_space.units_held()));
+        }
+        result
     }
 }
 
@@ -389,7 +480,7 @@ mod test {
                 LocationGrid,
                 Terrain,
                 Tile,
-                newmap::UnitID,
+                UnitID,
             },
             obs::{Obs,ObsTracker},
             unit::{Alignment,Observer,Unit,UnitType},

@@ -2,8 +2,6 @@
 //! Map generation
 //!
 
-// use std::num::Zero;
-
 use rand::{
     thread_rng,
     Rng,

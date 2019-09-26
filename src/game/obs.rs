@@ -91,7 +91,7 @@ mod test {
                 LocationGrid,
                 Terrain,
                 Tile,
-                newmap::UnitID,
+                UnitID,
             },
             obs::{Obs,Observer,ObsTracker},
             unit::{Unit,UnitType},

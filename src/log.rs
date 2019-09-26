@@ -45,3 +45,26 @@ pub trait LogTarget {
     fn log_message<T>(&mut self, message: T) where Message:From<T>;
     fn replace_message<T>(&mut self, message: T) where Message:From<T>;
 }
+
+#[cfg(test)]
+pub struct DefaultLog;
+
+#[cfg(test)]
+impl LogTarget for DefaultLog {
+    fn log_message<T>(&mut self, message: T) where Message:From<T> {
+        let message = Message::from(message);
+
+        if let Some(mark) = message.mark {
+            print!("{}", mark);
+        }
+        println!("{}", message.text);
+    }
+    fn replace_message<T>(&mut self, message: T) where Message:From<T> {
+        let message = Message::from(message);
+
+        if let Some(mark) = message.mark {
+            print!("{}", mark);
+        }
+        println!("{}", message.text);
+    }
+}
