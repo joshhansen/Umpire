@@ -6,7 +6,6 @@ use crossterm::{
 };
 
 use crate::{
-    conf,
     game::{
         AlignedMaybe,
         Game,
@@ -74,8 +73,7 @@ impl IMode for ExamineMode {
             KeyStatus::Unhandled(key) => {
                 if key==KeyEvent::Esc {
                     *mode = Mode::TurnResume;
-                } else if key==KeyEvent::Char(conf::KEY_EXAMINE_SELECT) {
-
+                } else if key==KeyEvent::Enter {
                     if let Some(tile) = self.current_player_tile(game, ui).cloned() {// We clone to ease mutating the unit within this block
                         if let Some(ref city) = tile.city {
                             if city.belongs_to_player(game.current_player()) {

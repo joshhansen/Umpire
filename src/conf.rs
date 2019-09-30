@@ -113,7 +113,6 @@ pub const KEY_SKIP: char = ' ';
 pub const KEY_QUIT: char = 'q';
 
 pub const KEY_EXAMINE: char = 'x';
-pub const KEY_EXAMINE_SELECT: char = '\n';
 
 pub const KEY_NO_PRODUCTION: char = 'n';
 
