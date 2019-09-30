@@ -348,7 +348,7 @@ impl Draw for Map {
             for viewport_y in 0..self.rect.height {
                 viewport_loc.y = viewport_y;
 
-                let should_draw_tile = true || {
+                let should_draw_tile = {
                     let old_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.old_viewport_offset);
                     let new_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
 
