@@ -210,8 +210,7 @@ impl MapData {
     }
 
     pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
-        let loc = self.unit_loc_by_id[&id];
-        self.unit_by_loc_mut( loc )//FIXME NLL -- this should be a one-liner
+        self.unit_by_loc_mut(self.unit_loc_by_id[&id])
     }
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
@@ -273,8 +272,7 @@ impl MapData {
     }
 
     pub fn city_by_id_mut(&mut self, id: CityID) -> Option<&mut City> {
-        let loc = self.city_loc_by_id[&id];
-        self.city_by_loc_mut( loc )//FIXME NLL -- this should be a one-liner
+        self.city_by_loc_mut(self.city_loc_by_id[&id])
     }
 
     pub fn tile(&self, loc: Location) -> Option<&Tile> {
