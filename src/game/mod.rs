@@ -306,7 +306,7 @@ impl Game {
         for city_loc in producing_city_locs {
 
             let (city_loc, city_alignment, city_desc, unit_under_production) = {
-                let city = self.map.mut_city_by_loc(city_loc).unwrap();
+                let city = self.map.city_by_loc_mut(city_loc).unwrap();
                 let unit_under_production = city.production().unwrap();
                 (city.loc, city.alignment, format!("{}", city), unit_under_production)
             };
@@ -320,7 +320,7 @@ impl Game {
             match result {
                 Ok(new_unit_id) => {
                     {
-                        let city = self.map.mut_city_by_loc(city_loc).unwrap();
+                        let city = self.map.city_by_loc_mut(city_loc).unwrap();
                         city.production_progress = 0;
                     };
 
@@ -475,7 +475,7 @@ impl Game {
     }
 
     fn mut_unit_by_loc(&mut self, loc: Location) -> Option<&mut Unit> {
-        self.map.mut_unit_by_loc(loc)
+        self.map.unit_by_loc_mut(loc)
     }
 
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
@@ -486,8 +486,8 @@ impl Game {
     //     self.map.mut_unit_by_loc(loc)
     // }
 
-    fn mut_unit_by_id(&mut self, id: UnitID) -> Option<&mut Unit> {
-        self.map.mut_unit_by_id(id)
+    fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
+        self.map.unit_by_id_mut(id)
     }
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
@@ -602,7 +602,7 @@ impl Game {
                         }
                     }
 
-                    if let Some(city) = self.map.mut_city_by_loc(*loc) {
+                    if let Some(city) = self.map.city_by_loc_mut(*loc) {
                         if city.alignment != unit.alignment {
                             let outcome = unit.fight(city);
 
@@ -630,7 +630,7 @@ impl Game {
                 if let Some(move_) = moves.last() {
                     if move_.moved_successfully() {
                         if let Some(carrier_unit_id) = move_.carrier {
-                            let carrier_unit = self.map.mut_unit_by_id(carrier_unit_id).unwrap();
+                            let carrier_unit = self.map.unit_by_id_mut(carrier_unit_id).unwrap();
                             carrier_unit.carry(unit.clone()).unwrap();
                         } else {
                             self.map.set_unit(dest, unit.clone());
@@ -665,7 +665,7 @@ impl Game {
     }
 
     pub fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
-        if let Some(city) = self.map.mut_city_by_loc(loc) {
+        if let Some(city) = self.map.city_by_loc_mut(loc) {
             city.set_production(production);
             Ok(())
         } else {
@@ -677,7 +677,7 @@ impl Game {
     }
 
     pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(),String> {
-        if let Some(city) = self.map.mut_city_by_loc(loc) {
+        if let Some(city) = self.map.city_by_loc_mut(loc) {
             city.clear_production_without_ignoring();
             Ok(())
         } else {
@@ -689,7 +689,7 @@ impl Game {
     }
 
     pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(),String> {
-        if let Some(city) = self.map.mut_city_by_loc(loc) {
+        if let Some(city) = self.map.city_by_loc_mut(loc) {
             city.clear_production_and_ignore();
             Ok(())
         } else {
@@ -732,7 +732,7 @@ impl Game {
     }
 
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.mut_unit_by_id(unit_id)
+        self.unit_by_id_mut(unit_id)
             .map(|unit| {
                 unit.orders = Some(Orders::Sentry);
                 OrdersOutcome::completed_without_move()
@@ -775,7 +775,7 @@ impl Game {
     }
 
     fn set_orders(&mut self, unit_id: UnitID, orders: Option<Orders>) -> Result<(),String> {
-        if let Some(ref mut unit) = self.mut_unit_by_id(unit_id) {
+        if let Some(ref mut unit) = self.unit_by_id_mut(unit_id) {
             unit.orders = orders;
             Ok(())
         } else {
@@ -790,7 +790,7 @@ impl Game {
 
         // If the orders are already complete, clear them out
         if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
-            self.mut_unit_by_id(unit_id).unwrap().orders = None;
+            self.unit_by_id_mut(unit_id).unwrap().orders = None;
         }
         
         result

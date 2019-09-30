@@ -171,7 +171,7 @@ impl MapData {
         }
     }
 
-    pub fn mut_unit_by_loc(&mut self, loc: Location) -> Option<&mut Unit> {
+    pub fn unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.unit.as_mut()
         } else {
@@ -209,9 +209,9 @@ impl MapData {
         self.unit_by_loc(self.unit_loc_by_id[&id])
     }
 
-    pub fn mut_unit_by_id(&mut self, id: UnitID) -> Option<&mut Unit> {
+    pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         let loc = self.unit_loc_by_id[&id];
-        self.mut_unit_by_loc( loc )//FIXME NLL -- this should be a one-liner
+        self.unit_by_loc_mut( loc )//FIXME NLL -- this should be a one-liner
     }
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
@@ -252,7 +252,7 @@ impl MapData {
         }
     }
 
-    pub fn mut_city_by_loc(&mut self, loc: Location) -> Option<&mut City> {
+    pub fn city_by_loc_mut(&mut self, loc: Location) -> Option<&mut City> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.city.as_mut()
         } else {
@@ -272,9 +272,9 @@ impl MapData {
         self.city_by_loc(self.city_loc_by_id[&id])
     }
 
-    pub fn mut_city_by_id(&mut self, id: CityID) -> Option<&mut City> {
+    pub fn city_by_id_mut(&mut self, id: CityID) -> Option<&mut City> {
         let loc = self.city_loc_by_id[&id];
-        self.mut_city_by_loc( loc )//FIXME NLL -- this should be a one-liner
+        self.city_by_loc_mut( loc )//FIXME NLL -- this should be a one-liner
     }
 
     pub fn tile(&self, loc: Location) -> Option<&Tile> {

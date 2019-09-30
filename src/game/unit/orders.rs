@@ -156,7 +156,7 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
     // let mut unit = None;
     loop {
         // Get a fresh copy of the unit
-        let unit = game.mut_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
+        let unit = game.unit_by_id_mut(unit_id).expect("Somehow the unit disappeared during exploration").clone();
 
         if unit.moves_remaining() == 0 {
             return Ok(OrdersOutcome::in_progress_with_move(MoveResult::new(unit, starting_loc, moves).unwrap()));
