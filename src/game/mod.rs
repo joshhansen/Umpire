@@ -412,6 +412,9 @@ impl Game {
         }
     }
 
+    /// Register the current observations of current player units
+    /// 
+    /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
     fn update_current_player_observations(&mut self) {
         // let obs_tracker: &mut dyn ObsTracker = &mut ** (self.player_observations.get_mut(&self.current_player).unwrap()) ;
         let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
