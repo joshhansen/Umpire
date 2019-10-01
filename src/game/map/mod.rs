@@ -140,7 +140,7 @@ impl MapData {
 
         self.tiles[loc].unit = Some(unit);
 
-        Ok(self.tiles[loc].unit.as_ref().unwrap().id)
+        Ok(unit_id)
     }
 
     pub fn unit_by_loc(&self, loc: Location) -> Option<&Unit> {
