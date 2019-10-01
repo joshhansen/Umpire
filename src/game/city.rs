@@ -64,11 +64,15 @@ impl City {
         self.production = Some(production);
     }
 
+    /// Clear the city's production but ignore it when looking for un-set productions in the future.
+    /// 
+    /// The user must manually activate it in Examine Mode after this.
     pub fn clear_production_and_ignore(&mut self) {
         self.production = None;
         self.ignore_cleared_production = true;
     }
 
+    /// Clear the city's production, and include it in the future when looking for un-set productions.
     pub fn clear_production_without_ignoring(&mut self) {
         self.production = None;
         self.ignore_cleared_production = false;
