@@ -118,6 +118,9 @@ impl MapData {
         self.tiles.get_mut(loc).unwrap().terrain = terrain;
     }
 
+    /// Create a new unit properly indexed and managed
+    /// 
+    /// Returns the ID of the new unit.
     pub fn new_unit<S:Into<String>>(&mut self, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Result<UnitID,NewUnitError> {
         if !self.in_bounds(loc) {
             return Err(NewUnitError::OutOfBounds { loc, dims: self.dims });
