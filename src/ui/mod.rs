@@ -42,8 +42,8 @@ use crate::{
     game::{
         Game,
         MoveResult,
+        combat::{CombatCapable,CombatOutcome,CombatParticipant},
         obs::{Observer,visible_coords_iter},
-        unit::combat::{CombatCapable,CombatOutcome,CombatParticipant},
     },
     log::{LogTarget,Message,MessageSource},
     util::{Dims,Rect,Location,sleep_millis,wrapped_add}

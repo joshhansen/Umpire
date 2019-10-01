@@ -3,6 +3,8 @@
 //!
 //! This implements the game logic without regard for user interface.
 
+pub mod city;
+pub mod combat;
 pub mod map;
 pub mod obs;
 pub mod unit;
@@ -13,12 +15,12 @@ use std::collections::{BTreeSet,HashMap};
 use crate::{
     color::{Colors,Colorized},
     game::{
+        city::{CityID,City},
+        combat::{CombatCapable,CombatOutcome},
         map::{
-            CityID,
             MapData,
             NewUnitError,
             Tile,
-            UnitID,
             gen::MapGenerator,
             dijkstra::{
                 AndFilter,
@@ -33,8 +35,7 @@ use crate::{
         },
         obs::{Obs,Observer,ObsTracker},
         unit::{
-            City,Unit,UnitType,
-            combat::{CombatCapable,CombatOutcome},
+            UnitID,Unit,UnitType,
             orders::{
                 Orders,
                 OrdersStatus,
@@ -853,9 +854,8 @@ mod test {
             map::{
                 MapData,
                 Terrain,
-                UnitID,
             },
-            unit::{UnitType},
+            unit::{UnitID,UnitType},
         },
         log::{DefaultLog,LogTarget},
         name::unit_namer,

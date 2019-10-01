@@ -433,10 +433,9 @@ mod test {
                     shortest_paths,
                     RELATIVE_NEIGHBORS
                 },
-                UnitID,
             },
             obs::Obs,
-            unit::{Unit,UnitType},
+            unit::{UnitID,Unit,UnitType},
         },
         
         util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER},

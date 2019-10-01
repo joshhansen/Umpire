@@ -26,38 +26,15 @@ use crate::{
         AlignedMaybe,
         Alignment,
         PlayerNum,
-        unit::{City,Unit,UnitType},
+        city::{CityID,City},
+        unit::{UnitID,Unit,UnitType},
     },
     util::{Dims,Location},
 };
 
 use self::dijkstra::Source;
 
-#[derive(Clone,Copy,Debug,Eq,Hash,PartialEq)]
-pub struct CityID {
-    id: u64
-}
-impl CityID {
-    pub fn new(id: u64) -> Self {
-        Self{ id }
-    }
-    fn next(self) -> Self {
-        Self{ id: self.id + 1 }
-    }
-}
 
-#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
-pub struct UnitID {
-    id: u64
-}
-impl UnitID {
-    pub fn new(id: u64) -> Self {
-        Self{ id }
-    }
-    fn next(self) -> Self {
-        UnitID{ id: self.id + 1 }
-    }
-}
 
 #[derive(Debug)]
 pub enum NewUnitError {
@@ -67,7 +44,7 @@ pub enum NewUnitError {
     },
     UnitAlreadyPresent {
         loc: Location,
-        prior_unit: Unit
+        prior_unit: Unit,
     }
 }
 
@@ -120,8 +97,8 @@ impl MapData {
             unit_loc_by_id: HashMap::new(),
             unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
-            next_unit_id: UnitID{id: 0},
-            next_city_id: CityID{id: 0}
+            next_unit_id: UnitID::new(0),
+            next_city_id: CityID::new(0),
         }
     }
 

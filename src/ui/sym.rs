@@ -3,8 +3,8 @@
 use crate::{
     game::{
         map::{Terrain,Tile},
+        city::City,
         unit::{
-            City,
             Unit,
             UnitType,
         },

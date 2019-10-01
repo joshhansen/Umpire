@@ -2,7 +2,7 @@ use crate::{
     color::Colors,
     game::{
         Game,
-        map::UnitID,
+        unit::UnitID,
     },
     log::{LogTarget,Message},
     ui::{

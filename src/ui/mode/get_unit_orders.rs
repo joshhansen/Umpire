@@ -8,7 +8,7 @@ use crate::{
     conf::{self, key_desc},
     game::{
         Game,
-        map::UnitID,
+        unit::UnitID,
     },
     log::LogTarget,
     ui::{

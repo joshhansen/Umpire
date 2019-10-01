@@ -91,10 +91,9 @@ mod test {
                 LocationGrid,
                 Terrain,
                 Tile,
-                UnitID,
             },
             obs::{Obs,Observer,ObsTracker},
-            unit::{Unit,UnitType},
+            unit::{UnitID,Unit,UnitType},
         },
         util::{Dims,Location,WRAP_BOTH},
     };

@@ -7,14 +7,13 @@ use crate::{
     game::{
         Alignment,
         PlayerNum,
+        city::{CityID,City},
         obs::Obs,
-        unit::City,
     },
     util::{Dims,Location},
 };
 
 use super::{
-    CityID,
     Terrain,
     Tile,
     dijkstra::Source,

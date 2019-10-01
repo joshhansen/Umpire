@@ -6,7 +6,8 @@ use crate::{
         Aligned,
         AlignedMaybe,
         Alignment,
-        unit::{City,Unit},
+        city::City,
+        unit::{Unit},
     },
     util::Location,
 };
@@ -86,9 +87,8 @@ mod test {
             map::{
                 Terrain,
                 Tile,
-                UnitID,
             },
-            unit::{Unit,UnitType},
+            unit::{UnitID,Unit,UnitType},
         },
         util::Location
     };

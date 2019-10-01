@@ -10,7 +10,8 @@ use crate::{
         AlignedMaybe,
         Game,
         GameError,
-        map::{Tile,UnitID},
+        map::Tile,
+        unit::UnitID,
     },
     log::LogTarget,
     ui::{

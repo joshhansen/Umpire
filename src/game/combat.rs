@@ -1,7 +1,5 @@
 use rand::{thread_rng,Rng};
 
-use crate::game::unit::{City,Unit,CITY_MAX_HP};
-
 #[derive(Debug,PartialEq)]
 pub enum CombatParticipant {
     Attacker,
@@ -89,14 +87,4 @@ pub trait CombatCapable {
 
         panic!("For some inexplicable reason, combat failed to produce a victor");
     }
-}
-
-impl CombatCapable for Unit {
-    fn hp(&self) -> u16 { self.hp }
-    fn max_hp(&self) -> u16 { self.max_hp }
-}
-
-impl CombatCapable for City {
-    fn hp(&self) -> u16 { self.hp }
-    fn max_hp(&self) -> u16 { CITY_MAX_HP }
 }

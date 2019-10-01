@@ -4,7 +4,6 @@ use crate::{
         MoveComponent,
         MoveResult,
         map::{
-            UnitID,
             dijkstra::{
                 ObservedFilter,
                 UnitMovementFilter,
@@ -12,7 +11,8 @@ use crate::{
                 nearest_adjacent_unobserved_reachable_without_attacking,
                 shortest_paths
             },
-        }
+        },
+        unit::UnitID,
     },
     util::Location
 };
