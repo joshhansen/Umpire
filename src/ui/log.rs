@@ -54,11 +54,6 @@ impl LogArea {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn log_message(&mut self, message: String) {
-        self.log(Message::from(message))
-    }
-
     pub fn replace(&mut self, message: Message) {
         // if let Some(item) = self.messages.back_mut() {
         //     *item = message;
@@ -70,11 +65,6 @@ impl LogArea {
         } else {
             self.log(message);
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn replace_message(&mut self, message: String) {
-        self.replace(Message::from(message));
     }
 
     pub fn draw_lite(&self, stdout: &mut Stdout, palette: &Palette) {
