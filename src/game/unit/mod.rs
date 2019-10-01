@@ -90,6 +90,10 @@ impl CarryingSpace {
     fn carried_units(&self) -> impl Iterator<Item=&Unit> {
         self.space.iter()
     }
+
+    fn carried_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+        self.space.iter_mut()
+    }
 }
 
 #[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
@@ -363,6 +367,10 @@ impl Unit {
 
     pub fn carried_units(&self) -> impl Iterator<Item=&Unit> {
         self.carrying_space.iter().flat_map(|carrying_space| carrying_space.carried_units())
+    }
+
+    pub fn carried_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+        self.carrying_space.iter_mut().flat_map(|carrying_space| carrying_space.carried_units_mut())
     }
 }
 
