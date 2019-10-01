@@ -354,8 +354,11 @@ impl Game {
 
     fn refresh_moves_remaining(&mut self) {
         for unit in self.player_units_mut() {
-            // unit.moves_remaining = unit.movement_per_turn();
             unit.refresh_moves_remaining();
+
+            for carried_unit in unit.carried_units_mut() {
+                carried_unit.refresh_moves_remaining();
+            }
         }
     }
 
