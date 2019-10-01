@@ -341,7 +341,7 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    fn draw(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
         let mut viewport_loc = Location{x: 0, y: 0};
         for viewport_x in 0..self.rect.width {
             viewport_loc.x = viewport_x;
@@ -400,7 +400,6 @@ impl Draw for Map {
         stdout.queue(SetAttr(Attribute::Reset)).unwrap();
         stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
         stdout.queue(Hide).unwrap();
-        stdout.flush().unwrap();
     }
 }
 

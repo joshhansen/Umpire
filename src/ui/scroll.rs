@@ -111,9 +111,9 @@ impl<S:ScrollableComponent> Scroller<S> {
 }
 
 impl<S:ScrollableComponent> Draw for Scroller<S> {
-    fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
+    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
         self.draw_scroll_bars(game, stdout, palette);
-        self.scrollable.draw(game, stdout, palette);
+        self.scrollable.draw_no_flush(game, stdout, palette);
     }
 }
 

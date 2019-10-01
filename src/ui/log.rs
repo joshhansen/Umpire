@@ -68,6 +68,11 @@ impl LogArea {
     }
 
     pub fn draw_lite(&self, stdout: &mut Stdout, palette: &Palette) {
+        self.draw_lite_no_flush(stdout, palette);
+        stdout.flush().unwrap();
+    }
+
+    pub fn draw_lite_no_flush(&self, stdout: &mut Stdout, palette: &Palette) {
         // write!(*stdout,
         //     "{}{}Message Log{}",
         //     self.goto(0, 0),
@@ -112,14 +117,16 @@ impl LogArea {
                 Output(text)
             ).unwrap();
         }
-
-        stdout.flush().unwrap();
     }
 }
 
 impl Draw for LogArea {
     fn draw(&mut self, _game: &Game, stdout: &mut Stdout, palette: &Palette) {
         self.draw_lite(stdout, palette);
+    }
+
+    fn draw_no_flush(&mut self, _game: &Game, stdout: &mut Stdout, palette: &Palette) {
+        self.draw_lite_no_flush(stdout, palette);
     }
 }
 

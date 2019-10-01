@@ -287,8 +287,8 @@ impl Game {
         self.map.player_units(self.current_player)
     }
 
-    fn player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
-        self.map.player_units_mut(self.current_player)
+    fn player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, callback: F) {
+        self.map.player_units_deep_mutate(self.current_player(), callback);
     }
 
     fn produce_units<L:LogTarget>(&mut self, log: &mut L) {
@@ -353,13 +353,7 @@ impl Game {
     }
 
     fn refresh_moves_remaining(&mut self) {
-        for unit in self.player_units_mut() {
-            unit.refresh_moves_remaining();
-
-            for carried_unit in unit.carried_units_mut() {
-                carried_unit.refresh_moves_remaining();
-            }
-        }
+        self.player_units_deep_mutate(|unit: &mut Unit| unit.refresh_moves_remaining());
     }
 
     fn begin_turn<L:LogTarget>(&mut self, log: &mut L) {
@@ -561,7 +555,7 @@ impl Game {
                                 unit, src, dest, distance, unit.moves_remaining()));
                 }
 
-                let mut unit = self.map.pop_unit_by_loc(src).unwrap();
+                let mut unit = self.map.pop_toplevel_unit_by_loc(src).unwrap();
 
                 // We're here because a route exists to the destination and a unit existed at the source
 
@@ -605,7 +599,7 @@ impl Game {
                         if outcome.destroyed() {
                             break;
                         } else {
-                            self.map.destroy_unit_by_loc(*loc);// eliminate the unit we conquered
+                            self.map.pop_toplevel_unit_by_loc(*loc);// eliminate the unit we conquered
                         }
                     }
 
@@ -637,8 +631,7 @@ impl Game {
                 if let Some(move_) = moves.last() {
                     if move_.moved_successfully() {
                         if let Some(carrier_unit_id) = move_.carrier {
-                            let carrier_unit = self.map.unit_by_id_mut(carrier_unit_id).unwrap();
-                            carrier_unit.carry(unit.clone()).unwrap();
+                            self.map.carry_unit(carrier_unit_id, unit.clone()).unwrap();
                         } else {
                             self.map.set_unit(dest, unit.clone());
                         }

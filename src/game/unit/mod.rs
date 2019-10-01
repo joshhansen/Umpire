@@ -79,8 +79,18 @@ impl CarryingSpace {
         Ok(self.space.len()-1)
     }
 
-    fn release(&mut self) -> Option<Unit> {
-        self.space.pop()
+    fn release_by_idx(&mut self, index: usize) -> Option<Unit> {
+        if index < self.space.len() {
+            Some(self.space.remove(index))
+        } else {
+            None
+        }
+    }
+
+    fn release_by_id(&mut self, id: UnitID) -> Option<Unit> {
+        self.space.iter()
+            .position(|carried_unit| carried_unit.id==id)
+            .map(|carried_unit_idx| self.space.remove(carried_unit_idx))
     }
 
     fn units_held(&self) -> usize {
@@ -349,17 +359,31 @@ impl Unit {
         self.alignment == unit.alignment
     }
 
-    pub(in crate::game) fn carry(&mut self, unit: Unit) -> Result<usize,String> {
+    /// Carry a unit in this unit's carrying space.
+    /// 
+    /// For example, make a Transport carry an Armor.
+    /// 
+    /// This method call should only be called by MapData's carry_unit method.
+    pub(in crate::game) fn carry(&mut self, mut unit: Unit) -> Result<usize,String> {
         if let Some(ref mut carrying_space) = self.carrying_space {
+            unit.loc = self.loc;
             carrying_space.carry(unit)
         } else {
             Err(format!("Unit cannot carry unit {} as it has no carrying space at all", unit))
         }
     }
 
-    pub(in crate::game) fn release(&mut self) -> Option<Unit> {
+    pub(in crate::game) fn release_by_idx(&mut self, carried_unit_idx: usize) -> Option<Unit> {
         if let Some(ref mut carrying_space) = self.carrying_space {
-            carrying_space.release()
+            carrying_space.release_by_idx(carried_unit_idx)
+        } else {
+            None
+        }
+    }
+
+    pub(in crate::game) fn release_by_id(&mut self, carried_unit_id: UnitID) -> Option<Unit> {
+        if let Some(ref mut carrying_space) = self.carrying_space {
+            carrying_space.release_by_id(carried_unit_id)
         } else {
             None
         }

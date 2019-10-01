@@ -9,13 +9,20 @@ use crossterm::{
     queue,
 };
 
-use crate::util::Rect;
+use crate::{
+    color::Palette,
+    game::Game,
+    ui::Draw,
+    util::Rect
+};
 
 /// A buffer to help with smooth drawing of rectangular regions
 /// 
 /// Instead of having different bits of code clear and write over the same region, leading to a flickering effect,
 /// we make one piece of code responsible for drawing on one region. Clients update the buffer contents and tell
 /// the buffer to draw, but the buffer works out the most efficient way to do the drawing without flickering.
+/// 
+/// TODO: Implement Component?
 pub(in crate::ui) struct RectBuffer {
     rect: Rect,
     rows: Vec<Option<String>>,
@@ -92,8 +99,10 @@ impl RectBuffer {
         // self.rows_dirty[row_idx] = true;
         self.dirty_rows.insert(row_idx);
     }
+}
 
-    pub fn draw(&mut self, stdout: &mut Stdout) {
+impl Draw for RectBuffer {
+    fn draw_no_flush(&mut self, _game: &Game, stdout: &mut Stdout, _palette: &Palette) {
         for dirty_row_idx in &self.dirty_rows {
             self._draw_row(*dirty_row_idx, stdout);
         }

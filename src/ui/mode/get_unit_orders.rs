@@ -14,6 +14,7 @@ use crate::{
     ui::{
         audio::Sounds,
         buf::RectBuffer,
+        sym::Sym,
         MoveAnimator,
         TermUI,
     },
@@ -61,10 +62,10 @@ impl GetUnitOrdersMode {
 }
 impl IMode for GetUnitOrdersMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        let (unit_loc,unit_type) = {
+        let (unit_loc,unit_type, unit_sym) = {
             let unit = game.unit_by_id(self.unit_id).unwrap();
             ui.log_message(format!("Requesting orders for unit {} at {}", unit, unit.loc));
-            (unit.loc,unit.type_)
+            (unit.loc,unit.type_, unit.sym(ui.unicode))
         };
 
         if self.first_move {
@@ -73,10 +74,10 @@ impl IMode for GetUnitOrdersMode {
         }
 
         self.write_buf(game, ui);
-        ui.draw(game);
+        ui.draw_no_flush(game);
 
         let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit_loc, ui.viewport_rect().dims()).unwrap();
-        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, None);
+        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, Some(unit_sym));
 
         loop {
             match self.get_key(game, ui, mode) {

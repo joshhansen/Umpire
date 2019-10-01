@@ -200,7 +200,11 @@ impl UI for DefaultUI {
 }
 
 trait Draw {
-    fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette);
+    fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
+        self.draw_no_flush(game, stdout, palette);
+        stdout.flush().unwrap();
+    }
+    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette);
 }
 
 trait Component : Draw {
@@ -438,6 +442,11 @@ impl TermUI {
     }
 
     fn draw(&mut self, game: &Game) {
+        self.draw_no_flush(game);
+        self.stdout.flush().unwrap();
+    }
+
+    fn draw_no_flush(&mut self, game: &Game) {
         if self.first_draw {
             // write!(self.stdout, "{}{}{}{}",
             //     // termion::clear::All,
@@ -457,11 +466,11 @@ impl TermUI {
             self.first_draw = false;
         }
 
-        self.log.draw_lite(&mut self.stdout, &self.palette);
-        self.current_player.draw(game, &mut self.stdout, &self.palette);
-        self.map_scroller.draw(game, &mut self.stdout, &self.palette);
-        self.turn.draw(game, &mut self.stdout, &self.palette);
-        self.sidebar_buf.draw(&mut self.stdout);
+        self.log.draw_lite_no_flush(&mut self.stdout, &self.palette);
+        self.current_player.draw_no_flush(game, &mut self.stdout, &self.palette);
+        self.map_scroller.draw_no_flush(game, &mut self.stdout, &self.palette);
+        self.turn.draw_no_flush(game, &mut self.stdout, &self.palette);
+        self.sidebar_buf.draw_no_flush(game, &mut self.stdout, &self.palette);
 
         // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         queue!(self.stdout,
@@ -469,7 +478,6 @@ impl TermUI {
             SetBg(self.palette.get_single(Colors::Background)),
             Hide
         ).unwrap();
-        self.stdout.flush().unwrap();
     }
 
     fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location, unit_sight_distance: u16) {

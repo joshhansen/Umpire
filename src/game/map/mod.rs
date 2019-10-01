@@ -75,6 +75,8 @@ pub struct MapData {
     unit_loc_by_id: HashMap<UnitID,Location>,
 
     /// Which unit carries a particular unit (if any)?
+    /// 
+    /// Maps from carried -> carrier
     unit_carrier_by_id: HashMap<UnitID,UnitID>,
 
     /// What is the location of a city with the given ID?
@@ -99,6 +101,49 @@ impl MapData {
             city_loc_by_id: HashMap::new(),
             next_unit_id: UnitID::new(0),
             next_city_id: CityID::new(0),
+        }
+    }
+
+    /// Add a carried unit to the relevant indices
+    fn index_carried_unit(&mut self, carried: &Unit, carrier: &Unit) {
+        self.index_carried_unit_piecemeal(carried.id, carrier.id, carrier.loc);
+    }
+
+    /// Add a carried unit to the relevant indices, specified piecemeal
+    fn index_carried_unit_piecemeal(&mut self, carried_id: UnitID, carrier_id: UnitID, carrier_loc: Location) {
+        let overwritten_loc: Option<Location> = self.unit_loc_by_id.insert(carried_id, carrier_loc);
+        let overwritten_carrier_id: Option<UnitID> = self.unit_carrier_by_id.insert(carried_id, carrier_id);
+
+        debug_assert!(overwritten_loc.is_none());
+        debug_assert!(overwritten_carrier_id.is_none());
+    }
+
+    /// Remove a carried unit from relevant indices
+    fn unindex_carried_unit(&mut self, unit: &Unit) {
+        let removed_loc: Option<Location> = self.unit_loc_by_id.remove(&unit.id);
+        let removed_carrier_id: Option<UnitID> = self.unit_carrier_by_id.remove(&unit.id);
+
+        debug_assert!(removed_loc.is_some());
+        debug_assert!(removed_carrier_id.is_some());
+    }
+
+    /// Add a top-level unit (and all carried units) to the relevant indices
+    fn index_toplevel_unit(&mut self, unit: &Unit) {
+        let overwritten_loc: Option<Location> = self.unit_loc_by_id.insert(unit.id, unit.loc);
+        debug_assert!(overwritten_loc.is_none());
+
+        for carried_unit in unit.carried_units() {
+            self.index_carried_unit(&carried_unit, &unit);
+        }
+    }
+
+    /// Remove a top-level unit (and all carried units) from the relevant indices
+    fn unindex_toplevel_unit(&mut self, unit: &Unit) {
+        let removed_loc: Option<Location> = self.unit_loc_by_id.remove(&unit.id);
+        debug_assert!(removed_loc.is_some());
+
+        for carried_unit in unit.carried_units() {
+            self.unindex_carried_unit(&carried_unit);
         }
     }
 
@@ -135,14 +180,14 @@ impl MapData {
 
         let unit: Unit = Unit::new(unit_id, loc, type_, alignment, name);
 
-        let insertion_result = self.unit_loc_by_id.insert(unit_id, loc);
-        debug_assert!(insertion_result.is_none());
+        self.index_toplevel_unit(&unit);
 
         self.tiles[loc].unit = Some(unit);
 
         Ok(unit_id)
     }
 
+    /// Get the top-level unit at the given location, if any exists
     pub fn unit_by_loc(&self, loc: Location) -> Option<&Unit> {
         if let Some(tile) = self.tiles.get(loc) {
             tile.unit.as_ref()
@@ -151,6 +196,39 @@ impl MapData {
         }
     }
 
+    /// Get the top-level unit or carried unit at `loc` which has ID `id`, if any
+    fn deep_unit_by_loc_and_id(&self, loc: Location, id: UnitID) -> Option<&Unit> {
+        // eprintln!("deep_unit_by_loc({}, {:?})", loc, id);
+        if let Some(unit) = self.unit_by_loc(loc) {
+            if unit.id==id {
+                return Some(unit);
+            }
+
+            unit.carried_units().find(|carried_unit| carried_unit.id==id)
+        } else {
+            None
+        }
+    }
+
+    fn deep_pop_unit_by_loc_and_id(&mut self, loc: Location, id: UnitID) -> Option<Unit> {
+        let should_pop_toplevel: bool = if let Some(toplevel_unit) = self.unit_by_loc(loc) {
+            toplevel_unit.id==id
+        } else {
+            return None;
+        };
+        
+        if should_pop_toplevel {
+            return self.pop_toplevel_unit_by_loc(loc);
+        }
+
+        if let Some(toplevel_unit) = self.unit_by_loc_mut(loc) {
+            return toplevel_unit.release_by_id(id);
+        }
+
+        None
+    }
+
+    /// Get a mutable reference to the top-level unit at the given location, if any exists
     pub fn unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.unit.as_mut()
@@ -159,13 +237,12 @@ impl MapData {
         }
     }
 
-    pub fn pop_unit_by_loc(&mut self, loc: Location) -> Option<Unit> {
+    /// Remove the top-level unit from the given location (if any exists) and return it
+    pub fn pop_toplevel_unit_by_loc(&mut self, loc: Location) -> Option<Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             let popped_unit = tile.unit.take();
             if let Some(ref popped_unit) = popped_unit {
-                for carried_unit in popped_unit.carried_units() {
-                    self.unit_carrier_by_id.remove(&carried_unit.id);
-                }
+                self.unindex_toplevel_unit(popped_unit);
             }
             popped_unit
         } else {
@@ -173,20 +250,48 @@ impl MapData {
         }
     }
 
+
+    /// Remove the top-level unit with ID `id` (if any exists) and return it
+    pub fn pop_toplevel_unit_by_id(&mut self, id: UnitID) -> Option<Unit> {
+        if let Some(loc) = self.unit_loc_by_id.get(&id).cloned() {
+            self.pop_toplevel_unit_by_loc(loc)
+        } else {
+            None
+        }
+    }
+
+    pub fn pop_carried_unit_by_id(&mut self, carried_unit_id: UnitID) -> Option<Unit> {
+        if let Some(carried_unit_loc) = self.unit_loc_by_id.get(&carried_unit_id).cloned() {
+            let carrier_unit = self.unit_by_loc_mut(carried_unit_loc).unwrap();
+            if let Some(carried_unit) = carrier_unit.release_by_id(carried_unit_id) {
+                self.unindex_carried_unit(&carried_unit);
+                Some(carried_unit)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+    
+
+    /// Set the top-level unit at the given location to the one provided
+    /// 
+    /// Returns the previous unit, if any
     pub fn set_unit(&mut self, loc: Location, mut unit: Unit) -> Option<Unit> {
         unit.loc = loc;
-        self.unit_loc_by_id.insert(unit.id, loc);
-        for carried_unit in unit.carried_units() {
-            self.unit_carrier_by_id.insert(carried_unit.id, unit.id);
-        }
+        self.index_toplevel_unit(&unit);
 
-        let old_unit = self.pop_unit_by_loc(loc);
+        let old_unit = self.pop_toplevel_unit_by_loc(loc);
         self.tiles.get_mut(loc).unwrap().unit = Some(unit);
         old_unit
     }
 
+    /// Get the unit with ID `id`, if any
+    /// 
+    /// This covers all units, whether top-level or carried.
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.unit_by_loc(self.unit_loc_by_id[&id])
+        self.deep_unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
     }
 
     pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
@@ -199,6 +304,23 @@ impl MapData {
 
     pub fn unit_id(&self, loc: Location) -> Option<UnitID> {
         self.unit_by_loc(loc).map(|unit| unit.id)
+    }
+
+    /// Make top-level carrier unit with ID `carrier_unit_id` carry `carried_unit`.
+    pub fn carry_unit(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> Result<usize,String> {
+        
+        let carried_unit_id = carried_unit.id;
+
+        let (carry_result, carrier_unit_loc) = {
+                let carrier_unit = self.unit_by_id_mut(carrier_unit_id)
+                .ok_or_else(|| format!("Unit with ID {:?} cannot carry any units because it does not exist", carrier_unit_id))?;
+
+                (carrier_unit.carry(carried_unit), carrier_unit.loc)
+        };
+
+        self.index_carried_unit_piecemeal(carried_unit_id, carrier_unit_id, carrier_unit_loc);
+
+        carry_result
     }
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {
@@ -259,17 +381,17 @@ impl MapData {
         self.tiles.get(loc)
     }
 
-    pub fn destroy_unit_by_loc(&mut self, loc: Location) {
-        let unit = self.pop_unit_by_loc(loc).unwrap();
-        let removed = self.unit_loc_by_id.remove(&unit.id);
-        debug_assert!(removed.is_some());
-    }
+    // /// Destroy the top-level unit at `loc`
+    // pub fn destroy_unit_by_loc(&mut self, loc: Location) {
+    //     let removed_unit = self.pop_unit_by_loc(loc).unwrap();
+    //     self.unindex_toplevel_unit(&removed_unit);
+    // }
 
-    pub fn destroy_unit_by_id(&mut self, unit_id: UnitID) {
-        let loc = self.unit_loc_by_id.remove(&unit_id).unwrap();
-        let unit = self.pop_unit_by_loc(loc);
-        debug_assert!(unit.is_some());
-    }
+    // pub fn destroy_unit_by_id(&mut self, unit_id: UnitID) {
+    //     let removed_loc = self.unit_loc_by_id.remove(&unit_id).unwrap();
+    //     let removed_unit = self.pop_unit_by_loc(removed_loc);
+    //     debug_assert!(removed_unit.is_some());
+    // }
 
     fn cities(&self) -> impl Iterator<Item=&City> {
         self.tiles.iter().filter_map(|tile| tile.city.as_ref())
@@ -296,12 +418,22 @@ impl MapData {
         self.units().filter(move |unit| unit.belongs_to_player(player))
     }
 
+    pub fn player_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
+        self.units_mut().filter(move |unit| unit.belongs_to_player(player))
+    }
+
     pub fn player_units_deep(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
         self.units_deep().filter(move |unit| unit.belongs_to_player(player))
     }
 
-    pub fn player_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
-        self.units_mut().filter(move |unit| unit.belongs_to_player(player))
+    pub fn player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
+        for unit in self.player_units_mut(player) {
+            callback(unit);
+
+            for carried_unit in unit.carried_units_mut() {
+                callback(carried_unit);
+            }
+        }
     }
 
     pub fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
