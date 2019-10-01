@@ -11,12 +11,12 @@ use crate::{
     },
 };
 
-pub trait Sym {
+pub(in crate::ui) trait Sym {
     fn sym(&self, unicode: bool) -> &'static str;
 }
 
 #[derive(Copy,Clone)]
-pub enum Symbols {
+pub(in crate::ui) enum Symbols {
     Land,
     Ocean,
     City,

@@ -259,7 +259,7 @@ pub struct Unit {
 }
 
 impl Unit {
-    pub fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
+    pub(in crate::game) fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
         let max_hp =type_.max_hp();
         Unit {
             id,
@@ -311,11 +311,11 @@ impl Unit {
         self.moves_remaining
     }
 
-    pub fn movement_complete(&mut self) {
+    pub(in crate::game) fn movement_complete(&mut self) {
         self.moves_remaining = 0;
     }
 
-    pub fn record_movement(&mut self, moves: u16) -> Result<u16,String> {
+    pub(in crate::game) fn record_movement(&mut self, moves: u16) -> Result<u16,String> {
         if self.moves_remaining >= moves {
             self.moves_remaining -= moves;
             Ok(self.moves_remaining)
@@ -324,7 +324,7 @@ impl Unit {
         }
     }
 
-    pub fn refresh_moves_remaining(&mut self) {
+    pub(in crate::game) fn refresh_moves_remaining(&mut self) {
         self.moves_remaining = self.movement_per_turn();
     }
     
@@ -349,7 +349,7 @@ impl Unit {
         self.alignment == unit.alignment
     }
 
-    pub fn carry(&mut self, unit: Unit) -> Result<usize,String> {
+    pub(in crate::game) fn carry(&mut self, unit: Unit) -> Result<usize,String> {
         if let Some(ref mut carrying_space) = self.carrying_space {
             carrying_space.carry(unit)
         } else {
@@ -357,7 +357,7 @@ impl Unit {
         }
     }
 
-    pub fn release(&mut self) -> Option<Unit> {
+    pub(in crate::game) fn release(&mut self) -> Option<Unit> {
         if let Some(ref mut carrying_space) = self.carrying_space {
             carrying_space.release()
         } else {
@@ -369,7 +369,7 @@ impl Unit {
         self.carrying_space.iter().flat_map(|carrying_space| carrying_space.carried_units())
     }
 
-    pub fn carried_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+    pub(in crate::game) fn carried_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
         self.carrying_space.iter_mut().flat_map(|carrying_space| carrying_space.carried_units_mut())
     }
 }

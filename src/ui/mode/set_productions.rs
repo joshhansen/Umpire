@@ -9,7 +9,7 @@ use super::{
     Mode,
 };
 
-pub struct SetProductionsMode{}
+pub(in crate::ui) struct SetProductionsMode{}
 impl IMode for SetProductionsMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
 

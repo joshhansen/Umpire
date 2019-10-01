@@ -199,11 +199,11 @@ impl UI for DefaultUI {
 
 }
 
-pub trait Draw {
+trait Draw {
     fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette);
 }
 
-pub trait Component : Draw {
+trait Component : Draw {
     fn set_rect(&mut self, rect: Rect);
 
     fn rect(&self) -> Rect;
@@ -237,12 +237,11 @@ pub trait Component : Draw {
 mod audio;
 mod buf;
 mod indicators;
-pub mod log;
+mod log;
 mod map;
-pub mod mode;
+mod mode;
 mod scroll;
-mod style;
-pub mod sym;
+mod sym;
 
 use self::scroll::Scroller;
 use self::indicators::{CurrentPlayer,Turn};
@@ -327,7 +326,7 @@ const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
 /// The terminal-based user interface.
-pub struct TermUI {
+struct TermUI {
     stdout: Stdout,
     term_dims: Dims,
     viewport_size: ViewportSize,
@@ -346,7 +345,7 @@ pub struct TermUI {
 }
 
 impl TermUI {
-    pub fn new(
+    fn new(
         map_dims: Dims,
         term_dims: Dims,
         stdout: Stdout,
@@ -526,7 +525,7 @@ impl TermUI {
         self.viewport_size.rect(self.term_dims)
     }
 
-    pub fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
+    fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
         let viewport_dims = self.map_scroller.viewport_dims();
         let map = &self.map_scroller.scrollable;
 
@@ -540,7 +539,7 @@ impl TermUI {
         }
     }
 
-    pub fn cursor_map_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
+    fn cursor_map_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
         match *mode {
             Mode::SetProduction{city_loc} => Some(city_loc),
             Mode::GetUnitOrders{unit_id,..} => {

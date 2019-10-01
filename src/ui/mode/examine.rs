@@ -29,7 +29,7 @@ use super::{
     StateDisposition,
 };
 
-pub struct ExamineMode {
+pub(in crate::ui) struct ExamineMode {
     pub cursor_viewport_loc: Location,
     pub first: bool,
     pub most_recently_active_unit_id: Option<UnitID>

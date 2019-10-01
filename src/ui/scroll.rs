@@ -14,12 +14,12 @@ use crate::game::Game;
 use crate::ui::{Component,Draw};
 use crate::util::{Dims,Rect,Vec2d};
 
-pub trait ScrollableComponent : Component {
+pub(in crate::ui) trait ScrollableComponent : Component {
     fn offset(&self) -> Vec2d<u16>;
     fn scroll_relative(&mut self, offset: Vec2d<i32>);
 }
 
-pub struct Scroller<S:ScrollableComponent> {
+pub(in crate::ui) struct Scroller<S:ScrollableComponent> {
     rect: Rect,
     pub scrollable: S,
     old_h_scroll_x: Option<u16>,

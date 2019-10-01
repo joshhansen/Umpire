@@ -19,7 +19,7 @@ use super::{
     StateDisposition,
 };
 
-pub struct TurnOverMode {}
+pub(in crate::ui) struct TurnOverMode {}
 impl IMode for TurnOverMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
 

@@ -41,7 +41,7 @@ fn nonnegative_mod(x: i32, max: u16) -> u16 {
     (result % max) as u16
 }
 
-pub fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
+fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
     Location {
         x: (viewport_loc.x + viewport_offset.x) % map_dims.width, // mod implements wrapping,
         y: (viewport_loc.y + viewport_offset.y) % map_dims.height // mod implements wrapping
@@ -123,7 +123,7 @@ xx......xx
 xx......xx
 .x......x.
 */
-pub fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, viewport_dims: Dims, map_dims: Dims) -> Option<Location> {
+fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, viewport_dims: Dims, map_dims: Dims) -> Option<Location> {
     if let Some(viewport_x) = map_to_viewport_coord(map_loc.x, viewport_offset.x, viewport_dims.width, map_dims.width).unwrap() {
         if let Some(viewport_y) = map_to_viewport_coord(map_loc.y, viewport_offset.y, viewport_dims.height, map_dims.height).unwrap() {
             return Some(Location {
@@ -136,7 +136,7 @@ pub fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, vi
 }
 
 /// The map widget
-pub struct Map {
+pub(in crate::ui) struct Map {
     rect: Rect,
     map_dims: Dims,
     old_viewport_offset: Vec2d<u16>,
@@ -147,7 +147,7 @@ pub struct Map {
     unicode: bool,
 }
 impl Map {
-    pub fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
+    pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
         let displayed_tile_currentness = LocationGrid::new(rect.dims(), |_loc| None);
         Map{

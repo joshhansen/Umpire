@@ -8,7 +8,7 @@ use super::{
     Mode,
 };
 
-pub struct CarryOutOrdersMode {}
+pub(in crate::ui) struct CarryOutOrdersMode {}
 impl IMode for CarryOutOrdersMode {
     fn run(&self, game: &mut Game, _ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         if let Some(unit_id) = game.units_with_pending_orders().next() {

@@ -19,9 +19,9 @@ use super::{
     Mode,
 };
 
-pub struct CarryOutUnitOrdersMode {
-    pub rect: Rect,
-    pub unit_id: UnitID,
+pub(in crate::ui) struct CarryOutUnitOrdersMode {
+    pub(in crate::ui) rect: Rect,
+    pub(in crate::ui) unit_id: UnitID,
 }
 
 impl IVisibleMode for CarryOutUnitOrdersMode {

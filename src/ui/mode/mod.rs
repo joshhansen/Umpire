@@ -33,7 +33,7 @@ use self::{
 };
 
 #[derive(Clone,Copy,Debug)]
-pub enum Mode {
+pub(in crate::ui) enum Mode {
     TurnStart,
     TurnResume,
     TurnOver,

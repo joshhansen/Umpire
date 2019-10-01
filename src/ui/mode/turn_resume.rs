@@ -8,7 +8,7 @@ use super::{
     Mode,
 };
 
-pub struct TurnResumeMode{}
+pub(in crate::ui) struct TurnResumeMode{}
 impl IMode for TurnResumeMode {
     fn run(&self, game: &mut Game, _ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         // Process production set requests

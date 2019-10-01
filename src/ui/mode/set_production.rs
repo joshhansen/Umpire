@@ -27,7 +27,7 @@ use super::{
     COL_WIDTH,
 };
 
-pub struct SetProductionMode {
+pub(in crate::ui) struct SetProductionMode {
     pub loc: Location,
     pub rect: Rect,
     pub unicode: bool,

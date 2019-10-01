@@ -23,13 +23,13 @@ use crate::{
 };
 
 
-pub enum Sounds {
+pub(in crate::ui) enum Sounds {
     Silence,
     Unit(UnitType),
     Intro,
 }
 
-pub trait Noisy {
+pub(in crate::ui) trait Noisy {
     fn freqs(&self) -> Vec<f32>;
     fn volume(&self) -> f32;
 }
@@ -139,7 +139,7 @@ fn synth_for_sound(sound: Sounds) -> Synth<synth::instrument::mode::Poly, (), sy
 }
 
 
-pub fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> Result<(), failure::Error> {
+pub(in crate::ui) fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> Result<(), failure::Error> {
 
     let mut synth = synth_for_sound(sound);
 

@@ -16,7 +16,7 @@ use crate::util::Rect;
 /// Instead of having different bits of code clear and write over the same region, leading to a flickering effect,
 /// we make one piece of code responsible for drawing on one region. Clients update the buffer contents and tell
 /// the buffer to draw, but the buffer works out the most efficient way to do the drawing without flickering.
-pub struct RectBuffer {
+pub(in crate::ui) struct RectBuffer {
     rect: Rect,
     rows: Vec<Option<String>>,
     dirty_rows: HashSet<usize>,

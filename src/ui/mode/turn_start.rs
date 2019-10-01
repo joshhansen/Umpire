@@ -12,7 +12,7 @@ use super::{
     Mode,
 };
 
-pub struct TurnStartMode {}
+pub(in crate::ui) struct TurnStartMode {}
 impl IMode for TurnStartMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         ui.current_player.draw(game, &mut ui.stdout, &ui.palette);

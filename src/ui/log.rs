@@ -24,7 +24,7 @@ use crate::{
     util::{Rect,grapheme_len,grapheme_substr}
 };
 
-pub struct LogArea {
+pub(in crate::ui) struct LogArea {
     rect: Rect,
     messages: VecDeque<Message>,
     empty_message: Message,
@@ -32,7 +32,7 @@ pub struct LogArea {
 }
 
 impl LogArea {
-    pub fn new(rect: Rect) -> Self {
+    pub(in crate::ui) fn new(rect: Rect) -> Self {
         LogArea {
             rect,
             messages: VecDeque::new(),

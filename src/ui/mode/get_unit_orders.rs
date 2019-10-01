@@ -29,7 +29,7 @@ use super::{
     cols,
 };
 
-pub struct GetUnitOrdersMode{
+pub(in crate::ui) struct GetUnitOrdersMode{
     pub rect: Rect,
     pub unit_id: UnitID,
     pub first_move: bool
