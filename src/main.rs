@@ -43,19 +43,6 @@ pub mod name;
 pub mod ui;
 pub mod util;
 
-extern crate clap;
-extern crate crossterm;
-extern crate csv;
-extern crate flate2;
-extern crate pastel;
-extern crate rand;
-extern crate unicode_segmentation;
-
-extern crate cpal;
-extern crate pitch_calc;
-extern crate sample;
-extern crate synth;
-
 use std::{
     io::{BufRead,BufReader,Write,stdout},
     thread,
