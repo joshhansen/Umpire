@@ -621,10 +621,8 @@ impl Game {
                 }
 
                 if conquered_city {
-                    // unit.moves_remaining = 0;
                     unit.movement_complete();
                 } else {
-                    // unit.moves_remaining -= moves.len() as u16;
                     unit.record_movement(moves.len() as u16).unwrap();
                 }
 

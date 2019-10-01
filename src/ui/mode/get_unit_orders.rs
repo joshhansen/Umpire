@@ -106,13 +106,11 @@ impl IMode for GetUnitOrdersMode {
                             }
                         } else if c == conf::KEY_SKIP {
                             game.order_unit_skip(self.unit_id).unwrap();
-                            // game.give_orders(self.unit_id, Some(Orders::Skip), ui, false).unwrap();
                             *mode = Mode::GetOrders;
                             Self::clear_buf(ui);
                             return true;
                         } else if c == conf::KEY_SENTRY {
                             ui.log_message("Going sentry");
-                            // game.give_orders(self.unit_id, Some(Orders::Sentry), ui, false).unwrap();
                             game.order_unit_sentry(self.unit_id).unwrap();
                             *mode = Mode::GetOrders;
                             Self::clear_buf(ui);
