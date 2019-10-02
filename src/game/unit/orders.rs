@@ -322,4 +322,44 @@ pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
         .map_err(OrdersError::MoveError)
 }
 
+#[cfg(test)]
+mod test {
+    use std::convert::TryFrom;
+
+    use crate::{
+        game::{
+            Game,
+            MoveError,
+            map::MapData,
+            unit::orders::OrdersError,
+        },
+        log::DefaultLog,
+        name::unit_namer,
+        util::Location,
+    };
+
+    use super::OrdersStatus;
+
+    #[test]
+    fn test_go_to() {
+        let mut log = DefaultLog;
+        let map = MapData::try_from("i----------").unwrap();
+        let mut game = Game::new_with_map(map, 1, false, unit_namer(), &mut log);
+        
+        let id = game.toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
+        let result1 = game.order_unit_go_to(id, Location{x:0,y:0});
+        assert_eq!(result1, Err(OrdersError::MoveError(MoveError::ZeroLengthMove)));
+
+        let result2 = game.order_unit_go_to(id, Location{x:5, y:0});
+        assert!(result2.is_ok());
+        assert_eq!(result2.unwrap().status, OrdersStatus::InProgress);
+
+        // Wait while the go-to order is carried out
+        while game.unit_orders_requests().next().is_none() {
+            eprintln!("Ending turn");
+            assert_eq!(game.end_turn(&mut log).unwrap(), 0);
+        }
+
+        assert_eq!(game.turn(), 9);
+    }
 }
