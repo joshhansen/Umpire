@@ -864,7 +864,8 @@ impl Game {
         self.current_player
     }
 
-    pub fn map_dims(&self) -> Dims {
+    /// The logical dimensions of the game map
+    pub fn dims(&self) -> Dims {
         self.map.dims()
     }
 
@@ -965,7 +966,7 @@ impl Source<Tile> for Game {
         self.current_player_tile(loc).unwrap()
     }
     fn dims(&self) -> Dims {
-        self.map_dims()
+        self.dims()
     }
 }
 impl Source<Obs> for Game {
@@ -973,7 +974,7 @@ impl Source<Obs> for Game {
         self.current_player_obs(loc)
     }
     fn dims(&self) -> Dims {
-        self.map_dims()
+        self.dims()
     }
 }
 // impl Source<ResolvedObs> for Game {
@@ -1086,7 +1087,7 @@ mod test {
             assert_eq!(game.unit_orders_requests().count(), 1);
             let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
             let loc = game.unit_loc(unit_id).unwrap();
-            let new_x = (loc.x + 1) % game.map_dims().width;
+            let new_x = (loc.x + 1) % game.dims().width;
             let new_loc = Location{x:new_x, y:loc.y};
             println!("Moving unit from {} to {}", loc, new_loc);
 

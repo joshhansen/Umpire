@@ -46,7 +46,7 @@ impl<S:ScrollableComponent> Scroller<S> {
 
     fn draw_scroll_bars(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
         let viewport_rect = self.scrollable.rect();
-        let h_scroll_x: u16 = self.h_scroll_x(game.map_dims().width);
+        let h_scroll_x: u16 = self.h_scroll_x(game.dims().width);
         let h_scroll_y = viewport_rect.bottom();
 
         if self.old_h_scroll_x != Some(h_scroll_x) {
@@ -59,7 +59,7 @@ impl<S:ScrollableComponent> Scroller<S> {
         }
 
         let v_scroll_x = viewport_rect.right();
-        let v_scroll_y: u16 = self.v_scroll_y(game.map_dims().height);
+        let v_scroll_y: u16 = self.v_scroll_y(game.dims().height);
 
         if self.old_v_scroll_y != Some(v_scroll_y) {
             if let Some(old_v_scroll_y) = self.old_v_scroll_y {

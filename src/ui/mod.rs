@@ -145,7 +145,7 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
         let stdout = stdout();
 
         let mut ui = TermUI::new(
-            game.map_dims(),
+            game.dims(),
             term_dims,
             stdout,
             palette,

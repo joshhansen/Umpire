@@ -85,7 +85,7 @@ impl IMode for GetUnitOrdersMode {
 
                     if let KeyEvent::Char(c) = key {
                         if let Ok(dir) = Direction::try_from(c) {
-                            if let Some(dest) = unit_loc.shift_wrapped(dir, game.map_dims(), game.wrapping()) {
+                            if let Some(dest) = unit_loc.shift_wrapped(dir, game.dims(), game.wrapping()) {
                                 match game.move_unit_by_id(self.unit_id, dest) {
                                     Ok(move_result) => {
                                         ui.animate_move(game, &move_result);

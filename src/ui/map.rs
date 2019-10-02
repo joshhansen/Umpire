@@ -241,9 +241,9 @@ impl Map {
 
 
 
-        let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
+        let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
 
-        if tile_loc.y == game.map_dims().height - 1 {
+        if tile_loc.y == game.dims().height - 1 {
             // write!(stdout, "{}", Underline).unwrap();
             stdout.queue(SetAttr(Attribute::Underlined)).unwrap();
         }
@@ -315,7 +315,7 @@ impl Map {
     }
 
     pub fn current_player_tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
-        let tile_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
+        let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
         game.current_player_tile(tile_loc)
     }
 }
@@ -349,8 +349,8 @@ impl Draw for Map {
                 viewport_loc.y = viewport_y;
 
                 let should_draw_tile = {
-                    let old_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.old_viewport_offset);
-                    let new_map_loc = viewport_to_map_coords(game.map_dims(), viewport_loc, self.viewport_offset);
+                    let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
+                    let new_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
 
                     let new_obs = game.current_player_obs(new_map_loc);
 
@@ -382,8 +382,8 @@ impl Draw for Map {
                     }) || {
                         let redraw_for_border =
                         old_map_loc.y != new_map_loc.y && (
-                            old_map_loc.y == game.map_dims().height - 1 ||
-                            new_map_loc.y == game.map_dims().height - 1
+                            old_map_loc.y == game.dims().height - 1 ||
+                            new_map_loc.y == game.dims().height - 1
                         );
                         redraw_for_border
                     }
