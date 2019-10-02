@@ -902,6 +902,11 @@ impl Game {
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
+        if !self.dims().in_bounds(dest) {
+            return Err(OrdersError::CannotGoToOutOfBounds{id: unit_id, dest, map_dims: self.dims()});
+            // return Err(format!("Cannot order unit with ID {:?} to go to {} because {} is out of bounds", unit_id, dest, dest));
+        }
+
         self.set_orders(unit_id, Some(Orders::GoTo{dest}))?;
         self.follow_orders(unit_id)
     }
