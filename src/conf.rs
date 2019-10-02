@@ -45,6 +45,8 @@
 /// The name of this application
 pub const APP_NAME: &str = "umpire";
 
+pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// The subtitle. You know, for flavor.
 pub const APP_SUBTITLE: &str = "Combat Quest of the Millennium";
 

@@ -53,8 +53,6 @@ use crate::util::Dims;
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 
 fn print_loading_screen() {
-    // let f = File::open("images/1945_Baseball_Umpire.txt").unwrap();
-    // let file = BufReader::new(&f);
     let bytes: &[u8] = include_bytes!("../images/1945_Baseball_Umpire.txt");
     let r = BufReader::new(bytes);
     for line in r.lines() {
@@ -64,7 +62,7 @@ fn print_loading_screen() {
 
     println!();
 
-    println!("{}: Combat Quest of the Millennium", conf::APP_NAME);
+    println!("{}: {}", conf::APP_NAME, conf::APP_SUBTITLE);
     stdout().flush().unwrap();
 }
 
@@ -73,7 +71,7 @@ fn main() {
     let map_height_s: &str = &conf::MAP_HEIGHT.to_string();
 
     let matches = App::new(conf::APP_NAME)
-        .version("0.1")
+        .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
 
