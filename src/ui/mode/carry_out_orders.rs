@@ -8,6 +8,7 @@ use super::{
     Mode,
 };
 
+#[deprecated]
 pub(in crate::ui) struct CarryOutOrdersMode {}
 impl IMode for CarryOutOrdersMode {
     fn run(&self, game: &mut Game, _ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {

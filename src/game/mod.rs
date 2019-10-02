@@ -157,6 +157,7 @@ impl Move {
         None
     }
 
+    /// If the unit survived to the end of the move, its destination
     pub fn ending_loc(&self) -> Option<Location> {
         if self.moved_successfully() {
             self.moves.last().map(|move_| move_.loc)
@@ -252,9 +253,22 @@ pub enum MoveError {
         src: Location,
         dest: Location,
     },
+
+    #[fail(display="Destination {} lies outside of bounds {}", dest, bounds)]
+    DestinationOutOfBounds {
+        dest: Location,
+        bounds: Dims,
+    }
 }
 
 pub type MoveResult = Result<Move,MoveError>;
+
+#[derive(Debug,PartialEq)]
+pub struct TurnEnd {
+    prev_player: PlayerNum,
+    current_player: PlayerNum,
+    carried_out_orders: Vec<OrdersResult>,
+}
 
 #[derive(Debug)]
 pub enum GameError {
@@ -419,7 +433,10 @@ impl Game {
         self.player_units_deep_mutate(|unit: &mut Unit| unit.refresh_moves_remaining());
     }
 
-    fn begin_turn<L:LogTarget>(&mut self, log: &mut L) {
+    /// Begin a new turn
+    /// 
+    /// Returns the results of any pending orders carried out
+    fn begin_turn<L:LogTarget>(&mut self, log: &mut L) -> Vec<OrdersResult> {
         log.log_message(Message {
             text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
             mark: None,
@@ -433,6 +450,8 @@ impl Game {
         self.refresh_moves_remaining();
 
         self.update_current_player_observations();
+
+        self.follow_pending_orders()
     }
 
     pub fn turn_is_done(&self) -> bool {
@@ -454,8 +473,10 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn<L:LogTarget>(&mut self, log: &mut L) -> Result<PlayerNum,PlayerNum> {
+    pub fn end_turn<L:LogTarget>(&mut self, log: &mut L) -> Result<TurnEnd,PlayerNum> {
         if self.turn_is_done() {
+
+            let prev_player = self.current_player;
 
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
@@ -464,9 +485,13 @@ impl Game {
                 self.turn += 1;
             }
 
-            self.begin_turn(log);
+            let carried_out_orders = self.begin_turn(log);
 
-            Ok(self.current_player)
+            Ok(TurnEnd {
+                prev_player,
+                current_player: self.current_player,
+                carried_out_orders,
+            })
         } else {
             Err(self.current_player)
         }
@@ -639,6 +664,13 @@ impl Game {
     }
 
     fn move_unit_by_loc_and_id_following_shortest_paths(&mut self, src: Location, id: UnitID, dest: Location, shortest_paths: ShortestPaths) -> MoveResult {
+        if !self.dims().in_bounds(dest) {
+            return Err(MoveError::DestinationOutOfBounds {
+                dest,
+                bounds: self.dims(),
+            });
+        }
+
         if let Some(distance) = shortest_paths.dist[dest] {
             if distance == 0 {
                 return Err(MoveError::ZeroLengthMove);
@@ -849,18 +881,18 @@ impl Game {
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
-        if !self.dims().in_bounds(dest) {
-            return Err(OrdersError::CannotGoToOutOfBounds{id: unit_id, dest, map_dims: self.dims()});
-            // return Err(format!("Cannot order unit with ID {:?} to go to {} because {} is out of bounds", unit_id, dest, dest));
-        }
+        // if !self.dims().in_bounds(dest) {
+        //     return Err(OrdersError::Move{id: unit_id, dest, map_dims: self.dims()});
+        //     // return Err(format!("Cannot order unit with ID {:?} to go to {} because {} is out of bounds", unit_id, dest, dest));
+        // }
 
         self.set_orders(unit_id, Some(Orders::GoTo{dest}))?;
-        self.follow_orders(unit_id)
+        self.follow_unit_orders(unit_id)
     }
 
     pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
         self.set_orders(unit_id, Some(Orders::Explore))?;
-        self.follow_orders(unit_id)
+        self.follow_unit_orders(unit_id)
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
@@ -896,7 +928,15 @@ impl Game {
         }
     }
 
-    fn follow_orders(&mut self, unit_id: UnitID) -> OrdersResult {
+    fn follow_pending_orders(&mut self) -> Vec<OrdersResult> {
+        let pending_orders: Vec<UnitID> = self.units_with_pending_orders().collect();
+
+        pending_orders.iter()
+            .map(|unit_id| self.follow_unit_orders(*unit_id))
+            .collect()
+    }
+
+    fn follow_unit_orders(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = self.unit_by_id(unit_id).unwrap().orders.as_ref().unwrap();
 
         let result = orders.carry_out(unit_id, self);
@@ -912,6 +952,8 @@ impl Game {
     pub fn player_cities_producing_or_not_ignored(&self) -> usize {
         self.player_cities().filter(|city| city.production().is_some() || !city.ignore_cleared_production()).count()
     }
+
+
 }
 
 impl Source<Tile> for Game {
@@ -1015,21 +1057,21 @@ mod test {
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn(&mut log).unwrap();
+        let player = game.end_turn(&mut log).unwrap().current_player;
         assert_eq!(player, 1);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn(&mut log).unwrap();
+        let player = game.end_turn(&mut log).unwrap().current_player;
         assert_eq!(player, 0);
 
 
         for _ in 0..5 {
-            let player = game.end_turn(&mut log).unwrap();
+            let player = game.end_turn(&mut log).unwrap().current_player;
             assert_eq!(player, 1);
-            let player = game.end_turn(&mut log).unwrap();
+            let player = game.end_turn(&mut log).unwrap().current_player;
             assert_eq!(player, 0);
         }
 
@@ -1059,7 +1101,9 @@ mod test {
             // }
             // let move_result = game.move_unit_by_loc(loc, new_loc)
             // assert!(game.move_unit_by_loc(loc, new_loc).is_ok());
-            assert_eq!(game.end_turn(&mut log), Ok(1-player));
+            let result = game.end_turn(&mut log);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().current_player, 1-player);
         }
     }
 
@@ -1088,15 +1132,27 @@ mod test {
 
         let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Armor), Ok(()));
-        assert_eq!(game.end_turn(&mut log), Ok(1));
+
+        let result = game.end_turn(&mut log);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().current_player, 1);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Carrier), Ok(()));
-        assert_eq!(game.end_turn(&mut log), Ok(0));
+
+        let result = game.end_turn(&mut log);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().current_player, 0);
+
 
         for _ in 0..11 {
-            assert_eq!(game.end_turn(&mut log), Ok(1));
-            assert_eq!(game.end_turn(&mut log), Ok(0));
+            let result = game.end_turn(&mut log);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().current_player, 1);
+
+            let result = game.end_turn(&mut log);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().current_player, 0);
         }
         assert_eq!(game.end_turn(&mut log), Err(0));
 
@@ -1134,8 +1190,13 @@ mod test {
                 }
             }
 
-            assert_eq!(game.end_turn(&mut log), Ok(1));
-            assert_eq!(game.end_turn(&mut log), Ok(0));
+            let result = game.end_turn(&mut log);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().current_player, 1);
+
+            let result = game.end_turn(&mut log);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().current_player, 0);
         }
     }
 

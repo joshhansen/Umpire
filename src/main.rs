@@ -11,7 +11,6 @@
 //       - the search for the next goal is somtimes really slow
 //       - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
 // TODO Fuel limits for aircraft
-// FIXME Long-range movement from examine mode is broken
 // TODO Game save/load
 // TODO Color console text announcing turn start to correspond to player colors?
 // TODO Zoomed-out map view?
@@ -23,6 +22,7 @@
 // FIXME Make splash screen fit the terminal size
 // TODO Allow map specification at command-line
 // TODO? Move `log` into `ui` and make `Game` fully abstract?
+// TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
 
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::let_and_return)]

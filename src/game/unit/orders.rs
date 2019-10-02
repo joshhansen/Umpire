@@ -18,7 +18,6 @@ use crate::{
         unit::UnitID,
     },
     util::{
-        Dims,
         Location,
     },
 };
@@ -82,12 +81,12 @@ pub enum OrdersError {
         id: UnitID,
     },
 
-    #[fail(display="Cannot order unit with ID {:?} to go to {} because the destination is out of the bounds {}", id, dest, map_dims)]
-    CannotGoToOutOfBounds {
-        id: UnitID,
-        dest: Location,
-        map_dims: Dims,
-    },
+    // #[fail(display="Cannot order unit with ID {:?} to go to {} because the destination is out of the bounds {}", id, dest, map_dims)]
+    // CannotGoToOutOfBounds {
+    //     id: UnitID,
+    //     dest: Location,
+    //     map_dims: Dims,
+    // },
 
     #[fail(display="Orders failed due to a problem moving the unit: {:?}", 0)]
     MoveError(MoveError),
@@ -252,6 +251,13 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
 pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
+    if !game.dims().in_bounds(dest) {
+        return Err(OrdersError::MoveError(MoveError::DestinationOutOfBounds {
+            dest,
+            bounds: game.dims(),
+        }));
+    }
+
     // ui.log_message(format!("Destination 1: {}", dest));
     // let moves_remaining = {
     //     game.unit_by_id(unit_id).unwrap().moves_remaining
@@ -277,10 +283,10 @@ pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
     // ui.log_message(format!("Destination 3: {}", dest));
     // Find the observed tile on the path from source to destination that is nearest to the
     // destination but also within reach of this unit's limited moves
-    let mut dest = dest;
+    let mut dest2 = dest;
     loop {
-        if game.current_player_tile(dest).is_some() {
-            if let Some(dist) = shortest_paths.dist[dest] {
+        if game.current_player_tile(dest2).is_some() {
+            if let Some(dist) = shortest_paths.dist[dest2] {
                 if dist <= moves_remaining {
                     break;
                 }
@@ -289,9 +295,9 @@ pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
         // if game.current_player_tile(dest).is_some() && shortest_paths.dist[dest].unwrap() <= moves_remaining {
         //     break;
         // }
-        dest = shortest_paths.prev[dest].unwrap();
+        dest2 = shortest_paths.prev[dest2].unwrap();
     }
-    let dest = dest;
+    let dest2 = dest2;
 
     // ui.log_message(format!("Destination 4: {}", dest));
     //
@@ -300,20 +306,41 @@ pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
     //     nearest_reachable_adjacent_unobserved(game, src, &unit, game.wrapping())
     // };
 
-    game.move_unit_by_id(unit_id, dest)
+    game.move_unit_by_id(unit_id, dest2)
         .map(|move_result| {
             // ui.animate_move(game, &move_result);
 
-            let status = if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
-                // game.give_orders(unit_id, None, ui, false).unwrap();
-                game.set_orders(unit_id, None).unwrap();
-                // Ok(OrdersStatus::Completed)
-                OrdersStatus::Completed
-                
+            // let status = if move_result.moved_successfully() {
+            // let status = if move_result.ending_loc() == dest {
+            let status = if let Some(ending_loc) = move_result.ending_loc() {
+                // survived the immediate move
+
+                if ending_loc == dest {
+                    // got to the ultimate goal
+                    game.set_orders(unit_id, None).unwrap();
+                    OrdersStatus::Completed
+                } else {
+                    OrdersStatus::InProgress
+                }
+
+                // game.set_orders(unit_id, None).unwrap();
+                // OrdersStatus::Completed
+
             } else {
-                // Ok(OrdersStatus::InProgress)
                 OrdersStatus::InProgress
             };
+
+            // let status = if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
+            //     // game.give_orders(unit_id, None, ui, false).unwrap();
+            //     game.set_orders(unit_id, None).unwrap();
+            //     // Ok(OrdersStatus::Completed)
+            //     OrdersStatus::Completed
+                
+            // } else {
+            //     // Ok(OrdersStatus::InProgress)
+            //     OrdersStatus::InProgress
+            // };
+
             OrdersOutcome {
                 move_result: Some(move_result),
                 status
@@ -350,16 +377,33 @@ mod test {
         let result1 = game.order_unit_go_to(id, Location{x:0,y:0});
         assert_eq!(result1, Err(OrdersError::MoveError(MoveError::ZeroLengthMove)));
 
-        let result2 = game.order_unit_go_to(id, Location{x:5, y:0});
-        assert!(result2.is_ok());
-        assert_eq!(result2.unwrap().status, OrdersStatus::InProgress);
+        let dest2 = Location{x: 255, y: 255};
+        let result2 = game.order_unit_go_to(id, dest2);
+        assert_eq!(result2, Err(OrdersError::MoveError(MoveError::DestinationOutOfBounds{
+            dest: dest2,
+            bounds: game.dims(),
+        })));
+
+        let dest3 = Location{x:5, y:0};
+        let result3 = game.order_unit_go_to(id, dest3);
+        assert!(result3.is_ok());
+        assert_eq!(result3.unwrap().status, OrdersStatus::InProgress);
 
         // Wait while the go-to order is carried out
         while game.unit_orders_requests().next().is_none() {
-            eprintln!("Ending turn");
-            assert_eq!(game.end_turn(&mut log).unwrap(), 0);
+            let result = game.end_turn(&mut log).unwrap();
+            assert_eq!(result.prev_player, 0);
+            assert_eq!(result.current_player, 0);
+
+            match result.carried_out_orders.len() {
+                0|1 => {/* do nothing */},
+                _ => panic!("Infantry shouldn't move more than 1 per turn")
+            }
         }
 
-        assert_eq!(game.turn(), 9);
+        assert_eq!(game.turn(), 5);
+
+        let final_dest = game.unit_loc(id).unwrap();
+        assert_eq!(final_dest, dest3);
     }
 }

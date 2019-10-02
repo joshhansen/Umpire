@@ -19,6 +19,7 @@ use super::{
     Mode,
 };
 
+#[deprecated]
 pub(in crate::ui) struct CarryOutUnitOrdersMode {
     pub(in crate::ui) rect: Rect,
     pub(in crate::ui) unit_id: UnitID,
