@@ -10,6 +10,8 @@
 // FIXME Disallow selecting units on cities where such units make no sense
 // FIXME Don't let aircraft or naval vessels conquer cities
 // TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
+// TODO Deploy to crates.io
+// TODO Refresh README.md
 
 // 0.5 Milestones
 // TODO Fuel limits for aircraft
