@@ -26,7 +26,7 @@ use crate::{
 pub(in crate::ui) enum Sounds {
     Silence,
     Unit(UnitType),
-    Intro,
+    // Intro,
 }
 
 pub(in crate::ui) trait Noisy {
@@ -131,9 +131,9 @@ fn synth_for_sound(sound: Sounds) -> Synth<synth::instrument::mode::Poly, (), sy
                 Synth::poly(())
             }
         },
-        Sounds::Intro => {
-            unimplemented!();
-        }
+        // Sounds::Intro => {
+        //     unimplemented!();
+        // }
 
     }
 }

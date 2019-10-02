@@ -79,14 +79,6 @@ impl CarryingSpace {
         Ok(self.space.len()-1)
     }
 
-    fn release_by_idx(&mut self, index: usize) -> Option<Unit> {
-        if index < self.space.len() {
-            Some(self.space.remove(index))
-        } else {
-            None
-        }
-    }
-
     fn release_by_id(&mut self, id: UnitID) -> Option<Unit> {
         self.space.iter()
             .position(|carried_unit| carried_unit.id==id)
@@ -370,14 +362,6 @@ impl Unit {
             carrying_space.carry(unit)
         } else {
             Err(format!("Unit cannot carry unit {} as it has no carrying space at all", unit))
-        }
-    }
-
-    pub(in crate::game) fn release_by_idx(&mut self, carried_unit_idx: usize) -> Option<Unit> {
-        if let Some(ref mut carrying_space) = self.carrying_space {
-            carrying_space.release_by_idx(carried_unit_idx)
-        } else {
-            None
         }
     }
 

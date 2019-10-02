@@ -57,25 +57,8 @@ impl RectBuffer {
     pub fn draw_row(&mut self, row_idx: usize, stdout: &mut Stdout) {
         if self.dirty_rows.contains(&row_idx) {
             self._draw_row(row_idx, stdout);
-            // queue!(stdout, Goto(self.rect.left, self.rect.top + row_idx as u16), Output(
-            //     if let Some(row) = self.rows[row_idx] {
-            //         row.clone()
-            //     } else {
-            //         self.blank_row.clone()
-            //     }
-            // )).unwrap();
             self.dirty_rows.remove(&row_idx);
         }
-        // if self.rows_dirty[row_idx] {
-        //     queue!(stdout, Goto(self.rect.left, self.rect.top + row_idx as u16), Output(
-        //         if let Some(row) = row {
-        //             row.clone()
-        //         } else {
-        //             self.blank_row.clone()
-        //         }
-        //     )).unwrap();
-        //     self.rows_dirty[row_idx] = false;
-        // }
     }
 
     fn _draw_row(&self, row_idx: usize, stdout: &mut Stdout) {
