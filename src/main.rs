@@ -21,6 +21,8 @@
 // TODO Wake up sentried units when an enemy comes within their sight.
 // TODO Make splash screen respect color palette
 // FIXME Make splash screen fit the terminal size
+// TODO Allow map specification at command-line
+// TODO? Move `log` into `ui` and make `Game` fully abstract?
 
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::let_and_return)]
