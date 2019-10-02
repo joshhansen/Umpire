@@ -41,7 +41,7 @@ use crate::{
     },
     game::{
         Game,
-        MoveResult,
+        Move,
         combat::{CombatCapable,CombatOutcome,CombatParticipant},
         obs::{Observer,visible_coords_iter},
     },
@@ -179,7 +179,7 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
 }
 
 pub trait MoveAnimator {
-    fn animate_move(&mut self, game: &Game, move_result: &MoveResult);
+    fn animate_move(&mut self, game: &Game, move_result: &Move);
 }
 
 pub trait UI : LogTarget + MoveAnimator {
@@ -198,7 +198,7 @@ impl LogTarget for DefaultUI {
 }
 
 impl MoveAnimator for DefaultUI {
-    fn animate_move(&mut self, _game: &Game, _move_result: &MoveResult) {
+    fn animate_move(&mut self, _game: &Game, _move_result: &Move) {
         // println!("Moving: {:?}", *move_result);
     }
 }
@@ -491,7 +491,7 @@ impl TermUI {
     fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location, unit_sight_distance: u16) {
         // let unit = game.unit_by_loc(unit_loc).unwrap();
         for inc in visible_coords_iter(unit_sight_distance) {
-            if let Some(loc) = wrapped_add(unit_loc, inc, game.map_dims(), game.wrapping()) {
+            if let Some(loc) = wrapped_add(unit_loc, inc, game.dims(), game.wrapping()) {
 
                 if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
                     self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, false, None);
@@ -608,7 +608,7 @@ impl LogTarget for TermUI {
 }
 
 impl MoveAnimator for TermUI {
-    fn animate_move(&mut self, game: &Game, move_result: &MoveResult) {
+    fn animate_move(&mut self, game: &Game, move_result: &Move) {
         let mut current_loc = move_result.starting_loc();
 
         for move_ in move_result.moves() {

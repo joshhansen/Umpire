@@ -1,8 +1,11 @@
+use failure::{Fail};
+
 use crate::{
     game::{
         Game,
+        Move,
         MoveComponent,
-        MoveResult,
+        MoveError,
         map::{
             dijkstra::{
                 ObservedFilter,
@@ -14,12 +17,15 @@ use crate::{
         },
         unit::UnitID,
     },
-    util::Location
+    util::{
+        Dims,
+        Location,
+    },
 };
 
 
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 pub enum OrdersStatus {
     InProgress,
     Completed
@@ -38,8 +44,9 @@ pub enum OrdersStatus {
 //     }
 // }
 
+#[derive(Debug,PartialEq)]
 pub struct OrdersOutcome {
-    pub move_result: Option<MoveResult>,
+    pub move_result: Option<Move>,
     pub status: OrdersStatus,
 }
 impl OrdersOutcome {
@@ -51,15 +58,15 @@ impl OrdersOutcome {
         Self { move_result: None, status: OrdersStatus::InProgress }
     }
 
-    pub fn in_progress_with_move(move_result: MoveResult) -> Self {
+    pub fn in_progress_with_move(move_result: Move) -> Self {
         Self { move_result: Some(move_result), status: OrdersStatus::InProgress }
     }
 
-    pub fn completed_with_move(move_result: MoveResult) -> Self {
+    pub fn completed_with_move(move_result: Move) -> Self {
         Self { move_result: Some(move_result), status: OrdersStatus::Completed }
     }
 
-    pub fn move_result(&self) -> Option<&MoveResult> {
+    pub fn move_result(&self) -> Option<&Move> {
         self.move_result.as_ref()
     }
 
@@ -68,12 +75,30 @@ impl OrdersOutcome {
     }
 }
 
+#[derive(Debug,Fail,PartialEq)]
+pub enum OrdersError {
+    #[fail(display="Ordered unit with ID {:?} doesn't exist", id)]
+    OrderedUnitDoesNotExist {
+        id: UnitID,
+    },
+
+    #[fail(display="Cannot order unit with ID {:?} to go to {} because the destination is out of the bounds {}", id, dest, map_dims)]
+    CannotGoToOutOfBounds {
+        id: UnitID,
+        dest: Location,
+        map_dims: Dims,
+    },
+
+    #[fail(display="Orders failed due to a problem moving the unit: {:?}", 0)]
+    MoveError(MoveError),
+}
+
 // type GoToResult = Result<(MoveResult,OrdersStatus),String>;
 
 // type ExploreResult = Result<(MoveResult,OrdersStatus),String>;
 
 // type OrdersResult = Result<OrdersStatus,String>;
-pub type OrdersResult = Result<OrdersOutcome,String>;
+pub type OrdersResult = Result<OrdersOutcome,OrdersError>;
 
 
 #[derive(Copy,Clone,Debug,PartialEq)]
@@ -159,7 +184,7 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
         let unit = game.unit_by_id_mut(unit_id).expect("Somehow the unit disappeared during exploration").clone();
 
         if unit.moves_remaining() == 0 {
-            return Ok(OrdersOutcome::in_progress_with_move(MoveResult::new(unit, starting_loc, moves).unwrap()));
+            return Ok(OrdersOutcome::in_progress_with_move(Move::new(unit, starting_loc, moves).unwrap()));
         }
 
         if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(game, current_loc, &unit, game.wrapping()) {
@@ -176,10 +201,11 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
                 dist_to_real_goal -= 1;
             }
 
-            let move_result = game.move_unit_by_id_avoiding_combat(unit_id, goal);
+            let mut move_result = game.move_unit_by_id_avoiding_combat(unit_id, goal)
+                                  .map_err(OrdersError::MoveError)?;
 
-            match move_result {
-                Ok(mut move_result) => {
+            // match move_result {
+            //     Ok(mut move_result) => {
                     // ui.animate_move(game, &move_result);
 
                     if move_result.moved_successfully() {
@@ -195,17 +221,17 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
 
                     // unit.loc = move_result.ending_loc().unwrap();
                     // unit.record_movement(move_result.moves.len() as u16).unwrap();
-                },
-                Err(msg) => {
-                    return Err(format!("Error moving unit toward {}: {}", goal, msg));
-                }
-            }
+            //     },
+            //     Err(err) => {
+            //         return Err(format!("Error moving unit toward {}: {}", goal, msg));
+            //     }
+            // }
 
         } else {
             // game.give_orders(unit_id, None, ui, false).unwrap();
             return game.set_orders(unit_id, None)
                 .map(|_| OrdersOutcome::completed_with_move(
-                    MoveResult::new(unit, starting_loc, moves).unwrap()
+                    Move::new(unit, starting_loc, moves).unwrap()
                 )
             );
             // return Ok(OrdersStatus::Completed);
@@ -293,7 +319,7 @@ pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
                 status
             }
         })
-        .map_err(|msg| {
-            format!("Error moving unit toward {}: {}", dest, msg)
-        })
+        .map_err(OrdersError::MoveError)
+}
+
 }

@@ -60,10 +60,9 @@ impl IMode for CarryOutUnitOrdersMode {
                 }
                 *mode = Mode::CarryOutOrders{};
             },
-            Err(msg) => {
-                // panic!(msg);
+            Err(err) => {
                 ui.log_message(Message {
-                    text: msg,
+                    text: format!("{}", err),
                     mark: Some('!'),
                     fg_color: Some(Colors::Text),
                     bg_color: Some(Colors::Notice),
