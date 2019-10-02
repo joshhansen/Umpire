@@ -60,6 +60,10 @@ impl City {
         &self.name
     }
 
+    pub fn short_desc(&self) -> String {
+        format!("City {}", self.name)
+    }
+
     pub fn set_production(&mut self, production: UnitType) {
         self.production = Some(production);
     }
@@ -99,7 +103,7 @@ impl CombatCapable for City {
 
 impl fmt::Display for City {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut result = write!(f, "City \"{}\"", self.name);
+        let mut result = write!(f, "{} {}", self.alignment, self.short_desc());
         if let Some(ref produced_unit) = self.production {
             result = result.and(write!(f, ", producing {} ({}/{})", produced_unit, self.production_progress, produced_unit.cost()));
         }

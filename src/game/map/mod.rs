@@ -188,7 +188,7 @@ impl MapData {
     }
 
     /// Get the top-level unit at the given location, if any exists
-    pub fn unit_by_loc(&self, loc: Location) -> Option<&Unit> {
+    pub fn toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
         if let Some(tile) = self.tiles.get(loc) {
             tile.unit.as_ref()
         } else {
@@ -196,36 +196,63 @@ impl MapData {
         }
     }
 
-    /// Get the top-level unit or carried unit at `loc` which has ID `id`, if any
-    fn deep_unit_by_loc_and_id(&self, loc: Location, id: UnitID) -> Option<&Unit> {
-        // eprintln!("deep_unit_by_loc({}, {:?})", loc, id);
-        if let Some(unit) = self.unit_by_loc(loc) {
-            if unit.id==id {
-                return Some(unit);
-            }
-
-            unit.carried_units().find(|carried_unit| carried_unit.id==id)
+    /// Get the top-level unit at the given location, if any exists; mutably
+    pub fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
+        if let Some(tile) = self.tiles.get_mut(loc) {
+            tile.unit.as_mut()
         } else {
             None
         }
     }
 
-    fn deep_pop_unit_by_loc_and_id(&mut self, loc: Location, id: UnitID) -> Option<Unit> {
-        let should_pop_toplevel: bool = if let Some(toplevel_unit) = self.unit_by_loc(loc) {
-            toplevel_unit.id==id
+    /// Get the top-level unit or carried unit at `loc` which has ID `id`, if any
+    pub fn unit_by_loc_and_id(&self, loc: Location, id: UnitID) -> Option<&Unit> {
+        if let Some(toplevel_unit) = self.toplevel_unit_by_loc(loc) {
+            if toplevel_unit.id==id {
+                return Some(toplevel_unit);
+            }
+
+            toplevel_unit.carried_units().find(|carried_unit| carried_unit.id==id)
         } else {
-            return None;
-        };
+            None
+        }
+    }
+
+    /// Get the top-level unit or carried unit at `loc` which has ID `id`, if any; mutably
+    pub fn unit_by_loc_and_id_mut(&mut self, loc: Location, id: UnitID) -> Option<&mut Unit> {
+        if let Some(toplevel_unit) = self.toplevel_unit_by_loc_mut(loc) {
+            if toplevel_unit.id==id {
+                return Some(toplevel_unit);
+            }
+
+            toplevel_unit.carried_units_mut().find(|carried_unit| carried_unit.id==id)
+        } else {
+            None
+        }
+    }
+
+    pub fn pop_unit_by_loc_and_id(&mut self, loc: Location, id: UnitID) -> Option<Unit> {
+        self.pop_toplevel_unit_by_loc_and_id(loc, id).or_else(|| self.pop_carried_unit_by_loc_and_id(loc, id))
+        // let should_pop_toplevel: bool = if let Some(toplevel_unit) = self.toplevel_unit_by_loc(loc) {
+        //     toplevel_unit.id==id
+        // } else {
+        //     return None;
+        // };
         
-        if should_pop_toplevel {
-            return self.pop_toplevel_unit_by_loc(loc);
-        }
+        // if should_pop_toplevel {
+        //     return self.pop_toplevel_unit_by_loc(loc);
+        // }
 
-        if let Some(toplevel_unit) = self.unit_by_loc_mut(loc) {
-            return toplevel_unit.release_by_id(id);
-        }
-
-        None
+        // if let Some(toplevel_unit) = self.unit_by_loc_mut(loc) {
+        //     if let Some(carried_unit) = toplevel_unit.release_by_id(id) {
+        //         self.unindex_carried_unit(&carried_unit);
+        //         Some(carried_unit)
+        //     } else {
+        //         None
+        //     }
+        // } else {
+        //     None
+        // }
     }
 
     /// Get a mutable reference to the top-level unit at the given location, if any exists
@@ -260,15 +287,40 @@ impl MapData {
         }
     }
 
-    pub fn pop_carried_unit_by_id(&mut self, carried_unit_id: UnitID) -> Option<Unit> {
-        if let Some(carried_unit_loc) = self.unit_loc_by_id.get(&carried_unit_id).cloned() {
-            let carrier_unit = self.unit_by_loc_mut(carried_unit_loc).unwrap();
-            if let Some(carried_unit) = carrier_unit.release_by_id(carried_unit_id) {
-                self.unindex_carried_unit(&carried_unit);
-                Some(carried_unit)
+    /// Remove the top-evel unit at location `loc` if it has ID `id`
+    fn pop_toplevel_unit_by_loc_and_id(&mut self, loc: Location, id: UnitID) -> Option<Unit> {
+        if let Some(tile) = self.tiles.get_mut(loc) {
+            let matches_id = if let Some(unit) = tile.unit.as_ref() {
+                unit.id==id
+            } else {
+                false
+            };
+
+            if matches_id {
+                let popped_unit = tile.unit.take().unwrap();
+                self.unindex_toplevel_unit(&popped_unit);
+                Some(popped_unit)
             } else {
                 None
             }
+        } else {
+            None
+        }
+    }
+
+    pub fn pop_carried_unit_by_id(&mut self, carried_unit_id: UnitID) -> Option<Unit> {
+        if let Some(carried_unit_loc) = self.unit_loc_by_id.get(&carried_unit_id).cloned() {
+            self.pop_carried_unit_by_loc_and_id(carried_unit_loc, carried_unit_id)
+        } else {
+            None
+        }
+    }
+
+    fn pop_carried_unit_by_loc_and_id(&mut self, carried_unit_loc: Location, carried_unit_id: UnitID) -> Option<Unit> {
+        let carrier_unit = self.unit_by_loc_mut(carried_unit_loc).unwrap();
+        if let Some(carried_unit) = carrier_unit.release_by_id(carried_unit_id) {
+            self.unindex_carried_unit(&carried_unit);
+            Some(carried_unit)
         } else {
             None
         }
@@ -280,9 +332,15 @@ impl MapData {
     /// Returns the previous unit, if any
     pub fn set_unit(&mut self, loc: Location, mut unit: Unit) -> Option<Unit> {
         unit.loc = loc;
-        self.index_toplevel_unit(&unit);
+        for carried_unit in unit.carried_units_mut() {
+            carried_unit.loc = loc;
+        }
+        
 
         let old_unit = self.pop_toplevel_unit_by_loc(loc);
+
+        self.index_toplevel_unit(&unit);
+
         self.tiles.get_mut(loc).unwrap().unit = Some(unit);
         old_unit
     }
@@ -291,24 +349,23 @@ impl MapData {
     /// 
     /// This covers all units, whether top-level or carried.
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.deep_unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
+        self.unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
     }
 
     pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
-        self.unit_by_loc_mut(self.unit_loc_by_id[&id])
+        self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
     }
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
         self.unit_by_id(id).map(|unit| unit.loc)
     }
 
-    pub fn unit_id(&self, loc: Location) -> Option<UnitID> {
-        self.unit_by_loc(loc).map(|unit| unit.id)
+    pub fn toplevel_unit_id_by_loc(&self, loc: Location) -> Option<UnitID> {
+        self.toplevel_unit_by_loc(loc).map(|unit| unit.id)
     }
 
     /// Make top-level carrier unit with ID `carrier_unit_id` carry `carried_unit`.
     pub fn carry_unit(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> Result<usize,String> {
-        
         let carried_unit_id = carried_unit.id;
 
         let (carry_result, carrier_unit_loc) = {

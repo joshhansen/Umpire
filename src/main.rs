@@ -2,24 +2,17 @@
 //! Umpire: Combat Quest of the Millennium
 //!
 
-// FIXME Ask for production assignment immediately after city is conquered
-// FIXME Resolve conflict between movement B and battleship B
 // FIXME Disallow selecting units on cities where such units make no sense
 // FIXME Don't let aircraft or naval vessels conquer cities
-// FIXME Require production to be re-set when a city is conquered from another player
 // FIXME Make it clear when a unit is inside a city
 // FIXME Make Map::draw_tile faster, maybe by eliminating tile cloning
 // FIXME Fix problems with small map sizes: 1) crash if viewport is larger than map 2) limitless wrapping where we should only wrap once
-// TODO Implement transport functionality
-// TODO Implement carrier functionality
 // FIXME Auto-explore mode for units is broken
 //       - the search for the next goal is somtimes really slow
 //       - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
 // TODO Fuel limits for aircraft
 // FIXME Long-range movement from examine mode is broken
-// TODO Show owner of city or unit in examine mode
 // TODO Game save/load
-// TODO Announce new unit creation
 // TODO Color console text announcing turn start to correspond to player colors?
 // TODO Zoomed-out map view?
 // TODO AI

@@ -64,7 +64,7 @@ impl IMode for GetUnitOrdersMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         let (unit_loc,unit_type, unit_sym) = {
             let unit = game.unit_by_id(self.unit_id).unwrap();
-            ui.log_message(format!("Requesting orders for unit {} at {}", unit, unit.loc));
+            ui.log_message(format!("Requesting orders for {} at {}", unit.medium_desc(), unit.loc));
             (unit.loc,unit.type_, unit.sym(ui.unicode))
         };
 
@@ -90,7 +90,9 @@ impl IMode for GetUnitOrdersMode {
                                     Ok(move_result) => {
                                         ui.animate_move(game, &move_result);
 
-                                        if game.unit_orders_requests().any(|unit_id| unit_id==self.unit_id) {
+                                        if let Some(conquered_city) = move_result.conquered_city() {
+                                            *mode = Mode::SetProduction {city_loc: conquered_city.loc};
+                                        } else if game.unit_orders_requests().any(|unit_id| unit_id==self.unit_id) {
                                             *mode = Mode::GetUnitOrders{unit_id:self.unit_id, first_move:false};
                                         } else {
                                             *mode = Mode::GetOrders;

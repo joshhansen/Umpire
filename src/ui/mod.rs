@@ -82,7 +82,15 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
             let reader = input.read_sync();
             for input_event in reader {
                 match input_event {
-                    InputEvent::Keyboard(key_event) => input_thread_tx.send(key_event).unwrap(),
+                    InputEvent::Keyboard(key_event) => {
+                        let will_return = key_event==KeyEvent::Char(conf::KEY_QUIT);
+                        input_thread_tx.send(key_event).unwrap();
+
+                        if will_return {
+                            // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
+                            return;
+                        }
+                    }
                     InputEvent::Mouse(_mouse_event) => {
                         // do nothing
                     },
@@ -531,6 +539,10 @@ impl TermUI {
 
     fn viewport_rect(&self) -> Rect {
         self.viewport_size.rect(self.term_dims)
+    }
+
+    fn viewport_dims(&self) -> Dims {
+        self.viewport_rect().dims()
     }
 
     fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {

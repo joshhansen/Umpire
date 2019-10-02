@@ -396,6 +396,14 @@ impl Unit {
     pub(in crate::game) fn carried_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
         self.carrying_space.iter_mut().flat_map(|carrying_space| carrying_space.carried_units_mut())
     }
+
+    pub fn short_desc(&self) -> String {
+        format!("{} \"{}\"", self.type_, self.name)
+    }
+
+    pub fn medium_desc(&self) -> String {
+        format!("{} [{}/{}]", self.short_desc(), self.hp, self.max_hp)
+    }
 }
 
 impl Aligned for Unit {
@@ -423,7 +431,7 @@ impl Observer for Unit {
 
 impl fmt::Display for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut result = write!(f, "{} \"{}\" [{}/{}]", self.type_, self.name, self.hp, self.max_hp);
+        let mut result = write!(f, "{} {}", self.alignment, self.medium_desc());
         if let Some(ref carrying_space) = self.carrying_space {
             result = result.and(write!(f, " carrying {} units", carrying_space.units_held()));
         }

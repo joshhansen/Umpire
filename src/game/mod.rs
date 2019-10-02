@@ -10,7 +10,10 @@ pub mod obs;
 pub mod unit;
 
 
-use std::collections::{BTreeSet,HashMap};
+use std::{
+    collections::{BTreeSet,HashMap},
+    fmt,
+};
 
 use crate::{
     color::{Colors,Colorized},
@@ -70,6 +73,15 @@ impl Colorized for Alignment {
     }
 }
 
+impl fmt::Display for Alignment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Alignment::Neutral => write!(f, "Neutral"),
+            Alignment::Belligerent{player} => write!(f, "Player {}", player),
+        }
+    }
+}
+
 pub trait Aligned : AlignedMaybe {
     fn alignment(&self) -> Alignment;
 }
@@ -125,6 +137,19 @@ impl MoveResult {
 
     pub fn moved_successfully(&self) -> bool {
         self.moves.iter().map(MoveComponent::moved_successfully).all(|success| success)
+    }
+
+    /// The city conquered at the end of this move, if any
+    pub fn conquered_city(&self) -> Option<&City> {
+        if let Some(move_) = self.moves.last() {
+            if let Some(city_combat) = move_.city_combat.as_ref() {
+                if city_combat.victorious() {
+                    return Some(city_combat.defender());
+                }
+            }
+        }
+
+        None
     }
 
     pub fn ending_loc(&self) -> Option<Location> {
@@ -309,7 +334,7 @@ impl Game {
             let (city_loc, city_alignment, city_desc, unit_under_production) = {
                 let city = self.map.city_by_loc_mut(city_loc).unwrap();
                 let unit_under_production = city.production().unwrap();
-                (city.loc, city.alignment, format!("{}", city), unit_under_production)
+                (city.loc, city.alignment, city.short_desc(), unit_under_production)
             };
 
             let name = self.unit_namer.name();
@@ -327,7 +352,7 @@ impl Game {
 
                     let new_unit = self.map.unit_by_id(new_unit_id).unwrap();
                     
-                    log.log_message(format!("{} produced {}", city_desc, new_unit));
+                    log.log_message(format!("{} produced {}", city_desc, new_unit.medium_desc()));
                 },
                 Err(err) => match err {
                     NewUnitError::OutOfBounds{ loc, dims } => {
@@ -471,12 +496,12 @@ impl Game {
         self.map.city_by_loc(loc)
     }
 
-    pub fn unit_by_loc(&self, loc: Location) -> Option<&Unit> {
-        self.map.unit_by_loc(loc)
+    pub fn toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
+        self.map.toplevel_unit_by_loc(loc)
     }
 
-    fn mut_unit_by_loc(&mut self, loc: Location) -> Option<&mut Unit> {
-        self.map.unit_by_loc_mut(loc)
+    fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
+        self.map.toplevel_unit_by_loc_mut(loc)
     }
 
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
@@ -524,17 +549,17 @@ impl Game {
 
         FIXME This function checks two separate times whether a unit exists at src
     */
-    pub fn move_unit_by_loc(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
+    pub fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let shortest_paths = {
-            let unit = self.map.unit_by_loc(src).unwrap();
+            let unit = self.map.toplevel_unit_by_loc(src).unwrap();
             shortest_paths(&self.map, src, &UnitMovementFilter::new(unit), self.wrapping)
         };
-        self.move_unit_by_loc_following_shortest_paths(src, dest, shortest_paths)
+        self.move_toplevel_unit_by_loc_following_shortest_paths(src, dest, shortest_paths)
     }
 
-    pub fn move_unit_by_loc_avoiding_combat(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
+    pub fn move_toplevel_unit_by_loc_avoiding_combat(&mut self, src: Location, dest: Location) -> Result<MoveResult,String> {
         let shortest_paths = {
-            let unit = self.map.unit_by_loc(src).unwrap();
+            let unit = self.map.toplevel_unit_by_loc(src).unwrap();
                 let unit_filter = AndFilter::new(
                     AndFilter::new(
                         NoUnitsFilter{},
@@ -544,18 +569,150 @@ impl Game {
                 );
             shortest_paths(&self.map, src, &unit_filter, self.wrapping)
         };
-        self.move_unit_by_loc_following_shortest_paths(src, dest, shortest_paths)
+        self.move_toplevel_unit_by_loc_following_shortest_paths(src, dest, shortest_paths)
     }
 
-    fn move_unit_by_loc_following_shortest_paths(&mut self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> Result<MoveResult,String> {
+    fn move_toplevel_unit_by_loc_following_shortest_paths(&mut self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> Result<MoveResult,String> {
+        let id: UnitID = self.map.toplevel_unit_id_by_loc(src).ok_or_else(|| format!("Can't move unit from {} because its ID cannot be found", src))?;
+        self.move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
+        // if let Some(distance) = shortest_paths.dist[dest] {
+        //     if let Some(unit) = self.map.unit_by_loc(src) {
+        //         if distance > unit.moves_remaining() {
+        //             return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
+        //                         unit, src, dest, distance, unit.moves_remaining()));
+        //         }
+
+        //         let mut unit = self.map.pop_toplevel_unit_by_loc(src).unwrap();
+
+        //         // We're here because a route exists to the destination and a unit existed at the source
+
+        //         let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
+
+        //         let mut moves = Vec::new();
+
+        //         // Move along the shortest path to the destination
+        //         // At each tile along the path, check if there's a unit there
+        //         // If so, battle it
+        //         // If we lose, this unit is destroyed
+        //         // If we win, the opposing unit is destroyed and this unit continues its journey
+        //         //     battling if necessary until it is either destroyed or reaches its destination
+        //         //
+        //         // Observe that the unit will either make it all the way to its destination, or
+        //         // will be destroyed somewhere along the way. There will be no stopping midway.
+
+        //         let mut conquered_city = false;
+
+        //         let mut it = shortest_path.iter();
+        //         let first_loc = it.next().unwrap();// skip the source location
+        //         debug_assert_eq!(src, *first_loc);
+        //         for loc in it {
+        //             moves.push(MoveComponent::new(*loc));
+        //             let mut move_ = moves.last_mut().unwrap();
+
+        //             // let mut dest_tile = &mut self.tiles[*loc];
+        //             // debug_assert_eq!(dest_tile.loc, *loc);
+        //             if let Some(ref other_unit) = self.map.unit_by_loc(*loc) {
+        //                 if unit.is_friendly_to(other_unit) {
+        //                     // the friendly unit must have space for us in its carrying capacity or else the
+        //                     // path search wouldn't have included it
+        //                     // We won't actually insert this unit in the space yet since it might move/get destroyed later
+        //                     move_.carrier = Some(other_unit.id);
+        //                 } else {
+        //                     // On the other hand, we fight any unfriendly units
+        //                     move_.unit_combat = Some(unit.fight(other_unit));
+        //                 }
+        //             }
+        //             if let Some(ref outcome) = move_.unit_combat {
+        //                 if outcome.destroyed() {
+        //                     break;
+        //                 } else {
+        //                     self.map.pop_toplevel_unit_by_loc(*loc);// eliminate the unit we conquered
+        //                 }
+        //             }
+
+        //             if let Some(city) = self.map.city_by_loc_mut(*loc) {
+        //                 if city.alignment != unit.alignment {
+        //                     let outcome = unit.fight(city);
+
+        //                     if outcome.victorious() {
+        //                         city.alignment = unit.alignment;
+        //                     }
+
+        //                     move_.city_combat = Some(outcome);
+
+        //                     conquered_city = true;
+
+        //                     break;// break regardless of outcome. Either conquer a city and stop, or be destroyed
+        //                 }
+        //             }
+        //         }
+
+        //         if conquered_city {
+        //             // unit.moves_remaining = 0;
+        //             unit.movement_complete();
+        //         } else {
+        //             // unit.moves_remaining -= moves.len() as u16;
+        //             unit.record_movement(moves.len() as u16).unwrap();
+        //         }
+
+        //         if let Some(move_) = moves.last() {
+        //             if move_.moved_successfully() {
+        //                 if let Some(carrier_unit_id) = move_.carrier {
+        //                     self.map.carry_unit(carrier_unit_id, unit.clone()).unwrap();
+        //                 } else {
+        //                     self.map.set_unit(dest, unit.clone());
+        //                 }
+        //             }
+        //         }
+
+        //         for move_ in moves.iter() {
+        //             if move_.moved_successfully() {
+        //                 let mut obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+        //                 unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, &mut obs_tracker);
+        //             }
+        //         }
+
+        //         MoveResult::new(unit, src, moves)
+        //     } else {
+        //         Err(format!("Cannot move unit at source location {} because none exists", src))
+        //     }
+        // } else {
+        //     Err(format!("No route from {} to {}", src, dest))
+        // }
+    }
+
+    pub fn move_unit_by_id(&mut self, id: UnitID, dest: Location) -> Result<MoveResult,String> {
+        let (shortest_paths, src) = {
+            let unit = self.map.unit_by_id(id).unwrap();
+            (shortest_paths(&self.map, unit.loc, &UnitMovementFilter::new(unit), self.wrapping), unit.loc)
+        };
+        self.move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
+    }
+
+    pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> Result<MoveResult,String> {
+        let (shortest_paths, src) = {
+            let unit = self.map.unit_by_id(id).unwrap();
+            let unit_filter = AndFilter::new(
+                AndFilter::new(
+                    NoUnitsFilter{},
+                    NoCitiesButOursFilter{alignment: unit.alignment }
+                ),
+                UnitMovementFilter{unit}
+            );
+            (shortest_paths(&self.map, unit.loc, &unit_filter, self.wrapping), unit.loc)
+        };
+        self.move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
+    }
+
+    fn move_unit_by_loc_and_id_following_shortest_paths(&mut self, src: Location, id: UnitID, dest: Location, shortest_paths: ShortestPaths) -> Result<MoveResult,String> {
         if let Some(distance) = shortest_paths.dist[dest] {
-            if let Some(unit) = self.map.unit_by_loc(src) {
+            if let Some(unit) = self.map.unit_by_loc_and_id(src, id) {
                 if distance > unit.moves_remaining() {
-                    return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
-                                unit, src, dest, distance, unit.moves_remaining()));
+                    return Err(format!("Ordered move of unit {} from {} to {} spans a distance ({}) greater than the number of moves remaining ({}) for unit with ID {:?}",
+                                unit, src, dest, distance, unit.moves_remaining(), id));
                 }
 
-                let mut unit = self.map.pop_toplevel_unit_by_loc(src).unwrap();
+                let mut unit = self.map.pop_unit_by_loc_and_id(src, id).unwrap();
 
                 // We're here because a route exists to the destination and a unit existed at the source
 
@@ -584,7 +741,7 @@ impl Game {
 
                     // let mut dest_tile = &mut self.tiles[*loc];
                     // debug_assert_eq!(dest_tile.loc, *loc);
-                    if let Some(ref other_unit) = self.map.unit_by_loc(*loc) {
+                    if let Some(ref other_unit) = self.map.toplevel_unit_by_loc(*loc) {
                         if unit.is_friendly_to(other_unit) {
                             // the friendly unit must have space for us in its carrying capacity or else the
                             // path search wouldn't have included it
@@ -599,7 +756,7 @@ impl Game {
                         if outcome.destroyed() {
                             break;
                         } else {
-                            self.map.pop_toplevel_unit_by_loc(*loc);// eliminate the unit we conquered
+                            self.map.pop_toplevel_unit_by_loc(*loc).unwrap();// eliminate the unit we conquered
                         }
                     }
 
@@ -609,6 +766,7 @@ impl Game {
 
                             if outcome.victorious() {
                                 city.alignment = unit.alignment;
+                                city.clear_production_without_ignoring();
                             }
 
                             move_.city_combat = Some(outcome);
@@ -645,21 +803,21 @@ impl Game {
 
                 MoveResult::new(unit, src, moves)
             } else {
-                Err(format!("Cannot move unit at source location {} because none exists", src))
+                Err(format!("Cannot move unit at source location {} with ID {:?} because none exists", src, id))
             }
         } else {
-            Err(format!("No route from {} to {}", src, dest))
+            Err(format!("No route from {} to {} for unit with ID {:?}", src, dest, id))
         }
     }
 
-    pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> Result<MoveResult,String> {
+    pub fn move_toplevel_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> Result<MoveResult,String> {
         let src = self.map.unit_loc(unit_id).unwrap();
-        self.move_unit_by_loc(src, dest)
+        self.move_toplevel_unit_by_loc(src, dest)
     }
 
-    pub fn move_unit_by_id_avoiding_combat(&mut self, unit_id: UnitID, dest: Location) -> Result<MoveResult,String> {
+    pub fn move_toplevel_unit_by_id_avoiding_combat(&mut self, unit_id: UnitID, dest: Location) -> Result<MoveResult,String> {
         let src = self.map.unit_loc(unit_id).unwrap();
-        self.move_unit_by_loc_avoiding_combat(src, dest)
+        self.move_toplevel_unit_by_loc_avoiding_combat(src, dest)
     }
 
     pub fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
@@ -752,12 +910,15 @@ impl Game {
         self.follow_orders(unit_id)
     }
 
-    /// If a unit at the location owned by the current player exists, activate it
+    /// If a unit at the location owned by the current player exists, activate it and any units it carries
     pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
         let current_player = self.current_player;
-        if let Some(unit) = self.mut_unit_by_loc(loc) {
+        if let Some(unit) = self.toplevel_unit_by_loc_mut(loc) {
             if unit.belongs_to_player(current_player) {
                 unit.orders = None;
+                for carried_unit in unit.carried_units_mut() {
+                    carried_unit.orders = None;
+                }
                 Ok(())
             } else {
                 Err(GameError::UnitNotControlledByCurrentPlayer{
@@ -929,7 +1090,7 @@ mod test {
             let new_loc = Location{x:new_x, y:loc.y};
             println!("Moving unit from {} to {}", loc, new_loc);
 
-            match game.move_unit_by_loc(loc, new_loc) {
+            match game.move_toplevel_unit_by_loc(loc, new_loc) {
                 Ok(move_result) => {
                     println!("{:?}", move_result);
                 },
@@ -992,7 +1153,7 @@ mod test {
             let loc = game.unit_loc(unit_id).unwrap();
             let dest_loc = Location{x: loc.x+2, y:loc.y};
             println!("Moving from {} to {}", loc, dest_loc);
-            let move_result = game.move_unit_by_loc(loc, dest_loc).unwrap();
+            let move_result = game.move_toplevel_unit_by_loc(loc, dest_loc).unwrap();
             println!("Result: {:?}", move_result);
             assert_eq!(move_result.unit().type_, UnitType::Armor);
             assert_eq!(move_result.unit().alignment, Alignment::Belligerent{player:0});
@@ -1011,6 +1172,12 @@ mod test {
                 assert_eq!(move2.city_combat, None);
             } else {
                 assert!(move2.city_combat.is_some());
+
+                // If by chance the armor defeats the city, be sure to set its production so we can end the turn
+                if let Some(conquered_city) = move_result.conquered_city() {
+                    let production_set_result = game.set_production(conquered_city.loc, UnitType::Fighter);
+                    assert_eq!(production_set_result, Ok(()));
+                }
             }
 
             assert_eq!(game.end_turn(&mut log), Ok(1));
@@ -1029,11 +1196,11 @@ mod test {
         let infantry_loc = Location{x: 3, y: 0};
         let transport_loc = Location{x: 4, y: 0};
 
-        let transport_id: UnitID = map.unit_by_loc(transport_loc).unwrap().id;
+        let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
         let mut log = DefaultLog;
         let mut game = Game::new_with_map(map, 1, false, unit_namer(), &mut log);
-        let move_result = game.move_unit_by_loc(infantry_loc, transport_loc).unwrap();
+        let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc(), infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
         assert!(move_result.moved_successfully());
