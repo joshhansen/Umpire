@@ -22,26 +22,11 @@ use crate::{
     },
 };
 
-
-
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum OrdersStatus {
     InProgress,
     Completed
 }
-
-// pub enum OrdersResult {
-//     Skip,
-//     Sentry,
-//     GoTo {
-//         move_: MoveResult,
-//         status: OrdersStatus,
-//     },
-//     Explore {
-//         move_: MoveResult,
-
-//     }
-// }
 
 #[derive(Debug,PartialEq)]
 pub struct OrdersOutcome {
@@ -99,11 +84,6 @@ pub enum OrdersError {
     }
 }
 
-// type GoToResult = Result<(MoveResult,OrdersStatus),String>;
-
-// type ExploreResult = Result<(MoveResult,OrdersStatus),String>;
-
-// type OrdersResult = Result<OrdersStatus,String>;
 pub type OrdersResult = Result<OrdersOutcome,OrdersError>;
 
 #[derive(Copy,Clone,Debug,PartialEq)]
@@ -159,27 +139,7 @@ impl Orders {
 /// If there are no such tiles then set the unit's orders to None
 ///
 ///
-
-/*
-
-
-www
-wxw
-www
-
-
-*/
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
-    // // Shortest paths emanating from the starting location, considering only observed tiles
-    // let shortest_paths_observed = shortest_paths_unit_limited(game, starting_loc,
-    //                                             game.unit(starting_loc).unwrap(), game.wrapping());
-    //
-    // // Shortest paths emanating from the starting location, allowing inclusion of unobserved tiles.
-    // let shortest_paths_xenophile = shortest_paths_unit_limited_xenophile(game, starting_loc,
-    //                                             game.unit(starting_loc).unwrap(), game.wrapping());
-    //
-    //
-    //
     let mut current_loc = game.unit_by_id(unit_id).unwrap().loc;
     let starting_loc = current_loc;
     let mut moves: Vec<MoveComponent> = Vec::new();
@@ -194,10 +154,6 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 
         if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(game, current_loc, &unit, game.wrapping()) {
 
-            // if unit.moves_remaining == 0 {
-            //     return Ok(OrdersStatus::InProgress);
-            // }
-
             let shortest_paths = shortest_paths(game, unit.loc, &ObservedFilter{}, game.wrapping());
 
             let mut dist_to_real_goal = shortest_paths.dist[goal].unwrap();
@@ -209,31 +165,14 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
             let mut move_result = game.move_unit_by_id_avoiding_combat(unit_id, goal)
                                   .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
-            // match move_result {
-            //     Ok(mut move_result) => {
-                    // ui.animate_move(game, &move_result);
 
-                    if move_result.moved_successfully() {
-                        current_loc = move_result.ending_loc().unwrap();
-                        moves.append(&mut move_result.moves);
-                    } else {
-                        panic!("Unit was unexpectedly destroyed during exploration");
-                    }
-
-                    // Update the unit so that if/when we return it, it has the correct number of moves
-                    // unit.moves_remaining -= move_result.moves.len();
-                    
-
-                    // unit.loc = move_result.ending_loc().unwrap();
-                    // unit.record_movement(move_result.moves.len() as u16).unwrap();
-            //     },
-            //     Err(err) => {
-            //         return Err(format!("Error moving unit toward {}: {}", goal, msg));
-            //     }
-            // }
-
+            if move_result.moved_successfully() {
+                current_loc = move_result.ending_loc().unwrap();
+                moves.append(&mut move_result.moves);
+            } else {
+                panic!("Unit was unexpectedly destroyed during exploration");
+            }
         } else {
-            // game.give_orders(unit_id, None, ui, false).unwrap();
             return game.set_orders(unit_id, None)
                 .map(|_| OrdersOutcome::completed_with_move(
                     unit_id,
@@ -241,7 +180,6 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
                     Move::new(unit, starting_loc, moves).unwrap()
                 )
             );
-            // return Ok(OrdersStatus::Completed);
         }
     }
 }
@@ -266,14 +204,6 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         }});
     }
 
-    // ui.log_message(format!("Destination 1: {}", dest));
-    // let moves_remaining = {
-    //     game.unit_by_id(unit_id).unwrap().moves_remaining
-    // };
-    //
-    // ui.log_message(format!("Destination 2: {}", dest));
-
-
     let (moves_remaining, shortest_paths) = {
         let unit = game.unit_by_id(unit_id).unwrap();
         let moves_remaining = unit.moves_remaining;
@@ -288,7 +218,6 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         (moves_remaining, shortest_paths)
     };
 
-    // ui.log_message(format!("Destination 3: {}", dest));
     // Find the observed tile on the path from source to destination that is nearest to the
     // destination but also within reach of this unit's limited moves
     let mut dest2 = dest;
@@ -300,26 +229,12 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
                 }
             }
         }
-        // if game.current_player_tile(dest).is_some() && shortest_paths.dist[dest].unwrap() <= moves_remaining {
-        //     break;
-        // }
         dest2 = shortest_paths.prev[dest2].unwrap();
     }
     let dest2 = dest2;
 
-    // ui.log_message(format!("Destination 4: {}", dest));
-    //
-    // let dest = {
-    //     let unit = game.unit(src).unwrap();
-    //     nearest_reachable_adjacent_unobserved(game, src, &unit, game.wrapping())
-    // };
-
     game.move_unit_by_id(unit_id, dest2)
         .map(|move_result| {
-            // ui.animate_move(game, &move_result);
-
-            // let status = if move_result.moved_successfully() {
-            // let status = if move_result.ending_loc() == dest {
             let status = if let Some(ending_loc) = move_result.ending_loc() {
                 // survived the immediate move
 
@@ -330,9 +245,6 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
                 } else {
                     OrdersStatus::InProgress
                 }
-
-                // game.set_orders(unit_id, None).unwrap();
-                // OrdersStatus::Completed
 
             } else {
                 OrdersStatus::InProgress
@@ -366,7 +278,6 @@ mod test {
                 OrdersError
             },
         },
-        log::DefaultLog,
         name::unit_namer,
         util::Location,
     };

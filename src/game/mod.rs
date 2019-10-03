@@ -291,12 +291,13 @@ pub enum GameError {
 pub enum UnitProductionOutcome {
     UnitProduced {
         id: UnitID,
-        producing_city_id: CityID,
+        loc: Location,
     },
 
     UnitAlreadyPresent {
-        producing_city_id: CityID,
-        unit_under_production: UnitType,
+        prior_unit: Unit,
+        loc: Location,
+        unit_type_under_production: UnitType,
     }
 }
 
@@ -419,17 +420,12 @@ impl Game {
 
             match result {
                 Ok(new_unit_id) => {
-                    let producing_city_id = {
-                        let city = self.map.city_by_loc_mut(city_loc).unwrap();
-                        city.production_progress = 0;
-                        city.id
-                    };
-
-                    // let new_unit = self.map.unit_by_id(new_unit_id).unwrap();
+                    let city = self.map.city_by_loc_mut(city_loc).unwrap();
+                    city.production_progress = 0;
 
                     UnitProductionOutcome::UnitProduced {
                         id: new_unit_id,
-                        producing_city_id,
+                        loc: city_loc,
                     }
                     
                     // log.log_message(format!("{} produced {}", city_desc, new_unit.medium_desc()));
@@ -438,12 +434,12 @@ impl Game {
                     NewUnitError::OutOfBounds{ loc, dims } => {
                         panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims))
                     },
-                    NewUnitError::UnitAlreadyPresent{ .. } => {
-                        let producing_city_id = self.map.city_by_loc_mut(city_loc).unwrap().id;
+                    NewUnitError::UnitAlreadyPresent{ prior_unit, loc, unit_type_under_production } => {
+
+                        // let producing_city_id = self.map.city_by_loc_mut(city_loc).unwrap().id;
 
                         UnitProductionOutcome::UnitAlreadyPresent {
-                            producing_city_id,
-                            unit_under_production,
+                            prior_unit, loc, unit_type_under_production
                         }
                         // log.log_message(Message {
                         //     text: format!(

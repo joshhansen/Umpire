@@ -10,22 +10,17 @@ use crate::{
         TurnStart,
         UnitProductionOutcome,
         unit::{
-            UnitID,
-            Unit,
             orders::{
                 OrdersError,
                 OrdersResult,
             },
         },
     },
-    log::{LogTarget,Message},
+    log::{LogTarget,Message,MessageSource},
     ui::{
         MoveAnimator,
         TermUI,
-        buf::RectBuffer,
-        mode::IVisibleMode,
     },
-    util::Rect,
 };
 
 use super::{
@@ -35,27 +30,8 @@ use super::{
     StateDisposition,
 };
 
-pub(in crate::ui) struct TurnOverMode {
-    // rect: Rect,
-}
-
-// impl IVisibleMode for TurnOverMode {
-//     fn rect(&self) -> Rect {
-//         self.rect
-//     }
-
-//     fn buf_mut(ui: &mut TermUI) -> &mut RectBuffer {
-//         ui.sidebar_buf_mut()
-//     }
-// }
+pub(in crate::ui) struct TurnOverMode {}
 impl TurnOverMode {
-    // fn write_buf(&self, game: &Game, ui: &mut TermUI, unit: &Unit) {
-    //     // let unit = game.unit_by_id(self.unit_id).unwrap();
-
-    //     let buf = ui.sidebar_buf_mut();
-    //     buf.set_row(0, format!("Unit {} is {}", unit, unit.orders.unwrap().present_progressive_description()));
-    // }
-
     fn animate_orders(&self, game: &mut Game, ui: &mut TermUI, orders_result: OrdersResult) {
         let (id,orders) = match orders_result {
             Ok(ref orders_outcome) => (orders_outcome.ordered_unit_id, orders_outcome.orders),
@@ -68,8 +44,6 @@ impl TurnOverMode {
         let unit = game.unit_by_id(id).unwrap();
 
         ui.map_scroller.scrollable.center_viewport(unit.loc);
-
-        // self.write_buf(game, ui, unit);
 
         ui.log_message(Message::new(
             format!("Unit {} is {}", unit, orders.present_progressive_description()),
@@ -105,14 +79,26 @@ impl TurnOverMode {
         }
         for production_outcome in turn_start.production_outcomes {
             match production_outcome {
-                UnitProductionOutcome::UnitProduced { id, producing_city_id } => {
-                    //FIXME Improve this log message
-                    ui.log_message(format!("City with ID {:?} produced unit with ID {:?}", producing_city_id, id));
+                UnitProductionOutcome::UnitProduced { loc, .. } => {
+                    let unit = game.toplevel_unit_by_loc(loc).unwrap();
+                    let city = game.city_by_loc(loc).unwrap();
+
+                    ui.log_message(format!("{} produced {}", city.short_desc(), unit.medium_desc()));
                 },
-                UnitProductionOutcome::UnitAlreadyPresent { producing_city_id, unit_under_production } => {
-                    //FIXME Improve this log message
-                    ui.log_message(format!("City with ID {:?} could not produce unit of type {:?} because a unit is already present",
-                        producing_city_id, unit_under_production));
+                UnitProductionOutcome::UnitAlreadyPresent { prior_unit, loc, unit_type_under_production } => {
+                    let city = game.city_by_loc(loc).unwrap();
+                    ui.log_message(Message {
+                        text: format!(
+                            "{} would have produced {} but {} was already garrisoned",
+                            city.short_desc(),
+                            unit_type_under_production,
+                            prior_unit
+                        ),
+                        mark: None,
+                        fg_color: Some(Colors::Notice),
+                        bg_color: None,
+                        source: Some(MessageSource::Game)
+                    });
                 },
             }
         }

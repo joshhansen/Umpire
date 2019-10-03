@@ -45,6 +45,7 @@ pub enum NewUnitError {
     UnitAlreadyPresent {
         loc: Location,
         prior_unit: Unit,
+        unit_type_under_production: UnitType,
     }
 }
 
@@ -172,7 +173,7 @@ impl MapData {
         }
 
         if let Some(ref prior_unit) = self.tiles.get(loc).unwrap().unit {
-            return Err(NewUnitError::UnitAlreadyPresent { loc, prior_unit: prior_unit.clone() });
+            return Err(NewUnitError::UnitAlreadyPresent { loc, prior_unit: prior_unit.clone(), unit_type_under_production: type_ });
         }
 
         let unit_id = self.next_unit_id;
