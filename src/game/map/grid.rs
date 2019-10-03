@@ -80,13 +80,7 @@ impl<T> LocationGrid<T> {
     }
 
     pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
-        let width: u16 = self.dims.width;
-        let height: u16 = self.dims.height;
-        (0..width).flat_map(move |x| {
-            (0..height).map(move |y| {
-                Location{x,y}
-            })
-        })
+        self.dims.iter_locs()
     }
 }
 

@@ -36,6 +36,10 @@ impl Rect {
     }
 }
 
+/// Dimensions in a two-dimensional space
+/// 
+/// This can be thought of as a rectangle with a particular width and height, but not located at any
+/// particular point in space.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub struct Dims {
     pub width: u16,
@@ -47,12 +51,47 @@ impl Dims {
         Self { width, height }
     }
 
+    #[deprecated(note="Use contains instead")]
     pub fn in_bounds(self, loc: Location) -> bool {
-        // loc.x >= 0 && 
-        // loc.y >= 0 &&
+        self.contains(loc)
+    }
+
+    /// Is the location `loc` contained within these dimensions?
+    /// 
+    /// More specifically, if these dimensions are taken to define a rectangle with one corner at the origin (0,0),
+    /// then is the cartesian point represented by location `loc` contained by that rectangle?
+    pub fn contains(self, loc: Location) -> bool {
         loc.x < self.width && loc.y < self.height
     }
+
+    /// The area of a rectangle with these dimensions
+    pub fn area(self) ->  u32 {
+        u32::from(self.width) * u32::from(self.height)
+    }
+
+    /// Iterate through all `Location`s implied by placing the rectangle of these dimensions at the origin
+    pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
+        let width: u16 = self.width;
+        let height: u16 = self.height;
+        (0..width).flat_map(move |x| {
+            (0..height).map(move |y| {
+                Location{x,y}
+            })
+        })
+    }
 }
+
+// TODO Implement IntoIterator for Dims
+// This will be most easily accomplished when impl Trait in type aliases are stabilized
+// https://github.com/rust-lang/rust/issues/63063
+// impl IntoIterator for Dims {
+//     type Item=Location;
+//     type IntoIter=impl Iterator<Item=Location>;
+
+//     fn into_iter(self) -> Self::IntoIter {
+//         self.iter_locs()
+//     }
+// }
 
 impl fmt::Display for Dims {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

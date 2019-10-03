@@ -209,17 +209,20 @@ fn main() {
     let nosplash: bool = matches.is_present("nosplash");
     let confirm_turn_end: bool = matches.is_present("confirm_turn_end");
 
+    let map_dims: Dims = Dims::new(map_width, map_height);
+    if map_dims.area() < u32::from(num_players) {
+        eprintln!("Map dimensions of {} give an area of {} which is not enough room for {} players; area of {} or greater required.",
+            map_dims, map_dims.area(), num_players, num_players);
+        return;
+    }
+
+    let start_time = SystemTime::now();
     if !nosplash {
         print_loading_screen();
     }
 
-    let start_time = SystemTime::now();
-
-    let map_dims: Dims = Dims::new(map_width, map_height);
-
     let city_namer = city_namer();
     let unit_namer = unit_namer();
-
 
     let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer);
 
