@@ -3,7 +3,6 @@
 //!
 
 // 0.4 Milestones
-// TODO Remove CarryOutOrdersMode and CarryOutUnitOrdersMode
 // FIXME Auto-explore mode for units is broken
 //       - the search for the next goal is somtimes really slow
 //       - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
@@ -12,6 +11,7 @@
 // TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
 // TODO Deploy to crates.io
 // TODO Refresh README.md
+// FIXME Fix unit production log messages
 
 // 0.5 Milestones
 // TODO Fuel limits for aircraft
@@ -70,11 +70,12 @@ use std::{
 
 use clap::{Arg, App};
 
-use crate::color::{Palette, palette16, palette256, palette24};
-use crate::game::{Game,PlayerNum};
-use crate::name::{city_namer,unit_namer};
-use crate::ui::DefaultUI;
-use crate::util::Dims;
+use crate::{
+    color::{Palette, palette16, palette256, palette24},
+    game::{Game,PlayerNum},
+    name::{city_namer,unit_namer},
+    util::Dims,
+};
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 
@@ -220,7 +221,7 @@ fn main() {
     let unit_namer = unit_namer();
 
 
-    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, &mut DefaultUI);
+    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer);
 
     if !nosplash {
         let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();

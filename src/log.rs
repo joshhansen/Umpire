@@ -22,6 +22,12 @@ pub struct Message {
     pub source: Option<MessageSource>
 }
 
+impl Message {
+    pub fn new(text: String, mark: Option<char>, fg_color: Option<Colors>, bg_color: Option<Colors>, source: Option<MessageSource>) -> Self {
+        Self { text, mark, fg_color, bg_color, source }
+    }
+}
+
 impl From<String> for Message {
     fn from(s: String) -> Self {
         Message {

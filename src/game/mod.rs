@@ -52,7 +52,6 @@ use crate::{
             },
         },
     },
-    log::{LogTarget,Message,MessageSource},
     name::{Namer,CompoundNamer,ListNamer,WeightedNamer},
     util::{Dims,Location,Wrap,Wrap2d},
 };
@@ -263,11 +262,20 @@ pub enum MoveError {
 
 pub type MoveResult = Result<Move,MoveError>;
 
+
+// //FIXME merge turn start and end because they're really the same thing
+// pub struct TurnStart {
+//     turn: TurnNum,
+//     player: PlayerNum,
+//     carried_out_orders: Vec<OrdersResult>,
+// }
+
 #[derive(Debug,PartialEq)]
-pub struct TurnEnd {
-    prev_player: PlayerNum,
-    current_player: PlayerNum,
-    carried_out_orders: Vec<OrdersResult>,
+pub struct TurnStart {
+    pub turn: TurnNum,
+    pub current_player: PlayerNum,
+    pub carried_out_orders: Vec<OrdersResult>,
+    pub production_outcomes: Vec<UnitProductionOutcome>,
 }
 
 #[derive(Debug)]
@@ -277,6 +285,19 @@ pub enum GameError {
     NoSuchCity { msg: String, id: CityID },
     NoCityAtLocation { msg: String, loc: Location },
     UnitNotControlledByCurrentPlayer { msg: String }
+}
+
+#[derive(Debug,PartialEq)]
+pub enum UnitProductionOutcome {
+    UnitProduced {
+        id: UnitID,
+        producing_city_id: CityID,
+    },
+
+    UnitAlreadyPresent {
+        producing_city_id: CityID,
+        unit_under_production: UnitType,
+    }
 }
 
 
@@ -299,22 +320,20 @@ impl Game {
     /// A map with the specified dimensions will be generated
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observations growing stale over time.
-    pub fn new<L:LogTarget>(
+    pub fn new(
             map_dims: Dims,
             city_namer: ListNamer,
             num_players: PlayerNum,
             fog_of_war: bool,
-            unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
-            log: &mut L) -> Self {
+            unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>) -> Self {
 
         let mut map_generator = MapGenerator::new(city_namer);
         let map = map_generator.generate(map_dims, num_players);
-        Game::new_with_map(map, num_players, fog_of_war, unit_namer, log)
+        Game::new_with_map(map, num_players, fog_of_war, unit_namer)
     }
 
-    pub(crate) fn new_with_map<L:LogTarget>(map: MapData, num_players: PlayerNum,
-            fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
-            log: &mut L) -> Self {
+    pub(crate) fn new_with_map(map: MapData, num_players: PlayerNum,
+            fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>) -> Self {
 
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
@@ -327,11 +346,11 @@ impl Game {
             player_observations.insert(player_num, ObsTracker::new(map.dims()));
         }
 
-        log.log_message(format!("Starting new game with {} players, grid size {}, and fog of war {}",
-                                num_players,
-                                map.dims(),
-                                if fog_of_war {"on"} else {"off"}
-        ));
+        // log.log_message(format!("Starting new game with {} players, grid size {}, and fog of war {}",
+        //                         num_players,
+        //                         map.dims(),
+        //                         if fog_of_war {"on"} else {"off"}
+        // ));
 
         let mut game = Game {
             map,
@@ -344,7 +363,7 @@ impl Game {
             fog_of_war,
         };
 
-        game.begin_turn(log);
+        game.begin_turn();
         game
     }
 
@@ -368,7 +387,9 @@ impl Game {
         self.map.player_units_deep_mutate(self.current_player(), callback);
     }
 
-    fn produce_units<L:LogTarget>(&mut self, log: &mut L) {
+
+
+    fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
         for city in self.player_cities_with_production_target_mut() {
             city.production_progress += 1;
         }
@@ -378,15 +399,16 @@ impl Game {
                 let unit_under_production = city.production().unwrap();
 
                 city.production_progress >= unit_under_production.cost()
-            }).map(|city| city.loc).collect()
+            })
+            .map(|city| city.loc).collect()
         ;
 
-        for city_loc in producing_city_locs {
+        producing_city_locs.iter().cloned().map(|city_loc| {
 
-            let (city_loc, city_alignment, city_desc, unit_under_production) = {
+            let (city_loc, city_alignment, unit_under_production) = {
                 let city = self.map.city_by_loc_mut(city_loc).unwrap();
                 let unit_under_production = city.production().unwrap();
-                (city.loc, city.alignment, city.short_desc(), unit_under_production)
+                (city.loc, city.alignment, unit_under_production)
             };
 
             let name = self.unit_namer.name();
@@ -397,36 +419,48 @@ impl Game {
 
             match result {
                 Ok(new_unit_id) => {
-                    {
+                    let producing_city_id = {
                         let city = self.map.city_by_loc_mut(city_loc).unwrap();
                         city.production_progress = 0;
+                        city.id
                     };
 
-                    let new_unit = self.map.unit_by_id(new_unit_id).unwrap();
+                    // let new_unit = self.map.unit_by_id(new_unit_id).unwrap();
+
+                    UnitProductionOutcome::UnitProduced {
+                        id: new_unit_id,
+                        producing_city_id,
+                    }
                     
-                    log.log_message(format!("{} produced {}", city_desc, new_unit.medium_desc()));
+                    // log.log_message(format!("{} produced {}", city_desc, new_unit.medium_desc()));
                 },
                 Err(err) => match err {
                     NewUnitError::OutOfBounds{ loc, dims } => {
                         panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims))
                     },
-                    NewUnitError::UnitAlreadyPresent{ loc:_loc, prior_unit } => {
-                        log.log_message(Message {
-                            text: format!(
-                                "{} would have produced {} but {} was already garrisoned",
-                                city_desc,
-                                unit_under_production,
-                                prior_unit
-                            ),
-                            mark: None,
-                            fg_color: Some(Colors::Notice),
-                            bg_color: None,
-                            source: Some(MessageSource::Game)
-                        });
+                    NewUnitError::UnitAlreadyPresent{ .. } => {
+                        let producing_city_id = self.map.city_by_loc_mut(city_loc).unwrap().id;
+
+                        UnitProductionOutcome::UnitAlreadyPresent {
+                            producing_city_id,
+                            unit_under_production,
+                        }
+                        // log.log_message(Message {
+                        //     text: format!(
+                        //         "{} would have produced {} but {} was already garrisoned",
+                        //         city_desc,
+                        //         unit_under_production,
+                        //         prior_unit
+                        //     ),
+                        //     mark: None,
+                        //     fg_color: Some(Colors::Notice),
+                        //     bg_color: None,
+                        //     source: Some(MessageSource::Game)
+                        // });
                     }
                 }
             }
-        }
+        }).collect()
     }
 
     fn refresh_moves_remaining(&mut self) {
@@ -436,22 +470,29 @@ impl Game {
     /// Begin a new turn
     /// 
     /// Returns the results of any pending orders carried out
-    fn begin_turn<L:LogTarget>(&mut self, log: &mut L) -> Vec<OrdersResult> {
-        log.log_message(Message {
-            text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
-            mark: None,
-            fg_color: Some(Colors::Notice),
-            bg_color: None,
-            source: Some(MessageSource::Game)
-        });
+    fn begin_turn(&mut self) -> TurnStart {
+        // log.log_message(Message {
+        //     text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
+        //     mark: None,
+        //     fg_color: Some(Colors::Notice),
+        //     bg_color: None,
+        //     source: Some(MessageSource::Game)
+        // });
 
-        self.produce_units(log);
+        let production_outcomes = self.produce_units();
 
         self.refresh_moves_remaining();
 
         self.update_current_player_observations();
 
-        self.follow_pending_orders()
+        let carried_out_orders = self.follow_pending_orders();
+
+        TurnStart {
+            turn: self.turn,
+            current_player: self.current_player,
+            carried_out_orders,
+            production_outcomes,
+        }
     }
 
     pub fn turn_is_done(&self) -> bool {
@@ -473,10 +514,9 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn<L:LogTarget>(&mut self, log: &mut L) -> Result<TurnEnd,PlayerNum> {
+    pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
         if self.turn_is_done() {
 
-            let prev_player = self.current_player;
 
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
@@ -485,17 +525,34 @@ impl Game {
                 self.turn += 1;
             }
 
-            let carried_out_orders = self.begin_turn(log);
+            Ok(self.begin_turn())
 
-            Ok(TurnEnd {
-                prev_player,
-                current_player: self.current_player,
-                carried_out_orders,
-            })
+            // // A new turn now begins:
+
+            // let production_outcomes = self.produce_units();
+
+            // self.refresh_moves_remaining();
+
+            // self.update_current_player_observations();
+
+            // let carried_out_orders = self.follow_pending_orders();
+
+            // Ok(TurnStart {
+            //     current_player: self.current_player,
+            //     carried_out_orders,
+            //     production_outcomes,
+            // })
         } else {
             Err(self.current_player)
         }
     }
+
+    // /// End the current turn if possible and begin a new one
+    // /// 
+    // /// This is a synonym for begin_turn since, if you think hard about it, they're the same thing
+    // pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
+    //     self.begin_turn()
+    // }
 
     /// Register the current observations of current player units
     /// 
@@ -555,18 +612,22 @@ impl Game {
         self.player_observations[&self.current_player()].get(loc)
     }
 
+    #[deprecated(note="Gives unrestricted access to cities")]
     pub fn city_by_loc(&self, loc: Location) -> Option<&City> {
         self.map.city_by_loc(loc)
     }
 
+    #[deprecated(note="Gives unrestricted access to top-level units")]
     pub fn toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
         self.map.toplevel_unit_by_loc(loc)
     }
 
+    #[deprecated(note="Gives unrestricted access to top-level units")]
     fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         self.map.toplevel_unit_by_loc_mut(loc)
     }
 
+    #[deprecated(note="Gives unrestricted access to units")]
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
         self.map.unit_by_id(id)
     }
@@ -575,10 +636,12 @@ impl Game {
     //     self.map.mut_unit_by_loc(loc)
     // }
 
+    #[deprecated(note="Gives unrestricted access to units")]
     fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.map.unit_by_id_mut(id)
     }
 
+    #[deprecated(note="Gives unrestricted access to unit locations")]
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
         self.map.unit_loc(id)
     }
@@ -868,16 +931,19 @@ impl Game {
     }
 
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
+        let orders = Orders::Sentry;
+
         self.unit_by_id_mut(unit_id)
-            .map(|unit| {
-                unit.orders = Some(Orders::Sentry);
-                OrdersOutcome::completed_without_move()
+            .map(|unit| {        
+                unit.orders = Some(orders);
+                OrdersOutcome::completed_without_move(unit_id, orders)
             })
-            .ok_or(OrdersError::OrderedUnitDoesNotExist{id: unit_id})
+            .ok_or(OrdersError::OrderedUnitDoesNotExist{id: unit_id, orders})
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.set_orders(unit_id, Some(Orders::Skip)).map(|_| OrdersOutcome::in_progress_without_move())
+        let orders = Orders::Skip;
+        self.set_orders(unit_id, Some(orders)).map(|_| OrdersOutcome::in_progress_without_move(unit_id, orders))
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
@@ -923,7 +989,7 @@ impl Game {
             unit.orders = orders;
             Ok(())
         } else {
-            Err(OrdersError::OrderedUnitDoesNotExist{id:unit_id})
+            Err(OrdersError::OrderedUnitDoesNotExist{id:unit_id, orders: orders.unwrap()})
             // Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
         }
     }
@@ -1011,7 +1077,6 @@ mod test {
             },
             unit::{UnitID,UnitType},
         },
-        log::{DefaultLog,LogTarget},
         name::unit_namer,
         util::{Dims,Location},
     };
@@ -1038,45 +1103,44 @@ mod test {
         map
     }
 
-    fn game1<L:LogTarget>(log: &mut L) -> Game {
+    fn game1() -> Game {
         let players = 2;
         let fog_of_war = true;
 
         let map = map1();
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, unit_namer, log)
+        Game::new_with_map(map, players, fog_of_war, unit_namer)
     }
 
     #[test]
     fn test_game() {
-        let mut log = DefaultLog;
-        let mut game = game1(&mut log);
+        let mut game = game1();
 
         let loc: Location = game.production_set_requests().next().unwrap();
 
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn(&mut log).unwrap().current_player;
+        let player = game.end_turn().unwrap().current_player;
         assert_eq!(player, 1);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         println!("Setting production at {:?} to infantry", loc);
         game.set_production(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn(&mut log).unwrap().current_player;
+        let player = game.end_turn().unwrap().current_player;
         assert_eq!(player, 0);
 
 
         for _ in 0..5 {
-            let player = game.end_turn(&mut log).unwrap().current_player;
+            let player = game.end_turn().unwrap().current_player;
             assert_eq!(player, 1);
-            let player = game.end_turn(&mut log).unwrap().current_player;
+            let player = game.end_turn().unwrap().current_player;
             assert_eq!(player, 0);
         }
 
-        assert_eq!(game.end_turn(&mut log), Err(0));
-        assert_eq!(game.end_turn(&mut log), Err(0));
+        assert_eq!(game.end_turn(), Err(0));
+        assert_eq!(game.end_turn(), Err(0));
 
         for player in 0..2 {
             assert_eq!(game.unit_orders_requests().count(), 1);
@@ -1101,7 +1165,7 @@ mod test {
             // }
             // let move_result = game.move_unit_by_loc(loc, new_loc)
             // assert!(game.move_unit_by_loc(loc, new_loc).is_ok());
-            let result = game.end_turn(&mut log);
+            let result = game.end_turn();
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1-player);
         }
@@ -1127,34 +1191,34 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut log = DefaultLog;
-        let mut game = Game::new_with_map(map, 2, false, unit_namer(), &mut log);
+        let mut game = Game::new_with_map(map, 2, false, unit_namer());
+        assert_eq!(game.current_player, 0);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Armor), Ok(()));
 
-        let result = game.end_turn(&mut log);
+        let result = game.end_turn();
         assert!(result.is_ok());
         assert_eq!(result.unwrap().current_player, 1);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         assert_eq!(game.set_production(loc, UnitType::Carrier), Ok(()));
 
-        let result = game.end_turn(&mut log);
+        let result = game.end_turn();
         assert!(result.is_ok());
         assert_eq!(result.unwrap().current_player, 0);
 
 
         for _ in 0..11 {
-            let result = game.end_turn(&mut log);
+            let result = game.end_turn();
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1);
 
-            let result = game.end_turn(&mut log);
+            let result = game.end_turn();
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 0);
         }
-        assert_eq!(game.end_turn(&mut log), Err(0));
+        assert_eq!(game.end_turn(), Err(0));
 
         // Move the armor unit to the right until it attacks the opposing city
         for round in 0..3 {
@@ -1190,11 +1254,11 @@ mod test {
                 }
             }
 
-            let result = game.end_turn(&mut log);
+            let result = game.end_turn();
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1);
 
-            let result = game.end_turn(&mut log);
+            let result = game.end_turn();
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 0);
         }
@@ -1213,8 +1277,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut log = DefaultLog;
-        let mut game = Game::new_with_map(map, 1, false, unit_namer(), &mut log);
+        let mut game = Game::new_with_map(map, 1, false, unit_namer());
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc(), infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));

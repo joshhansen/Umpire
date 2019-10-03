@@ -16,7 +16,10 @@ use crossterm::{
 use crate::{
     color::{Colors,Palette},
     game::Game,
-    log::{Message},
+    log::{
+        LogTarget,
+        Message,
+    },
     ui::{
         Component,
         Draw,
@@ -43,36 +46,35 @@ impl LogArea {
     fn max_messages(&self) -> u16 {
         self.rect.height - 1
     }
+}
 
-    pub fn log(&mut self, message: Message) {
+impl LogTarget for LogArea {
+    fn log_message<M>(&mut self, message: M) where Message:From<M> {
         // if message.source == Some(MessageSource::Game) {
         //     return;
         // }
-        self.messages.push_back(message);
+        self.messages.push_back(message.into());
         if self.messages.len() > self.max_messages() as usize {
             self.messages.pop_front();
         }
     }
 
-    pub fn replace(&mut self, message: Message) {
+    fn replace_message<M>(&mut self, message: M) where Message:From<M> {
         // if let Some(item) = self.messages.back_mut() {
         //     *item = message;
         //     return;// TODO maybe when non-lexical lifetimes arrive we can get rid of this awkward return construct
         // }
         // self.log(message);
         if let Some(item) = self.messages.back_mut() {
-            *item = message;
+            *item = message.into();
         } else {
-            self.log(message);
+            self.log_message(message);
         }
     }
+}
 
-    pub fn draw_lite(&self, stdout: &mut Stdout, palette: &Palette) {
-        self.draw_lite_no_flush(stdout, palette);
-        stdout.flush().unwrap();
-    }
-
-    pub fn draw_lite_no_flush(&self, stdout: &mut Stdout, palette: &Palette) {
+impl Draw for LogArea {
+    fn draw_no_flush(&mut self, _game: &Game, stdout: &mut Stdout, palette: &Palette) {
         // write!(*stdout,
         //     "{}{}Message Log{}",
         //     self.goto(0, 0),
@@ -117,16 +119,6 @@ impl LogArea {
                 Output(text)
             ).unwrap();
         }
-    }
-}
-
-impl Draw for LogArea {
-    fn draw(&mut self, _game: &Game, stdout: &mut Stdout, palette: &Palette) {
-        self.draw_lite(stdout, palette);
-    }
-
-    fn draw_no_flush(&mut self, _game: &Game, stdout: &mut Stdout, palette: &Palette) {
-        self.draw_lite_no_flush(stdout, palette);
     }
 }
 

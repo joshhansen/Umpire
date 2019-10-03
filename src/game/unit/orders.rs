@@ -45,24 +45,26 @@ pub enum OrdersStatus {
 
 #[derive(Debug,PartialEq)]
 pub struct OrdersOutcome {
+    pub ordered_unit_id: UnitID,
+    pub orders: Orders,
     pub move_result: Option<Move>,
     pub status: OrdersStatus,
 }
 impl OrdersOutcome {
-    pub fn completed_without_move() -> Self {
-        Self { move_result: None, status: OrdersStatus::Completed }
+    pub fn completed_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
+        Self { ordered_unit_id, orders, move_result: None, status: OrdersStatus::Completed }
     }
 
-    pub fn in_progress_without_move() -> Self {
-        Self { move_result: None, status: OrdersStatus::InProgress }
+    pub fn in_progress_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
+        Self { ordered_unit_id, orders, move_result: None, status: OrdersStatus::InProgress }
     }
 
-    pub fn in_progress_with_move(move_result: Move) -> Self {
-        Self { move_result: Some(move_result), status: OrdersStatus::InProgress }
+    pub fn in_progress_with_move(ordered_unit_id: UnitID, orders: Orders, move_result: Move) -> Self {
+        Self { ordered_unit_id, orders, move_result: Some(move_result), status: OrdersStatus::InProgress }
     }
 
-    pub fn completed_with_move(move_result: Move) -> Self {
-        Self { move_result: Some(move_result), status: OrdersStatus::Completed }
+    pub fn completed_with_move(ordered_unit_id: UnitID, orders: Orders, move_result: Move) -> Self {
+        Self { ordered_unit_id, orders, move_result: Some(move_result), status: OrdersStatus::Completed }
     }
 
     pub fn move_result(&self) -> Option<&Move> {
@@ -79,6 +81,7 @@ pub enum OrdersError {
     #[fail(display="Ordered unit with ID {:?} doesn't exist", id)]
     OrderedUnitDoesNotExist {
         id: UnitID,
+        orders: Orders,
     },
 
     // #[fail(display="Cannot order unit with ID {:?} to go to {} because the destination is out of the bounds {}", id, dest, map_dims)]
@@ -88,8 +91,12 @@ pub enum OrdersError {
     //     map_dims: Dims,
     // },
 
-    #[fail(display="Orders failed due to a problem moving the unit: {:?}", 0)]
-    MoveError(MoveError),
+    #[fail(display="Orders to unit with ID {:?} failed due to problem moving the unit: {}", id, move_error)]
+    MoveError {
+        id: UnitID,
+        orders: Orders,
+        move_error: MoveError,
+    }
 }
 
 // type GoToResult = Result<(MoveResult,OrdersStatus),String>;
@@ -98,7 +105,6 @@ pub enum OrdersError {
 
 // type OrdersResult = Result<OrdersStatus,String>;
 pub type OrdersResult = Result<OrdersOutcome,OrdersError>;
-
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum Orders {
@@ -112,18 +118,18 @@ impl Orders {
     pub fn carry_out(self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
         match self {
             Orders::Skip => {
-                game.set_orders(unit_id, None).map(|_| OrdersOutcome::completed_without_move())
+                game.set_orders(unit_id, None).map(|_| OrdersOutcome::completed_without_move(unit_id, self))
             },
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
-                Ok(OrdersOutcome::in_progress_without_move())
+                Ok(OrdersOutcome::in_progress_without_move(unit_id, self))
 
             },
             Orders::GoTo{dest} => {
-                go_to(game, unit_id, dest)
+                go_to(self, game, unit_id, dest)
             },
             Orders::Explore => {
-                explore(game, unit_id)
+                explore(self, game, unit_id)
             }
         }
     }
@@ -163,7 +169,7 @@ www
 
 
 */
-pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
+pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
     // // Shortest paths emanating from the starting location, considering only observed tiles
     // let shortest_paths_observed = shortest_paths_unit_limited(game, starting_loc,
     //                                             game.unit(starting_loc).unwrap(), game.wrapping());
@@ -183,7 +189,7 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
         let unit = game.unit_by_id_mut(unit_id).expect("Somehow the unit disappeared during exploration").clone();
 
         if unit.moves_remaining() == 0 {
-            return Ok(OrdersOutcome::in_progress_with_move(Move::new(unit, starting_loc, moves).unwrap()));
+            return Ok(OrdersOutcome::in_progress_with_move(unit_id, orders, Move::new(unit, starting_loc, moves).unwrap()));
         }
 
         if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(game, current_loc, &unit, game.wrapping()) {
@@ -201,7 +207,7 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
             }
 
             let mut move_result = game.move_unit_by_id_avoiding_combat(unit_id, goal)
-                                  .map_err(OrdersError::MoveError)?;
+                                  .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
             // match move_result {
             //     Ok(mut move_result) => {
@@ -230,6 +236,8 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
             // game.give_orders(unit_id, None, ui, false).unwrap();
             return game.set_orders(unit_id, None)
                 .map(|_| OrdersOutcome::completed_with_move(
+                    unit_id,
+                    orders,
                     Move::new(unit, starting_loc, moves).unwrap()
                 )
             );
@@ -250,12 +258,12 @@ pub fn explore(game: &mut Game, unit_id: UnitID) -> OrdersResult {
 /// So, in all cases, the right thing to do is to go to the observed, accessible tile nearest the
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
-pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
+pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
     if !game.dims().in_bounds(dest) {
-        return Err(OrdersError::MoveError(MoveError::DestinationOutOfBounds {
+        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {
             dest,
             bounds: game.dims(),
-        }));
+        }});
     }
 
     // ui.log_message(format!("Destination 1: {}", dest));
@@ -330,23 +338,18 @@ pub fn go_to(game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
                 OrdersStatus::InProgress
             };
 
-            // let status = if move_result.moved_successfully() && move_result.unit().moves_remaining > 0 {
-            //     // game.give_orders(unit_id, None, ui, false).unwrap();
-            //     game.set_orders(unit_id, None).unwrap();
-            //     // Ok(OrdersStatus::Completed)
-            //     OrdersStatus::Completed
-                
-            // } else {
-            //     // Ok(OrdersStatus::InProgress)
-            //     OrdersStatus::InProgress
-            // };
-
             OrdersOutcome {
+                ordered_unit_id: unit_id,
+                orders,
                 move_result: Some(move_result),
                 status
             }
         })
-        .map_err(OrdersError::MoveError)
+        .map_err(|err| OrdersError::MoveError {
+            id: unit_id,
+            orders,
+            move_error: err,
+        })
 }
 
 #[cfg(test)]
@@ -358,7 +361,10 @@ mod test {
             Game,
             MoveError,
             map::MapData,
-            unit::orders::OrdersError,
+            unit::orders::{
+                Orders,
+                OrdersError
+            },
         },
         log::DefaultLog,
         name::unit_namer,
@@ -369,20 +375,21 @@ mod test {
 
     #[test]
     fn test_go_to() {
-        let mut log = DefaultLog;
         let map = MapData::try_from("i----------").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, unit_namer(), &mut log);
+        let mut game = Game::new_with_map(map, 1, false, unit_namer());
         
         let id = game.toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
-        let result1 = game.order_unit_go_to(id, Location{x:0,y:0});
-        assert_eq!(result1, Err(OrdersError::MoveError(MoveError::ZeroLengthMove)));
+
+        let dest = Location{x: 0, y: 0};
+        let result1 = game.order_unit_go_to(id, dest);
+        assert_eq!(result1, Err(OrdersError::MoveError{id, orders: Orders::GoTo{dest}, move_error: MoveError::ZeroLengthMove}));
 
         let dest2 = Location{x: 255, y: 255};
         let result2 = game.order_unit_go_to(id, dest2);
-        assert_eq!(result2, Err(OrdersError::MoveError(MoveError::DestinationOutOfBounds{
+        assert_eq!(result2, Err(OrdersError::MoveError{id, orders: Orders::GoTo{dest:dest2}, move_error: MoveError::DestinationOutOfBounds{
             dest: dest2,
             bounds: game.dims(),
-        })));
+        }}));
 
         let dest3 = Location{x:5, y:0};
         let result3 = game.order_unit_go_to(id, dest3);
@@ -391,8 +398,7 @@ mod test {
 
         // Wait while the go-to order is carried out
         while game.unit_orders_requests().next().is_none() {
-            let result = game.end_turn(&mut log).unwrap();
-            assert_eq!(result.prev_player, 0);
+            let result = game.end_turn().unwrap();
             assert_eq!(result.current_player, 0);
 
             match result.carried_out_orders.len() {

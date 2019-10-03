@@ -493,6 +493,7 @@ impl MapData {
         }
     }
 
+    /// All cities belonging to the player `player`
     pub fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
         self.cities().filter(move |city| city.belongs_to_player(player))
     }

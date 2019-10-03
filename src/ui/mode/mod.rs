@@ -19,8 +19,6 @@ use crate::{
 };
 
 use self::{
-    carry_out_orders::CarryOutOrdersMode,
-    carry_out_unit_orders::CarryOutUnitOrdersMode,
     examine::ExamineMode,
     get_orders::GetOrdersMode,
     get_unit_orders::GetUnitOrdersMode,
@@ -41,8 +39,6 @@ pub(in crate::ui) enum Mode {
     SetProduction{city_loc:Location},
     GetOrders,
     GetUnitOrders{unit_id:UnitID, first_move:bool},
-    CarryOutOrders,
-    CarryOutUnitOrders{unit_id:UnitID},
     Quit,
     Examine{
         cursor_viewport_loc:Location,
@@ -69,12 +65,6 @@ impl Mode {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims);
                 GetUnitOrdersMode{rect, unit_id, first_move}.run(game, ui, self, prev_mode)
-            },
-            Mode::CarryOutOrders =>     CarryOutOrdersMode{}.run(game, ui, self, prev_mode),
-            Mode::CarryOutUnitOrders{unit_id} => {
-                let viewport_rect = ui.viewport_rect();
-                let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                CarryOutUnitOrdersMode{rect, unit_id}.run(game, ui, self, prev_mode)
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
             Mode::Examine{cursor_viewport_loc, first, most_recently_active_unit_id} =>
@@ -194,8 +184,6 @@ fn cols<S1:ToString,S2:ToString>(s1: S1, s2: S2) -> String {
     c
 }
 
-mod carry_out_orders;
-mod carry_out_unit_orders;
 mod examine;
 mod get_orders;
 mod get_unit_orders;

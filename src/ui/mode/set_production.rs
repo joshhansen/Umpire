@@ -99,7 +99,7 @@ impl IMode for SetProductionMode {
                             game.set_production(self.loc, unit_type).unwrap();
 
                             let city = &game.city_by_loc(self.loc).unwrap();
-                            ui.replace_message(Message {
+                            ui.log_message(Message {
                                 text: format!("Set {}'s production to {}", city.short_desc(), unit_type),
                                 mark: Some('·'),
                                 bg_color: None,

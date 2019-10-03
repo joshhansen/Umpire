@@ -190,10 +190,11 @@ pub struct DefaultUI;
 
 impl LogTarget for DefaultUI {
     fn log_message<T>(&mut self, _message: T) where Message:From<T> {
-        // println!("{}", Message::from(message).text);
+        // do nothing
     }
+
     fn replace_message<T>(&mut self, _message: T) where Message:From<T> {
-        // println!("\r{}", Message::from(message).text);
+        // do nothing
     }
 }
 
@@ -474,7 +475,7 @@ impl TermUI {
             self.first_draw = false;
         }
 
-        self.log.draw_lite_no_flush(&mut self.stdout, &self.palette);
+        self.log.draw_no_flush(game, &mut self.stdout, &self.palette);
         self.current_player.draw_no_flush(game, &mut self.stdout, &self.palette);
         self.map_scroller.draw_no_flush(game, &mut self.stdout, &self.palette);
         self.turn.draw_no_flush(game, &mut self.stdout, &self.palette);
@@ -597,13 +598,11 @@ impl TermUI {
 
 impl LogTarget for TermUI {
     fn log_message<T>(&mut self, message: T) where Message:From<T> {
-        self.log.log(Message::from(message));
-        self.log.draw_lite(&mut self.stdout, &self.palette);
+        self.log.log_message(message);
     }
 
     fn replace_message<T>(&mut self, message: T) where Message:From<T> {
-        self.log.replace(Message::from(message));
-        self.log.draw_lite(&mut self.stdout, &self.palette);
+        self.log.replace_message(message);
     }
 }
 
@@ -652,6 +651,8 @@ impl MoveAnimator for TermUI {
             current_loc = target_loc;
 
             self.stdout.flush().unwrap();
+
+            sleep_millis(40);
         }
 
         if move_result.unit().moves_remaining() == 0 {
