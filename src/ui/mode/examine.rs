@@ -19,7 +19,7 @@ use crate::{
         MoveAnimator,
         TermUI,
     },
-    util::{Direction,Location,WRAP_NEITHER},
+    util::{Direction,Location,Wrap2d},
 };
 
 use super::{
@@ -141,7 +141,7 @@ impl IMode for ExamineMode {
                 } else if let KeyEvent::Char(c) = key {
                     if let Ok(dir) = Direction::try_from(c) {
 
-                        if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), WRAP_NEITHER) {
+                        if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), Wrap2d::NEITHER) {
                             let viewport_rect = ui.viewport_rect();
                             if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
                                 *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false, most_recently_active_unit_id: self.most_recently_active_unit_id};

@@ -15,7 +15,7 @@ use crate::{
         PlayerNum,
     },
     name::{ListNamer,Namer},
-    util::{Dims,Location,WRAP_NEITHER},
+    util::{Dims,Location,Wrap2d},
 };
 
 use super::{
@@ -27,11 +27,11 @@ use super::{
 
 
 fn land_cardinal_neighbors<T:Source<Tile>>(tiles: &T, loc: Location) -> u16 {
-    neighbors(tiles, loc, RELATIVE_NEIGHBORS_CARDINAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
+    neighbors(tiles, loc, RELATIVE_NEIGHBORS_CARDINAL.iter(), &TerrainFilter{terrain: Terrain::Land}, Wrap2d::NEITHER).len() as u16
 }
 
 fn land_diagonal_neighbors<T:Source<Tile>>(tiles: &T, loc: Location) -> u16 {
-    neighbors(tiles, loc, RELATIVE_NEIGHBORS_DIAGONAL.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
+    neighbors(tiles, loc, RELATIVE_NEIGHBORS_DIAGONAL.iter(), &TerrainFilter{terrain: Terrain::Land}, Wrap2d::NEITHER).len() as u16
 }
 
 // fn land_neighbors<T:TileSource>(tiles: &T, loc: Location) -> u16 {

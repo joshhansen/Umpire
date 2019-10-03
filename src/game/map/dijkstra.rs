@@ -438,7 +438,7 @@ mod test {
             unit::{UnitID,Unit,UnitType},
         },
         
-        util::{Location,Wrap2d,WRAP_BOTH,WRAP_HORIZ,WRAP_VERT,WRAP_NEITHER},
+        util::{Location,Wrap2d},
     };
     
     fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
@@ -453,7 +453,7 @@ mod test {
 
         let loc = Location{x:0, y:2};
 
-        let neighbs_both = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_BOTH);
+        let neighbs_both = neighbors_terrain_only(&map, loc, UnitType::Infantry, Wrap2d::BOTH);
         assert!(neighbs_both.contains(&Location{x:0, y:0}));
         assert!(neighbs_both.contains(&Location{x:0, y:1}));
         assert!(neighbs_both.contains(&Location{x:1, y:0}));
@@ -462,7 +462,7 @@ mod test {
         assert!(neighbs_both.contains(&Location{x:2, y:1}));
         assert!(neighbs_both.contains(&Location{x:2, y:2}));
 
-        let neighbs_horiz = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_HORIZ);
+        let neighbs_horiz = neighbors_terrain_only(&map, loc, UnitType::Infantry, Wrap2d::HORIZ);
         assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
         assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
         assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
@@ -471,7 +471,7 @@ mod test {
         assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
         assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
 
-        let neighbs_vert = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_VERT);
+        let neighbs_vert = neighbors_terrain_only(&map, loc, UnitType::Infantry, Wrap2d::VERT);
         assert!( neighbs_vert.contains(&Location{x:0, y:0}));
         assert!( neighbs_vert.contains(&Location{x:0, y:1}));
         assert!( neighbs_vert.contains(&Location{x:1, y:0}));
@@ -480,7 +480,7 @@ mod test {
         assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
         assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
 
-        let neighbs_neither = neighbors_terrain_only(&map, loc, UnitType::Infantry, WRAP_NEITHER);
+        let neighbs_neither = neighbors_terrain_only(&map, loc, UnitType::Infantry, Wrap2d::NEITHER);
         assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
         assert!( neighbs_neither.contains(&Location{x:0, y:1}));
         assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
@@ -498,7 +498,7 @@ mod test {
 
         let loc = Location{x:0, y:2};
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
-        let neighbs_both = neighbors_all_unit(&map, loc, &infantry, WRAP_BOTH);
+        let neighbs_both = neighbors_all_unit(&map, loc, &infantry, Wrap2d::BOTH);
         assert!(neighbs_both.contains(&Location{x:0, y:0}));
         assert!(neighbs_both.contains(&Location{x:0, y:1}));
         assert!(neighbs_both.contains(&Location{x:1, y:0}));
@@ -507,7 +507,7 @@ mod test {
         assert!(neighbs_both.contains(&Location{x:2, y:1}));
         assert!(neighbs_both.contains(&Location{x:2, y:2}));
 
-        let neighbs_horiz = neighbors_all_unit(&map, loc, &infantry, WRAP_HORIZ);
+        let neighbs_horiz = neighbors_all_unit(&map, loc, &infantry, Wrap2d::HORIZ);
         assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
         assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
         assert!(!neighbs_horiz.contains(&Location{x:1, y:0}));
@@ -516,7 +516,7 @@ mod test {
         assert!( neighbs_horiz.contains(&Location{x:2, y:1}));
         assert!( neighbs_horiz.contains(&Location{x:2, y:2}));
 
-        let neighbs_vert = neighbors_all_unit(&map, loc, &infantry, WRAP_VERT);
+        let neighbs_vert = neighbors_all_unit(&map, loc, &infantry, Wrap2d::VERT);
         assert!( neighbs_vert.contains(&Location{x:0, y:0}));
         assert!( neighbs_vert.contains(&Location{x:0, y:1}));
         assert!( neighbs_vert.contains(&Location{x:1, y:0}));
@@ -525,7 +525,7 @@ mod test {
         assert!(!neighbs_vert.contains(&Location{x:2, y:1}));
         assert!(!neighbs_vert.contains(&Location{x:2, y:2}));
 
-        let neighbs_neither = neighbors_all_unit(&map, loc, &infantry, WRAP_NEITHER);
+        let neighbs_neither = neighbors_all_unit(&map, loc, &infantry, Wrap2d::NEITHER);
         assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
         assert!( neighbs_neither.contains(&Location{x:0, y:1}));
         assert!(!neighbs_neither.contains(&Location{x:1, y:0}));
@@ -549,7 +549,7 @@ mod test {
         let loc = Location{x:0, y:2};
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Irving Harrison");
         {
-            let neighbs_both = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_BOTH);
+            let neighbs_both = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), Wrap2d::BOTH);
             assert!( neighbs_both.contains(&Location{x:0, y:0}));
             assert!( neighbs_both.contains(&Location{x:0, y:1}));
             assert!(!neighbs_both.contains(&Location{x:0, y:2}));
@@ -562,7 +562,7 @@ mod test {
         }
 
         {
-            let neighbs_horiz = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_HORIZ);
+            let neighbs_horiz = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), Wrap2d::HORIZ);
             assert!(!neighbs_horiz.contains(&Location{x:0, y:0}));
             assert!( neighbs_horiz.contains(&Location{x:0, y:1}));
             assert!(!neighbs_horiz.contains(&Location{x:0, y:2}));
@@ -575,7 +575,7 @@ mod test {
         }
 
         {
-            let neighbs_vert = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_VERT);
+            let neighbs_vert = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), Wrap2d::VERT);
             assert!( neighbs_vert.contains(&Location{x:0, y:0}));
             assert!( neighbs_vert.contains(&Location{x:0, y:1}));
             assert!(!neighbs_vert.contains(&Location{x:0, y:2}));
@@ -588,7 +588,7 @@ mod test {
         }
 
         {
-            let neighbs_neither = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), WRAP_NEITHER);
+            let neighbs_neither = neighbors(&map, loc, RELATIVE_NEIGHBORS.iter(), &Xenophile::new(UnitMovementFilter::new(&infantry)), Wrap2d::NEITHER);
             assert!(!neighbs_neither.contains(&Location{x:0, y:0}));
             assert!( neighbs_neither.contains(&Location{x:0, y:1}));
             assert!(!neighbs_neither.contains(&Location{x:0, y:2}));
@@ -611,7 +611,7 @@ mod test {
 
         let loc = Location{x:0, y:0};
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
-        let shortest_neither = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_NEITHER);
+        let shortest_neither = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::NEITHER);
         println!("{:?}", shortest_neither);
         assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
@@ -626,7 +626,7 @@ mod test {
         assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(3));
 
 
-        let shortest_horiz = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_HORIZ);
+        let shortest_horiz = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::HORIZ);
         println!("{:?}", shortest_horiz);
         assert_eq!(shortest_horiz.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], Some(1));
@@ -640,7 +640,7 @@ mod test {
         assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], Some(2));
         assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], Some(2));
 
-        let shortest_vert = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_VERT);
+        let shortest_vert = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::VERT);
         assert_eq!(shortest_vert.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_vert.dist[Location{x:1, y:0}], Some(1));
         assert_eq!(shortest_vert.dist[Location{x:2, y:0}], Some(2));
@@ -653,7 +653,7 @@ mod test {
         assert_eq!(shortest_vert.dist[Location{x:1, y:2}], Some(1));
         assert_eq!(shortest_vert.dist[Location{x:2, y:2}], Some(2));
 
-        let shortest_both = old_shortest_paths_for_unit(&map, loc, &infantry, WRAP_BOTH);
+        let shortest_both = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::BOTH);
         assert_eq!(shortest_both.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_both.dist[Location{x:1, y:0}], Some(1));
         assert_eq!(shortest_both.dist[Location{x:2, y:0}], Some(1));
@@ -682,7 +682,7 @@ mod test {
             &map,
             loc,
             &Xenophile::new(UnitMovementFilter::new(&infantry)),
-            WRAP_NEITHER);
+            Wrap2d::NEITHER);
 
         assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
         assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));

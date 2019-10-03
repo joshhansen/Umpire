@@ -95,7 +95,7 @@ mod test {
             obs::{Obs,Observer,ObsTracker},
             unit::{UnitID,Unit,UnitType},
         },
-        util::{Dims,Location,WRAP_BOTH},
+        util::{Dims,Location,Wrap2d},
     };
     
     #[test]
@@ -116,6 +116,6 @@ mod test {
         assert_eq!(*tracker.get(loc), Obs::Observed{tile: tile, turn: turn, current: true});
 
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "George Glover");
-        infantry.observe(loc, &map, turn, WRAP_BOTH, &mut tracker);
+        infantry.observe(loc, &map, turn, Wrap2d::BOTH, &mut tracker);
     }
 }

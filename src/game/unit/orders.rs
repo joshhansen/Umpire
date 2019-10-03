@@ -279,7 +279,10 @@ mod test {
             },
         },
         name::unit_namer,
-        util::Location,
+        util::{
+            Location,
+            Wrap2d,
+        },
     };
 
     use super::OrdersStatus;
@@ -287,7 +290,7 @@ mod test {
     #[test]
     fn test_go_to() {
         let map = MapData::try_from("i----------").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, unit_namer());
+        let mut game = Game::new_with_map(map, 1, false, unit_namer(), Wrap2d::BOTH);
         
         let id = game.toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
 

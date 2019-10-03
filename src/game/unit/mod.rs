@@ -439,7 +439,7 @@ mod test {
             obs::{Obs,ObsTracker},
             unit::{Alignment,Observer,UnitID,Unit,UnitType},
         },
-        util::{Dims,Location,WRAP_BOTH},
+        util::{Dims,Location,Wrap2d},
     };
 
 
@@ -478,7 +478,7 @@ x   o    x";
 
                 let turn = 0;
 
-                infantry.observe(infantry_loc, &map, turn, WRAP_BOTH, &mut obs_tracker);
+                infantry.observe(infantry_loc, &map, turn, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr = [
                     Location{x:4, y:0},
@@ -514,7 +514,7 @@ x   o    x";
                 */
                 let infantry_loc_2 = Location{x:5, y:2};
 
-                infantry.observe(infantry_loc_2, &map, turn, WRAP_BOTH, &mut obs_tracker);
+                infantry.observe(infantry_loc_2, &map, turn, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr_2 = [
                     Location{x:5, y:0},

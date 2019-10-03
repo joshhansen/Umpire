@@ -74,7 +74,11 @@ use crate::{
     color::{Palette, palette16, palette256, palette24},
     game::{Game,PlayerNum},
     name::{city_namer,unit_namer},
-    util::Dims,
+    util::{
+        Dims,
+        Wrap,
+        Wrap2d,
+    },
 };
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
@@ -195,6 +199,19 @@ fn main() {
                 width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))
             })
         )
+        .arg(Arg::with_name("wrapping")
+            .short("w")
+            .long("wrapping")
+            .help("Whether to wrap horizontally ('h'), vertically ('v'), both ('b'), or neither ('n')")
+            .takes_value(true)
+            .default_value("b")
+            .validator(|s| {
+                match s.as_ref() {
+                    "h" | "v" | "b" | "n" => Ok(()),
+                    x => Err(format!("{} is not a supported wrapping type", x))
+                }
+            })
+        )
     .get_matches();
 
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
@@ -208,6 +225,13 @@ fn main() {
     let quiet: bool = matches.is_present("quiet");
     let nosplash: bool = matches.is_present("nosplash");
     let confirm_turn_end: bool = matches.is_present("confirm_turn_end");
+    let wrapping: Wrap2d = match matches.value_of("wrapping").unwrap().as_ref() {
+        "h" => Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::NonWrapping},
+        "v" => Wrap2d{horiz: Wrap::NonWrapping, vert: Wrap::Wrapping},
+        "b" => Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
+        "n" => Wrap2d{horiz: Wrap::NonWrapping, vert: Wrap::NonWrapping},
+        _ => unreachable!(),
+    };
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if map_dims.area() < u32::from(num_players) {
@@ -224,7 +248,7 @@ fn main() {
     let city_namer = city_namer();
     let unit_namer = unit_namer();
 
-    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer);
+    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, wrapping);
 
     if !nosplash {
         let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();

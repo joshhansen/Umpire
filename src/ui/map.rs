@@ -61,7 +61,10 @@ map_width: 10
 */
 fn map_to_viewport_coord(map_coord: u16, viewport_offset: u16, viewport_width: u16, map_dimension_width: u16) -> Result<Option<u16>,String> {
     if viewport_width > map_dimension_width {
-        return Err(String::from("Viewport width is larger than map width"));
+        return Err(format!("Viewport width {} is larger than map dimension width {}; map_coord={}, viewport_offset={}",
+            viewport_width, map_dimension_width, map_coord, viewport_offset
+        ));
+        // return Err(String::from("Viewport width is larger than map width"));
     }
 
     if map_coord >= map_dimension_width {

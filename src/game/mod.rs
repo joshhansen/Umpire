@@ -326,15 +326,17 @@ impl Game {
             city_namer: ListNamer,
             num_players: PlayerNum,
             fog_of_war: bool,
-            unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>) -> Self {
+            unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+            wrapping: Wrap2d) -> Self {
 
         let mut map_generator = MapGenerator::new(city_namer);
         let map = map_generator.generate(map_dims, num_players);
-        Game::new_with_map(map, num_players, fog_of_war, unit_namer)
+        Game::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 
     pub(crate) fn new_with_map(map: MapData, num_players: PlayerNum,
-            fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>) -> Self {
+            fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+            wrapping: Wrap2d) -> Self {
 
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
@@ -359,7 +361,7 @@ impl Game {
             turn: 0,
             num_players,
             current_player: 0,
-            wrapping: Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
+            wrapping: wrapping,
             unit_namer,
             fog_of_war,
         };
@@ -427,32 +429,15 @@ impl Game {
                         id: new_unit_id,
                         loc: city_loc,
                     }
-                    
-                    // log.log_message(format!("{} produced {}", city_desc, new_unit.medium_desc()));
                 },
                 Err(err) => match err {
                     NewUnitError::OutOfBounds{ loc, dims } => {
                         panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims))
                     },
                     NewUnitError::UnitAlreadyPresent{ prior_unit, loc, unit_type_under_production } => {
-
-                        // let producing_city_id = self.map.city_by_loc_mut(city_loc).unwrap().id;
-
                         UnitProductionOutcome::UnitAlreadyPresent {
                             prior_unit, loc, unit_type_under_production
                         }
-                        // log.log_message(Message {
-                        //     text: format!(
-                        //         "{} would have produced {} but {} was already garrisoned",
-                        //         city_desc,
-                        //         unit_under_production,
-                        //         prior_unit
-                        //     ),
-                        //     mark: None,
-                        //     fg_color: Some(Colors::Notice),
-                        //     bg_color: None,
-                        //     source: Some(MessageSource::Game)
-                        // });
                     }
                 }
             }
@@ -1074,7 +1059,7 @@ mod test {
             unit::{UnitID,UnitType},
         },
         name::unit_namer,
-        util::{Dims,Location},
+        util::{Dims,Location,Wrap2d},
     };
 
     /// 10x10 grid of land only with two cities:
@@ -1105,7 +1090,7 @@ mod test {
 
         let map = map1();
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, unit_namer)
+        Game::new_with_map(map, players, fog_of_war, unit_namer, Wrap2d::BOTH)
     }
 
     #[test]
@@ -1187,7 +1172,7 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(map, 2, false, unit_namer());
+        let mut game = Game::new_with_map(map, 2, false, unit_namer(), Wrap2d::BOTH);
         assert_eq!(game.current_player, 0);
 
         let loc: Location = game.production_set_requests().next().unwrap();
@@ -1273,7 +1258,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, unit_namer());
+        let mut game = Game::new_with_map(map, 1, false, unit_namer(), Wrap2d::BOTH);
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc(), infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
