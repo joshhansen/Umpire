@@ -721,7 +721,7 @@ impl Game {
     }
 
     fn move_unit_by_loc_and_id_following_shortest_paths(&mut self, src: Location, id: UnitID, dest: Location, shortest_paths: ShortestPaths) -> MoveResult {
-        if !self.dims().in_bounds(dest) {
+        if !self.dims().contain(dest) {
             return Err(MoveError::DestinationOutOfBounds {
                 dest,
                 bounds: self.dims(),

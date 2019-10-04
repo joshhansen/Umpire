@@ -51,16 +51,11 @@ impl Dims {
         Self { width, height }
     }
 
-    #[deprecated(note="Use contains instead")]
-    pub fn in_bounds(self, loc: Location) -> bool {
-        self.contains(loc)
-    }
-
     /// Is the location `loc` contained within these dimensions?
     /// 
     /// More specifically, if these dimensions are taken to define a rectangle with one corner at the origin (0,0),
     /// then is the cartesian point represented by location `loc` contained by that rectangle?
-    pub fn contains(self, loc: Location) -> bool {
+    pub fn contain(self, loc: Location) -> bool {
         loc.x < self.width && loc.y < self.height
     }
 

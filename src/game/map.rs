@@ -153,7 +153,7 @@ impl MapData {
     }
 
     fn in_bounds(&self, loc: Location) -> bool {
-        self.dims.in_bounds(loc)
+        self.dims.contain(loc)
     }
 
     pub fn terrain(&self, loc: Location) -> Option<&Terrain> {

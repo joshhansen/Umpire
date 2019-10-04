@@ -197,7 +197,7 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
 pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
-    if !game.dims().in_bounds(dest) {
+    if !game.dims().contain(dest) {
         return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {
             dest,
             bounds: game.dims(),
