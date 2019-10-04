@@ -79,14 +79,10 @@ impl TurnOverMode {
         }
         for production_outcome in turn_start.production_outcomes {
             match production_outcome {
-                UnitProductionOutcome::UnitProduced { loc, .. } => {
-                    let unit = game.toplevel_unit_by_loc(loc).unwrap();
-                    let city = game.city_by_loc(loc).unwrap();
-
+                UnitProductionOutcome::UnitProduced { unit, city } => {
                     ui.log_message(format!("{} produced {}", city.short_desc(), unit.medium_desc()));
                 },
-                UnitProductionOutcome::UnitAlreadyPresent { prior_unit, loc, unit_type_under_production } => {
-                    let city = game.city_by_loc(loc).unwrap();
+                UnitProductionOutcome::UnitAlreadyPresent { prior_unit, unit_type_under_production, city} => {
                     ui.log_message(Message {
                         text: format!(
                             "{} would have produced {} but {} was already garrisoned",

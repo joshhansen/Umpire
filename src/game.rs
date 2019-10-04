@@ -290,14 +290,22 @@ pub enum GameError {
 #[derive(Debug,PartialEq)]
 pub enum UnitProductionOutcome {
     UnitProduced {
-        id: UnitID,
-        loc: Location,
+        /// A copy of the unit that was produced
+        unit: Unit,
+
+        /// A copy of the city that did the producing
+        city: City,
     },
 
     UnitAlreadyPresent {
+        /// A copy of the unit that's already present
         prior_unit: Unit,
-        loc: Location,
+
+        /// The type of unit the city is trying to produce
         unit_type_under_production: UnitType,
+
+        /// A copy of the city that would have produced the unit if a unit weren't already present
+        city: City,
     }
 }
 
@@ -421,22 +429,28 @@ impl Game {
             let result = self.map.new_unit(city_loc, unit_under_production, city_alignment, name);
 
             match result {
-                Ok(new_unit_id) => {
+                Ok(_new_unit_id) => {
+                    // We know the unit will be at top-level because that's where freshly-minted units go
+                    
                     let city = self.map.city_by_loc_mut(city_loc).unwrap();
                     city.production_progress = 0;
 
+                    let city = city.clone();
+                    let unit = self.map.toplevel_unit_by_loc(city_loc).unwrap().clone();
+
                     UnitProductionOutcome::UnitProduced {
-                        id: new_unit_id,
-                        loc: city_loc,
+                        city, unit,
                     }
                 },
                 Err(err) => match err {
                     NewUnitError::OutOfBounds{ loc, dims } => {
                         panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims))
                     },
-                    NewUnitError::UnitAlreadyPresent{ prior_unit, loc, unit_type_under_production } => {
+                    NewUnitError::UnitAlreadyPresent{ prior_unit, unit_type_under_production, .. } => {
+                        let city = self.map.city_by_loc(city_loc).unwrap();
+
                         UnitProductionOutcome::UnitAlreadyPresent {
-                            prior_unit, loc, unit_type_under_production
+                            prior_unit, unit_type_under_production, city: city.clone(),
                         }
                     }
                 }
@@ -593,9 +607,8 @@ impl Game {
         self.player_observations[&self.current_player()].get(loc)
     }
 
-    #[deprecated(note="Gives unrestricted access to cities")]
-    pub fn city_by_loc(&self, loc: Location) -> Option<&City> {
-        self.map.city_by_loc(loc)
+    pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
+        self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
     }
 
     #[deprecated(note="Gives unrestricted access to top-level units")]
