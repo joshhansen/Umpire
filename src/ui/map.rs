@@ -345,57 +345,52 @@ impl Component for Map {
 
 impl Draw for Map {
     fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
-        let mut viewport_loc = Location{x: 0, y: 0};
-        for viewport_x in 0..self.rect.width {
-            viewport_loc.x = viewport_x;
-            for viewport_y in 0..self.rect.height {
-                viewport_loc.y = viewport_y;
+        
+        for viewport_loc in self.rect.dims().iter_locs() {
 
-                let should_draw_tile = {
-                    let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
-                    let new_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
+            let should_draw_tile = {
+                let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
+                let new_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
 
-                    let new_obs = game.current_player_obs(new_map_loc);
+                let new_obs = game.current_player_obs(new_map_loc);
 
-                    let old_currentness = self.displayed_tile_currentness[viewport_loc];
-                    let new_currentness = if let Obs::Observed{current,..} = new_obs {
-                        Some(*current)
-                    } else {
-                        None
-                    };
-
-                    
-
-                    let old_tile = self.displayed_tiles[viewport_loc].as_ref();
-                    let new_tile = &game.current_player_tile(new_map_loc);
-                    // let new_tile = &new_obs.tile;
-
-                    (old_currentness != new_currentness) ||
-                    (old_tile.is_some() && new_tile.is_none()) ||
-                    (old_tile.is_none() && new_tile.is_some()) ||
-                    (old_tile.is_some() && new_tile.is_some() && {
-                        let old = old_tile.unwrap();
-                        let new = new_tile.unwrap();
-                        let redraw_for_mismatch = !(
-                            old.terrain==new.terrain &&
-                            old.sym(self.unicode) == new.sym(self.unicode) &&
-                            old.alignment_maybe() == new.alignment_maybe()
-                        );
-                        redraw_for_mismatch
-                    }) || {
-                        let redraw_for_border =
-                        old_map_loc.y != new_map_loc.y && (
-                            old_map_loc.y == game.dims().height - 1 ||
-                            new_map_loc.y == game.dims().height - 1
-                        );
-                        redraw_for_border
-                    }
+                let old_currentness = self.displayed_tile_currentness[viewport_loc];
+                let new_currentness = if let Obs::Observed{current,..} = new_obs {
+                    Some(*current)
+                } else {
+                    None
                 };
 
-                if should_draw_tile {
-                    self.draw_tile_no_flush(game, stdout, viewport_loc, false, false, None);
-                }
+                
 
+                let old_tile = self.displayed_tiles[viewport_loc].as_ref();
+                let new_tile = &game.current_player_tile(new_map_loc);
+                // let new_tile = &new_obs.tile;
+
+                (old_currentness != new_currentness) ||
+                (old_tile.is_some() && new_tile.is_none()) ||
+                (old_tile.is_none() && new_tile.is_some()) ||
+                (old_tile.is_some() && new_tile.is_some() && {
+                    let old = old_tile.unwrap();
+                    let new = new_tile.unwrap();
+                    let redraw_for_mismatch = !(
+                        old.terrain==new.terrain &&
+                        old.sym(self.unicode) == new.sym(self.unicode) &&
+                        old.alignment_maybe() == new.alignment_maybe()
+                    );
+                    redraw_for_mismatch
+                }) || {
+                    let redraw_for_border =
+                    old_map_loc.y != new_map_loc.y && (
+                        old_map_loc.y == game.dims().height - 1 ||
+                        new_map_loc.y == game.dims().height - 1
+                    );
+                    redraw_for_border
+                }
+            };
+
+            if should_draw_tile {
+                self.draw_tile_no_flush(game, stdout, viewport_loc, false, false, None);
             }
         }
 
