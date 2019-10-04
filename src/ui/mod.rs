@@ -46,7 +46,7 @@ use crate::{
         obs::{Observer,visible_coords_iter},
     },
     log::{LogTarget,Message,MessageSource},
-    util::{Dims,Rect,Location,sleep_millis,wrapped_add}
+    util::{Dims,Rect,Location,sleep_millis}
 };
 
 use self::{
@@ -492,7 +492,7 @@ impl TermUI {
     fn draw_unit_observations(&mut self, game: &Game, unit_loc: Location, unit_sight_distance: u16) {
         // let unit = game.unit_by_loc(unit_loc).unwrap();
         for inc in visible_coords_iter(unit_sight_distance) {
-            if let Some(loc) = wrapped_add(unit_loc, inc, game.dims(), game.wrapping()) {
+            if let Some(loc) = game.wrapping().wrapped_add(game.dims(), unit_loc, inc) {
 
                 if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
                     self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, false, None);

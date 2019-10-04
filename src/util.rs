@@ -199,6 +199,33 @@ pub enum Wrap {
     NonWrapping
 }
 
+impl Wrap {
+    pub fn wrapped_add(self, dimension_width: u16, coord: u16, inc: i32) -> Option<u16> {
+        let dimension_width = i32::from(dimension_width);
+        let mut new_coord: i32 = i32::from(coord) + inc;
+        match self {
+            Wrap::Wrapping => {
+                if new_coord < 0 {
+                    loop {
+                        new_coord += dimension_width;
+                        if new_coord >= 0 {
+                            break;
+                        }
+                    }
+                } else {
+                    new_coord %= dimension_width;
+                }
+            },
+            Wrap::NonWrapping => {
+                if new_coord < 0 || new_coord >= dimension_width {
+                    return None;
+                }
+            },
+        }
+        Some(new_coord as u16)
+    }
+}
+
 #[derive(Clone,Copy)]
 pub struct Wrap2d {
     pub horiz: Wrap,
@@ -225,56 +252,70 @@ impl Wrap2d {
         horiz: Wrap::NonWrapping,
         vert: Wrap::NonWrapping
     };
+
+    ///
+    /// Add `inc` to `loc` respecting these wrapping rules in a space defined by `dims`.
+    /// If the result is out of bounds, return None
+    ///
+    pub fn wrapped_add(self, dims: Dims, loc: Location, inc: Vec2d<i32>) -> Option<Location> {
+        let new_x = self.horiz.wrapped_add(dims.width, loc.x, inc.x)?;
+        self.vert.wrapped_add(dims.height, loc.y, inc.y).map(|new_y| {
+            Location {
+                x: new_x,
+                y: new_y,
+            }
+        })
+    }
 }
 
-///
-/// Add `inc` to `loc` respecting the specified wrapping rules in a space defined by `dims`
-/// If the result is out of bounds, return None
-///
-pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
-    let mut new_x: i32 = i32::from(loc.x) + inc.x;
-    if let Wrap::Wrapping = wrapping.horiz {
-        if new_x < 0 {
-            loop {
-                new_x += i32::from(dims.width);
-                if new_x >= 0 {
-                    break;
-                }
-            }
-        } else {
-            new_x %= i32::from(dims.width);
-        }
-    } else if new_x < 0 || new_x >= i32::from(dims.width) {
-        return None;
-    }
+// ///
+// /// Add `inc` to `loc` respecting the specified wrapping rules in a space defined by `dims`
+// /// If the result is out of bounds, return None
+// ///
+// pub fn wrapped_add(loc: Location, inc: Vec2d<i32>, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
+//     let mut new_x: i32 = i32::from(loc.x) + inc.x;
+//     if let Wrap::Wrapping = wrapping.horiz {
+//         if new_x < 0 {
+//             loop {
+//                 new_x += i32::from(dims.width);
+//                 if new_x >= 0 {
+//                     break;
+//                 }
+//             }
+//         } else {
+//             new_x %= i32::from(dims.width);
+//         }
+//     } else if new_x < 0 || new_x >= i32::from(dims.width) {
+//         return None;
+//     }
 
-    let mut new_y: i32 = i32::from(loc.y) + inc.y;
-    if let Wrap::Wrapping = wrapping.vert {
-        if new_y < 0 {
-            loop {
-                new_y += i32::from(dims.height);
-                if new_y >= 0 {
-                    break;
-                }
-            }
-        } else {
-            new_y %= i32::from(dims.height);
-        }
-    } else if new_y < 0 || new_y >= i32::from(dims.height) {
-        return None;
-    }
+//     let mut new_y: i32 = i32::from(loc.y) + inc.y;
+//     if let Wrap::Wrapping = wrapping.vert {
+//         if new_y < 0 {
+//             loop {
+//                 new_y += i32::from(dims.height);
+//                 if new_y >= 0 {
+//                     break;
+//                 }
+//             }
+//         } else {
+//             new_y %= i32::from(dims.height);
+//         }
+//     } else if new_y < 0 || new_y >= i32::from(dims.height) {
+//         return None;
+//     }
 
-    Some(Location {
-        x: new_x as u16,
-        y: new_y as u16
-    })
-}
+//     Some(Location {
+//         x: new_x as u16,
+//         y: new_y as u16
+//     })
+// }
 
 pub type Location = Vec2d<u16>;
 
 impl Location {
     pub fn shift_wrapped(self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
-        wrapped_add(self, dir.vec2d(), dims, wrapping)
+        wrapping.wrapped_add(dims, self, dir.vec2d())
     }
 }
 
@@ -313,7 +354,6 @@ mod test {
         Location,
         Vec2d,
         Wrap2d,
-        wrapped_add,
     };
 
     #[test]
@@ -408,26 +448,26 @@ mod test {
         ];
 
         for (i, rel_neighb) in RELATIVE_NEIGHBORS.iter().enumerate() {
-            assert_eq!( wrapped_add(loc, *rel_neighb, dims, Wrap2d::BOTH),    results_both   [i] );
-            assert_eq!( wrapped_add(loc, *rel_neighb, dims, Wrap2d::HORIZ),   results_horiz  [i] );
-            assert_eq!( wrapped_add(loc, *rel_neighb, dims, Wrap2d::VERT),    results_vert   [i] );
-            assert_eq!( wrapped_add(loc, *rel_neighb, dims, Wrap2d::NEITHER), results_neither[i] );
+            assert_eq!( Wrap2d::BOTH.wrapped_add(dims, loc, *rel_neighb),    results_both   [i] );
+            assert_eq!( Wrap2d::HORIZ.wrapped_add(dims, loc, *rel_neighb),   results_horiz  [i] );
+            assert_eq!( Wrap2d::VERT.wrapped_add(dims, loc, *rel_neighb),    results_vert   [i] );
+            assert_eq!( Wrap2d::NEITHER.wrapped_add(dims, loc, *rel_neighb), results_neither[i] );
         }
 
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-1, y:0}, Dims{width:5, height:1}, Wrap2d::HORIZ), Some(Location{x:4, y:0}));
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-10, y:0}, Dims{width:5, height:1}, Wrap2d::HORIZ), Some(Location{x:0, y:0}));
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-8, y:0}, Dims{width:5, height:1}, Wrap2d::HORIZ), Some(Location{x:2, y:0}));
+        assert_eq!(Wrap2d::HORIZ.wrapped_add(Dims{width:5, height:1}, Location{x:0, y:0}, Vec2d{x:-1, y:0}), Some(Location{x:4, y:0}));
+        assert_eq!(Wrap2d::HORIZ.wrapped_add(Dims{width:5, height:1}, Location{x:0, y:0}, Vec2d{x:-10, y:0}), Some(Location{x:0, y:0}));
+        assert_eq!(Wrap2d::HORIZ.wrapped_add(Dims{width:5, height:1}, Location{x:0, y:0}, Vec2d{x:-8, y:0}), Some(Location{x:2, y:0}));
 
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-1, y:0}, Dims{width:5, height:1}, Wrap2d::NEITHER), None);
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-10, y:0}, Dims{width:5, height:1}, Wrap2d::NEITHER), None);
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:-8, y:0}, Dims{width:5, height:1}, Wrap2d::NEITHER), None);
+        assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:5, height:1}, Location{x:0, y:0}, Vec2d{x:-1, y:0}), None);
+        assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:5, height:1}, Location{x:0, y:0}, Vec2d{x:-10, y:0}), None);
+        assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:5, height:1}, Location{x:0, y:0}, Vec2d{x:-8, y:0}), None);
 
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-1}, Dims{width:1, height:5}, Wrap2d::VERT), Some(Location{x:0, y:4}));
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-10}, Dims{width:1, height:5}, Wrap2d::VERT), Some(Location{x:0, y:0}));
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-8}, Dims{width:1, height:5}, Wrap2d::VERT), Some(Location{x:0, y:2}));
+        assert_eq!(Wrap2d::VERT.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-1}), Some(Location{x:0, y:4}));
+        assert_eq!(Wrap2d::VERT.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-10}), Some(Location{x:0, y:0}));
+        assert_eq!(Wrap2d::VERT.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-8}), Some(Location{x:0, y:2}));
 
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-1}, Dims{width:1, height:5}, Wrap2d::NEITHER), None);
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-10}, Dims{width:1, height:5}, Wrap2d::NEITHER), None);
-        assert_eq!(wrapped_add(Location{x:0, y:0}, Vec2d{x:0, y:-8}, Dims{width:1, height:5}, Wrap2d::NEITHER), None);
+        assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-1}), None);
+        assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-10}), None);
+        assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-8}), None);
     }
 }

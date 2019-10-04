@@ -14,7 +14,7 @@ use crate::{
         obs::Obs,
         unit::{Unit,UnitType},
     },
-    util::{Dims,Location,Vec2d,Wrap2d,wrapped_add},
+    util::{Dims,Location,Vec2d,Wrap2d},
 };
 
 impl Index<Location> for Vec<Vec<u16>> {
@@ -257,7 +257,7 @@ pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
 
     let mut neighbs = HashSet::new();
     for rel_neighb in rel_neighbs {
-        if let Some(neighb_loc) = wrapped_add(loc, *rel_neighb, tiles.dims(), wrapping) {
+        if let Some(neighb_loc) = wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb) {
             if filter.include(tiles.get(neighb_loc))  {
                 neighbs.insert(neighb_loc);
             }

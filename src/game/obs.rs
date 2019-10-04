@@ -7,7 +7,7 @@ use crate::{
             dijkstra::Source,
         },
     },
-    util::{Dims,Location,Vec2d,Wrap2d,wrapped_add},
+    util::{Dims,Location,Vec2d,Wrap2d},
 };
 
 
@@ -75,7 +75,7 @@ pub trait Observer {
     fn sight_distance(&self) -> u16;
     fn observe(&self, observer_loc: Location, tiles: &dyn Source<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut ObsTracker) {
         for inc in visible_coords_iter(self.sight_distance()) {
-            if let Some(loc) = wrapped_add(observer_loc, inc, tiles.dims(), wrapping) {
+            if let Some(loc) = wrapping.wrapped_add(tiles.dims(), observer_loc, inc) {
                 obs_tracker.observe(loc, tiles.get(loc), turn);
             }
         }
