@@ -109,7 +109,7 @@ impl IMode for ExamineMode {
                     if let Some(most_recently_active_unit_id) = self.most_recently_active_unit_id {
                         ui.log_message("Might move unit".to_string());
                         let (can_move, dest) = {
-                            let unit = game.unit_by_id(most_recently_active_unit_id).unwrap();
+                            let unit = game.current_player_unit_by_id(most_recently_active_unit_id).unwrap();
 
                             let can_move = if let Some(tile) = self.current_player_tile(game, ui) {
                                 unit.can_move_on_tile(tile)

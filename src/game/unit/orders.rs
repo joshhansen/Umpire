@@ -140,13 +140,13 @@ impl Orders {
 ///
 ///
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
-    let mut current_loc = game.unit_by_id(unit_id).unwrap().loc;
+    let mut current_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
     let starting_loc = current_loc;
     let mut moves: Vec<MoveComponent> = Vec::new();
     // let mut unit = None;
     loop {
         // Get a fresh copy of the unit
-        let unit = game.unit_by_id_mut(unit_id).expect("Somehow the unit disappeared during exploration").clone();
+        let unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
 
         if unit.moves_remaining() == 0 {
             return Ok(OrdersOutcome::in_progress_with_move(unit_id, orders, Move::new(unit, starting_loc, moves).unwrap()));
@@ -205,7 +205,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
     }
 
     let (moves_remaining, shortest_paths) = {
-        let unit = game.unit_by_id(unit_id).unwrap();
+        let unit = game.current_player_unit_by_id(unit_id).unwrap();
         let moves_remaining = unit.moves_remaining;
 
         // Shortest paths emanating from the unit's location, allowing inclusion of unobserved tiles.

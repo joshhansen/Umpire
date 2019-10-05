@@ -46,7 +46,7 @@ impl IVisibleMode for GetUnitOrdersMode {
 }
 impl GetUnitOrdersMode {
     fn write_buf(&self, game: &Game, ui: &mut TermUI) {
-        let unit = game.unit_by_id(self.unit_id).unwrap();
+        let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
 
         let buf = ui.sidebar_buf_mut();
         buf.set_row(0, format!("Get Orders for {}", unit));
@@ -63,7 +63,7 @@ impl GetUnitOrdersMode {
 impl IMode for GetUnitOrdersMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         let (unit_loc,unit_type, unit_sym) = {
-            let unit = game.unit_by_id(self.unit_id).unwrap();
+            let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
             ui.log_message(format!("Requesting orders for {} at {}", unit.medium_desc(), unit.loc));
             (unit.loc,unit.type_, unit.sym(ui.unicode))
         };

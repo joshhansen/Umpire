@@ -41,7 +41,7 @@ impl TurnOverMode {
             }
         };
 
-        let unit = game.unit_by_id(id).unwrap();
+        let unit = game.current_player_unit_by_id(id).unwrap();
 
         ui.map_scroller.scrollable.center_viewport(unit.loc);
 

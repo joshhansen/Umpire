@@ -595,6 +595,7 @@ impl Game {
         }
     }
 
+    /// The current player's most recent observation of the tile at location `loc`, if any
     pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
         if let Obs::Observed{tile,..} = self.current_player_obs(loc) {
             Some(tile)
@@ -603,16 +604,39 @@ impl Game {
         }
     }
 
+    /// The current player's observation at location `loc`
     pub fn current_player_obs(&self, loc: Location) -> &Obs {
         self.player_observations[&self.current_player()].get(loc)
     }
 
+    /// Every unit controlled by the current player
     pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
         self.map.player_units(self.current_player)
     }
 
+    /// Every unit controlled by the current player, mutably
+    pub fn current_player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+        self.map.player_units_mut(self.current_player)
+    }
+
+    /// If the current player controls a city at location `loc`, return it
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
+    }
+
+    /// If the current player controls a unit with ID `id`, return it
+    pub fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
+        self.current_player_units().find(|unit| unit.id==id)
+    }
+
+    /// If the current player controls a unit with ID `id`, return it mutably
+    pub fn current_player_unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
+        self.current_player_units_mut().find(|unit| unit.id==id)
+    }
+
+    /// If the current player controls a unit with ID `id`, return its location
+    pub fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
+        self.current_player_unit_by_id(id).map(|unit| unit.loc)
     }
 
     #[deprecated(note="Gives unrestricted access to top-level units")]
@@ -623,25 +647,6 @@ impl Game {
     #[deprecated(note="Gives unrestricted access to top-level units")]
     fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         self.map.toplevel_unit_by_loc_mut(loc)
-    }
-
-    #[deprecated(note="Gives unrestricted access to units")]
-    pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.map.unit_by_id(id)
-    }
-
-    // fn mut_unit_by_loc(&mut self, loc: Location) -> Option<&mut Unit> {
-    //     self.map.mut_unit_by_loc(loc)
-    // }
-
-    #[deprecated(note="Gives unrestricted access to units")]
-    fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
-        self.map.unit_by_id_mut(id)
-    }
-
-    /// If the current player controls a unit with ID `id`, return its location
-    pub fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
-        self.current_player_units().find(|unit| unit.id==id).map(|unit| unit.loc)
     }
 
     pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
@@ -928,15 +933,16 @@ impl Game {
         }).collect()
     }
 
-    pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
+    /// If the current player controls a unit with ID `id`, order it to sentry
+    pub fn order_unit_sentry(&mut self, id: UnitID) -> OrdersResult {
         let orders = Orders::Sentry;
 
-        self.unit_by_id_mut(unit_id)
+        self.current_player_unit_by_id_mut(id)
             .map(|unit| {        
                 unit.orders = Some(orders);
-                OrdersOutcome::completed_without_move(unit_id, orders)
+                OrdersOutcome::completed_without_move(id, orders)
             })
-            .ok_or(OrdersError::OrderedUnitDoesNotExist{id: unit_id, orders})
+            .ok_or(OrdersError::OrderedUnitDoesNotExist{id, orders})
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
@@ -982,12 +988,16 @@ impl Game {
         }
     }
 
-    fn set_orders(&mut self, unit_id: UnitID, orders: Option<Orders>) -> Result<(),OrdersError> {
-        if let Some(ref mut unit) = self.unit_by_id_mut(unit_id) {
+    /// If the current player controls a unit with ID `id`, set its orders to `orders`
+    /// 
+    /// # Errors
+    /// `OrdersError::OrderedUnitDoesNotExist` if the order is not present under the control of the current player
+    fn set_orders(&mut self, id: UnitID, orders: Option<Orders>) -> Result<(),OrdersError> {
+        if let Some(ref mut unit) = self.current_player_unit_by_id_mut(id) {
             unit.orders = orders;
             Ok(())
         } else {
-            Err(OrdersError::OrderedUnitDoesNotExist{id:unit_id, orders: orders.unwrap()})
+            Err(OrdersError::OrderedUnitDoesNotExist{id, orders: orders.unwrap()})
             // Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
         }
     }
@@ -1000,14 +1010,19 @@ impl Game {
             .collect()
     }
 
-    fn follow_unit_orders(&mut self, unit_id: UnitID) -> OrdersResult {
-        let orders = self.unit_by_id(unit_id).unwrap().orders.as_ref().unwrap();
+    /// Make the unit with ID `id` under the current player's control follow its orders
+    /// 
+    /// # Panics
+    /// This will panic if the current player does not control such a unit.
+    /// 
+    fn follow_unit_orders(&mut self, id: UnitID) -> OrdersResult {
+        let orders = self.current_player_unit_by_id(id).unwrap().orders.as_ref().unwrap();
 
-        let result = orders.carry_out(unit_id, self);
+        let result = orders.carry_out(id, self);
 
         // If the orders are already complete, clear them out
         if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
-            self.unit_by_id_mut(unit_id).unwrap().orders = None;
+            self.current_player_unit_by_id_mut(id).unwrap().orders = None;
         }
         
         result
