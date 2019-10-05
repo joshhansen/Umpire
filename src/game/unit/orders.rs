@@ -323,7 +323,7 @@ mod test {
 
         assert_eq!(game.turn(), 5);
 
-        let final_dest = game.unit_loc(id).unwrap();
+        let final_dest = game.current_player_unit_loc(id).unwrap();
         assert_eq!(final_dest, dest3);
     }
 }

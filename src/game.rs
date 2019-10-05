@@ -607,6 +607,10 @@ impl Game {
         self.player_observations[&self.current_player()].get(loc)
     }
 
+    pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
+        self.map.player_units(self.current_player)
+    }
+
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
     }
@@ -635,9 +639,9 @@ impl Game {
         self.map.unit_by_id_mut(id)
     }
 
-    #[deprecated(note="Gives unrestricted access to unit locations")]
-    pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
-        self.map.unit_loc(id)
+    /// If the current player controls a unit with ID `id`, return its location
+    pub fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
+        self.current_player_units().find(|unit| unit.id==id).map(|unit| unit.loc)
     }
 
     pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
@@ -1139,7 +1143,7 @@ mod test {
         for player in 0..2 {
             assert_eq!(game.unit_orders_requests().count(), 1);
             let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
-            let loc = game.unit_loc(unit_id).unwrap();
+            let loc = game.current_player_unit_loc(unit_id).unwrap();
             let new_x = (loc.x + 1) % game.dims().width;
             let new_loc = Location{x:new_x, y:loc.y};
             println!("Moving unit from {} to {}", loc, new_loc);
@@ -1218,7 +1222,7 @@ mod test {
         for round in 0..3 {
             assert_eq!(game.unit_orders_requests().count(), 1);
             let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
-            let loc = game.unit_loc(unit_id).unwrap();
+            let loc = game.current_player_unit_loc(unit_id).unwrap();
             let dest_loc = Location{x: loc.x+2, y:loc.y};
             println!("Moving from {} to {}", loc, dest_loc);
             let move_result = game.move_toplevel_unit_by_loc(loc, dest_loc).unwrap();
