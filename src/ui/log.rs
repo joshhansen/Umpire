@@ -71,9 +71,9 @@ impl LogArea {
         // write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
         queue!(*stdout,
             self.goto(0, i as u16+1),
-            Output(format!("|{}", mark)),
             SetFg(fg_color),
             SetBg(bg_color),
+            Output(format!("|{}", mark)),
             Output(text)
         ).unwrap();
     }
