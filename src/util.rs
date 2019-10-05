@@ -65,7 +65,7 @@ impl Dims {
     }
 
     /// Iterate through all `Location`s implied by placing the rectangle of these dimensions at the origin
-    pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
+    pub fn iter_locs(self) -> impl Iterator<Item=Location> {
         let width: u16 = self.width;
         let height: u16 = self.height;
         (0..width).flat_map(move |x| {
