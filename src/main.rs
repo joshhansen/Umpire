@@ -51,15 +51,7 @@
 #![allow(clippy::let_and_return)]
 
 
-mod color;
-pub mod conf;
-pub mod game;
-pub mod log;
-#[macro_use]
-mod macros;
-pub mod name;
-pub mod ui;
-pub mod util;
+
 
 use std::{
     io::{BufRead,BufReader,Write,stdout},
@@ -69,10 +61,12 @@ use std::{
 
 use clap::{Arg, App};
 
-use crate::{
+use umpire::{
     color::{Palette, palette16, palette256, palette24},
+    conf,
     game::{Game,PlayerNum},
     name::{city_namer,unit_namer},
+    ui,
     util::{
         Dims,
         Wrap,
@@ -247,7 +241,7 @@ fn main() {
     let city_namer = city_namer();
     let unit_namer = unit_namer();
 
-    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, unit_namer, wrapping);
+    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, Box::new(unit_namer), wrapping);
 
     if !nosplash {
         let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();

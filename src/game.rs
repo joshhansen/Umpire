@@ -28,7 +28,7 @@ use crate::{
             MapData,
             NewUnitError,
             Tile,
-            gen::MapGenerator,
+            gen::generate_map,
             dijkstra::{
                 AndFilter,
                 NoCitiesButOursFilter,
@@ -319,7 +319,7 @@ pub struct Game {
     num_players: PlayerNum,
     current_player: PlayerNum,
     wrapping: Wrap2d,
-    unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+    unit_namer: Box<dyn Namer>,
     fog_of_war: bool,
 }
 impl Game {
@@ -331,19 +331,18 @@ impl Game {
     /// observed, with observations growing stale over time.
     pub fn new(
             map_dims: Dims,
-            city_namer: ListNamer,
+            mut city_namer: ListNamer,
             num_players: PlayerNum,
             fog_of_war: bool,
-            unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+            unit_namer: Box<dyn Namer>,
             wrapping: Wrap2d) -> Self {
 
-        let mut map_generator = MapGenerator::new(city_namer);
-        let map = map_generator.generate(map_dims, num_players);
+        let map = generate_map(&mut city_namer, map_dims, num_players);
         Game::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 
     pub(crate) fn new_with_map(map: MapData, num_players: PlayerNum,
-            fog_of_war: bool, unit_namer: CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>>,
+            fog_of_war: bool, unit_namer: Box<dyn Namer>,
             wrapping: Wrap2d) -> Self {
 
         let mut player_observations = HashMap::new();
@@ -1121,7 +1120,7 @@ mod test {
 
         let map = map1();
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, unit_namer, Wrap2d::BOTH)
+        Game::new_with_map(map, players, fog_of_war, Box::new(unit_namer), Wrap2d::BOTH)
     }
 
     #[test]
@@ -1203,7 +1202,7 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(map, 2, false, unit_namer(), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 2, false, Box::new(unit_namer()), Wrap2d::BOTH);
         assert_eq!(game.current_player, 0);
 
         let loc: Location = game.production_set_requests().next().unwrap();
@@ -1289,7 +1288,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, unit_namer(), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, Box::new(unit_namer()), Wrap2d::BOTH);
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc(), infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));

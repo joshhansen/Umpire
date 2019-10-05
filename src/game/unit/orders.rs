@@ -137,8 +137,6 @@ impl Orders {
 /// Keep moving toward the nearest unobserved tile we can see a path
 /// to, until either there is no such tile or we run out of moves
 /// If there are no such tiles then set the unit's orders to None
-///
-///
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
     let mut current_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
     let starting_loc = current_loc;
@@ -272,14 +270,26 @@ mod test {
         game::{
             Game,
             MoveError,
-            map::MapData,
-            unit::orders::{
-                Orders,
-                OrdersError
+            PlayerNum,
+            map::{
+                MapData,
+                gen::generate_map,
+                terrain::Terrain,
+            },
+            unit::{
+                UnitType,
+                orders::{
+                    Orders,
+                    OrdersError
+                },
             },
         },
-        name::unit_namer,
+        name::{
+            IntNamer,
+            unit_namer,
+        },
         util::{
+            Dims,
             Location,
             Wrap2d,
         },
@@ -290,7 +300,7 @@ mod test {
     #[test]
     fn test_go_to() {
         let map = MapData::try_from("i----------").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, unit_namer(), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, Box::new(unit_namer()), Wrap2d::BOTH);
         
         let id = game.current_player_toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
 
@@ -325,5 +335,82 @@ mod test {
 
         let final_dest = game.current_player_unit_loc(id).unwrap();
         assert_eq!(final_dest, dest3);
+    }
+
+    fn _test_explore(dims: Dims) {
+        let mut city_namer = IntNamer::new("city");
+        let unit_namer = IntNamer::new("unit");
+        let players: PlayerNum = 1;
+        let map = generate_map(&mut city_namer, dims, players);
+
+
+        let mut game = Game::new_with_map(map, players, true, Box::new(unit_namer), Wrap2d::BOTH);
+
+        // Request a fighter to be produced
+        let city_loc = game.production_set_requests().next().unwrap();
+        game.set_production(city_loc, UnitType::Fighter).unwrap();
+
+        // Wait until the fighter is produced
+        while game.unit_orders_requests().count() == 0 {
+            game.end_turn().unwrap();
+        }
+
+        game.clear_production_and_ignore(city_loc).unwrap();
+
+        let fighter_id = game.unit_orders_requests().next().unwrap();
+
+        game.order_unit_explore(fighter_id).unwrap();
+
+        // Wait until the fighter has explored everything
+        while game.unit_orders_requests().count() == 0 {
+            let turn_start = game.end_turn().unwrap();
+            assert_eq!(turn_start.carried_out_orders.len(), 1);
+
+            let carried_out_orders = turn_start.carried_out_orders.get(0).unwrap();
+
+            match carried_out_orders {
+                Ok(orders_outcome) => {
+                    assert!(orders_outcome.move_result.is_some());
+                    assert!(!orders_outcome.move_result.as_ref().unwrap().moves.is_empty());
+                },
+                Err(orders_err) => panic!("Orders error: {}", orders_err),
+            }
+        }
+    }
+
+    #[test]
+    fn test_explore() {
+        _test_explore(Dims::new(10, 10));
+
+        // let mut city_namer = IntNamer::new("city");
+        // let unit_namer = IntNamer::new("unit");
+        // let dims_large = Dims::new(100, 100);
+        // let players: PlayerNum = 1;
+        // let map = generate_map(&mut city_namer, dims_large, players);
+
+
+        // let mut game = Game::new_with_map(map, players, true, Box::new(unit_namer), Wrap2d::BOTH);
+
+        // // Request a fighter to be produced
+        // let city_loc = game.production_set_requests().next().unwrap();
+        // game.set_production(city_loc, UnitType::Fighter).unwrap();
+
+        // // Wait until the fighter is produced
+        // while game.unit_orders_requests().count() == 0 {
+        //     game.end_turn().unwrap();
+        // }
+
+        // game.clear_production_and_ignore(city_loc).unwrap();
+
+        // let fighter_id = game.unit_orders_requests().next().unwrap();
+
+        // game.order_unit_explore(fighter_id).unwrap();
+
+        // // Wait until the fighter has explored everything
+        // while game.unit_orders_requests().count() == 0 {
+        //     game.end_turn().unwrap();
+        // }
+
+
     }
 }

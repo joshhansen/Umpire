@@ -5,7 +5,7 @@
 pub mod dijkstra;
 pub mod gen;
 mod grid;
-mod terrain;
+pub mod terrain;
 mod tile;
 
 pub use self::terrain::Terrain;

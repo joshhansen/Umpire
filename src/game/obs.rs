@@ -23,7 +23,6 @@ impl Obs {
         !self.is_unobserved()
     }
 
-    #[allow(dead_code)]
     pub fn is_unobserved(&self) -> bool {
         *self == Obs::Unobserved
     }

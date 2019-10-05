@@ -261,7 +261,7 @@ pub struct Unit {
 }
 
 impl Unit {
-    pub(in crate::game) fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
+    pub fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
         let max_hp =type_.max_hp();
         Unit {
             id,

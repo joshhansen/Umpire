@@ -1,11 +1,19 @@
 //! Shortest path algorithm
 
-use std::cmp::Ordering;
-use std::collections::{BinaryHeap,HashSet};
-// use std::u16::MAX as u16_max;
-use std::fmt;
-use std::marker::PhantomData;
-use std::ops::{Index,IndexMut};
+use std::{
+    cmp::Ordering,
+    collections::{
+        BinaryHeap,
+        HashSet,
+        VecDeque,
+    },
+    fmt,
+    marker::PhantomData,
+    ops::{
+        Index,
+        IndexMut,
+    },
+};
 
 use crate::{
     game::{
@@ -173,12 +181,27 @@ impl <T,F1:Filter<T>,F2:Filter<T>> Filter<T> for AndFilter<T,F1,F2> {
 //     }
 // }
 
-pub struct ObservedFilter {}
+pub struct All;
+impl <T> Filter<T> for All {
+    fn include(&self, item: &T) -> bool {
+        true
+    }
+}
+
+pub struct ObservedFilter;
 impl Filter<Obs> for ObservedFilter {
     fn include(&self, obs: &Obs) -> bool {
         obs.is_observed()
     }
 }
+
+pub struct UnobservedFilter;
+impl Filter<Obs> for UnobservedFilter {
+    fn include(&self, obs: &Obs) -> bool {
+        obs.is_unobserved()
+    }
+}
+
 
 
 pub struct NoUnitsFilter;
@@ -272,6 +295,31 @@ pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
     neighbs
 }
 
+pub fn neighbors_iter<'a, T, F, N, S>(tiles: &'a S, loc: Location, rel_neighbs: N,
+                                 filter: &'a F, wrapping: Wrap2d) -> impl Iterator<Item=Location> + 'a
+    where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>>+'a {
+
+        rel_neighbs.filter_map(move |rel_neighb| wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb))
+                   .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
+
+
+    // let mut neighbs = HashSet::new();
+    // for rel_neighb in rel_neighbs {
+    //     if let Some(neighb_loc) = wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb) {
+    //         if filter.include(tiles.get(neighb_loc))  {
+    //             neighbs.insert(neighb_loc);
+    //         }
+    //         // if let Some(tile) = tiles.get(neighb_loc) {
+    //         //     if filter.include(tile) {
+    //         //         neighbs.insert(neighb_loc);
+    //         //     }
+    //         // }
+    //     }
+    // }
+
+    // neighbs
+}
+
 struct UnitTypeFilter {
     unit_type: UnitType
 }
@@ -308,16 +356,11 @@ impl PartialOrd for State {
 
 /// An implementation of Dijkstra's algorithm.
 ///
-/// Finds all paths emanating from a single source location that could be traversed by the
-/// referenced unit. The returned `ShortestPaths` object can then be queried for the shortest path
+/// Finds all paths emanating from a single source location that could be traversed by accessing the nodes included
+/// by the filter `filter`. The returned `ShortestPaths` object can then be queried for the shortest path
 /// to any particular destination.
 ///
 /// The provided wrapping strategy is respected.
-
-// pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
-//                                  filter: &F, wrapping: Wrap2d) -> HashSet<Location>
-//     where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
-
 pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, filter: &F, wrapping: Wrap2d) -> ShortestPaths {
     let mut q = BinaryHeap::new();
 
@@ -331,13 +374,28 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
     while let Some(State{ dist_, loc }) = q.pop() {
 
         // Quit early since we're already doing worse than the best known route
-        if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
+        // if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
 
-        for neighb_loc in neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), filter, wrapping) {
+        if let Some(dist) = dist[loc] {
+            if dist_ > dist {
+                continue;
+            }
+        }
+
+        // for neighb_loc in neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), filter, wrapping) {
+        for neighb_loc in neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), filter, wrapping) {
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
 
             // If the new route to the neighbor is better than any we've found so far...
+            // if let Some(best_dist_so_far) = dist[neighb_loc] {
+            //     if new_dist < best_dist_so_far {
+            //         q.push(next);
+            //         // Relaxation, we have now found a better way
+            //         dist[neighb_loc] = Some(new_dist);
+            //         prev[neighb_loc] = Some(loc);
+            //     }
+            // }
             if dist[neighb_loc].is_none() || new_dist < dist[neighb_loc].unwrap() {
                 q.push(next);
                 // Relaxation, we have now found a better way
@@ -367,7 +425,7 @@ pub fn old_shortest_paths_for_unit<T:Source<Tile>>(tiles: &T, source: Location, 
 /// Return the (or a) closest tile to the source which is reachable by the given
 /// unit and is adjacent to at least one unobserved tile. If no such tile exists
 /// then return None
-pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>+Source<Tile>>(
+pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     tiles: &S,
     src: Location,
     unit: &Unit,
@@ -382,30 +440,28 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>+Sou
         UnitMovementFilter{unit}
     );
 
-    let mut q = BinaryHeap::new();
-    q.push(src);
+    let mut q = VecDeque::new();
+    q.push_back(src);
 
-    let mut visited = HashSet::new();
+    // let mut visited = HashSet::new();
+    let mut visited = LocationGrid::new(tiles.dims(), |loc| loc==src);
 
-    while let Some(loc) = q.pop() {
-        visited.insert(loc);
+    while let Some(loc) = q.pop_front() {
+        // visited.insert(loc);
+        visited[loc] = true;
 
-        let observed_neighbors: HashSet<Location> = neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter{}, wrapping);
-        if observed_neighbors.len() < RELATIVE_NEIGHBORS.len() {
-        // if adjacent_to_unknown {
+        let unobserved_neighbor_exists = neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnobservedFilter{}, wrapping).next().is_some();
+        if unobserved_neighbor_exists {
             return Some(loc);
         }
 
-        
-
-        for neighb in observed_neighbors.iter().filter(|neighb|{
-            let tile: &Tile = tiles.get(**neighb);
-            unit_filter.include(tile)
-            // unit_filter.include(tiles.get(**neighb))
+        for neighb in neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter, wrapping).filter(|neighb|{
+            let obs = Source::<Obs>::get(tiles, *neighb);
+            unit_filter.include(obs) &&
+            !visited[*neighb]
+            // !visited.contains(neighb)
         }) {
-            if !visited.contains(neighb) {
-                q.push(*neighb);
-            }
+            q.push_back(neighb);
         }
     }
     None
@@ -414,8 +470,10 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>+Sou
 #[cfg(test)]
 mod test {
 
-    use std::collections::HashSet;
-    use std::convert::TryFrom;
+    use std::{
+        collections::HashSet,
+        convert::TryFrom,
+    };
 
     use crate::{
         game::{
@@ -423,22 +481,26 @@ mod test {
             map::{
                 LocationGrid,
                 Tile,
-                dijkstra::{
-                    Source,
-                    UnitMovementFilter,
-                    Xenophile,
-                    neighbors,
-                    neighbors_terrain_only,
-                    old_shortest_paths_for_unit,
-                    shortest_paths,
-                    RELATIVE_NEIGHBORS
-                },
+                terrain::Terrain,
             },
             obs::Obs,
             unit::{UnitID,Unit,UnitType},
         },
         
-        util::{Location,Wrap2d},
+        util::{Dims,Location,Wrap2d},
+    };
+
+    use super::{
+        All,
+        Source,
+        UnitMovementFilter,
+        Xenophile,
+        nearest_adjacent_unobserved_reachable_without_attacking,
+        neighbors,
+        neighbors_terrain_only,
+        old_shortest_paths_for_unit,
+        shortest_paths,
+        RELATIVE_NEIGHBORS,
     };
     
     fn neighbors_all_unit<T:Source<Tile>>(tiles: &T, loc: Location, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
@@ -698,14 +760,33 @@ mod test {
     }
 
     #[test]
-    fn test_nearest_reachable_adjacent_unobserved() {
-        //TODO //FIXME
+    fn test_nearest_adjacent_unobserved_reachable_without_attacking() {
+        _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(10, 10));
+        _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(100, 100));
+    }
 
+    fn _test_nearest_adjacent_unobserved_reachable_without_attacking(dims: Dims) {
+        let src = Location::new(0, 0);
+        let dest = Location::new(dims.width-1, dims.height-1);
 
-        let _map: LocationGrid<Obs> = LocationGrid::try_from(
-            "\
-            xxx\n\
-            ???\n\
-            *xx").unwrap();
+        let grid = LocationGrid::new(dims, |loc| {
+            if loc==dest {
+                Obs::Unobserved
+            } else {
+                Obs::Observed {
+                    tile: Tile::new(Terrain::Land, loc),
+                    turn: 0,
+                    current: false
+                }
+            }
+        });
+
+        for wrapping in [Wrap2d::BOTH, Wrap2d::HORIZ, Wrap2d::VERT, Wrap2d::NEITHER].iter() {
+            let unit = Unit::new(UnitID::new(0), src, UnitType::Infantry, Alignment::Belligerent{player: 0}, "Juan de Fuca");
+
+            let acceptable = neighbors(&grid, dest, RELATIVE_NEIGHBORS.iter(), &All, *wrapping);
+            let naurwa = nearest_adjacent_unobserved_reachable_without_attacking(&grid, src, &unit, *wrapping);
+            assert!(acceptable.contains(naurwa.as_ref().unwrap()));
+        }
     }
 }

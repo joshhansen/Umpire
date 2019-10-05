@@ -25,6 +25,24 @@ pub trait Namer {
     fn name(&mut self) -> String;
 }
 
+/// A namer that names things after numbers, counting upward from zero. A prefix is prepended.
+pub struct IntNamer {
+    next: u64,
+    prefix: String,
+}
+impl IntNamer {
+    pub fn new<S:ToString>(prefix: S) -> Self {
+        Self { prefix: prefix.to_string(), next: 0 }
+    }
+}
+impl Namer for IntNamer {
+    fn name(&mut self) -> String {
+        let name = format!("{}{}", self.prefix, self.next);
+        self.next += 1;
+        name
+    }
+}
+
 /// Generate names by drawing from a predefined list.
 pub struct ListNamer {
     names: Vec<String>,
