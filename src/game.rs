@@ -556,41 +556,33 @@ impl Game {
         // let obs_tracker: &mut dyn ObsTracker = &mut ** (self.player_observations.get_mut(&self.current_player).unwrap()) ;
         let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
 
-        let mut loc = Location{x: 0, y: 0};
-        for x in 0..self.map.dims().width {
-            loc.x = x;
-            for y in 0..self.map.dims().height {
-                loc.y = y;
+        for loc in self.map.dims().iter_locs() {
+            let tile = self.map.tile(loc).unwrap();
 
-                let tile = self.map.tile(loc).unwrap();
+            if self.fog_of_war {
 
-                if self.fog_of_war {
-
-                    // With "fog of war" we only get updated observations where there are units and cities in the player's control
-                    
-                    if let Some(ref city) = tile.city {
-                        if let Alignment::Belligerent{player} = city.alignment {
-                            if player==self.current_player {
-                                city.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
-                            }
+                // With "fog of war" we only get updated observations where there are units and cities in the player's control
+                
+                if let Some(ref city) = tile.city {
+                    if let Alignment::Belligerent{player} = city.alignment {
+                        if player==self.current_player {
+                            city.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
                         }
                     }
-
-                    if let Some(ref unit) = tile.unit {
-                        if let Alignment::Belligerent{player} = unit.alignment {
-                            if player==self.current_player {
-                                unit.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
-                            }
-                        }
-                    }
-
-                } else {
-                    // Without "fog of war" we get updated observations everywhere
-
-                    obs_tracker.observe(loc, tile, self.turn);
                 }
 
-                
+                if let Some(ref unit) = tile.unit {
+                    if let Alignment::Belligerent{player} = unit.alignment {
+                        if player==self.current_player {
+                            unit.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+                        }
+                    }
+                }
+
+            } else {
+                // Without "fog of war" we get updated observations everywhere
+
+                obs_tracker.observe(loc, tile, self.turn);
             }
         }
     }
