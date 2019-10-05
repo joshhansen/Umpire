@@ -369,7 +369,7 @@ impl Game {
             turn: 0,
             num_players,
             current_player: 0,
-            wrapping: wrapping,
+            wrapping,
             unit_namer,
             fog_of_war,
         };
