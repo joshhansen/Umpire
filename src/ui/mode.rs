@@ -42,7 +42,6 @@ pub(in crate::ui) enum Mode {
     Quit,
     Examine{
         cursor_viewport_loc:Location,
-        first: bool,
         most_recently_active_unit_id: Option<UnitID>
     }
 }
@@ -67,8 +66,8 @@ impl Mode {
                 GetUnitOrdersMode{rect, unit_id, first_move}.run(game, ui, self, prev_mode)
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
-            Mode::Examine{cursor_viewport_loc, first, most_recently_active_unit_id} =>
-                ExamineMode{cursor_viewport_loc, first, most_recently_active_unit_id}.run(game, ui, self, prev_mode)
+            Mode::Examine{cursor_viewport_loc, most_recently_active_unit_id} =>
+                ExamineMode{cursor_viewport_loc, most_recently_active_unit_id}.run(game, ui, self, prev_mode)
         };
 
         *prev_mode = Some(*self);
@@ -125,7 +124,6 @@ trait IMode {
 
                     *mode = Mode::Examine{
                         cursor_viewport_loc,
-                        first: true,
                         most_recently_active_unit_id
                     };
                     return KeyStatus::Handled(StateDisposition::Next);

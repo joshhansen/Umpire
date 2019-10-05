@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::io::Write;
 
 use crossterm::{
     KeyEvent,
@@ -31,7 +30,6 @@ use super::{
 
 pub(in crate::ui) struct ExamineMode {
     pub cursor_viewport_loc: Location,
-    pub first: bool,
     pub most_recently_active_unit_id: Option<UnitID>
 }
 impl ExamineMode {
@@ -63,17 +61,17 @@ impl IMode for ExamineMode {
         };
         
         let message = format!("Examining: {}", description);
-        if self.first {
-            ui.log_message(message);
-        } else {
-            ui.replace_message(message);
-        }
-        ui.stdout.flush().unwrap();
+        ui.replace_message(message);
+        ui.log.draw(game, &mut ui.stdout, &ui.palette);// this will flush
 
         match self.get_key(game, ui, mode) {
             KeyStatus::Unhandled(key) => {
                 if key==KeyEvent::Esc {
+                    // Don't leave the examine-mode log message hanging around. They accumulate and get really ugly.
+                    ui.log.pop_message();
+
                     *mode = Mode::TurnResume;
+
                 } else if key==KeyEvent::Enter {
                     if let Some(tile) = self.current_player_tile(game, ui).cloned() {// We clone to ease mutating the unit within this block
                         if let Some(ref city) = tile.city {
@@ -144,7 +142,7 @@ impl IMode for ExamineMode {
                         if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), Wrap2d::NEITHER) {
                             let viewport_rect = ui.viewport_rect();
                             if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
-                                *mode = Mode::Examine{cursor_viewport_loc: new_loc, first: false, most_recently_active_unit_id: self.most_recently_active_unit_id};
+                                *mode = Mode::Examine{cursor_viewport_loc: new_loc, most_recently_active_unit_id: self.most_recently_active_unit_id};
                             }
                         } else {
                             // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport

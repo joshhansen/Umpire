@@ -27,6 +27,7 @@ use crate::{
     util::{Rect,grapheme_len,grapheme_substr}
 };
 
+//TODO Use a RectBuffer to improve draw performance
 pub(in crate::ui) struct LogArea {
     rect: Rect,
     messages: VecDeque<Message>,
@@ -45,6 +46,40 @@ impl LogArea {
 
     fn max_messages(&self) -> u16 {
         self.rect.height - 1
+    }
+
+    fn draw_log_line_no_flush(&self, stdout: &mut Stdout, palette: &Palette, i: usize) {
+        let message: &Message = self.messages.get(i as usize).unwrap_or(&self.empty_message);
+
+        let mut text = grapheme_substr( &message.text, self.rect.width as usize);
+        let num_spaces = self.rect.width as usize - grapheme_len(&text);
+        for _ in 0..num_spaces {
+            text.push(' ');
+        }
+
+        let mark = message.mark.unwrap_or(' ');
+        let fg_color: Color = message.fg_color.map_or_else(
+            || palette.get_single(Colors::Text),
+            |fg_color| palette.get_single(fg_color)
+        );
+
+        let bg_color: Color = message.bg_color.map_or_else(
+            || palette.get_single(Colors::Background),
+            |bg_color| palette.get_single(bg_color)
+        );
+
+        // write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
+        queue!(*stdout,
+            self.goto(0, i as u16+1),
+            Output(format!("|{}", mark)),
+            SetFg(fg_color),
+            SetBg(bg_color),
+            Output(text)
+        ).unwrap();
+    }
+
+    pub fn pop_message(&mut self) -> Option<Message> {
+        self.messages.pop_back()
     }
 }
 
@@ -91,33 +126,7 @@ impl Draw for LogArea {
         ).unwrap();
 
         for i in 0..self.rect.height {
-            let message: &Message = self.messages.get(i as usize).unwrap_or(&self.empty_message);
-
-            let mut text = grapheme_substr( &message.text, self.rect.width as usize);
-            let num_spaces = self.rect.width as usize - grapheme_len(&text);
-            for _ in 0..num_spaces {
-                text.push(' ');
-            }
-
-            let mark = message.mark.unwrap_or(' ');
-            let fg_color: Color = message.fg_color.map_or_else(
-                || palette.get_single(Colors::Text),
-                |fg_color| palette.get_single(fg_color)
-            );
-
-            let bg_color: Color = message.bg_color.map_or_else(
-                || palette.get_single(Colors::Background),
-                |bg_color| palette.get_single(bg_color)
-            );
-
-            // write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
-            queue!(*stdout,
-                self.goto(0, i as u16+1),
-                Output(format!("|{}", mark)),
-                SetFg(fg_color),
-                SetBg(bg_color),
-                Output(text)
-            ).unwrap();
+            self.draw_log_line_no_flush(stdout, palette, i as usize);
         }
     }
 }
