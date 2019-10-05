@@ -378,34 +378,12 @@ impl Game {
         game
     }
 
-    fn player_cities(&self) -> impl Iterator<Item=&City> {
-        self.map.player_cities(self.current_player)
-    }
-
-    fn player_cities_with_production_target(&self) -> impl Iterator<Item=&City> {
-        self.map.player_cities_with_production_target(self.current_player)
-    }
-
-    fn player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
-        self.map.player_cities_with_production_target_mut(self.current_player)
-    }
-
-    fn player_units(&self) -> impl Iterator<Item=&Unit> {
-        self.map.player_units(self.current_player)
-    }
-
-    fn player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, callback: F) {
-        self.map.player_units_deep_mutate(self.current_player(), callback);
-    }
-
-
-
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
-        for city in self.player_cities_with_production_target_mut() {
+        for city in self.current_player_cities_with_production_target_mut() {
             city.production_progress += 1;
         }
 
-        let producing_city_locs: Vec<Location> = self.player_cities_with_production_target()
+        let producing_city_locs: Vec<Location> = self.current_player_cities_with_production_target()
             .filter(|city| {
                 let unit_under_production = city.production().unwrap();
 
@@ -459,7 +437,7 @@ impl Game {
     }
 
     fn refresh_moves_remaining(&mut self) {
-        self.player_units_deep_mutate(|unit: &mut Unit| unit.refresh_moves_remaining());
+        self.current_player_units_deep_mutate(|unit: &mut Unit| unit.refresh_moves_remaining());
     }
 
     /// Begin a new turn
@@ -601,6 +579,36 @@ impl Game {
         self.player_observations[&self.current_player()].get(loc)
     }
 
+    /// Every city controlled by the current player
+    pub fn current_player_cities(&self) -> impl Iterator<Item=&City> {
+        self.map.player_cities(self.current_player)
+    }
+
+    /// All cities controlled by the current player which have a production target set
+    pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item=&City> {
+        self.map.player_cities_with_production_target(self.current_player)
+    }
+
+    /// All cities controlled by the current player which have a production target set, mutably
+    fn current_player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
+        self.map.player_cities_with_production_target_mut(self.current_player)
+    }
+
+    /// Mutate all units controlled by the current player according to the callback `callback`
+    fn current_player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, callback: F) {
+        self.map.player_units_deep_mutate(self.current_player(), callback);
+    }
+
+    /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
+    /// 
+    /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
+    /// 
+    /// FIXME Get rid of this and just make the UI smarter
+    #[deprecated]
+    pub fn player_cities_producing_or_not_ignored(&self) -> usize {
+        self.current_player_cities().filter(|city| city.production().is_some() || !city.ignore_cleared_production()).count()
+    }
+
     /// Every unit controlled by the current player
     pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
         self.map.player_units(self.current_player)
@@ -622,7 +630,7 @@ impl Game {
     }
 
     /// If the current player controls a unit with ID `id`, return it mutably
-    pub fn current_player_unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
+    fn current_player_unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.current_player_units_mut().find(|unit| unit.id==id)
     }
 
@@ -660,7 +668,7 @@ impl Game {
     }
 
     pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
-        self.player_units()
+        self.current_player_units()
             .filter(|unit| unit.moves_remaining() > 0 && unit.orders.is_some() && *unit.orders.as_ref().unwrap() != Orders::Sentry)
             .map(|unit| unit.id)
     }
@@ -1024,12 +1032,6 @@ impl Game {
         
         result
     }
-
-    pub fn player_cities_producing_or_not_ignored(&self) -> usize {
-        self.player_cities().filter(|city| city.production().is_some() || !city.ignore_cleared_production()).count()
-    }
-
-
 }
 
 impl Source<Tile> for Game {
