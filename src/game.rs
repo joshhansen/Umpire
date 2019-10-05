@@ -53,7 +53,7 @@ use crate::{
         },
     },
     name::{Namer,CompoundNamer,ListNamer,WeightedNamer},
-    util::{Dims,Location,Wrap,Wrap2d},
+    util::{Dims,Location,Wrap2d},
 };
 
 
