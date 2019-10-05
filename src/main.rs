@@ -11,7 +11,6 @@
 // TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
 // TODO Deploy to crates.io
 // TODO Refresh README.md
-// FIXME Fix unit production log messages
 
 // 0.5 Milestones
 // TODO Fuel limits for aircraft

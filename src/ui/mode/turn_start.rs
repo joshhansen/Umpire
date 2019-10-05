@@ -17,6 +17,9 @@ impl IMode for TurnStartMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
         ui.current_player.draw(game, &mut ui.stdout, &ui.palette);
 
+        // A newline for spacing
+        ui.log_message("");
+
         ui.log_message(Message {
             text: format!("Turn {}, player {} go!", game.turn(), game.current_player()),
             mark: Some('_'),
