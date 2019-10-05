@@ -615,7 +615,7 @@ impl Game {
     }
 
     /// Every unit controlled by the current player, mutably
-    pub fn current_player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+    fn current_player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
         self.map.player_units_mut(self.current_player)
     }
 
@@ -639,14 +639,19 @@ impl Game {
         self.current_player_unit_by_id(id).map(|unit| unit.loc)
     }
 
-    #[deprecated(note="Gives unrestricted access to top-level units")]
-    pub fn toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
-        self.map.toplevel_unit_by_loc(loc)
+    /// If the current player controls the top-level unit at location `loc`, return it
+    pub fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
+        self.current_player_tile(loc).and_then(|tile| tile.unit.as_ref())
     }
 
-    #[deprecated(note="Gives unrestricted access to top-level units")]
-    fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
-        self.map.toplevel_unit_by_loc_mut(loc)
+    /// If the current player controls the top-level unit at location `loc`, return it mutably
+    fn current_player_toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
+        if self.current_player_toplevel_unit_by_loc(loc).is_some() {
+            self.map.toplevel_unit_by_loc_mut(loc)
+        } else {
+            None
+        }
+        // self.current_player_tile_mut(loc).and_then(|tile| tile.unit.as_ref())
     }
 
     pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
@@ -968,7 +973,7 @@ impl Game {
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
     pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
         let current_player = self.current_player;
-        if let Some(unit) = self.toplevel_unit_by_loc_mut(loc) {
+        if let Some(unit) = self.current_player_toplevel_unit_by_loc_mut(loc) {
             if unit.belongs_to_player(current_player) {
                 unit.orders = None;
                 for carried_unit in unit.carried_units_mut() {

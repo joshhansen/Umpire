@@ -116,7 +116,7 @@ trait IMode {
 
                     let most_recently_active_unit_id =
                         if let Some(most_recently_active_unit_loc) = ui.cursor_map_loc(mode, game) {
-                            game.toplevel_unit_by_loc(most_recently_active_unit_loc).map(|unit| unit.id)
+                            game.current_player_toplevel_unit_by_loc(most_recently_active_unit_loc).map(|unit| unit.id)
                         } else {
                             None
                         }

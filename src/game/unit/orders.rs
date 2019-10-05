@@ -292,7 +292,7 @@ mod test {
         let map = MapData::try_from("i----------").unwrap();
         let mut game = Game::new_with_map(map, 1, false, unit_namer(), Wrap2d::BOTH);
         
-        let id = game.toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
+        let id = game.current_player_toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
 
         let dest = Location{x: 0, y: 0};
         let result1 = game.order_unit_go_to(id, dest);
