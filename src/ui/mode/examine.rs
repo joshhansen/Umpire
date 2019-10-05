@@ -29,10 +29,19 @@ use super::{
 };
 
 pub(in crate::ui) struct ExamineMode {
-    pub cursor_viewport_loc: Location,
-    pub most_recently_active_unit_id: Option<UnitID>
+    cursor_viewport_loc: Location,
+    most_recently_active_unit_id: Option<UnitID>,
+    /// This is the first examine mode state we've been in since being in non-examine-mode states
+    first: bool,
 }
 impl ExamineMode {
+    pub(in crate::ui::mode) fn new(cursor_viewport_loc: Location, most_recently_active_unit_id: Option<UnitID>, first: bool) -> Self {
+        Self {
+            cursor_viewport_loc,
+            most_recently_active_unit_id,
+            first,
+        }
+    }
     fn clean_up(&self, game: &Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
         map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
@@ -46,6 +55,14 @@ impl ExamineMode {
     fn draw_tile<'a>(&'a self, game: &'a Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
         map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
+    }
+
+    fn next_examine_mode(&self, new_loc: Location) -> Mode {
+        Mode::Examine{
+            cursor_viewport_loc: new_loc,
+            most_recently_active_unit_id: self.most_recently_active_unit_id,
+            first: false
+        }
     }
 }
 impl IMode for ExamineMode {
@@ -61,7 +78,11 @@ impl IMode for ExamineMode {
         };
         
         let message = format!("Examining: {}", description);
-        ui.replace_message(message);
+        if self.first {
+            ui.log_message(message);
+        } else {
+            ui.replace_message(message);
+        }
         ui.log.draw(game, &mut ui.stdout, &ui.palette);// this will flush
 
         match self.get_key(game, ui, mode) {
@@ -69,6 +90,12 @@ impl IMode for ExamineMode {
                 if key==KeyEvent::Esc {
                     // Don't leave the examine-mode log message hanging around. They accumulate and get really ugly.
                     ui.log.pop_message();
+
+                    // Also pop the last message prior to the examine-mode message since we're going to end up back in the prior state
+                    // and it will re-print the relevant message anyway
+                    ui.log.pop_message();
+
+                    // Don't flush here because the mode we resume should do so---we want to avoid flickers
 
                     *mode = Mode::TurnResume;
 
@@ -142,7 +169,7 @@ impl IMode for ExamineMode {
                         if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), Wrap2d::NEITHER) {
                             let viewport_rect = ui.viewport_rect();
                             if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height {
-                                *mode = Mode::Examine{cursor_viewport_loc: new_loc, most_recently_active_unit_id: self.most_recently_active_unit_id};
+                                *mode = self.next_examine_mode(new_loc);
                             }
                         } else {
                             // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport

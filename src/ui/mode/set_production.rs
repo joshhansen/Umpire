@@ -12,6 +12,7 @@ use crate::{
     ui::{
         audio::Sounds,
         buf::RectBuffer,
+        Draw,
         TermUI,
         sym::Sym,
     },
@@ -86,6 +87,8 @@ impl IMode for SetProductionMode {
         let (city_loc, city_sym) = {
             let city = game.current_player_city_by_loc(self.loc).unwrap();
             ui.log_message(format!("Requesting production target for {}", city.short_desc() ));
+            ui.log.draw_no_flush(game, &mut ui.stdout, &ui.palette);
+
             (city.loc, city.sym(ui.unicode))
         };
         let city_viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(city_loc, ui.viewport_dims()).unwrap();
@@ -106,6 +109,8 @@ impl IMode for SetProductionMode {
                                 fg_color: None,
                                 source: Some(MessageSource::Mode)
                             });
+                            ui.log.draw(game, &mut ui.stdout, &ui.palette);
+
 
                             Self::clear_buf(ui);
 
