@@ -301,23 +301,6 @@ pub fn neighbors_iter<'a, T, F, N, S>(tiles: &'a S, loc: Location, rel_neighbs: 
 
         rel_neighbs.filter_map(move |rel_neighb| wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb))
                    .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
-
-
-    // let mut neighbs = HashSet::new();
-    // for rel_neighb in rel_neighbs {
-    //     if let Some(neighb_loc) = wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb) {
-    //         if filter.include(tiles.get(neighb_loc))  {
-    //             neighbs.insert(neighb_loc);
-    //         }
-    //         // if let Some(tile) = tiles.get(neighb_loc) {
-    //         //     if filter.include(tile) {
-    //         //         neighbs.insert(neighb_loc);
-    //         //     }
-    //         // }
-    //     }
-    // }
-
-    // neighbs
 }
 
 struct UnitTypeFilter {
@@ -325,11 +308,7 @@ struct UnitTypeFilter {
 }
 impl Filter<Tile> for UnitTypeFilter {
     fn include(&self, neighb_tile: &Tile) -> bool {
-        // if let Some(neighb_tile) = neighb_tile {
-            self.unit_type.can_move_on_tile(neighb_tile)
-        // } else {
-        //     false
-        // }
+        self.unit_type.can_move_on_tile(neighb_tile)
     }
 }
 pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
@@ -443,11 +422,9 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     let mut q = VecDeque::new();
     q.push_back(src);
 
-    // let mut visited = HashSet::new();
     let mut visited = LocationGrid::new(tiles.dims(), |loc| loc==src);
 
     while let Some(loc) = q.pop_front() {
-        // visited.insert(loc);
         visited[loc] = true;
 
         let unobserved_neighbor_exists = neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnobservedFilter{}, wrapping).next().is_some();
@@ -459,7 +436,6 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
             let obs = Source::<Obs>::get(tiles, *neighb);
             unit_filter.include(obs) &&
             !visited[*neighb]
-            // !visited.contains(neighb)
         }) {
             q.push_back(neighb);
         }
