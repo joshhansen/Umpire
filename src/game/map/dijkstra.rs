@@ -183,7 +183,7 @@ impl <T,F1:Filter<T>,F2:Filter<T>> Filter<T> for AndFilter<T,F1,F2> {
 
 pub struct All;
 impl <T> Filter<T> for All {
-    fn include(&self, item: &T) -> bool {
+    fn include(&self, _item: &T) -> bool {
         true
     }
 }
