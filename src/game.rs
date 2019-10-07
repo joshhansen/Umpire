@@ -52,7 +52,7 @@ use crate::{
             },
         },
     },
-    name::{Namer,CompoundNamer,ListNamer,WeightedNamer},
+    name::{Namer,ListNamer},
     util::{Dims,Location,Wrap2d},
 };
 
