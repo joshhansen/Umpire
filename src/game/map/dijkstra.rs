@@ -408,12 +408,15 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     wrapping: Wrap2d
 ) -> Option<Location> {
 
-    let unit_filter = AndFilter::new(
+    let observed_and_reachable_filter = AndFilter::new(
+        ObservedFilter,
         AndFilter::new(
-            NoUnitsFilter{},
-            NoCitiesButOursFilter{alignment: unit.alignment }
-        ),
-        UnitMovementFilter{unit}
+            AndFilter::new(
+                NoUnitsFilter{},
+                NoCitiesButOursFilter{alignment: unit.alignment }
+            ),
+            UnitMovementFilter{unit}
+        )
     );
 
     let mut q = VecDeque::new();
@@ -429,11 +432,9 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
             return Some(loc);
         }
 
-        for neighb in neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), &ObservedFilter, wrapping).filter(|neighb|{
-            let obs = Source::<Obs>::get(tiles, *neighb);
-            unit_filter.include(obs) &&
-            !visited[*neighb]
-        }) {
+        for neighb in neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), &observed_and_reachable_filter, wrapping)
+            .filter(|neighb| !visited[*neighb])
+        {
             q.push_back(neighb);
         }
     }
