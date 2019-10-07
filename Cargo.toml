@@ -24,3 +24,11 @@ criterion = "0.3.0"
 [[bench]]
 name = "nearest_adjacent_unobserved"
 harness = false
+
+[[bench]]
+name = "grid"
+harness = false
+
+[[bench]]
+name = "explore"
+harness = false

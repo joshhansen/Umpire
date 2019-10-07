@@ -262,8 +262,94 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         })
 }
 
+pub mod test2 {
+    use crate::{
+        game::{
+            Game,
+            MoveError,
+            PlayerNum,
+            map::{
+                MapData,
+                gen::generate_map,
+            },
+            unit::{
+                UnitType,
+                orders::{
+                    Orders,
+                    OrdersError
+                },
+            },
+        },
+        name::{
+            IntNamer,
+            unit_namer,
+        },
+        util::{
+            Dims,
+            Location,
+            Wrap2d,
+        },
+    };
+
+    use super::{
+        OrdersStatus,
+    };
+
+    pub fn _test_explore(dims: Dims) {
+        let mut city_namer = IntNamer::new("city");
+        let unit_namer = IntNamer::new("unit");
+        let players: PlayerNum = 1;
+        let map = generate_map(&mut city_namer, dims, players);
+
+
+        let mut game = Game::new_with_map(map, players, true, Box::new(unit_namer), Wrap2d::BOTH);
+
+        // Request a fighter to be produced
+        let city_loc = game.production_set_requests().next().unwrap();
+        game.set_production(city_loc, UnitType::Fighter).unwrap();
+
+        // Wait until the fighter is produced
+        while game.unit_orders_requests().count() == 0 {
+            game.end_turn().unwrap();
+        }
+
+        game.clear_production_and_ignore(city_loc).unwrap();
+
+        let fighter_id = game.unit_orders_requests().next().unwrap();
+
+        let outcome = game.order_unit_explore(fighter_id).unwrap();
+        assert_eq!(outcome.status, OrdersStatus::InProgress);
+        assert!(outcome.move_result.is_some());
+        assert!(!outcome.move_result.as_ref().unwrap().moves.is_empty());
+
+
+        // Wait until the fighter has explored everything
+
+        let mut done = false;
+        
+        while game.unit_orders_requests().count() == 0 {
+            let turn_start = game.end_turn().unwrap();
+            assert_eq!(turn_start.carried_out_orders.len(), 1);
+
+            let carried_out_orders = turn_start.carried_out_orders.get(0).unwrap();
+
+            match carried_out_orders {
+                Ok(orders_outcome) => {
+                    assert!(!done);
+                    if orders_outcome.move_result.is_none() {
+                        done = true;
+                    } else {
+                        assert!(!orders_outcome.move_result.as_ref().unwrap().moves.is_empty());
+                    }
+                },
+                Err(orders_err) => panic!("Orders error: {}", orders_err),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
-mod test {
+pub mod test {
     use std::convert::TryFrom;
 
     use crate::{
@@ -274,7 +360,6 @@ mod test {
             map::{
                 MapData,
                 gen::generate_map,
-                terrain::Terrain,
             },
             unit::{
                 UnitType,
@@ -337,50 +422,11 @@ mod test {
         assert_eq!(final_dest, dest3);
     }
 
-    fn _test_explore(dims: Dims) {
-        let mut city_namer = IntNamer::new("city");
-        let unit_namer = IntNamer::new("unit");
-        let players: PlayerNum = 1;
-        let map = generate_map(&mut city_namer, dims, players);
-
-
-        let mut game = Game::new_with_map(map, players, true, Box::new(unit_namer), Wrap2d::BOTH);
-
-        // Request a fighter to be produced
-        let city_loc = game.production_set_requests().next().unwrap();
-        game.set_production(city_loc, UnitType::Fighter).unwrap();
-
-        // Wait until the fighter is produced
-        while game.unit_orders_requests().count() == 0 {
-            game.end_turn().unwrap();
-        }
-
-        game.clear_production_and_ignore(city_loc).unwrap();
-
-        let fighter_id = game.unit_orders_requests().next().unwrap();
-
-        game.order_unit_explore(fighter_id).unwrap();
-
-        // Wait until the fighter has explored everything
-        while game.unit_orders_requests().count() == 0 {
-            let turn_start = game.end_turn().unwrap();
-            assert_eq!(turn_start.carried_out_orders.len(), 1);
-
-            let carried_out_orders = turn_start.carried_out_orders.get(0).unwrap();
-
-            match carried_out_orders {
-                Ok(orders_outcome) => {
-                    assert!(orders_outcome.move_result.is_some());
-                    assert!(!orders_outcome.move_result.as_ref().unwrap().moves.is_empty());
-                },
-                Err(orders_err) => panic!("Orders error: {}", orders_err),
-            }
-        }
-    }
+    
 
     #[test]
-    fn test_explore() {
-        _test_explore(Dims::new(10, 10));
+    pub fn test_explore() {
+        super::test2::_test_explore(Dims::new(10, 10));
 
         // let mut city_namer = IntNamer::new("city");
         // let unit_namer = IntNamer::new("unit");
