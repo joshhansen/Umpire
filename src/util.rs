@@ -103,11 +103,12 @@ pub struct Vec2d<T> {
 }
 
 impl<T> Vec2d<T> {
-    pub fn new(x: T, y: T) -> Self {
+    pub const fn new(x: T, y: T) -> Self {
         Vec2d{ x, y }
     }
 }
 
+//TODO Someday when there's a `const` version of `Add`, implement it; could be useful for combining Vec2d's in const contexts
 impl<N:Add<Output=N>> Add for Vec2d<N> {
     type Output = Vec2d<N>;
     fn add(self, rhs: Vec2d<N>) -> Vec2d<N> {
