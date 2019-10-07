@@ -20,11 +20,19 @@
 
 use crossterm::Color;
 
-use pastel::Color as PastelColor;
-use pastel::RGBA;
-use pastel::distinct::{DistanceMetric,distinct_colors};
-use pastel::random::RandomizationStrategy;
-use pastel::random::strategies::Vivid;
+use pastel::{
+    Color as PastelColor,
+    RGBA,
+    distinct::{
+        DistanceMetric,
+        IterationStatistics,
+        distinct_colors,
+    },
+    random::{
+        RandomizationStrategy,
+        strategies::Vivid,
+    },
+};
 
 use crate::game::PlayerNum;
 
@@ -220,17 +228,18 @@ pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette,
             pastel_color_to_rgb_pair(&Vivid.generate(), darken_percent)
         ]
     } else {
-        // let land_color: PastelColor = PastelColor::from_rgb(land_color_pair.active.0, land_color_pair.active.1, land_color_pair.active.2);
-        // let ocean_color: PastelColor = PastelColor::from_rgb(ocean_color_pair.active.0, ocean_color_pair.active.1, ocean_color_pair.active.2);
         let land_color: PastelColor = color_to_pastel_color(land_color_pair.active);
         let ocean_color: PastelColor = color_to_pastel_color(ocean_color_pair.active);
         let preexisting_colors = vec![land_color, ocean_color];
-        // let callback = |&mut stats| {};
+        
+        let mut callback = |_stats: &IterationStatistics| {};
+
         let pastel_colors: Vec<PastelColor> = distinct_colors(
             usize::from(num_players) + 2,
-            DistanceMetric::CIE76,
+            // DistanceMetric::CIE76,
+            DistanceMetric::CIEDE2000,
             preexisting_colors,
-            Box::new(|_| {})
+            &mut callback,
         ).0.iter().skip(2).cloned().collect();
         
         let rgb_pairs: Vec<ColorPair> = pastel_colors.iter().map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent)).collect();

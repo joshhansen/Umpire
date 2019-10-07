@@ -726,8 +726,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "pastel"
-version = "0.5.3"
-source = "git+https://github.com/rivy/rust.pastel.git?branch=rf.distinct#aa929c44977d8218262b0e5dabd19dbefc6b858a"
+version = "0.6.1"
+source = "git+https://github.com/sharkdp/pastel.git#b36645671dbfec5f162587be7ad887d2e74c73a6"
 dependencies = [
  "atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1207,7 +1207,7 @@ dependencies = [
  "csv 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2 1.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "pastel 0.5.3 (git+https://github.com/rivy/rust.pastel.git?branch=rf.distinct)",
+ "pastel 0.6.1 (git+https://github.com/sharkdp/pastel.git)",
  "pitch_calc 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sample 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1388,7 +1388,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum num_cpus 1.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "bcef43580c035376c0705c42792c294b66974abbfd2789b511784023f71f3273"
 "checksum output_vt100 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "53cdc5b785b7a58c5aad8216b3dfa114df64b0b06ae6e1501cef91df2fbdf8f9"
 "checksum panning 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3654ebe7d2302a4627f2687c40cabab6126b09f9704998ceee6a089ff88cf1e0"
-"checksum pastel 0.5.3 (git+https://github.com/rivy/rust.pastel.git?branch=rf.distinct)" = "<none>"
+"checksum pastel 0.6.1 (git+https://github.com/sharkdp/pastel.git)" = "<none>"
 "checksum peeking_take_while 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 "checksum petgraph 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "3418aea32729bb24e3751c3893aa18f829a804f5030af2e9395c47c9b38f9535"
 "checksum pitch_calc 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)" = "62a4fe4bc5e28312afef25e60cb10dc006dd376db75174d3f260a9cc343224bf"

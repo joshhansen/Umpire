@@ -11,7 +11,7 @@ crossterm = "0.11.1"
 csv = "1.1.1"
 failure = "0.1.5"
 flate2 = "1.0.11"
-pastel = { git = "https://github.com/rivy/rust.pastel.git", branch = "rf.distinct" }
+pastel = { git = "https://github.com/sharkdp/pastel.git" }
 pitch_calc = "0.11.1"
 sample = "0.10.0"
 synth = "0.11.0" 
