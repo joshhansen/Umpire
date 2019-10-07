@@ -172,11 +172,15 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
             }
         } else {
             return game.set_orders(unit_id, None)
-                .map(|_| OrdersOutcome::completed_with_move(
-                    unit_id,
-                    orders,
-                    Move::new(unit, starting_loc, moves).unwrap()
-                )
+                .map(|_| if moves.is_empty() {
+                    OrdersOutcome::completed_without_move(unit_id, orders)
+                } else {
+                    OrdersOutcome::completed_with_move(
+                        unit_id,
+                        orders,
+                        Move::new(unit, starting_loc, moves).unwrap()
+                    )
+                }
             );
         }
     }
