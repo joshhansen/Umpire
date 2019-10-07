@@ -52,19 +52,11 @@ impl<T> LocationGrid<T> {
     }
 
     pub fn get(&self, loc: Location) -> Option<&T> {
-        if let Some(col) = self.grid.get(loc.x as usize) {
-            col.get(loc.y as usize)
-        } else {
-            None
-        }
+        self.grid.get(loc.x as usize).and_then(|col| col.get(loc.y as usize))
     }
 
     pub fn get_mut(&mut self, loc: Location) -> Option<&mut T> {
-        if let Some(col) = self.grid.get_mut(loc.x as usize) {
-            col.get_mut(loc.y as usize)
-        } else {
-            None
-        }
+        self.grid.get_mut(loc.x as usize).and_then(|col| col.get_mut(loc.y as usize))
     }
 
     pub fn dims(&self) -> Dims {
