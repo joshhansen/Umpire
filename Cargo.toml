@@ -32,3 +32,7 @@ harness = false
 [[bench]]
 name = "explore"
 harness = false
+
+[[bench]]
+name = "wrapping"
+harness = false
