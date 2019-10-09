@@ -292,6 +292,21 @@ pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
     neighbs
 }
 
+pub fn has_neighbor<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
+                                 filter: &F, wrapping: Wrap2d) -> bool
+    where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
+
+    for rel_neighb in rel_neighbs {
+        if let Some(neighb_loc) = wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb) {
+            if filter.include(tiles.get(neighb_loc))  {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 pub fn neighbors_iter<'a, T, F, N, S>(tiles: &'a S, loc: Location, rel_neighbs: N,
                                  filter: &'a F, wrapping: Wrap2d) -> impl Iterator<Item=Location> + 'a
     where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>>+'a {
@@ -427,7 +442,7 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     while let Some(loc) = q.pop_front() {
         visited[loc] = true;
 
-        let unobserved_neighbor_exists = neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnobservedFilter{}, wrapping).next().is_some();
+        let unobserved_neighbor_exists = has_neighbor(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnobservedFilter{}, wrapping);
         if unobserved_neighbor_exists {
             return Some(loc);
         }
