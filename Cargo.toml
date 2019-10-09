@@ -3,6 +3,7 @@ name = "umpire"
 version = "0.3.0"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
 edition = "2018"
+default-run = "umpire"
 
 [dependencies]
 clap = "2.33.0"
