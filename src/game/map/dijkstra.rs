@@ -302,6 +302,16 @@ impl <F:Filter<Obs>> Filter<Obs> for Xenophile<F> {
     }
 }
 
+/// An iterator yielding the absolute location and the looked-up `T` from each location for all neighbors of `loc` respecting the
+/// provided wrapping rules `wrapping`.
+fn all_resolved_neighbors_iter<'a, T: 'a, S>(tiles: &'a S, loc: Location, wrapping: Wrap2d) -> impl Iterator<Item=(Location,&'a T)>
+    where S:Source<T> {
+
+        RELATIVE_NEIGHBORS.iter()
+            .filter_map(move |rel_neighb| wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb))
+            .map(move |neighb| (neighb,tiles.get(neighb)))
+}
+
 pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
                                  filter: &F, wrapping: Wrap2d) -> HashSet<Location>
     where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
@@ -464,15 +474,14 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     while let Some(loc) = q.pop_front() {
         visited[loc] = true;
 
-        let unobserved_neighbor_exists = has_neighbor(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnobservedFilter{}, wrapping);
-        if unobserved_neighbor_exists {
-            return Some(loc);
-        }
+        for (neighb,obs) in all_resolved_neighbors_iter(tiles, loc, wrapping) {
+            if obs.is_unobserved() {
+                return Some(loc);
+            }
 
-        for neighb in neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), &observed_and_reachable_filter, wrapping)
-            .filter(|neighb| !visited[*neighb])
-        {
-            q.push_back(neighb);
+            if !visited[neighb] && observed_and_reachable_filter.include(obs) {
+                q.push_back(neighb);
+            }
         }
     }
     None
