@@ -270,27 +270,19 @@ pub mod test2 {
     use crate::{
         game::{
             Game,
-            MoveError,
             PlayerNum,
             map::{
-                MapData,
                 gen::generate_map,
             },
             unit::{
                 UnitType,
-                orders::{
-                    Orders,
-                    OrdersError
-                },
             },
         },
         name::{
             IntNamer,
-            unit_namer,
         },
         util::{
             Dims,
-            Location,
             Wrap2d,
         },
     };
@@ -360,13 +352,10 @@ pub mod test {
         game::{
             Game,
             MoveError,
-            PlayerNum,
             map::{
                 MapData,
-                gen::generate_map,
             },
             unit::{
-                UnitType,
                 orders::{
                     Orders,
                     OrdersError
@@ -374,7 +363,6 @@ pub mod test {
             },
         },
         name::{
-            IntNamer,
             unit_namer,
         },
         util::{
