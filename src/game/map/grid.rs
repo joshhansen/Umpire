@@ -87,7 +87,7 @@ impl<T> LocationGrid<T> {
 
 impl Source<Tile> for LocationGrid<Tile> {
     fn get(&self, loc: Location) -> &Tile {
-        self.get(loc).unwrap()
+        &self[loc]
     }
     fn dims(&self) -> Dims {
         self.dims
