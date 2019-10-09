@@ -444,16 +444,6 @@ pub fn old_shortest_paths_for_unit<T:Source<Tile>>(tiles: &T, source: Location, 
     shortest_paths(tiles, source, &UnitMovementFilter{unit}, wrapping)
 }
 
-// fn observed_no_units_no_cities_but_ours(alignment: Alignment) -> impl Filter<Obs> {
-//     AndFilter::new(
-//         AndFilter::new(
-//             ObservedFilter{},
-//             NoUnitsFilter{},
-//         ),
-//         NoCitiesButOursFilter{alignment},
-//     )
-// }
-
 /// Return the (or a) closest tile to the source which is reachable by the given
 /// unit and is adjacent to at least one unobserved tile. If no such tile exists
 /// then return None
