@@ -141,9 +141,8 @@ trait IMode {
     }
 
     fn map_loc_to_viewport_loc(ui: &mut TermUI, map_loc: Location) -> Option<Location> {
-        let viewport_dims = ui.map_scroller.viewport_dims();
         let map = &ui.map_scroller.scrollable;
-        map.map_to_viewport_coords(map_loc, viewport_dims)
+        map.map_to_viewport_coords(map_loc)
     }
 }
 

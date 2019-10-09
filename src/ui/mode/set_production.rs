@@ -84,15 +84,15 @@ impl IMode for SetProductionMode {
         ui.draw_no_flush(game);
 
 
-        let (city_loc, city_sym) = {
+        let city = {
             let city = game.current_player_city_by_loc(self.loc).unwrap();
             ui.log_message(format!("Requesting production target for {}", city.short_desc() ));
             ui.log.draw_no_flush(game, &mut ui.stdout, &ui.palette);
 
-            (city.loc, city.sym(ui.unicode))
+            city
         };
-        let city_viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(city_loc, ui.viewport_dims()).unwrap();
-        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, city_viewport_loc, false, true, Some(city_sym));
+        let city_viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(city.loc).unwrap();
+        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, city_viewport_loc, false, true, Some(Some(city)), None, None);
 
         loop {
             match self.get_key(game, ui, mode) {

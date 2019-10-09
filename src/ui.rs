@@ -494,8 +494,8 @@ impl TermUI {
         for inc in visible_coords_iter(unit_sight_distance) {
             if let Some(loc) = game.wrapping().wrapped_add(game.dims(), unit_loc, inc) {
 
-                if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc, self.viewport_rect().dims()) {
-                    self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, false, None);
+                if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(loc) {
+                    self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, false, None, None, None);
                 }
             }
         }
@@ -510,11 +510,10 @@ impl TermUI {
         attacker_loc: Location,
         defender_loc: Location) {
 
-        let viewport_dims = self.map_scroller.viewport_dims();
         let map = &mut self.map_scroller.scrollable;
 
-        let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc, viewport_dims);
-        let defender_viewport_loc = map.map_to_viewport_coords(defender_loc, viewport_dims);
+        let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc);
+        let defender_viewport_loc = map.map_to_viewport_coords(defender_loc);
         let attacker_sym = outcome.attacker().sym(self.unicode);
         let defender_sym = outcome.defender().sym(self.unicode);
 
@@ -529,9 +528,9 @@ impl TermUI {
             };
 
             if let Some(viewport_loc) = viewport_loc {
-                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, true, false, Some(sym));
+                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, true, false, None, None, Some(sym));
                 sleep_millis(100);
-                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, false, false, Some(sym));
+                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, false, false, None, None, Some(sym));
             } else {
                 sleep_millis(100);
             }
@@ -542,22 +541,21 @@ impl TermUI {
         self.viewport_size.rect(self.term_dims)
     }
 
-    fn viewport_dims(&self) -> Dims {
-        self.viewport_rect().dims()
-    }
-
     fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
-        let viewport_dims = self.map_scroller.viewport_dims();
         let map = &self.map_scroller.scrollable;
 
         match *mode {
-            Mode::SetProduction{city_loc} => map.map_to_viewport_coords(city_loc, viewport_dims),
+            Mode::SetProduction{city_loc} => map.map_to_viewport_coords(city_loc),
             Mode::GetUnitOrders{unit_id,..} => {
                 let unit_loc = game.current_player_unit_loc(unit_id).unwrap();
-                map.map_to_viewport_coords(unit_loc, viewport_dims)
+                map.map_to_viewport_coords(unit_loc)
             },
             _ => None
         }
+    }
+
+    fn ensure_map_loc_visible(&mut self, map_loc: Location) {
+        self.map_scroller.scrollable.center_viewport_if_not_visible(map_loc);
     }
 
     fn cursor_map_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
@@ -609,9 +607,15 @@ impl LogTarget for TermUI {
 impl MoveAnimator for TermUI {
     fn animate_move(&mut self, game: &Game, move_result: &Move) {
         let mut current_loc = move_result.starting_loc();
+        let ending_loc = move_result.ending_loc();
 
-        for move_ in move_result.moves() {
+        self.ensure_map_loc_visible(current_loc);
+        self.draw(game);
+
+        for (move_idx, move_) in move_result.moves().iter().enumerate() {
             let target_loc = move_.loc();
+            self.ensure_map_loc_visible(current_loc);
+            self.draw_no_flush(game);
 
             let mut was_combat = false;
             if let Some(ref combat) = *move_.unit_combat() {
@@ -634,25 +638,39 @@ impl MoveAnimator for TermUI {
                 source: Some(MessageSource::UI)
             });
 
-            {
-                let viewport_dims = self.map_scroller.viewport_dims();
-                let map = &mut self.map_scroller.scrollable;
-
-                // Erase the unit's symbol at its old location
-                if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc, viewport_dims) {
-                    map.draw_tile_and_flush(game, &mut self.stdout, current_viewport_loc, false, false, None);//By now the model has no unit in the old location, so just draw that tile as per usual
-                }
-            }
-
             if move_.moved_successfully() {
                 self.draw_unit_observations(game, target_loc, move_result.unit().sight_distance());
             }
+
+            {
+                let map = &mut self.map_scroller.scrollable;
+
+                // Erase the unit from its final location (if it survives) in case that was observed
+                if let Some(ending_loc) = ending_loc {
+                    if let Some(ending_viewport_loc) = map.map_to_viewport_coords(ending_loc) {
+                        map.draw_tile_no_flush(game, &mut self.stdout, ending_viewport_loc, false, false, None, Some(None), None);
+                    }
+                }
+
+                // Erase the unit's symbol at its old location
+                if let Some(current_viewport_loc) = map.map_to_viewport_coords(current_loc) {
+                    map.draw_tile_no_flush(game, &mut self.stdout, current_viewport_loc, false, false, None, None, None);//By now the model has no unit in the old location, so just draw that tile as per usual
+                }
+
+                // Draw the unit's symbol at its new location
+                let target_viewport_loc = map.map_to_viewport_coords(target_loc).unwrap();
+                map.draw_tile_no_flush(game, &mut self.stdout, target_viewport_loc, false, false, None, Some(Some(move_result.unit())), None);
+            }
+
+            
 
             current_loc = target_loc;
 
             self.stdout.flush().unwrap();
 
-            sleep_millis(40);
+            if move_idx < move_result.moves().len() - 1 {
+                sleep_millis(100);
+            }
         }
 
         if move_result.unit().moves_remaining() == 0 {

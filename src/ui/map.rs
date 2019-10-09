@@ -18,9 +18,13 @@ use crate::{
     game::{
         AlignedMaybe,
         Game,
+        city::City,
         map::{LocationGrid,Tile},
         obs::Obs,
-        unit::orders::Orders,
+        unit::{
+            orders::Orders,
+            Unit,
+        },
     },
     ui::{
         Component,Draw,
@@ -165,6 +169,10 @@ impl Map {
         }
     }
 
+    fn viewport_dims(&self) -> Dims {
+        self.rect.dims()
+    }
+
     pub fn shift_viewport(&mut self, shift: Vec2d<i32>) {
         let mut new_x_offset:i32 = ( i32::from(self.viewport_offset.x) ) + shift.x;
         let mut new_y_offset:i32 = ( i32::from(self.viewport_offset.y) ) + shift.y;
@@ -189,23 +197,33 @@ impl Map {
         self.viewport_offset = new_viewport_offset;
     }
 
-    pub fn map_to_viewport_coords(&self, map_loc: Location, viewport_dims: Dims) -> Option<Location> {
-        map_to_viewport_coords(map_loc, self.viewport_offset, viewport_dims, self.map_dims)
+    pub fn map_to_viewport_coords(&self, map_loc: Location) -> Option<Location> {
+        map_to_viewport_coords(map_loc, self.viewport_offset, self.viewport_dims(), self.map_dims)
     }
 
-    pub fn center_viewport(&mut self, map_location: Location) {
+    /// Center the viewport around the tile corresponding to map location `map_loc`.
+    pub fn center_viewport(&mut self, map_loc: Location) {
         let new_viewport_offset = Vec2d {
             x: nonnegative_mod(
-                i32::from(map_location.x) - (i32::from(self.rect.width) / 2),
+                i32::from(map_loc.x) - (i32::from(self.rect.width) / 2),
                 self.map_dims.width
             ),
             y: nonnegative_mod(
-                i32::from(map_location.y) - (i32::from(self.rect.height) / 2),
+                i32::from(map_loc.y) - (i32::from(self.rect.height) / 2),
                 self.map_dims.height
             )
         };
 
         self.set_viewport_offset(new_viewport_offset);
+    }
+
+    /// Center the viewport around the tile corresponding to map location `map_loc` if it is not visible;
+    /// otherwise, do nothing.
+    pub fn center_viewport_if_not_visible(&mut self, map_loc: Location) {
+        if self.map_to_viewport_coords(map_loc).is_none() {
+            // The map location is not currently visible in the viewport
+            self.center_viewport(map_loc);
+        }
     }
 
     /// Renders a particular location in the viewport
@@ -218,9 +236,15 @@ impl Map {
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
 
-            // A symbol to show instead of what's actually at this location
+            // Pretend the given city is actually at this location (instead of what might really be there)
+            city_override: Option<Option<&City>>,
+
+            // Pretend the given unit is actually at this location (instead of what might really be there)
+            unit_override: Option<Option<&Unit>>,
+            
+            // A symbol to display instead of what's really here
             symbol_override: Option<&'static str>) {
-        self.draw_tile_no_flush(game, stdout, viewport_loc, highlight, unit_active, symbol_override);
+        self.draw_tile_no_flush(game, stdout, viewport_loc, highlight, unit_active, city_override, unit_override, symbol_override);
         stdout.flush().unwrap();
     }
 
@@ -232,7 +256,13 @@ impl Map {
             highlight: bool,// Highlighting as for a cursor
             unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
 
-            // A symbol to show instead of what's actually at this location
+            // Pretend the given city is actually at this location (instead of what might really be there)
+            city_override: Option<Option<&City>>,
+
+            // Pretend the given unit is actually at this location (instead of what might really be there)
+            unit_override: Option<Option<&Unit>>,
+            
+            // A symbol to display instead of what's really here
             symbol_override: Option<&'static str>) {
 
 
@@ -269,7 +299,19 @@ impl Map {
                 stdout.queue(SetAttr(Attribute::Bold)).unwrap();
             }
 
-            let (sym, fg_color, bg_color) = if let Some(ref unit) = tile.unit {
+            let city: Option<&City> = if let Some(city_override) = city_override {
+                city_override
+            } else {
+                tile.city.as_ref()
+            };
+
+            let unit: Option<&Unit> = if let Some(unit_override) = unit_override {
+                unit_override
+            } else {
+                tile.unit.as_ref()
+            };
+
+            let (sym, fg_color, bg_color) = if let Some(ref unit) = unit {
                 if let Some(orders) = unit.orders {
                     if orders == Orders::Sentry {
                         // write!(stdout, "{}", Italic).unwrap();
@@ -278,7 +320,7 @@ impl Map {
                 }
 
                 (unit.sym(self.unicode), unit.color(), tile.terrain.color())
-            } else if let Some(ref city) = tile.city {
+            } else if let Some(ref city) = city {
                 (city.sym(self.unicode), city.alignment.color(), tile.terrain.color())
             } else {
                 (tile.sym(self.unicode), None, tile.terrain.color())
@@ -390,7 +432,7 @@ impl Draw for Map {
             };
 
             if should_draw_tile {
-                self.draw_tile_no_flush(game, stdout, viewport_loc, false, false, None);
+                self.draw_tile_no_flush(game, stdout, viewport_loc, false, false, None, None, None);
             }
         }
 

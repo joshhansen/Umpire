@@ -14,7 +14,6 @@ use crate::{
     ui::{
         audio::Sounds,
         buf::RectBuffer,
-        sym::Sym,
         MoveAnimator,
         TermUI,
     },
@@ -62,22 +61,27 @@ impl GetUnitOrdersMode {
 }
 impl IMode for GetUnitOrdersMode {
     fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
-        let (unit_loc,unit_type, unit_sym) = {
-            let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
-            ui.log_message(format!("Requesting orders for {} at {}", unit.medium_desc(), unit.loc));
-            (unit.loc,unit.type_, unit.sym(ui.unicode))
+        let unit_loc = {
+            let unit = {
+                let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
+                ui.log_message(format!("Requesting orders for {} at {}", unit.medium_desc(), unit.loc));
+                // (unit.loc,unit.type_, unit.sym(ui.unicode))
+                unit
+            };
+
+            if self.first_move {
+                ui.play_sound(Sounds::Unit(unit.type_));
+                ui.map_scroller.scrollable.center_viewport(unit.loc);
+            }
+
+            self.write_buf(game, ui);
+            ui.draw_no_flush(game);
+
+            let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit.loc).unwrap();
+            ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, None, Some(Some(unit)), None);
+
+            unit.loc
         };
-
-        if self.first_move {
-            ui.play_sound(Sounds::Unit(unit_type));
-            ui.map_scroller.scrollable.center_viewport(unit_loc);
-        }
-
-        self.write_buf(game, ui);
-        ui.draw_no_flush(game);
-
-        let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit_loc, ui.viewport_rect().dims()).unwrap();
-        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, Some(unit_sym));
 
         loop {
             match self.get_key(game, ui, mode) {

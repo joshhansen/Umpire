@@ -44,7 +44,7 @@ impl ExamineMode {
     }
     fn clean_up(&self, game: &Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
-        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None);
+        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None, None, None);
     }
 
     fn current_player_tile<'a>(&'a self, game: &'a Game, ui: &TermUI) -> Option<&'a Tile> {
@@ -54,7 +54,7 @@ impl ExamineMode {
 
     fn draw_tile<'a>(&'a self, game: &'a Game, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
-        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None);
+        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, None, None, None);
     }
 
     fn next_examine_mode(&self, new_loc: Location) -> Mode {
