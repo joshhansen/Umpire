@@ -113,6 +113,37 @@ impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
         }
     }
 }
+
+/// A filter that yields observed tiles that a unit could reach in exploration (visiting tiles of appropriate terrain which contain no unit
+/// and only friendly cities if any)
+/// 
+/// This disallows visits to carrier units under the presumption that an exploring unit would not bother boarding a transport or landing on an
+/// aircraft carrier.
+struct ObservedReachableByUnit<'a> {
+    unit: &'a Unit
+}
+impl <'a> Filter<Obs> for ObservedReachableByUnit<'a> {
+    fn include(&self, obs: &Obs) -> bool {
+        if let Obs::Observed{tile,..} = obs {
+
+            if tile.unit.is_some() {
+                return false;
+            }
+
+            if let Some(ref city) = tile.city {
+                if city.alignment != self.unit.alignment {
+                    return false;
+                }
+            }
+
+            self.unit.can_move_on_tile(tile)
+
+        } else {
+            false
+        }
+    }
+}
+
 pub struct TerrainFilter {
     pub terrain: Terrain
 }
@@ -423,16 +454,7 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     wrapping: Wrap2d
 ) -> Option<Location> {
 
-    let observed_and_reachable_filter = AndFilter::new(
-        ObservedFilter,
-        AndFilter::new(
-            AndFilter::new(
-                NoUnitsFilter{},
-                NoCitiesButOursFilter{alignment: unit.alignment }
-            ),
-            UnitMovementFilter{unit}
-        )
-    );
+    let observed_and_reachable_filter = ObservedReachableByUnit{ unit };
 
     let mut q = VecDeque::new();
     q.push_back(src);
