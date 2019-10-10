@@ -407,6 +407,12 @@ impl Colorized for Unit {
     }
 }
 
+impl Located for Unit {
+    fn loc(&self) -> Location {
+        self.loc
+    }
+}
+
 impl Observer for Unit {
     fn sight_distance(&self) -> u16 {
         self.type_.sight_distance()
@@ -478,7 +484,7 @@ x   o    x";
 
                 let turn = 0;
 
-                infantry.observe(infantry_loc, &map, turn, Wrap2d::BOTH, &mut obs_tracker);
+                infantry.observe(&map, turn, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr = [
                     Location{x:4, y:0},
@@ -512,9 +518,10 @@ x   o    x";
                 x  oooo  x
                 x   oo   x"
                 */
-                let infantry_loc_2 = Location{x:5, y:2};
+                let mut infantry = infantry;
+                infantry.loc = Location{x:5, y:2};
 
-                infantry.observe(infantry_loc_2, &map, turn, Wrap2d::BOTH, &mut obs_tracker);
+                infantry.observe(&map, turn, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr_2 = [
                     Location{x:5, y:0},

@@ -6,6 +6,7 @@
 pub mod city;
 pub mod combat;
 pub mod map;
+pub mod move_;
 pub mod obs;
 pub mod unit;
 
@@ -54,6 +55,13 @@ use crate::{
     },
     name::{Namer,ListNamer},
     util::{Dims,Location,Wrap2d},
+};
+
+use self::move_::{
+    Move,
+    MoveComponent,
+    MoveError,
+    MoveResult,
 };
 
 
@@ -111,156 +119,6 @@ impl <T:Aligned> AlignedMaybe for T {
         Some(self.alignment())
     }
 }
-
-#[derive(Debug,PartialEq)]
-pub struct Move {
-    unit: Unit,
-    starting_loc: Location,
-    moves: Vec<MoveComponent>
-}
-impl Move {
-    /// unit represents the unit _after_ the move is completed
-    fn new(unit: Unit, starting_loc: Location, moves: Vec<MoveComponent>) -> MoveResult {
-        if moves.is_empty() {
-            Err(MoveError::ZeroLengthMove)
-        } else {
-            Ok(Self{unit, starting_loc, moves})
-        }
-    }
-    pub fn unit(&self) -> &Unit {
-        &self.unit
-    }
-
-    pub fn moves(&self) -> &Vec<MoveComponent> {
-        &self.moves
-    }
-
-    pub fn starting_loc(&self) -> Location {
-        self.starting_loc
-    }
-
-    pub fn moved_successfully(&self) -> bool {
-        self.moves.iter().map(MoveComponent::moved_successfully).all(|success| success)
-    }
-
-    /// The city conquered at the end of this move, if any
-    pub fn conquered_city(&self) -> Option<&City> {
-        if let Some(move_) = self.moves.last() {
-            if let Some(city_combat) = move_.city_combat.as_ref() {
-                if city_combat.victorious() {
-                    return Some(city_combat.defender());
-                }
-            }
-        }
-
-        None
-    }
-
-    /// If the unit survived to the end of the move, its destination
-    pub fn ending_loc(&self) -> Option<Location> {
-        if self.moved_successfully() {
-            self.moves.last().map(|move_| move_.loc)
-            // Some(self.moves.last().unwrap().loc)
-        } else {
-            None
-        }
-    }
-
-    /// If the unit survived to the end of the move, which (if any) unit ended up carrying it?
-    pub fn ending_carrier(&self) -> Option<UnitID> {
-        if self.moved_successfully() {
-            if let Some(move_) = self.moves.last() {
-                move_.carrier
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug,PartialEq)]
-pub struct MoveComponent {
-    loc: Location,
-    /// Was the unit carried by another unit? If so, which one?
-    carrier: Option<UnitID>,
-    unit_combat: Option<CombatOutcome<Unit,Unit>>,
-    city_combat: Option<CombatOutcome<Unit,City>>
-}
-impl MoveComponent {
-    fn new(loc: Location) -> Self {
-        MoveComponent {
-            loc,
-            carrier: None,
-            unit_combat: None,
-            city_combat: None
-        }
-    }
-
-    pub fn moved_successfully(&self) -> bool {
-        if let Some(ref combat) = self.unit_combat {
-            if combat.destroyed() {
-                return false;
-            }
-        }
-        if let Some(ref combat) = self.city_combat {
-            if combat.destroyed() {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub fn unit_combat(&self) -> &Option<CombatOutcome<Unit,Unit>> {
-        &self.unit_combat
-    }
-
-    pub fn city_combat(&self) -> &Option<CombatOutcome<Unit,City>> {
-        &self.city_combat
-    }
-
-    pub fn loc(&self) -> Location {
-        self.loc
-    }
-}
-
-#[derive(Debug,Fail,PartialEq)]
-pub enum MoveError {
-    #[fail(display="Cannot execute a move of length zero")]
-    ZeroLengthMove,
-
-    #[fail(display="Ordered move of unit with ID {:?} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
-                    id, src, dest, intended_distance, moves_remaining)]
-    RemainingMovesExceeded {
-        id: UnitID,
-        src: Location,
-        dest: Location,
-        intended_distance: u16,
-        moves_remaining: u16,
-    },
-
-    #[fail(display="Cannot move unit at source location {} with ID {:?} because none exists", src_loc, id)]
-    SourceUnitDoesNotExist {
-        src_loc: Location,
-        id: UnitID,
-    },
-
-    #[fail(display="No route from {} to {} for unit with ID {:?}", src, dest, id)]
-    NoRoute {
-        id: UnitID,
-        src: Location,
-        dest: Location,
-    },
-
-    #[fail(display="Destination {} lies outside of bounds {}", dest, bounds)]
-    DestinationOutOfBounds {
-        dest: Location,
-        bounds: Dims,
-    }
-}
-
-pub type MoveResult = Result<Move,MoveError>;
 
 
 // //FIXME merge turn start and end because they're really the same thing
@@ -543,7 +401,7 @@ impl Game {
                 if let Some(ref city) = tile.city {
                     if let Alignment::Belligerent{player} = city.alignment {
                         if player==self.current_player {
-                            city.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+                            city.observe(&self.map, self.turn, self.wrapping, obs_tracker);
                         }
                     }
                 }
@@ -551,7 +409,7 @@ impl Game {
                 if let Some(ref unit) = tile.unit {
                     if let Alignment::Belligerent{player} = unit.alignment {
                         if player==self.current_player {
-                            unit.observe(tile.loc, &self.map, self.turn, self.wrapping, obs_tracker);
+                            unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
                         }
                     }
                 }
@@ -841,10 +699,13 @@ impl Game {
                     }
                 }
 
-                for move_ in moves.iter() {
+                for move_ in moves.iter_mut() {
                     if move_.moved_successfully() {
                         let mut obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
-                        unit.observe(move_.loc(), &self.map, self.turn, self.wrapping, &mut obs_tracker);
+                        unit.loc = move_.loc;
+                        move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, &mut obs_tracker);
+
+
                     }
                 }
 
@@ -1240,17 +1101,17 @@ mod test {
             println!("Moving from {} to {}", loc, dest_loc);
             let move_result = game.move_toplevel_unit_by_loc(loc, dest_loc).unwrap();
             println!("Result: {:?}", move_result);
-            assert_eq!(move_result.unit().type_, UnitType::Armor);
-            assert_eq!(move_result.unit().alignment, Alignment::Belligerent{player:0});
-            assert_eq!(move_result.unit().moves_remaining(), 0);
+            assert_eq!(move_result.unit.type_, UnitType::Armor);
+            assert_eq!(move_result.unit.alignment, Alignment::Belligerent{player:0});
+            assert_eq!(move_result.unit.moves_remaining(), 0);
 
-            assert_eq!(move_result.moves().len(), 2);
-            let move1 = move_result.moves().get(0).unwrap();
+            assert_eq!(move_result.moves.len(), 2);
+            let move1 = move_result.moves.get(0).unwrap();
             assert_eq!(move1.loc, Location{x:loc.x+1, y:loc.y});
             assert_eq!(move1.unit_combat, None);
             assert_eq!(move1.city_combat, None);
 
-            let move2 = move_result.moves().get(1).unwrap();
+            let move2 = move_result.moves.get(1).unwrap();
             assert_eq!(move2.loc, dest_loc);
             assert_eq!(move2.unit_combat, None);
             if round < 2 {
@@ -1290,7 +1151,7 @@ mod test {
 
         let mut game = Game::new_with_map(map, 1, false, Box::new(unit_namer()), Wrap2d::BOTH);
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
-        assert_eq!(move_result.starting_loc(), infantry_loc);
+        assert_eq!(move_result.starting_loc, infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
         assert!(move_result.moved_successfully());
         assert_eq!(move_result.ending_carrier(), Some(transport_id));

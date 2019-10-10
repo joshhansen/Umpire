@@ -6,13 +6,14 @@ use crate::{
             Tile,
             dijkstra::Source,
         },
+        unit::Located,
     },
     util::{Dims,Location,Vec2d,Wrap2d},
 };
 
 
 /// What a particular player knows about a tile
-#[derive(Debug,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum Obs {
     Observed{tile: Tile, turn: TurnNum, current: bool},
     Unobserved
@@ -25,6 +26,17 @@ impl Obs {
 
     pub fn is_unobserved(&self) -> bool {
         *self == Obs::Unobserved
+    }
+}
+
+#[derive(Debug,PartialEq)]
+pub struct LocatedObs {
+    pub loc: Location,
+    pub obs: Obs,
+}
+impl LocatedObs {
+    pub const fn new(loc: Location, obs: Obs) -> Self {
+        Self { loc, obs }
     }
 }
 
@@ -46,8 +58,10 @@ impl ObsTracker {
         }
     }
 
-    pub fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) {
-        self.observations[loc] = Obs::Observed{ tile: tile.clone(), turn, current: true };
+    pub fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
+        let obs = Obs::Observed{ tile: tile.clone(), turn, current: true };
+        self.observations[loc] = obs.clone();//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
+        LocatedObs{ loc, obs }
     }
 
     /// Transfer all "current" to "observed"
@@ -70,14 +84,23 @@ pub fn visible_coords_iter(sight_distance: u16) -> impl Iterator<Item=Vec2d<i32>
     } )
 }
 
-pub trait Observer {
+pub trait Observer : Located {
     fn sight_distance(&self) -> u16;
-    fn observe(&self, observer_loc: Location, tiles: &dyn Source<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut ObsTracker) {
-        for inc in visible_coords_iter(self.sight_distance()) {
-            if let Some(loc) = wrapping.wrapped_add(tiles.dims(), observer_loc, inc) {
-                obs_tracker.observe(loc, tiles.get(loc), turn);
-            }
-        }
+
+    /// FIXME If we ever get support for impl Trait on trait methods switch to that rather than the likely performance hit of this
+    /// vector instantiation
+    fn observe(&self, tiles: &dyn Source<Tile>, turn: TurnNum, wrapping: Wrap2d, obs_tracker: &mut ObsTracker) -> Vec<LocatedObs> {
+        visible_coords_iter(self.sight_distance())
+            .filter_map(|inc| wrapping.wrapped_add(tiles.dims(), self.loc(), inc))
+            .map(|loc| {
+                obs_tracker.observe(loc, tiles.get(loc), turn)
+            })
+            .collect()
+        // for inc in visible_coords_iter(self.sight_distance()) {
+        //     if let Some(loc) = wrapping.wrapped_add(tiles.dims(), self.loc(), inc) {
+        //         obs_tracker.observe(loc, tiles.get(loc), turn);
+        //     }
+        // }
     }
 }
 
@@ -115,6 +138,6 @@ mod test {
         assert_eq!(*tracker.get(loc), Obs::Observed{tile: tile, turn: turn, current: true});
 
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "George Glover");
-        infantry.observe(loc, &map, turn, Wrap2d::BOTH, &mut tracker);
+        infantry.observe(&map, turn, Wrap2d::BOTH, &mut tracker);
     }
 }
