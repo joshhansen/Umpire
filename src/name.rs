@@ -25,6 +25,11 @@ pub trait Namer {
     fn name(&mut self) -> String;
 }
 
+/// Something that has a name
+pub trait Named {
+    fn name(&self) -> &String;
+}
+
 /// A namer that names things after numbers, counting upward from zero. A prefix is prepended.
 pub struct IntNamer {
     next: u64,

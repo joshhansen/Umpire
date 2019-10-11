@@ -57,8 +57,8 @@ impl TurnOverMode {
 
         match orders_result {
             Ok(orders_outcome) => {
-                if let Some(move_result) = orders_outcome.move_result() {
-                    ui.animate_move(game, &move_result);
+                if let Some(move_) = orders_outcome.move_() {
+                    ui.animate_move(game, &move_);
                 }
             },
             Err(err) => {

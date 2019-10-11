@@ -17,6 +17,7 @@ use crate::{
         },
         obs::Observer,
     },
+    name::Named,
     util::Location,
 };
 
@@ -410,6 +411,12 @@ impl Colorized for Unit {
 impl Located for Unit {
     fn loc(&self) -> Location {
         self.loc
+    }
+}
+
+impl Named for Unit {
+    fn name(&self) -> &String {
+        &self.name
     }
 }
 

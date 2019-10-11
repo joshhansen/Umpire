@@ -151,8 +151,8 @@ impl IMode for ExamineMode {
                             let dest = dest.unwrap();
                             // game.give_orders(self.most_recently_active_unit_id, Some(Orders::GoTo{dest}), ui, true).unwrap();
                             let outcome = game.order_unit_go_to(most_recently_active_unit_id, dest).unwrap();
-                            if let Some(move_result) = outcome.move_result() {
-                                ui.animate_move(game, &move_result);
+                            if let Some(move_) = outcome.move_() {
+                                ui.animate_move(game, &move_);
                             }
 
                             ui.log_message(format!("Ordered unit to go to {}", dest));

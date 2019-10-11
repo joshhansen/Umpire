@@ -66,10 +66,16 @@ use self::move_::{
     ProposedMoveResult,
 };
 
-/// A contemplated change which, when made, will yield a completed representation of the change made
-trait Change {
-    type Completed;
-    fn make(self, game: &mut Game) -> Self::Completed;
+// /// A contemplated change which, when made, will yield a representation of the completed change, `Into`.
+// trait Change {
+//     type Into;
+//     fn make(self, game: &mut Game) -> Self::Into;
+// }
+
+/// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
+trait ProposedAction {
+    type Outcome;
+    fn take(self, game: &mut Game) -> Self::Outcome;
 }
 
 pub type TurnNum = u32;
@@ -585,20 +591,20 @@ impl Game {
 
     fn move_toplevel_unit_by_loc_following_shortest_paths(&mut self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> MoveResult {
         self.propose_move_toplevel_unit_by_loc_following_shortest_paths(src, dest, shortest_paths).map(|proposed_move| {
-            proposed_move.make(self)
+            proposed_move.take(self)
         })
     }
 
-    fn propose_move_toplevel_unit_by_loc_following_shortest_paths(&mut self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> ProposedMoveResult {
+    fn propose_move_toplevel_unit_by_loc_following_shortest_paths(&self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> ProposedMoveResult {
         let id: UnitID = self.map.toplevel_unit_id_by_loc(src).unwrap();
         self.propose_move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
     }
 
     pub fn move_unit_by_id(&mut self, id: UnitID, dest: Location) -> MoveResult {
-        self.propose_move_unit_by_id(id, dest).map(|proposed_move| proposed_move.make(self))
+        self.propose_move_unit_by_id(id, dest).map(|proposed_move| proposed_move.take(self))
     }
 
-    pub fn propose_move_unit_by_id(&mut self, id: UnitID, dest: Location) -> ProposedMoveResult {
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
         let (shortest_paths, src) = {
             let unit = self.map.unit_by_id(id).unwrap();
             (shortest_paths(&self.map, unit.loc, &UnitMovementFilter::new(unit), self.wrapping), unit.loc)
@@ -607,10 +613,10 @@ impl Game {
     }
 
     pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
-        self.propose_move_unit_by_id_avoiding_combat(id, dest).map(|proposed_move| proposed_move.make(self))
+        self.propose_move_unit_by_id_avoiding_combat(id, dest).map(|proposed_move| proposed_move.take(self))
     }
 
-    pub fn propose_move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> ProposedMoveResult {
+    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
         let (shortest_paths, src) = {
             let unit = self.map.unit_by_id(id).unwrap();
             let unit_filter = AndFilter::new(
@@ -686,6 +692,9 @@ impl Game {
                 let first_loc = it.next().unwrap();// skip the source location
                 debug_assert_eq!(src, *first_loc);
                 for loc in it {
+                    // Move our simulated unit along the path
+                    unit.loc = *loc;
+
                     moves.push(MoveComponent::new(*loc));
                     let mut move_ = moves.last_mut().unwrap();
 
@@ -982,9 +991,20 @@ mod test {
                 MapData,
                 Terrain,
             },
-            unit::{UnitID,UnitType},
+            unit::{
+                UnitID,
+                UnitType,
+                orders::{
+                    Orders,
+                    OrdersStatus,
+                },
+            },
         },
-        name::unit_namer,
+        name::{
+            IntNamer,
+            Named,
+            unit_namer,
+        },
         util::{Dims,Location,Wrap2d},
     };
 
@@ -1190,5 +1210,34 @@ mod test {
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
         assert!(move_result.moved_successfully());
         assert_eq!(move_result.ending_carrier(), Some(transport_id));
+    }
+
+    #[test]
+    fn test_set_orders() {
+        let unit_namer = IntNamer::new("abc");
+        let map = MapData::try_from("i").unwrap();
+        let mut game = Game::new_with_map(map, 1, false, Box::new(unit_namer), Wrap2d::NEITHER);
+        let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+
+        assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, None);
+        assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().name(), &String::from("Unit_0_0"));
+
+        game.set_orders(unit_id, Some(Orders::Sentry)).unwrap();
+
+        assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, Some(Orders::Sentry));
+    }
+
+     #[test]
+    pub fn test_order_unit_explore() {
+        let unit_namer = IntNamer::new("unit");
+        let map = MapData::try_from("i--------------------").unwrap();
+        let mut game = Game::new_with_map(map, 1, true, Box::new(unit_namer), Wrap2d::NEITHER);
+
+        let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+        
+        let outcome = game.order_unit_explore(unit_id).unwrap();
+        assert_eq!(outcome.ordered_unit_id, unit_id);
+        assert_eq!(outcome.orders, Orders::Explore);
+        assert_eq!(outcome.status, OrdersStatus::InProgress);
     }
 }

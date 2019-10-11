@@ -1,15 +1,11 @@
-use std::{
-    collections::HashSet,
-};
-
 use failure::{
     Fail,
 };
 
 use crate::{
     game::{
-        Change,
         Game,
+        ProposedAction,
         city::City,
         combat::CombatOutcome,
         obs::{
@@ -27,7 +23,9 @@ pub type MoveResult = Result<Move,MoveError>;
 pub type ProposedMoveResult = Result<ProposedMove,MoveError>;
 
 
-/// A move. . Use `Game::commit_change` to make it real.
+/// A move.
+/// 
+/// Returned by `ProposedMove::make`
 #[derive(Debug,PartialEq)]
 pub struct Move {
     /// The unit as it will be at the end of the proposed move
@@ -96,7 +94,8 @@ impl Move {
 
 
 /// A move that has been simulated and contemplated but not yet carried out
-pub struct ProposedMove(Move);
+#[derive(Debug,PartialEq)]
+pub struct ProposedMove(pub Move);
 
 impl ProposedMove {
     pub fn new(unit: Unit, starting_loc: Location, components: Vec<MoveComponent>) -> ProposedMoveResult {
@@ -104,9 +103,9 @@ impl ProposedMove {
     }
 }
 
-impl Change for ProposedMove {
-    type Completed = Move;
-    fn make(self, game: &mut Game) -> Move {
+impl ProposedAction for ProposedMove {
+    type Outcome = Move;
+    fn take(self, game: &mut Game) -> Self::Outcome {
         let mut move_ = self.0;
 
         // Pop the unit from the game itself (not this clone)

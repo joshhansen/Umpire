@@ -123,8 +123,8 @@ impl IMode for GetUnitOrdersMode {
                             return true;
                         } else if c == conf::KEY_EXPLORE {
                             let outcome = game.order_unit_explore(self.unit_id).unwrap();
-                            if let Some(move_result) = outcome.move_result() {
-                                ui.animate_move(game, &move_result);
+                            if let Some(move_) = outcome.move_() {
+                                ui.animate_move(game, &move_);
                             }
                             *mode = Mode::GetOrders;
                             return true;
