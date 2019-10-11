@@ -772,7 +772,8 @@ mod test {
     #[test]
     fn test_nearest_adjacent_unobserved_reachable_without_attacking() {
         _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(10, 10));
-        _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(100, 100));
+        panic!("TODO: implement")
+        // _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(100, 100));
     }
 
     fn _test_nearest_adjacent_unobserved_reachable_without_attacking(dims: Dims) {

@@ -166,7 +166,7 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 
             if move_result.moved_successfully() {
                 current_loc = move_result.ending_loc().unwrap();
-                moves.append(&mut move_result.moves);
+                moves.append(&mut move_result.components);
             } else {
                 panic!("Unit was unexpectedly destroyed during exploration");
             }
@@ -316,7 +316,7 @@ pub mod test2 {
         let outcome = game.order_unit_explore(fighter_id).unwrap();
         assert_eq!(outcome.status, OrdersStatus::InProgress);
         assert!(outcome.move_result.is_some());
-        assert!(!outcome.move_result.as_ref().unwrap().moves.is_empty());
+        assert!(!outcome.move_result.as_ref().unwrap().components.is_empty());
 
 
         // Wait until the fighter has explored everything
@@ -335,7 +335,7 @@ pub mod test2 {
                     if orders_outcome.move_result.is_none() {
                         done = true;
                     } else {
-                        assert!(!orders_outcome.move_result.as_ref().unwrap().moves.is_empty());
+                        assert!(!orders_outcome.move_result.as_ref().unwrap().components.is_empty());
                     }
                 },
                 Err(orders_err) => panic!("Orders error: {}", orders_err),
@@ -418,7 +418,10 @@ pub mod test {
 
     #[test]
     pub fn test_explore() {
-        super::test2::_test_explore(Dims::new(10, 10));
+        panic!("TODO: implement")
+        //FIXME
+
+        // super::test2::_test_explore(Dims::new(10, 10));
 
         // let mut city_namer = IntNamer::new("city");
         // let unit_namer = IntNamer::new("unit");

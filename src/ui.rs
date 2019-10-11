@@ -607,12 +607,11 @@ impl LogTarget for TermUI {
 impl MoveAnimator for TermUI {
     fn animate_move(&mut self, game: &Game, move_result: &Move) {
         let mut current_loc = move_result.starting_loc;
-        let ending_loc = move_result.ending_loc();
 
         self.ensure_map_loc_visible(current_loc);
         self.draw(game);
 
-        for (move_idx, move_) in move_result.moves.iter().enumerate() {
+        for (move_idx, move_) in move_result.components.iter().enumerate() {
             let target_loc = move_.loc;
             self.ensure_map_loc_visible(current_loc);
 
@@ -648,7 +647,7 @@ impl MoveAnimator for TermUI {
 
             self.stdout.flush().unwrap();
 
-            if move_idx < move_result.moves.len() - 1 {
+            if move_idx < move_result.components.len() - 1 {
                 sleep_millis(100);
             }
         }

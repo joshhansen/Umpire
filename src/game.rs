@@ -62,8 +62,15 @@ use self::move_::{
     MoveComponent,
     MoveError,
     MoveResult,
+    ProposedMove,
+    ProposedMoveResult,
 };
 
+/// A contemplated change which, when made, will yield a completed representation of the change made
+trait Change {
+    type Completed;
+    fn make(self, game: &mut Game) -> Self::Completed;
+}
 
 pub type TurnNum = u32;
 
@@ -530,6 +537,19 @@ impl Game {
             .map(|unit| unit.id)
     }
 
+
+    // Movement-related methods
+
+    pub fn move_toplevel_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
+        let src = self.map.unit_loc(unit_id).unwrap();
+        self.move_toplevel_unit_by_loc(src, dest)
+    }
+
+    pub fn move_toplevel_unit_by_id_avoiding_combat(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
+        let src = self.map.unit_loc(unit_id).unwrap();
+        self.move_toplevel_unit_by_loc_avoiding_combat(src, dest)
+    }
+
     /*
         Errors:
         * If unit at `src` doesn't exist
@@ -564,19 +584,33 @@ impl Game {
     }
 
     fn move_toplevel_unit_by_loc_following_shortest_paths(&mut self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> MoveResult {
+        self.propose_move_toplevel_unit_by_loc_following_shortest_paths(src, dest, shortest_paths).map(|proposed_move| {
+            proposed_move.make(self)
+        })
+    }
+
+    fn propose_move_toplevel_unit_by_loc_following_shortest_paths(&mut self, src: Location, dest: Location, shortest_paths: ShortestPaths) -> ProposedMoveResult {
         let id: UnitID = self.map.toplevel_unit_id_by_loc(src).unwrap();
-        self.move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
+        self.propose_move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
     }
 
     pub fn move_unit_by_id(&mut self, id: UnitID, dest: Location) -> MoveResult {
+        self.propose_move_unit_by_id(id, dest).map(|proposed_move| proposed_move.make(self))
+    }
+
+    pub fn propose_move_unit_by_id(&mut self, id: UnitID, dest: Location) -> ProposedMoveResult {
         let (shortest_paths, src) = {
             let unit = self.map.unit_by_id(id).unwrap();
             (shortest_paths(&self.map, unit.loc, &UnitMovementFilter::new(unit), self.wrapping), unit.loc)
         };
-        self.move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
+        self.propose_move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
     }
 
     pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
+        self.propose_move_unit_by_id_avoiding_combat(id, dest).map(|proposed_move| proposed_move.make(self))
+    }
+
+    pub fn propose_move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> ProposedMoveResult {
         let (shortest_paths, src) = {
             let unit = self.map.unit_by_id(id).unwrap();
             let unit_filter = AndFilter::new(
@@ -588,10 +622,18 @@ impl Game {
             );
             (shortest_paths(&self.map, unit.loc, &unit_filter, self.wrapping), unit.loc)
         };
-        self.move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
+        self.propose_move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
     }
 
-    fn move_unit_by_loc_and_id_following_shortest_paths(&mut self, src: Location, id: UnitID, dest: Location, shortest_paths: ShortestPaths) -> MoveResult {
+    /// Simulate and propose moving the unit at location `loc` with ID `id` to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
+    /// 
+    /// This does not actually carry out the move. The `ProposedMove` contained in an `Ok` result implements `Change` whose `make` method should be called
+    /// to make the change real. This two-step process is designed to ease UI implementations. The UI should animate the proposed move against the background
+    /// of the pre-move game state. After representing the move in the UI, the move should be committed to update the game state appopriately.
+    /// 
+    /// This is simpler to handle than when we would commit the move immediately. That left the UI to try to reverse-engineer the game state prior to the move,
+    /// so the move could be animated accurately.
+    fn propose_move_unit_by_loc_and_id_following_shortest_paths(&self, src: Location, id: UnitID, dest: Location, shortest_paths: ShortestPaths) -> ProposedMoveResult {
         if !self.dims().contain(dest) {
             return Err(MoveError::DestinationOutOfBounds {
                 dest,
@@ -617,7 +659,10 @@ impl Game {
                     //             unit, src, dest, distance, unit.moves_remaining(), id));
                 }
 
-                let mut unit = self.map.pop_unit_by_loc_and_id(src, id).unwrap();
+                // let mut unit = self.map.pop_unit_by_loc_and_id(src, id).unwrap();
+
+                // We copy the unit so we can simulate what will happen to it and send that version out with the ProposedMove
+                let mut unit = unit.clone();
 
                 // We're here because a route exists to the destination and a unit existed at the source
 
@@ -660,19 +705,19 @@ impl Game {
                     if let Some(ref outcome) = move_.unit_combat {
                         if outcome.destroyed() {
                             break;
-                        } else {
-                            self.map.pop_toplevel_unit_by_loc(*loc).unwrap();// eliminate the unit we conquered
+                        // } else {
+                        //     self.map.pop_toplevel_unit_by_loc(*loc).unwrap();// eliminate the unit we conquered
                         }
                     }
 
-                    if let Some(city) = self.map.city_by_loc_mut(*loc) {
+                    if let Some(city) = self.map.city_by_loc(*loc) {
                         if city.alignment != unit.alignment {
                             let outcome = unit.fight(city);
 
-                            if outcome.victorious() {
-                                city.alignment = unit.alignment;
-                                city.clear_production_without_ignoring();
-                            }
+                            // if outcome.victorious() {
+                            //     city.alignment = unit.alignment;
+                            //     city.clear_production_without_ignoring();
+                            // }
 
                             move_.city_combat = Some(outcome);
 
@@ -689,27 +734,27 @@ impl Game {
                     unit.record_movement(moves.len() as u16).unwrap();
                 }
 
-                if let Some(move_) = moves.last() {
-                    if move_.moved_successfully() {
-                        if let Some(carrier_unit_id) = move_.carrier {
-                            self.map.carry_unit(carrier_unit_id, unit.clone()).unwrap();
-                        } else {
-                            self.map.set_unit(dest, unit.clone());
-                        }
-                    }
-                }
+                // if let Some(move_) = moves.last() {
+                //     if move_.moved_successfully() {
+                //         if let Some(carrier_unit_id) = move_.carrier {
+                //             self.map.carry_unit(carrier_unit_id, unit.clone()).unwrap();
+                //         } else {
+                //             self.map.set_unit(dest, unit.clone());
+                //         }
+                //     }
+                // }
 
-                for move_ in moves.iter_mut() {
-                    if move_.moved_successfully() {
-                        let mut obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
-                        unit.loc = move_.loc;
-                        move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, &mut obs_tracker);
+                // for move_ in moves.iter_mut() {
+                //     if move_.moved_successfully() {
+                //         let mut obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+                //         unit.loc = move_.loc;
+                //         move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, &mut obs_tracker);
 
 
-                    }
-                }
+                //     }
+                // }
 
-                Move::new(unit, src, moves)
+                ProposedMove::new(unit, src, moves)
             } else {
                 // Err(format!("Cannot move unit at source location {} with ID {:?} because none exists", src, id))
                 Err(MoveError::SourceUnitDoesNotExist{src_loc: src, id})
@@ -718,16 +763,6 @@ impl Game {
             // Err(format!("No route from {} to {} for unit with ID {:?}", src, dest, id))
             Err(MoveError::NoRoute{src, dest, id})
         }
-    }
-
-    pub fn move_toplevel_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
-        let src = self.map.unit_loc(unit_id).unwrap();
-        self.move_toplevel_unit_by_loc(src, dest)
-    }
-
-    pub fn move_toplevel_unit_by_id_avoiding_combat(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
-        let src = self.map.unit_loc(unit_id).unwrap();
-        self.move_toplevel_unit_by_loc_avoiding_combat(src, dest)
     }
 
     pub fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
@@ -1105,13 +1140,13 @@ mod test {
             assert_eq!(move_result.unit.alignment, Alignment::Belligerent{player:0});
             assert_eq!(move_result.unit.moves_remaining(), 0);
 
-            assert_eq!(move_result.moves.len(), 2);
-            let move1 = move_result.moves.get(0).unwrap();
+            assert_eq!(move_result.components.len(), 2);
+            let move1 = move_result.components.get(0).unwrap();
             assert_eq!(move1.loc, Location{x:loc.x+1, y:loc.y});
             assert_eq!(move1.unit_combat, None);
             assert_eq!(move1.city_combat, None);
 
-            let move2 = move_result.moves.get(1).unwrap();
+            let move2 = move_result.components.get(1).unwrap();
             assert_eq!(move2.loc, dest_loc);
             assert_eq!(move2.unit_combat, None);
             if round < 2 {
