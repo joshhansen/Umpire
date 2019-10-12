@@ -473,6 +473,7 @@ pub mod test {
                 orders::{
                     Orders,
                     OrdersError,
+                    ProposedOrdersOutcome,
                     ProposedOrdersResult,
                     propose_exploration,
                 },
@@ -576,10 +577,45 @@ pub mod test {
     //    pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> ProposedOrdersResult {
         let unit_namer = IntNamer::new("abc");
         let map = MapData::try_from("i--------------------").unwrap();
-        let mut game = Game::new_with_map(map, 1, true, Box::new(unit_namer), Wrap2d::NEITHER);
+        let game = Game::new_with_map(map, 1, true, Box::new(unit_namer), Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
-        let result: ProposedOrdersResult = propose_exploration(Orders::Explore, &game, unit_id);
+        let outcome: ProposedOrdersOutcome = propose_exploration(Orders::Explore, &game, unit_id).unwrap();
+
+    //         /// The ID of the ordered unit
+    // pub ordered_unit_id: UnitID,
+
+    // /// The orders that were given / carried out
+    // pub orders: Orders,
+
+    // /// Any movement that would be undertaken by the unit as part of its orders
+    // pub proposed_move: Option<ProposedMove>,
+
+    // /// A summary of the status of the orders, whether in progress or completed
+    // pub status: OrdersStatus,
+
+        assert_eq!(outcome.ordered_unit_id, unit_id);
+        assert_eq!(outcome.orders, Orders::Explore);
+        assert_eq!(outcome.status, OrdersStatus::InProgress);
+        let proposed_move = outcome.proposed_move().unwrap();
+        assert_eq!(proposed_move.0.unit.id, unit_id);
+        assert_eq!(proposed_move.0.unit.loc, Location::new(1, 0));
+        assert_eq!(proposed_move.0.starting_loc, Location::new(0, 0));
+
+    // pub loc: Location,
+    // /// Was the unit carried by another unit? If so, which one?
+    // pub carrier: Option<UnitID>,
+    // pub unit_combat: Option<CombatOutcome<Unit,Unit>>,
+    // pub city_combat: Option<CombatOutcome<Unit,City>>,
+    // pub observations_after_move: Vec<LocatedObs>,
+
+
+        let component = &proposed_move.0.components[0];
+        assert_eq!(component.loc, Location::new(1, 0));
+        assert_eq!(component.carrier, None);
+        assert_eq!(component.unit_combat, None);
+        assert_eq!(component.city_combat, None);
+
    }
 }
