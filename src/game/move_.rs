@@ -90,6 +90,10 @@ impl Move {
     pub fn len(&self) -> usize {
         self.components.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.components.is_empty()
+    }
 }
 
 
