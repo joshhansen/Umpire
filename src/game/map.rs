@@ -29,7 +29,7 @@ use crate::{
         city::{CityID,City},
         unit::{UnitID,Unit,UnitType},
     },
-    util::{Dims,Location},
+    util::{Dims,Dimensioned,Location},
 };
 
 use self::dijkstra::Source;
@@ -520,12 +520,15 @@ impl MapData {
     }
 }
 
+impl Dimensioned for MapData {
+    fn dims(&self) -> Dims {
+        self.dims
+    }
+}
+
 impl Source<Tile> for MapData {
     fn get(&self, loc: Location) -> &Tile {
         self.tile(loc).unwrap()
-    }
-    fn dims(&self) -> Dims {
-        self.dims
     }
 }
 

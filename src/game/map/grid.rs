@@ -10,7 +10,7 @@ use crate::{
         city::{CityID,City},
         obs::Obs,
     },
-    util::{Dims,Location},
+    util::{Dims,Dimensioned,Location},
 };
 
 use super::{
@@ -85,12 +85,15 @@ impl<T> LocationGrid<T> {
 //     }
 // }
 
+impl <T> Dimensioned for LocationGrid<T> {
+    fn dims(&self) -> Dims {
+        self.dims
+    }
+}
+
 impl Source<Tile> for LocationGrid<Tile> {
     fn get(&self, loc: Location) -> &Tile {
         &self[loc]
-    }
-    fn dims(&self) -> Dims {
-        self.dims
     }
 }
 
@@ -101,9 +104,6 @@ impl Source<Obs> for LocationGrid<Obs> {
         } else {
             &Obs::Unobserved
         }
-    }
-    fn dims(&self) -> Dims {
-        self.dims
     }
 }
 

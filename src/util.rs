@@ -96,6 +96,10 @@ impl fmt::Display for Dims {
     }
 }
 
+pub trait Dimensioned {
+    fn dims(&self) -> Dims;
+}
+
 #[derive(Clone,Copy,Eq,PartialEq,Hash,PartialOrd,Ord)]
 pub struct Vec2d<T> {
     pub x: T,

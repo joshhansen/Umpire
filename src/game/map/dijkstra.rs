@@ -22,7 +22,7 @@ use crate::{
         obs::Obs,
         unit::{Unit,UnitType},
     },
-    util::{Dims,Location,Vec2d,Wrap2d},
+    util::{Dimensioned,Location,Vec2d,Wrap2d},
 };
 
 impl Index<Location> for Vec<Vec<u16>> {
@@ -119,10 +119,10 @@ impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
 /// 
 /// This disallows visits to carrier units under the presumption that an exploring unit would not bother boarding a transport or landing on an
 /// aircraft carrier.
-struct ObservedReachableByUnit<'a> {
-    unit: &'a Unit
+pub struct ObservedReachableByPacifistUnit<'a> {
+    pub unit: &'a Unit
 }
-impl <'a> Filter<Obs> for ObservedReachableByUnit<'a> {
+impl <'a> Filter<Obs> for ObservedReachableByPacifistUnit<'a> {
     fn include(&self, obs: &Obs) -> bool {
         if let Obs::Observed{tile,..} = obs {
 
@@ -158,9 +158,8 @@ impl Filter<Tile> for TerrainFilter {
 //     fn dims(&self) -> Dims;
 // }
 
-pub trait Source<T> {
+pub trait Source<T> : Dimensioned {
     fn get(&self, loc: Location) -> &T;
-    fn dims(&self) -> Dims;
 }
 pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
@@ -454,7 +453,7 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     wrapping: Wrap2d
 ) -> Option<Location> {
 
-    let observed_and_reachable_filter = ObservedReachableByUnit{ unit };
+    let observed_and_reachable_filter = ObservedReachableByPacifistUnit{ unit };
 
     let mut q = VecDeque::new();
     q.push_back(src);

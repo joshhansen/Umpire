@@ -14,6 +14,7 @@ use crate::{
         map::{
             Terrain,
             Tile,
+            dijkstra::Source,
         },
         obs::Observer,
     },
@@ -448,6 +449,7 @@ mod test {
                 LocationGrid,
                 Terrain,
                 Tile,
+                dijkstra::Source,
             },
             obs::{Obs,ObsTracker},
             unit::{Alignment,Observer,UnitID,Unit,UnitType},
