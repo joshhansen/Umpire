@@ -6,9 +6,8 @@ use crate::{
             Tile,
             dijkstra::Source,
         },
-        unit::Located,
     },
-    util::{Dims,Dimensioned,Location,Vec2d,Wrap2d},
+    util::{Dims,Dimensioned,Location,Located,Vec2d,Wrap2d},
 };
 
 

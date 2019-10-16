@@ -7,11 +7,10 @@ use crate::{
         combat::CombatCapable,
         obs::Observer,
         unit::{
-            Located,
             UnitType,
         },
     },
-    util::Location,
+    util::{Location,Located},
 };
 
 #[derive(Clone,Copy,Debug,Eq,Hash,PartialEq)]

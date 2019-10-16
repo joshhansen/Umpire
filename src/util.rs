@@ -319,6 +319,10 @@ impl Location {
     }
 }
 
+pub trait Located {
+    fn loc(&self) -> Location;
+}
+
 impl fmt::Debug for Location {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)

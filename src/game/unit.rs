@@ -19,7 +19,10 @@ use crate::{
         obs::Observer,
     },
     name::Named,
-    util::Location,
+    util::{
+        Location,
+        Located,
+    },
 };
 
 use self::orders::Orders;
@@ -35,11 +38,6 @@ impl UnitID {
     pub fn next(self) -> Self {
         UnitID{ id: self.id + 1 }
     }
-}
-
-
-pub trait Located {
-    fn loc(&self) -> Location;
 }
 
 #[derive(Clone,Debug,PartialEq)]
