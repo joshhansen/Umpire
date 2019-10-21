@@ -276,7 +276,7 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
                 dist_to_real_goal -= 1;
             }
 
-            eprintln!("move from {} to {}", unit.loc, goal);
+            // eprintln!("move from {} to {}", unit.loc, goal);
             // let mut move_result = game.propose_move_unit_avoiding_combat(unit, goal)
             //                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
