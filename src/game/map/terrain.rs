@@ -3,7 +3,7 @@ use std::fmt;
 use crate::color::{Colors,Colorized};
 
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone,Copy,PartialEq)]
 pub enum Terrain {
     Water,
     Land,
