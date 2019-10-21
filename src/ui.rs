@@ -81,24 +81,13 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
             let input = input();
             let reader = input.read_sync();
             for input_event in reader {
-                match input_event {
-                    InputEvent::Keyboard(key_event) => {
-                        let will_return = key_event==KeyEvent::Char(conf::KEY_QUIT);
-                        input_thread_tx.send(key_event).unwrap();
+                if let InputEvent::Keyboard(key_event) = input_event {
+                    let will_return = key_event==KeyEvent::Char(conf::KEY_QUIT);
+                    input_thread_tx.send(key_event).unwrap();
 
-                        if will_return {
-                            // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
-                            return;
-                        }
-                    }
-                    InputEvent::Mouse(_mouse_event) => {
-                        // do nothing
-                    },
-                    InputEvent::Unsupported(_data) => {
-                        // do nothing
-                    },
-                    InputEvent::Unknown => {
-                        // do nothing
+                    if will_return {
+                        // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
+                        return;
                     }
                 }
             }
