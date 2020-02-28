@@ -9,18 +9,18 @@ default-run = "umpire"
 clap = "2.33.0"
 cpal = "0.10.0"
 crossterm = "0.11.1"
-csv = "1.1.1"
-failure = "0.1.5"
-flate2 = "1.0.11"
-pastel = { git = "https://github.com/sharkdp/pastel.git" }
+csv = "1.1.3"
+failure = "0.1.6"
+flate2 = "1.0.13"
+pastel = "0.7.0"
 pitch_calc = "0.11.1"
 sample = "0.10.0"
 synth = "0.11.0" 
-rand = "0.7.0"
-unicode-segmentation = "1.3.0"
+rand = "0.7.3"
+unicode-segmentation = "1.6.0"
 
 [dev-dependencies]
-criterion = "0.3.0"
+criterion = "0.3.1"
 
 [[bench]]
 name = "nearest_adjacent_unobserved"
