@@ -7,7 +7,6 @@ use crate::{
         
         map::{
             dijkstra::{
-                ObservedFilter,
                 ObservedReachableByPacifistUnit,
                 UnitMovementFilter,
                 Xenophile,
@@ -27,6 +26,7 @@ use crate::{
         unit::UnitID,
     },
     util::{
+        Located,
         Location,
     },
 };
@@ -239,11 +239,9 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 }
 
 pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> ProposedOrdersResult {
-    // let mut current_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
-    // let starting_loc = current_loc;
 
     // An overlay atop the player's observations which tracks the changes that occur during this move
-    let overlay = OverlayObsTracker::new(game.current_player_observations());
+    let mut overlay = OverlayObsTracker::new(game.current_player_observations());
 
     // Clone the unit and simulate exploration using the clone
     let mut unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
@@ -267,7 +265,7 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
 
             let shortest_paths = {
                 let filter = ObservedReachableByPacifistUnit{unit: &unit};
-                shortest_paths(game, unit.loc, &filter, game.wrapping())
+                shortest_paths(&overlay, unit.loc, &filter, game.wrapping())
             };
 
             let mut dist_to_real_goal = shortest_paths.dist[goal].unwrap();
@@ -280,7 +278,7 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
             // let mut move_result = game.propose_move_unit_avoiding_combat(unit, goal)
             //                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
-            let mut move_ = game.propose_move_unit_following_shortest_paths(unit, goal, shortest_paths)
+            let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(unit, goal, shortest_paths, &mut overlay)
                                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
 
@@ -409,7 +407,7 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
         })
 }
 
-pub mod test2 {
+pub mod test_support {
     use crate::{
         game::{
             Game,
@@ -430,16 +428,15 @@ pub mod test2 {
         },
     };
 
-    use super::{
-        OrdersStatus,
-    };
+    use super::OrdersStatus;
 
-    pub fn _test_explore(dims: Dims) {
+
+    // We keep this out of cfg(test) so it can be used in a tenchmark
+    pub fn test_explore(dims: Dims) {
         let mut city_namer = IntNamer::new("city");
         let unit_namer = IntNamer::new("unit");
         let players: PlayerNum = 1;
         let map = generate_map(&mut city_namer, dims, players);
-
 
         let mut game = Game::new_with_map(map, players, true, Box::new(unit_namer), Wrap2d::BOTH);
 
@@ -503,8 +500,8 @@ pub mod test {
                     Orders,
                     OrdersError,
                     ProposedOrdersOutcome,
-                    ProposedOrdersResult,
                     propose_exploration,
+                    test_support,
                 },
                 UnitID,
             },
@@ -562,43 +559,11 @@ pub mod test {
         assert_eq!(final_dest, dest3);
     }
 
-    
-
     #[test]
     pub fn test_explore() {
-        panic!("TODO: implement")
-        //FIXME
-
-        // super::test2::_test_explore(Dims::new(10, 10));
-
-        // let mut city_namer = IntNamer::new("city");
-        // let unit_namer = IntNamer::new("unit");
-        // let dims_large = Dims::new(100, 100);
-        // let players: PlayerNum = 1;
-        // let map = generate_map(&mut city_namer, dims_large, players);
-
-
-        // let mut game = Game::new_with_map(map, players, true, Box::new(unit_namer), Wrap2d::BOTH);
-
-        // // Request a fighter to be produced
-        // let city_loc = game.production_set_requests().next().unwrap();
-        // game.set_production(city_loc, UnitType::Fighter).unwrap();
-
-        // // Wait until the fighter is produced
-        // while game.unit_orders_requests().count() == 0 {
-        //     game.end_turn().unwrap();
-        // }
-
-        // game.clear_production_and_ignore(city_loc).unwrap();
-
-        // let fighter_id = game.unit_orders_requests().next().unwrap();
-
-        // game.order_unit_explore(fighter_id).unwrap();
-
-        // // Wait until the fighter has explored everything
-        // while game.unit_orders_requests().count() == 0 {
-        //     game.end_turn().unwrap();
-        // }
+        test_support::test_explore(Dims::new(10, 10));
+        test_support::test_explore(Dims::new(20, 20));
+        test_support::test_explore(Dims::new(100, 100));
     }
 
    #[test]

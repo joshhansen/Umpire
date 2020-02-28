@@ -11,7 +11,7 @@ use umpire::{
             Tile,
             terrain::Terrain,
         },
-        unit::orders::test2::_test_explore,
+        unit::orders::test_support::test_explore,
     },
     
     util::{Dims},
@@ -22,7 +22,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function(
         format!("explore {}", dims).as_ref(),
-        |b| b.iter(|| _test_explore(dims))
+        |b| b.iter(|| test_explore(dims))
     );
 }
 

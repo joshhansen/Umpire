@@ -200,6 +200,8 @@ pub enum Wrap {
 }
 
 impl Wrap {
+    /// Add an increment to a coordinate in a dimension of a particular width, respecting wrapping rules.
+    /// If out of bounds in a non-wrapping mode, returns None
     pub fn wrapped_add(self, dimension_width: u16, coord: u16, inc: i32) -> Option<u16> {
         let dimension_width = i32::from(dimension_width);
         let mut new_coord: i32 = i32::from(coord) + inc;

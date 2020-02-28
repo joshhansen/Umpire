@@ -455,22 +455,24 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
 
     let observed_and_reachable_filter = ObservedReachableByPacifistUnit{ unit };
 
-    let mut q = VecDeque::new();
+    let mut q: VecDeque<Location> = VecDeque::new();
     q.push_back(src);
 
-    let mut visited = LocationGrid::new(tiles.dims(), |loc| loc==src);
+    let mut visited: LocationGrid<bool> = LocationGrid::new(tiles.dims(), |_loc| false);
+    visited[src] = true;
 
     while let Some(loc) = q.pop_front() {
-        visited[loc] = true;
-
         for (neighb,obs) in all_resolved_neighbors_iter(tiles, loc, wrapping) {
+
             if obs.is_unobserved() {
                 return Some(loc);
             }
 
             if !visited[neighb] && observed_and_reachable_filter.include(obs) {
                 q.push_back(neighb);
+                visited[neighb] = true;// do this now to preempt duplicates, even though we haven't visited it yet
             }
+
         }
     }
     None
@@ -771,8 +773,9 @@ mod test {
     #[test]
     fn test_nearest_adjacent_unobserved_reachable_without_attacking() {
         _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(10, 10));
-        panic!("TODO: implement")
-        // _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(100, 100));
+        _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(100, 1));
+        _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(1, 100));
+        _test_nearest_adjacent_unobserved_reachable_without_attacking(Dims::new(100, 100));
     }
 
     fn _test_nearest_adjacent_unobserved_reachable_without_attacking(dims: Dims) {

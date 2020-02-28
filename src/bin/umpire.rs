@@ -77,7 +77,7 @@ use umpire::{
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 
 fn print_loading_screen() {
-    let bytes: &[u8] = include_bytes!("../images/1945_Baseball_Umpire.txt");
+    let bytes: &[u8] = include_bytes!("../../images/1945_Baseball_Umpire.txt");
     let r = BufReader::new(bytes);
     for line in r.lines() {
         let l = line.unwrap();

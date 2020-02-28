@@ -14,7 +14,7 @@ use crate::{
 
 use super::Terrain;
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone,PartialEq)]
 pub struct Tile {
     pub terrain: Terrain,
     pub unit: Option<Unit>,
@@ -74,6 +74,22 @@ impl fmt::Display for Tile {
             write!(f, "{} on {}", unit, self.terrain)
         } else {
             write!(f, "{}", self.terrain)
+        }
+    }
+}
+
+impl fmt::Debug for Tile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref _city) = self.city {
+            if let Some(ref unit) = self.unit {
+                write!(f, "{}", unit.type_.key())
+            } else {
+                write!(f, "#")
+            }
+        } else if let Some(ref unit) = self.unit {
+            write!(f, "{}", unit.type_.key())
+        } else {
+            write!(f, "·")
         }
     }
 }

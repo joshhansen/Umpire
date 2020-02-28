@@ -15,6 +15,11 @@ pub use self::grid::LocationGrid;
 use std::{
     collections::HashMap,
     convert::TryFrom,
+    fmt::{
+        Debug,
+        Formatter,
+        Result as FmtResult,
+    },
     iter::{
         FromIterator,
         once,
@@ -529,6 +534,20 @@ impl Dimensioned for MapData {
 impl Source<Tile> for MapData {
     fn get(&self, loc: Location) -> &Tile {
         self.tile(loc).unwrap()
+    }
+}
+
+impl Debug for MapData {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        for y in 0..self.dims.height {
+            for x in 0..self.dims().width {
+                write!(f, "{:?}", self.get(Location{x,y}))?;
+            }
+
+            writeln!(f)?;
+        }
+
+        Ok(())
     }
 }
 
