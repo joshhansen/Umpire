@@ -26,7 +26,6 @@ use crate::{
         unit::UnitID,
     },
     util::{
-        Located,
         Location,
     },
 };
@@ -278,7 +277,7 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
             // let mut move_result = game.propose_move_unit_avoiding_combat(unit, goal)
             //                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
-            let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(unit, goal, shortest_paths, &mut overlay)
+            let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(&unit, goal, shortest_paths, &mut overlay)
                                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
 

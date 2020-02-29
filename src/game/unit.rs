@@ -218,6 +218,11 @@ impl UnitType {
                 UnitType::Battleship | UnitType::Carrier => TransportMode::Sea,
         }
     }
+
+    /// Can this type of unit occupy cities?
+    pub fn can_occupy_cities(self) -> bool {
+        self.transport_mode() == TransportMode::Land
+    }
 }
 
 impl fmt::Display for UnitType {
@@ -386,6 +391,11 @@ impl Unit {
 
     pub fn medium_desc(&self) -> String {
         format!("{} [{}/{}]", self.short_desc(), self.hp, self.max_hp)
+    }
+
+    /// Can this unit occupy cities?
+    pub fn can_occupy_cities(&self) -> bool {
+        self.type_.can_occupy_cities()
     }
 }
 

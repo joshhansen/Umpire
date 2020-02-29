@@ -43,7 +43,7 @@ use crate::{
         Game,
         move_::Move,
         combat::{CombatCapable,CombatOutcome,CombatParticipant},
-        obs::{LocatedObs,Obs,Observer,visible_coords_iter},
+        obs::{LocatedObs,Obs},
     },
     log::{LogTarget,Message,MessageSource},
     util::{Dims,Rect,Location,sleep_millis}
@@ -629,15 +629,17 @@ impl MoveAnimator for TermUI {
                 was_combat = true;
             }
 
-            self.log_message(Message {
-                text: format!("Unit {} {}", move_result.unit, if move_.moved_successfully() {
-                    if was_combat {"victorious"} else {"moved successfully"}
-                } else {"destroyed"}),
-                mark: Some('*'),
-                fg_color: Some(Colors::Combat),
-                bg_color: None,
-                source: Some(MessageSource::UI)
-            });
+            if move_.distance_moved() > 0 {
+                self.log_message(Message {
+                    text: format!("Unit {} {}", move_result.unit, if move_.moved_successfully() {
+                        if was_combat {"victorious"} else {"moved successfully"}
+                    } else {"destroyed"}),
+                    mark: Some('*'),
+                    fg_color: Some(Colors::Combat),
+                    bg_color: None,
+                    source: Some(MessageSource::UI)
+                });
+            }
 
             if move_.moved_successfully() {
                 self.draw_located_observations(game, &move_.observations_after_move);

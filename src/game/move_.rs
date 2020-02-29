@@ -11,7 +11,6 @@ use crate::{
         obs::{
             LocatedObs,
             Observer,
-            ObsTrackerI,
         },
         unit::{
             UnitID,Unit,
@@ -48,6 +47,7 @@ impl Move {
         }
     }
 
+    /// Did the unit survive the move?
     pub fn moved_successfully(&self) -> bool {
         self.components.iter().map(MoveComponent::moved_successfully).all(|success| success)
     }
@@ -92,6 +92,10 @@ impl Move {
         self.components.len()
     }
 
+    pub fn distance_moved(&self) -> usize {
+        self.components.iter().map(|mc| mc.distance_moved()).sum()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.components.is_empty()
     }
@@ -104,7 +108,7 @@ pub struct ProposedMove(pub Move);
 
 impl ProposedMove {
     pub fn new(unit: Unit, starting_loc: Location, components: Vec<MoveComponent>) -> ProposedMoveResult {
-        Move::new(unit, starting_loc, components).map(|move_| ProposedMove(move_))
+        Move::new(unit, starting_loc, components).map(ProposedMove)
     }
 }
 
@@ -222,8 +226,10 @@ impl ProposedAction for ProposedMove {
     }
 }
 
+//FIXME The name is a misnomer---UnitAction or something would be more accurate
 #[derive(Debug,PartialEq)]
 pub struct MoveComponent {
+    pub prev_loc: Location,
     pub loc: Location,
     /// Was the unit carried by another unit? If so, which one?
     pub carrier: Option<UnitID>,
@@ -232,8 +238,9 @@ pub struct MoveComponent {
     pub observations_after_move: Vec<LocatedObs>,
 }
 impl MoveComponent {
-    pub fn new(loc: Location) -> Self {
+    pub fn new(prev_loc: Location, loc: Location) -> Self {
         MoveComponent {
+            prev_loc,
             loc,
             carrier: None,
             unit_combat: None,
@@ -242,6 +249,7 @@ impl MoveComponent {
         }
     }
 
+    /// Did the unit survive the move and combat represented by this component?
     pub fn moved_successfully(&self) -> bool {
         if let Some(ref combat) = self.unit_combat {
             if combat.destroyed() {
@@ -254,6 +262,16 @@ impl MoveComponent {
             }
         }
         true
+    }
+
+    /// How far did the unit move? Either 0 or 1---0 if it stayed in the same place,
+    /// 1 otherwise.
+    pub fn distance_moved(&self) -> usize {
+        if self.prev_loc == self.loc {
+            0
+        } else {
+            1
+        }
     }
 }
 
