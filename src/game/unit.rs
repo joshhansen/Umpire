@@ -14,7 +14,6 @@ use crate::{
         map::{
             Terrain,
             Tile,
-            dijkstra::Source,
         },
         obs::Observer,
     },
@@ -184,7 +183,7 @@ impl UnitType {
     }
 
     /// Determine whether a unit of this type could potentially move to a particular tile
-    /// (mabye requiring combat to do so).
+    /// (maybe requiring combat to do so).
     /// 
     /// If a city is present, this will always be true. Otherwise, it will be determined by the match between
     /// the unit's capabilities and the terrain (e.g. planes over water, but not tanks over water).

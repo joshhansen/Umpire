@@ -4,13 +4,12 @@
 
 // 0.4 Milestones
 // FIXME Auto-explore mode for units is broken
-//       - the search for the next goal is somtimes really slow
 //       - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
-// FIXME Disallow selecting units on cities where such units make no sense
 // FIXME Don't let aircraft or naval vessels conquer cities
 // TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
 // TODO Deploy to crates.io
 // TODO Refresh README.md
+
 
 // 0.5 Milestones
 // TODO Fuel limits for aircraft

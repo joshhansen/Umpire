@@ -2,15 +2,9 @@
 extern crate criterion;
 
 use criterion::Criterion;
-use criterion::black_box;
 
 use umpire::{
     game::{
-        map::{
-            LocationGrid,
-            Tile,
-            terrain::Terrain,
-        },
         unit::orders::test_support::test_explore,
     },
     

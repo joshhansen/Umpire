@@ -363,6 +363,9 @@ impl Filter<Tile> for UnitTypeFilter {
         self.unit_type.can_move_on_tile(neighb_tile)
     }
 }
+
+/// Returns the set of locations for neighbors of the given location including only those which the given unit type
+/// could theoretically move onto, considering only the terrain (not units or cities).
 pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_type: UnitType, wrapping: Wrap2d) -> HashSet<Location> {
     neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type}, wrapping)
 }
