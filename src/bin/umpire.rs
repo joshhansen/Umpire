@@ -4,6 +4,7 @@
 
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::let_and_return)]
+#![allow(clippy::too_many_arguments)]
 
 use std::{
     io::{BufRead,BufReader,Write,stdout},
