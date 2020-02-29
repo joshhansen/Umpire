@@ -53,8 +53,6 @@ impl ObsTracker {
         }
     }
 
-
-
     /// Transfer all "current" to "observed"
     pub fn archive(&mut self) {
         for obs in self.observations.iter_mut() {

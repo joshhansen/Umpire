@@ -61,12 +61,6 @@ use self::move_::{
     ProposedMoveResult,
 };
 
-// /// A contemplated change which, when made, will yield a representation of the completed change, `Into`.
-// trait Change {
-//     type Into;
-//     fn make(self, game: &mut Game) -> Self::Into;
-// }
-
 /// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
 trait ProposedAction {
     type Outcome;
@@ -127,14 +121,6 @@ impl <T:Aligned> AlignedMaybe for T {
         Some(self.alignment())
     }
 }
-
-
-// //FIXME merge turn start and end because they're really the same thing
-// pub struct TurnStart {
-//     turn: TurnNum,
-//     player: PlayerNum,
-//     carried_out_orders: Vec<OrdersResult>,
-// }
 
 #[derive(Debug,PartialEq)]
 pub struct TurnStart {
@@ -212,12 +198,6 @@ impl Game {
 
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
-            // let tracker: ObsTracker = if fog_of_war {
-            //     ObsTracker::new_fog_of_war(map.dims())
-            // } else {
-            //     ObsTracker::UniversalVisibility
-            // };
-            // player_observations.insert(player_num, tracker);
             player_observations.insert(player_num, ObsTracker::new(map.dims()));
         }
 
@@ -353,8 +333,6 @@ impl Game {
     /// At the end of a turn, production counts will be incremented.
     pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
         if self.turn_is_done() {
-
-
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
             self.current_player = (self.current_player + 1) % self.num_players;
@@ -363,39 +341,15 @@ impl Game {
             }
 
             Ok(self.begin_turn())
-
-            // // A new turn now begins:
-
-            // let production_outcomes = self.produce_units();
-
-            // self.refresh_moves_remaining();
-
-            // self.update_current_player_observations();
-
-            // let carried_out_orders = self.follow_pending_orders();
-
-            // Ok(TurnStart {
-            //     current_player: self.current_player,
-            //     carried_out_orders,
-            //     production_outcomes,
-            // })
         } else {
             Err(self.current_player)
         }
     }
 
-    // /// End the current turn if possible and begin a new one
-    // /// 
-    // /// This is a synonym for begin_turn since, if you think hard about it, they're the same thing
-    // pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
-    //     self.begin_turn()
-    // }
-
     /// Register the current observations of current player units
     /// 
     /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
     fn update_current_player_observations(&mut self) {
-        // let obs_tracker: &mut dyn ObsTracker = &mut ** (self.player_observations.get_mut(&self.current_player).unwrap()) ;
         let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
 
         for loc in self.map.dims().iter_locs() {
@@ -633,20 +587,6 @@ impl Game {
         self.propose_move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
     }
 
-    // pub fn propose_move_unit_avoiding_combat(&self, unit: Unit, dest: Location) -> ProposedMoveResult {
-    //     let (shortest_paths, src) = {
-    //         let unit_filter = AndFilter::new(
-    //             AndFilter::new(
-    //                 NoUnitsFilter{},
-    //                 NoCitiesButOursFilter{alignment: unit.alignment }
-    //             ),
-    //             UnitMovementFilter{unit:&unit}
-    //         );
-    //         (shortest_paths(&self.map, unit.loc, &unit_filter, self.wrapping), unit.loc)
-    //     };
-    //     self.propose_move_unit_following_shortest_paths(unit, dest, shortest_paths)
-    // }
-
     /// Simulate and propose moving the unit at location `loc` with ID `id` to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
     /// 
     /// This does not actually carry out the move. The `ProposedMove` contained in an `Ok` result implements `ProposedAction` whose `take` method should be called
@@ -803,31 +743,6 @@ impl Game {
                             move_.loc = prev_loc;
                             unit.loc = prev_loc;
                         }
-
-                        // if unit.can_occupy_cities() {
-                        //     // If the unit can occupy 
-                        //     move_.city_combat = Some(unit.fight(city));
-                        // } else {
-                            
-
-                        //     // Because the unit can't occupy the city, we set it's location to previous
-                        //     // and content ourselves with combat against any unit that might be in the
-                        //     // city
-                        //     move_.loc = prev_loc;
-                        //     unit.loc = prev_loc;
-
-                        //     if let Some(other_unit) = self.map.toplevel_unit_by_loc(*loc) {
-                        //         move_.unit_combat = Some(unit.fight(other_unit));
-                        //     }
-                        // }
-
-                        // move_complete = true;
-
-                        // // If the unit 
-                        // if !unit.is_occupier() {
-                        //     move_.loc = prev_loc;
-                        //     unit.loc = prev_loc;
-                        // }
 
                         break;// break regardless of outcome. Either conquer a city and stop, or be destroyed
                     }
