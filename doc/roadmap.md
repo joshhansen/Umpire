@@ -1,12 +1,13 @@
 # Umpire Roadmap
 
 ## 0.4 Milestones
+* FIXME Resolve animation issues introduced by ProposedAction and friends
 * FIXME Auto-explore mode for units is broken
   - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
-* FIXME Don't let aircraft or naval vessels conquer cities
 * TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
-* TODO Deploy to crates.io
+* FIXME Decrease unit audio volume since it's currently too loud
 * TODO Refresh README.md
+* TODO Deploy to crates.io
 
 ## 0.5 Milestones
 * TODO Fuel limits for aircraft
@@ -15,6 +16,7 @@
 * TODO Opening theme music
 * TODO Allow map specification at command-line
 * FIXME Make it clear when a unit is inside a city
+* TODO Initial AI framework
 
 ## 0.6 Milestones
 * TODO Make splash screen respect color palette
@@ -42,3 +44,23 @@
 
 ## 1.0 Milestones
 * TODO AI
+
+
+## Deferred
+
+
+## Ideas
+* AI
+* Unit identities
+ x Name
+ - Nationality
+ - Strengths/weaknesses
+* City identities
+ x Name
+ - Nationality
+ - Strengths/weaknesses
+* Unit experience
+* Random events
+* UI themes: colors, symbols, maybe layouts
+* Name generation: use a generative model to produce novel names for
+  cities, units, nations, etc. See https://github.com/Tw1ddle/MarkovNameGenerator for ideas
