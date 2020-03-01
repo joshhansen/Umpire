@@ -1,6 +1,7 @@
 # Umpire Roadmap
 
 ## 0.4 Milestones
+* FIXME Orders aren't being sticky for some reason
 * FIXME Auto-explore mode for units is broken
   - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
 * TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
@@ -8,6 +9,7 @@
 * TODO Deploy to crates.io
 
 ## 0.5 Milestones
+* TODO Upgrade crossterm dependency to the most recent version
 * TODO Fuel limits for aircraft
 * TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
 * TODO Wake up sentried units when an enemy comes within their sight.
