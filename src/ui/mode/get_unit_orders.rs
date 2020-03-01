@@ -8,7 +8,11 @@ use crate::{
     conf::{self, key_desc},
     game::{
         Game,
-        unit::UnitID,
+        ProposedAction,
+        unit::{
+            UnitID,
+            orders::ProposedSetAndFollowOrders,
+        },
     },
     log::LogTarget,
     ui::{
@@ -90,11 +94,14 @@ impl IMode for GetUnitOrdersMode {
                     if let KeyEvent::Char(c) = key {
                         if let Ok(dir) = Direction::try_from(c) {
                             if let Some(dest) = unit_loc.shift_wrapped(dir, game.dims(), game.wrapping()) {
-                                match game.move_unit_by_id(self.unit_id, dest) {
-                                    Ok(move_result) => {
-                                        ui.animate_move(game, &move_result);
 
-                                        if let Some(conquered_city) = move_result.conquered_city() {
+                                match game.propose_move_unit_by_id(self.unit_id, dest) {
+                                    Ok(proposed_move) => {
+                                        ui.animate_proposed_move(game, &proposed_move);
+
+                                        let move_ = proposed_move.take(game);
+
+                                        if let Some(conquered_city) = move_.conquered_city() {
                                             *mode = Mode::SetProduction {city_loc: conquered_city.loc};
                                         } else if game.unit_orders_requests().any(|unit_id| unit_id==self.unit_id) {
                                             *mode = Mode::GetUnitOrders{unit_id:self.unit_id, first_move:false};
@@ -104,6 +111,7 @@ impl IMode for GetUnitOrdersMode {
                                         
                                         Self::clear_buf(ui);
                                         return true;
+
                                     },
                                     Err(msg) => {
                                         ui.log_message(format!("Error: {}", msg));
@@ -122,9 +130,11 @@ impl IMode for GetUnitOrdersMode {
                             Self::clear_buf(ui);
                             return true;
                         } else if c == conf::KEY_EXPLORE {
-                            let outcome = game.order_unit_explore(self.unit_id).unwrap();
-                            if let Some(move_) = outcome.move_() {
-                                ui.animate_move(game, &move_);
+                            let proposed_outcome: ProposedSetAndFollowOrders = game.propose_order_unit_explore(self.unit_id);
+                            let proposed_orders_outcome = proposed_outcome.proposed_orders_result.unwrap();
+                            if let Some(proposed_move) = proposed_orders_outcome.proposed_move {
+                                ui.animate_proposed_move(game, &proposed_move);
+                                proposed_move.take(game);
                             }
                             *mode = Mode::GetOrders;
                             return true;

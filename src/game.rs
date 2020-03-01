@@ -66,7 +66,10 @@ use self::move_::{
 /// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
 #[must_use = "All proposed actions issued by the game engine must be taken using `take`"]
 pub trait ProposedAction {
+    /// The result of carrying out the proposed action
     type Outcome;
+
+    /// Carry out the proposed action
     fn take(self, game: &mut Game) -> Self::Outcome;
 }
 
@@ -143,6 +146,7 @@ pub struct TurnStart {
 
 impl ProposedAction for ProposedTurnStart {
     type Outcome = TurnStart;
+
     fn take(mut self, game: &mut Game) -> Self::Outcome {
         TurnStart {
             turn: self.turn,
@@ -243,7 +247,7 @@ impl Game {
             fog_of_war,
         };
 
-        game.begin_turn();
+        game.begin_turn().take(&mut game);
         game
     }
 
@@ -883,16 +887,18 @@ impl Game {
         self.propose_order_unit_go_to(unit_id, dest).take(self)
     }
 
+    /// Simulate ordering the specified unit to go to the given location
     pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> ProposedSetAndFollowOrders {
-        ProposedSetAndFollowOrders::new(unit_id, Some(Orders::GoTo{dest}))
+        self.propose_set_and_follow_orders(unit_id, Orders::GoTo{dest})
     }
 
     pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
         self.propose_order_unit_explore(unit_id).take(self)
     }
 
+    /// Simulate ordering the specified unit to explore.
     pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> ProposedSetAndFollowOrders {
-        ProposedSetAndFollowOrders::new(unit_id, Some(Orders::Explore))
+        self.propose_set_and_follow_orders(unit_id, Orders::Explore)
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
@@ -977,6 +983,15 @@ impl Game {
         // }
         
         // result
+    }
+
+    /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
+    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedSetAndFollowOrders {
+        ProposedSetAndFollowOrders {
+            unit_id: id,
+            orders,
+            proposed_orders_result: orders.propose(id, self)
+        }
     }
 }
 

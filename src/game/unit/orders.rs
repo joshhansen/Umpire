@@ -163,6 +163,14 @@ pub enum OrdersError {
 pub type OrdersResult = Result<OrdersOutcome,OrdersError>;
 pub type ProposedOrdersResult = Result<ProposedOrdersOutcome,OrdersError>;
 
+impl ProposedAction for ProposedOrdersResult {
+    type Outcome = OrdersResult;
+
+    fn take(self, game: &mut Game) -> Self::Outcome {
+        self.map(|proposed_orders_outcome| proposed_orders_outcome.take(game))
+    }
+}
+
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum Orders {
     Skip,
@@ -244,27 +252,20 @@ impl ProposedAction for ProposedSetOrders {
     }
 }
 
+/// A proposed action in which the specified unit's orders are set and then carried out
+/// 
+/// The result that would come about is represented by `proposed_orders_result`.
 pub struct ProposedSetAndFollowOrders {
-    proposed_set_orders: ProposedSetOrders,
-}
-
-impl ProposedSetAndFollowOrders {
-    pub fn new(unit_id: UnitID, orders: Option<Orders>) -> Self {
-        Self {
-            proposed_set_orders: ProposedSetOrders {
-                unit_id,
-                orders,
-            }
-        }
-    }
+    pub unit_id: UnitID,
+    pub orders: Orders,
+    pub proposed_orders_result: ProposedOrdersResult,
 }
 
 impl ProposedAction for ProposedSetAndFollowOrders {
     type Outcome = OrdersResult;
     fn take(self, game: &mut Game) -> Self::Outcome {
-        let unit_id = self.proposed_set_orders.unit_id;
-        self.proposed_set_orders.take(game)?;
-        game.follow_unit_orders(unit_id)
+        game.set_orders(self.unit_id, Some(self.orders))?;
+        self.proposed_orders_result.take(game)
     }
 }
 
