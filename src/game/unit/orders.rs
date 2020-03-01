@@ -486,7 +486,7 @@ pub mod test_support {
 
         // Wait until the fighter is produced
         while game.unit_orders_requests().count() == 0 {
-            game.end_turn().unwrap();
+            game.end_turn().unwrap().take(&mut game);
         }
 
         game.clear_production_and_ignore(city_loc).unwrap();
