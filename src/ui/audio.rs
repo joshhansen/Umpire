@@ -53,7 +53,7 @@ impl Noisy for UnitType {
     fn volume(&self) -> f32 {
         match self {
             UnitType::Infantry => 0.0,
-            UnitType::Armor => 0.1,
+            UnitType::Armor => 0.05,
             UnitType::Fighter => 0.15,
             UnitType::Bomber => 0.15,
             UnitType::Transport => 0.05,
@@ -82,8 +82,8 @@ fn synth_for_sound(sound: Sounds) -> Synth<synth::instrument::mode::Poly, (), sy
                     // Point::new(0.0  ,  0.6  ,  0.0),
                     // Point::new(0.5  ,  0.7  ,  0.0),
                     // Point::new(1.0  ,  0.6  ,  0.0),
-                    Point::new(0.0, 1.0, 0.0),
-                    Point::new(1.0, 1.0, 0.0),
+                    Point::new(0.0, volume.into(), 0.0),
+                    Point::new(1.0, volume.into(), 0.0),
                 ));
                 let freq_env = Envelope::from(vec!(
                     //         Time    , Freq   , Curve

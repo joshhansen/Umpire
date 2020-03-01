@@ -4,7 +4,6 @@
 * FIXME Auto-explore mode for units is broken
   - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
 * TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis
-* FIXME Decrease unit audio volume since it's currently too loud
 * TODO Refresh README.md
 * TODO Deploy to crates.io
 
