@@ -18,7 +18,7 @@
 //! * map: colors only used on the map
 //! * text: colors used in textual output outside of the map
 
-use crossterm::Color;
+use crossterm::style::Color;
 
 use pastel::{
     Color as PastelColor,

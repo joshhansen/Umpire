@@ -1,4 +1,5 @@
-use crossterm::{
+use crossterm::event::{
+    KeyCode,
     KeyEvent,
 };
 
@@ -95,7 +96,7 @@ trait IMode {
 
     fn get_key(&self, game: &Game, ui: &mut TermUI, mode: &mut Mode) -> KeyStatus {
         let key = ui.get_key();
-        if let KeyEvent::Char(c) = key {
+        if let KeyCode::Char(c) = key.code {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 ui.map_scroller.scrollable.scroll_relative(dir.vec2d());
                 ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);

@@ -4,13 +4,15 @@ use std::{
 };
 
 use crossterm::{
-    Attribute,
-    Color,
-    Output,
-    SetAttr,
-    SetBg,
-    SetFg,
     queue,
+    style::{
+        Attribute,
+        Color,
+        Print,
+        SetAttribute,
+        SetBackgroundColor,
+        SetForegroundColor,
+    },
 };
 
 use crate::{
@@ -71,10 +73,10 @@ impl LogArea {
         // write!(*stdout, "{}┃{}{}{}{}", self.goto(0, i as u16+1), mark, Fg(fg_color), Bg(bg_color), text).unwrap();
         queue!(*stdout,
             self.goto(0, i as u16+1),
-            SetFg(fg_color),
-            SetBg(bg_color),
-            Output(format!("|{}", mark)),
-            Output(text)
+            SetForegroundColor(fg_color),
+            SetBackgroundColor(bg_color),
+            Print(format!("|{}", mark)),
+            Print(text)
         ).unwrap();
     }
 
@@ -119,10 +121,10 @@ impl Draw for LogArea {
 
         queue!(*stdout,
             self.goto(0, 0),
-            SetAttr(Attribute::Underlined),
-            Output(String::from("Message Log")),
-            SetAttr(Attribute::Reset),
-            SetBg(palette.get_single(Colors::Background))
+            SetAttribute(Attribute::Underlined),
+            Print(String::from("Message Log")),
+            SetAttribute(Attribute::Reset),
+            SetBackgroundColor(palette.get_single(Colors::Background))
         ).unwrap();
 
         for i in 0..self.rect.height {

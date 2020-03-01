@@ -4,13 +4,15 @@ use std::{
 };
 
 use crossterm::{
-    Attribute,
-    Hide,
-    Output,
+    cursor::Hide,
     QueueableCommand,
-    SetAttr,
-    SetBg,
-    SetFg,
+    style::{
+        Attribute,
+        Print,
+        SetAttribute,
+        SetBackgroundColor,
+        SetForegroundColor,
+    },
 };
 
 use crate::{
@@ -267,8 +269,8 @@ impl Map {
 
 
 
-        stdout.queue(SetAttr(Attribute::Reset)).unwrap();
-        stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
+        stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
+        stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
 
 
 
@@ -278,7 +280,7 @@ impl Map {
 
         if tile_loc.y == game.dims().height - 1 {
             // write!(stdout, "{}", Underline).unwrap();
-            stdout.queue(SetAttr(Attribute::Underlined)).unwrap();
+            stdout.queue(SetAttribute(Attribute::Underlined)).unwrap();
         }
 
 
@@ -290,13 +292,13 @@ impl Map {
         if let Obs::Observed{tile, current, ..} = game.current_player_obs(tile_loc) {
             if highlight {
                 // write!(stdout, "{}", Invert).unwrap();
-                stdout.queue(SetAttr(Attribute::Reverse)).unwrap();
+                stdout.queue(SetAttribute(Attribute::Reverse)).unwrap();
             }
 
             if unit_active {
                 // write!(stdout, "{}{}", Blink, Bold).unwrap();
-                stdout.queue(SetAttr(Attribute::SlowBlink)).unwrap();
-                stdout.queue(SetAttr(Attribute::Bold)).unwrap();
+                stdout.queue(SetAttribute(Attribute::SlowBlink)).unwrap();
+                stdout.queue(SetAttribute(Attribute::Bold)).unwrap();
             }
 
             let city: Option<&City> = if let Some(city_override) = city_override {
@@ -315,7 +317,7 @@ impl Map {
                 if let Some(orders) = unit.orders {
                     if orders == Orders::Sentry {
                         // write!(stdout, "{}", Italic).unwrap();
-                        stdout.queue(SetAttr(Attribute::Italic)).unwrap();
+                        stdout.queue(SetAttribute(Attribute::Italic)).unwrap();
                     }
                 }
 
@@ -328,34 +330,34 @@ impl Map {
 
             if let Some(fg_color) = fg_color {
                 // write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
-                stdout.queue(SetFg(self.palette.get(fg_color, *current))).unwrap();
+                stdout.queue(SetForegroundColor(self.palette.get(fg_color, *current))).unwrap();
             }
             if let Some(bg_color) = bg_color {
                 // write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
-                stdout.queue(SetBg(self.palette.get(bg_color, *current))).unwrap();
+                stdout.queue(SetBackgroundColor(self.palette.get(bg_color, *current))).unwrap();
             }
             // write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
-            stdout.queue(Output(String::from(symbol_override.unwrap_or(sym)))).unwrap();
+            stdout.queue(Print(String::from(symbol_override.unwrap_or(sym)))).unwrap();
 
             self.displayed_tiles[viewport_loc] = Some(tile.clone());
             self.displayed_tile_currentness[viewport_loc] = Some(*current);
         } else {
             if highlight {
                 // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
-                stdout.queue(SetBg(self.palette.get_single(Colors::Cursor))).unwrap();
+                stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Cursor))).unwrap();
             // } else {
             //     // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
             //     stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
             }
             // write!(stdout, " ").unwrap();
-            stdout.queue(Output(String::from(" "))).unwrap();
+            stdout.queue(Print(String::from(" "))).unwrap();
             self.displayed_tiles[viewport_loc] = None;
             self.displayed_tile_currentness[viewport_loc] = None;
         }
 
         // write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
-        stdout.queue(SetAttr(Attribute::Reset)).unwrap();
-        stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
+        stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
+        stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
         // stdout.flush().unwrap();
     }
 
@@ -437,8 +439,8 @@ impl Draw for Map {
         }
 
         // write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
-        stdout.queue(SetAttr(Attribute::Reset)).unwrap();
-        stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
+        stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
+        stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
         stdout.queue(Hide).unwrap();
     }
 }

@@ -45,8 +45,9 @@
 ## 1.0 Milestones
 * TODO AI
 
+## Other
 
-## Deferred
+* FIXME Handle terminal resize events properly
 
 
 ## Ideas

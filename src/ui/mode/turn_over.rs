@@ -1,6 +1,4 @@
-use crossterm::{
-    KeyEvent,
-};
+use crossterm::event::KeyCode;
 
 use crate::{
     color::Colors,
@@ -167,7 +165,7 @@ impl IMode for TurnOverMode {
             loop {
                 match self.get_key(game, ui, mode) {
                     KeyStatus::Unhandled(key) => {
-                        if let KeyEvent::Char('\n') = key {
+                        if let KeyCode::Char('\n') = key.code {
 
                             // If the user has altered productions using examine mode then the turn might not be over anymore
                             // Recheck

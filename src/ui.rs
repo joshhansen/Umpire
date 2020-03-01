@@ -16,21 +16,32 @@ use std::{
 };
 
 use crossterm::{
-    AlternateScreen,
-    Attribute,
-    Clear,
-    ClearType,
-    Hide,
-    InputEvent,
-    KeyEvent,
-    Goto,
-    Output,
-    RawScreen,
-    SetAttr,
-    SetBg,
-    input,
+    cursor::{
+        Hide,
+        MoveTo,
+    },
+    event::{
+        Event,
+        KeyEvent,
+        KeyCode,
+        read as read_event,
+    },
     queue,
-    terminal,
+    style::{
+        Attribute,
+        Print,
+        SetAttribute,
+        SetBackgroundColor,
+    },
+    terminal::{
+        Clear,
+        ClearType,
+        EnterAlternateScreen,
+        LeaveAlternateScreen,
+        enable_raw_mode,
+        disable_raw_mode,
+        size as terminal_size,
+    },
 };
 
 use crate::{
@@ -64,110 +75,124 @@ use self::{
 pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
     confirm_turn_end: bool
 ) -> Result<(),String> {
-    {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
+    // {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
 
         
 
-        let _alt_screen_maybe: Option<AlternateScreen> = if use_alt_screen {
-            Some(
-                AlternateScreen::to_alternate(true)
-                .map_err(|err| format!("Error obtaining alternate screen in raw mode: {}", err))?
-            )
-        } else {
-            None
-        };
+    //     let _alt_screen_maybe: Option<AlternateScreen> = if use_alt_screen {
+    //         Some(
+    //             AlternateScreen::to_alternate(true)
+    //             .map_err(|err| format!("Error obtaining alternate screen in raw mode: {}", err))?
+    //         )
+    //     } else {
+    //         None
+    //     };
 
-        // The input thread
-        let (input_thread_tx, input_thread_rx) = channel();
-        let _input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
-            let _raw = RawScreen::into_raw_mode().unwrap();
-            let input = input();
-            let reader = input.read_sync();
-            for input_event in reader {
-                match input_event {
-                    InputEvent::Keyboard(key_event) => {
-                        let will_return = key_event==KeyEvent::Char(conf::KEY_QUIT);
-                        input_thread_tx.send(key_event).unwrap();
+    // The input thread
+    let (input_thread_tx, input_thread_rx) = channel();
+    let _input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
+        // let _raw = RawScreen::into_raw_mode().unwrap();
+        enable_raw_mode().unwrap();
 
-                        if will_return {
-                            // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
-                            return;
-                        }
+        // let input = input();
+        // let reader = input.read_sync();
+        // for input_event in reader {
+        //     match input_event {
+        //         InputEvent::Keyboard(key_event) => {
+        //             let will_return = key_event==KeyCode::Char(conf::KEY_QUIT);
+        //             input_thread_tx.send(key_event).unwrap();
+
+        //             if will_return {
+        //                 // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
+        //                 return;
+        //             }
+        //         }
+        //         InputEvent::Mouse(_mouse_event) => {
+        //             // do nothing
+        //         },
+        //         InputEvent::Unsupported(_data) => {
+        //             // do nothing
+        //         },
+        //         InputEvent::Unknown => {
+        //             // do nothing
+        //         }
+        //     }
+        // }
+
+        loop {
+            match read_event() {
+                Ok(event) => {
+                    match event {
+                        Event::Key(key_event) => {
+                            let will_return = key_event.code==KeyCode::Char(conf::KEY_QUIT);
+                            input_thread_tx.send(key_event).unwrap();
+        
+                            if will_return {
+                                disable_raw_mode().unwrap();
+                                return;
+                            }
+                        },
+                        Event::Mouse(_mouse_event) => {},
+                        Event::Resize(_columns, _rows) => {
+                            //TODO Handle resize events
+                        },
                     }
-                    InputEvent::Mouse(_mouse_event) => {
-                        // do nothing
-                    },
-                    InputEvent::Unsupported(_data) => {
-                        // do nothing
-                    },
-                    InputEvent::Unknown => {
-                        // do nothing
-                    }
-                }
+                },
+                Err(err) => {
+                    eprintln!("Error reading event: {}", err);
+                    break;
+                },
             }
 
-            // loop {
+        }
 
-            //     // let key = stdin().keys().next().unwrap().unwrap();
-            //     input_thread_tx.send(key).unwrap();
-            // }
+        disable_raw_mode().unwrap();
+    });
+
+    // The audio thread (if applicable)
+    let (audio_thread_handle, audio_thread_tx) = if !quiet {
+        let (tx, rx) = channel();
+        let handle = thread::Builder::new().name("audio".to_string()).spawn(move || {
+            play_sounds(rx, Sounds::Silence).unwrap();
         });
+        (Some(handle), Some(tx))
+    } else {
+        (None, None)
+    };
 
-        // The audio thread (if applicable)
-        let (audio_thread_handle, audio_thread_tx) = if !quiet {
-            let (tx, rx) = channel();
-            let handle = thread::Builder::new().name("audio".to_string()).spawn(move || {
-                play_sounds(rx, Sounds::Silence).unwrap();
-            });
-            (Some(handle), Some(tx))
-        } else {
-            (None, None)
-        };
+    let mut stdout = stdout();
 
-        // let w: Box<dyn Write> = if use_alt_screen {
-        //     match stdout().into_raw_mode() {
-        //         Ok(stdout_raw) => Box::new(AlternateScreen::from(stdout_raw)),
-        //         Err(err) => return Err(format!("Error communicating with terminal: {}", err))
-        //     }
-        // } else {
-        //     match stdout().into_raw_mode() {
-        //         Ok(stdout_raw) => Box::new(stdout_raw),
-        //         Err(err) => return Err(format!("Error communicating with terminal: {}", err))
-        //     }
-        // };
+    if use_alt_screen {
+        queue!(stdout, EnterAlternateScreen).unwrap();
+    }
 
-        // let _raw_mode = match RawScreen::into_raw_mode().map_err(|err| format!("Error obtaining raw screen access: {}", err))?;
+    let (width, height) = terminal_size().map_err(|error_kind| format!("{}", error_kind))?;
+    let term_dims = Dims { width, height };
 
-        
+    let mut ui = TermUI::new(
+        game.dims(),
+        term_dims,
+        stdout,
+        palette,
+        unicode,
+        confirm_turn_end,
+        audio_thread_tx,
+        input_thread_rx,
+    );
 
-        let term = terminal();
+    let mut prev_mode: Option<Mode> = None;
+    let mut mode = self::mode::Mode::TurnStart;
 
-        let (width, height) = term.size().map_err(|error_kind| format!("{}", error_kind))?;
-        let term_dims = Dims { width, height };
+    while mode.run(&mut game, &mut ui, &mut prev_mode) {
+        // nothing here
+    }
 
-        let stdout = stdout();
+    if use_alt_screen {
+        queue!(ui.stdout, LeaveAlternateScreen).unwrap();
+    }
 
-        let mut ui = TermUI::new(
-            game.dims(),
-            term_dims,
-            stdout,
-            palette,
-            unicode,
-            confirm_turn_end,
-            audio_thread_tx,
-            input_thread_rx,
-        );
-
-        let mut prev_mode: Option<Mode> = None;
-        let mut mode = self::mode::Mode::TurnStart;
-
-        while mode.run(&mut game, &mut ui, &mut prev_mode) {
-            // nothing here
-        }
-
-        if audio_thread_handle.is_some() {
-            ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
-        }
+    if audio_thread_handle.is_some() {
+        ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
     }
 
     println!("\n\n\tHe rules a moment: Chaos umpire sits,
@@ -237,9 +262,9 @@ trait Component : Draw {
     //     goto(rect.left + x, rect.top + y)
     // }
 
-    fn goto(&self, x: u16, y: u16) -> Goto {
+    fn goto(&self, x: u16, y: u16) -> MoveTo {
         let rect = self.rect();
-        Goto(rect.left + x, rect.top + y)
+        MoveTo(rect.left + x, rect.top + y)
     }
 
     fn clear(&self, stdout: &mut Stdout) {
@@ -247,7 +272,7 @@ trait Component : Draw {
         let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
         for y in 0..rect.height {
             // write!(*stdout, "{}{}", self.goto(0, y), blank_string).unwrap();
-            queue!(*stdout, self.goto(0, y), Output(blank_string.clone())).unwrap();//FIXME clear component without cloning a bunch of strings
+            queue!(*stdout, self.goto(0, y), Print(blank_string.clone())).unwrap();//FIXME clear component without cloning a bunch of strings
         }
     }
 
@@ -432,7 +457,7 @@ impl TermUI {
     fn clear(&mut self) {
         // write!(self.stdout, "{}", clear::All).unwrap();
         // self.stdout.queue(Clear(ClearType::All));
-        queue!(self.stdout, Clear(ClearType::All), SetBg(self.palette.get_single(Colors::Background))).unwrap();
+        queue!(self.stdout, Clear(ClearType::All), SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
 
         // for x in 0..self.term_dims.width {
         //     for y in 0..self.term_dims.height {
@@ -474,11 +499,11 @@ impl TermUI {
             //     StrongReset::new(&self.palette)
             // ).unwrap();
             queue!(self.stdout,
-                Goto(0, 0),
-                SetAttr(Attribute::Underlined),
-                Output(conf::APP_NAME.to_string()),
-                SetAttr(Attribute::Reset),
-                SetBg(self.palette.get_single(Colors::Background))
+                MoveTo(0, 0),
+                SetAttribute(Attribute::Underlined),
+                Print(conf::APP_NAME.to_string()),
+                SetAttribute(Attribute::Reset),
+                SetBackgroundColor(self.palette.get_single(Colors::Background))
             ).unwrap();
 
             self.first_draw = false;
@@ -492,8 +517,8 @@ impl TermUI {
 
         // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         queue!(self.stdout,
-            SetAttr(Attribute::Reset),
-            SetBg(self.palette.get_single(Colors::Background)),
+            SetAttribute(Attribute::Reset),
+            SetBackgroundColor(self.palette.get_single(Colors::Background)),
             Hide
         ).unwrap();
     }

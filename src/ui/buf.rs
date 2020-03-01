@@ -4,9 +4,12 @@ use std::{
 };
 
 use crossterm::{
-    Goto,
-    Output,
+    cursor::MoveTo,
     queue,
+    style::{
+        PrintStyledContent,
+        style,
+    },
 };
 
 use crate::{
@@ -65,12 +68,14 @@ impl RectBuffer {
     }
 
     fn _draw_row(&self, row_idx: usize, stdout: &mut Stdout) {
-        queue!(stdout, Goto(self.rect.left, self.rect.top + row_idx as u16), Output(
-            if let Some(ref row) = self.rows[row_idx] {
-                row.clone()
-            } else {
-                self.blank_row.clone()
-            }
+        queue!(stdout, MoveTo(self.rect.left, self.rect.top + row_idx as u16), PrintStyledContent(
+            style(
+                if let Some(ref row) = self.rows[row_idx] {
+                    row.clone()
+                } else {
+                    self.blank_row.clone()
+                }
+            )
         )).unwrap();
     }
 

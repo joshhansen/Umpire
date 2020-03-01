@@ -1,8 +1,6 @@
 use std::convert::TryFrom;
 
-use crossterm::{
-    KeyEvent,
-};
+use crossterm::event::KeyCode;
 
 use crate::{
     conf::{self, key_desc},
@@ -91,7 +89,7 @@ impl IMode for GetUnitOrdersMode {
             match self.get_key(game, ui, mode) {
                 KeyStatus::Unhandled(key) => {
 
-                    if let KeyEvent::Char(c) = key {
+                    if let KeyCode::Char(c) = key.code {
                         if let Ok(dir) = Direction::try_from(c) {
                             if let Some(dest) = unit_loc.shift_wrapped(dir, game.dims(), game.wrapping()) {
 

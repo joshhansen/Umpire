@@ -1,12 +1,14 @@
 use std::io::{Stdout,Write};
 
 use crossterm::{
-    Attribute,
-    Output,
-    SetAttr,
-    SetBg,
-    SetFg,
     queue,
+    style::{
+        Attribute,
+        Print,
+        SetAttribute,
+        SetBackgroundColor,
+        SetForegroundColor,
+    },
 };
 
 use crate::color::{Colors,Palette};
@@ -81,10 +83,10 @@ impl<S:ScrollableComponent> Scroller<S> {
         // ).unwrap();
         queue!(*stdout,
             self.goto(x,y),
-            SetAttr(Attribute::Reset),
-            SetBg(palette.get_single(Colors::Background)),
-            SetFg(palette.get_single(Colors::ScrollMarks)),
-            Output(sym.to_string())
+            SetAttribute(Attribute::Reset),
+            SetBackgroundColor(palette.get_single(Colors::Background)),
+            SetForegroundColor(palette.get_single(Colors::ScrollMarks)),
+            Print(sym.to_string())
         ).unwrap();
     }
 
@@ -96,9 +98,9 @@ impl<S:ScrollableComponent> Scroller<S> {
         // ).unwrap();
         queue!(*stdout,
             self.goto(x,y),
-            SetAttr(Attribute::Reset),
-            SetBg(palette.get_single(Colors::Background)),
-            Output(String::from(" "))
+            SetAttribute(Attribute::Reset),
+            SetBackgroundColor(palette.get_single(Colors::Background)),
+            Print(String::from(" "))
         ).unwrap();
     }
 

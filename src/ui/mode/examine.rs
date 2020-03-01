@@ -1,18 +1,23 @@
 use std::convert::TryFrom;
 
-use crossterm::{
-    KeyEvent,
-};
+use crossterm::event::KeyCode;
 
 use crate::{
+    color::Colors,
     game::{
         AlignedMaybe,
         Game,
         GameError,
+        ProposedAction,
         map::Tile,
+        unit::orders::ProposedSetAndFollowOrders,
         unit::UnitID,
     },
-    log::LogTarget,
+    log::{
+        LogTarget,
+        Message,
+        MessageSource,
+    },
     ui::{
         Draw,
         MoveAnimator,
@@ -87,7 +92,7 @@ impl IMode for ExamineMode {
 
         match self.get_key(game, ui, mode) {
             KeyStatus::Unhandled(key) => {
-                if key==KeyEvent::Esc {
+                if key.code==KeyCode::Esc {
                     // Don't leave the examine-mode log message hanging around. They accumulate and get really ugly.
                     ui.log.pop_message();
 
@@ -99,7 +104,7 @@ impl IMode for ExamineMode {
 
                     *mode = Mode::TurnResume;
 
-                } else if key==KeyEvent::Enter {
+                } else if key.code==KeyCode::Enter {
                     if let Some(tile) = self.current_player_tile(game, ui).cloned() {// We clone to ease mutating the unit within this block
                         if let Some(ref city) = tile.city {
                             if city.belongs_to_player(game.current_player()) {
@@ -149,13 +154,26 @@ impl IMode for ExamineMode {
 
                         if can_move {
                             let dest = dest.unwrap();
-                            // game.give_orders(self.most_recently_active_unit_id, Some(Orders::GoTo{dest}), ui, true).unwrap();
-                            let outcome = game.order_unit_go_to(most_recently_active_unit_id, dest).unwrap();
-                            if let Some(move_) = outcome.move_() {
-                                ui.animate_move(game, &move_);
-                            }
+                            let proposed_outcome: ProposedSetAndFollowOrders = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
 
-                            ui.log_message(format!("Ordered unit to go to {}", dest));
+                            match proposed_outcome.proposed_orders_result {
+                                Ok(ref proposed_orders_outcome) => {
+
+                                    if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
+                                        ui.animate_proposed_move(game, proposed_move);
+                                    }
+                                    ui.log_message(format!("Ordered unit to go to {}", dest));
+                                },
+                                Err(ref orders_err) => ui.log_message(Message {
+                                    text: format!("{}", orders_err),
+                                    mark: Some('-'),
+                                    fg_color: Some(Colors::Notice),
+                                    bg_color: Some(Colors::Background),
+                                    source: Some(MessageSource::UI),
+                                })
+                            };
+
+                            proposed_outcome.take(game).unwrap();
 
                             *mode = Mode::TurnResume;
 
@@ -163,7 +181,7 @@ impl IMode for ExamineMode {
                             return true;
                         }
                     }
-                } else if let KeyEvent::Char(c) = key {
+                } else if let KeyCode::Char(c) = key.code {
                     if let Ok(dir) = Direction::try_from(c) {
 
                         if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(dir, ui.viewport_rect().dims(), Wrap2d::NEITHER) {

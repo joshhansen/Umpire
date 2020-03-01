@@ -1,5 +1,5 @@
-use crossterm::{
-    KeyEvent,
+use crossterm::event::{
+    KeyCode,
 };
 
 use crate::{
@@ -97,7 +97,7 @@ impl IMode for SetProductionMode {
         loop {
             match self.get_key(game, ui, mode) {
                 KeyStatus::Unhandled(key) => {
-                    if let KeyEvent::Char(c) = key {
+                    if let KeyCode::Char(c) = key.code {
                         if let Some(unit_type) = UnitType::from_key(c) {
                             game.set_production(self.loc, unit_type).unwrap();
 
