@@ -975,14 +975,6 @@ impl Game {
     fn propose_following_unit_orders(&mut self, id: UnitID) -> ProposedOrdersResult {
         let orders = self.current_player_unit_by_id(id).unwrap().orders.as_ref().unwrap();
         orders.propose(id, self)
-        // let result = orders.propose(id, self);
-
-        // // If the orders are already complete, clear them out
-        // if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
-        //     self.current_player_unit_by_id_mut(id).unwrap().orders = None;
-        // }
-        
-        // result
     }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.

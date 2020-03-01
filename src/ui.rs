@@ -41,7 +41,6 @@ use crate::{
     },
     game::{
         Game,
-        ProposedAction,
         combat::{CombatCapable,CombatOutcome,CombatParticipant},
         move_::{
             Move,
