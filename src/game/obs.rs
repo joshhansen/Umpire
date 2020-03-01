@@ -94,19 +94,31 @@ pub struct OverlayObsTracker<'a, S:Source<Obs>> {
     // overlay: HashMap<Location,Option<Obs>>,
 }
 
-impl <'a,S:Source<Obs>> Dimensioned for OverlayObsTracker<'a, S> {
-    fn dims(&self) -> Dims {
-        // The inner and overlay dims are identical
-        self.inner.dims()
-    }
-}
-
 impl <'a,S:Source<Obs>> OverlayObsTracker<'a, S> {
     pub fn new(inner: &'a S) -> Self {
         Self {
             inner,
             overlay: LocationGrid::new(inner.dims(), |_loc| None),
         }
+    }
+
+    pub fn overlaid_observations(&self) -> Vec<LocatedObs> {
+        let mut observations = Vec::new();
+
+        for loc in self.overlay.iter_locs() {
+            if let Some(ref obs) = self.overlay[loc] {
+                observations.push(LocatedObs::new(loc, obs.clone()));//CLONE
+            }
+        }
+
+        observations
+    }
+}
+
+impl <'a,S:Source<Obs>> Dimensioned for OverlayObsTracker<'a, S> {
+    fn dims(&self) -> Dims {
+        // The inner and overlay dims are identical
+        self.inner.dims()
     }
 }
 

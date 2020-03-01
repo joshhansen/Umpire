@@ -230,6 +230,44 @@ impl Orders {
     }
 }
 
+/// A proposal that orders be given to a unit
+pub struct ProposedSetOrders {
+    unit_id: UnitID,
+    orders: Option<Orders>,
+}
+
+impl ProposedAction for ProposedSetOrders {
+    type Outcome = Result<(),OrdersError>;
+
+    fn take(self, game: &mut Game) -> Self::Outcome {
+        game.set_orders(self.unit_id, self.orders)
+    }
+}
+
+pub struct ProposedSetAndFollowOrders {
+    proposed_set_orders: ProposedSetOrders,
+}
+
+impl ProposedSetAndFollowOrders {
+    pub fn new(unit_id: UnitID, orders: Option<Orders>) -> Self {
+        Self {
+            proposed_set_orders: ProposedSetOrders {
+                unit_id,
+                orders,
+            }
+        }
+    }
+}
+
+impl ProposedAction for ProposedSetAndFollowOrders {
+    type Outcome = OrdersResult;
+    fn take(self, game: &mut Game) -> Self::Outcome {
+        let unit_id = self.proposed_set_orders.unit_id;
+        self.proposed_set_orders.take(game)?;
+        game.follow_unit_orders(unit_id)
+    }
+}
+
 /// Keep moving toward the nearest unobserved tile we can see a path
 /// to, until either there is no such tile or we run out of moves
 /// If there are no such tiles then set the unit's orders to None
@@ -411,11 +449,13 @@ pub mod test_support {
         game::{
             Game,
             PlayerNum,
+            ProposedAction,
             map::{
                 gen::generate_map,
             },
             unit::{
                 UnitType,
+                orders::ProposedOrdersResult,
             },
         },
         name::{
@@ -463,13 +503,15 @@ pub mod test_support {
         let mut done = false;
         
         while game.unit_orders_requests().count() == 0 {
-            let turn_start = game.end_turn().unwrap();
-            assert_eq!(turn_start.carried_out_orders.len(), 1);
+            let mut proposed_turn_start = game.end_turn().unwrap();
+            assert_eq!(proposed_turn_start.proposed_orders_results.len(), 1);
 
-            let carried_out_orders = turn_start.carried_out_orders.get(0).unwrap();
+            let proposed_orders_result: ProposedOrdersResult = proposed_turn_start.proposed_orders_results.pop().unwrap();
 
-            match carried_out_orders {
-                Ok(orders_outcome) => {
+            match proposed_orders_result {
+                Ok(proposed_orders_outcome) => {
+                    let orders_outcome = proposed_orders_outcome.take(&mut game);
+
                     assert!(!done);
                     if orders_outcome.move_.is_none() {
                         done = true;
@@ -491,6 +533,8 @@ pub mod test {
         game::{
             Game,
             MoveError,
+            ProposedAction,
+            ProposedTurnStart,
             map::{
                 MapData,
             },
@@ -543,13 +587,15 @@ pub mod test {
 
         // Wait while the go-to order is carried out
         while game.unit_orders_requests().next().is_none() {
-            let result = game.end_turn().unwrap();
-            assert_eq!(result.current_player, 0);
+            let proposed_turn_start: ProposedTurnStart = game.end_turn().unwrap();
+            assert_eq!(proposed_turn_start.current_player, 0);
 
-            match result.carried_out_orders.len() {
+            match proposed_turn_start.proposed_orders_results.len() {
                 0|1 => {/* do nothing */},
                 _ => panic!("Infantry shouldn't move more than 1 per turn")
             }
+
+            proposed_turn_start.take(&mut game);
         }
 
         assert_eq!(game.turn(), 5);

@@ -7,12 +7,15 @@ use crate::{
     game::{
         Game,
         PlayerNum,
+        ProposedAction,
+        ProposedTurnStart,
         TurnStart,
         UnitProductionOutcome,
         unit::{
             orders::{
                 OrdersError,
                 OrdersResult,
+                ProposedOrdersResult,
             },
         },
     },
@@ -73,10 +76,57 @@ impl TurnOverMode {
         }
     }
 
-    fn process_turn_start(&self, game: &mut Game, ui: &mut TermUI, turn_start: TurnStart) {
-        for orders_result in turn_start.carried_out_orders {
-            self.animate_orders(game, ui, orders_result);
+    fn animate_proposed_orders(&self, game: &mut Game, ui: &mut TermUI, proposed_orders_result: ProposedOrdersResult) {
+        let (id,orders) = match proposed_orders_result {
+            Ok(ref proposed_orders_outcome) => (proposed_orders_outcome.ordered_unit_id, proposed_orders_outcome.orders),
+            Err(ref err) => match *err {
+                OrdersError::OrderedUnitDoesNotExist { id, orders } => (id,orders),
+                OrdersError::MoveError { id, orders, .. } => (id,orders),
+            }
+        };
+
+        let unit = game.current_player_unit_by_id(id).unwrap();
+
+        ui.map_scroller.scrollable.center_viewport(unit.loc);
+
+        ui.log_message(Message::new(
+            format!("Unit {} is {}", unit, orders.present_progressive_description()),
+            Some('@'),
+            None,
+            None,
+            None
+        ));
+
+        ui.draw(game);
+
+        match proposed_orders_result {
+            Ok(proposed_orders_outcome) => {
+                if let Some(proposed_move) = proposed_orders_outcome.proposed_move {
+                    ui.animate_proposed_move(game, &proposed_move);
+                    proposed_move.take(game);
+                }
+            },
+            Err(err) => {
+                ui.log_message(Message {
+                    text: format!("{}", err),
+                    mark: Some('!'),
+                    fg_color: Some(Colors::Text),
+                    bg_color: Some(Colors::Notice),
+                    source: None,
+                });
+            }
         }
+    }
+
+    fn process_turn_start(&self, game: &mut Game, ui: &mut TermUI, turn_start: ProposedTurnStart) {
+        // for orders_result in turn_start.orders_results {
+        //     self.animate_orders(game, ui, orders_result);
+        // }
+
+        for proposed_orders_result in turn_start.proposed_orders_results {
+            self.animate_proposed_orders(game, ui, proposed_orders_result);
+        }
+
         for production_outcome in turn_start.production_outcomes {
             match production_outcome {
                 UnitProductionOutcome::UnitProduced { unit, city } => {
@@ -124,9 +174,11 @@ impl IMode for TurnOverMode {
                             // Recheck
 
                             match game.end_turn() {
-                                Ok(turn_start) => {
+                                Ok(proposed_turn_start) => {
+                                    self.process_turn_start(game, ui, proposed_turn_start);
+                                    // let turn_start = proposed_turn_start.take(game);
 
-                                    self.process_turn_start(game, ui, turn_start);
+                                    // self.process_turn_start(game, ui, turn_start);
 
                                     *mode = Mode::TurnStart;
                                 },
@@ -150,8 +202,10 @@ impl IMode for TurnOverMode {
         } else {
             // We shouldn't be in the TurnOverMode state unless game.turn_is_done() is true
             // so this unwrap should always succeed
-            let turn_start = game.end_turn().unwrap();
-            self.process_turn_start(game, ui, turn_start);
+            let proposed_turn_start = game.end_turn().unwrap();
+            self.process_turn_start(game, ui, proposed_turn_start);
+            // let turn_start = proposed_turn_start.take(game);
+            // self.process_turn_start(game, ui, turn_start);
             *mode = Mode::TurnStart;
             true
         }

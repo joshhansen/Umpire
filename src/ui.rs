@@ -41,8 +41,12 @@ use crate::{
     },
     game::{
         Game,
-        move_::Move,
+        ProposedAction,
         combat::{CombatCapable,CombatOutcome,CombatParticipant},
+        move_::{
+            Move,
+            ProposedMove,
+        },
         obs::{LocatedObs,Obs},
     },
     log::{LogTarget,Message,MessageSource},
@@ -179,7 +183,9 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
 }
 
 pub trait MoveAnimator {
+    #[deprecated = "Use `animate_proposed_move` instead. We want to animate based on the proposal and then actually take the action defined by the move so the game state doesn't reflect the move yet, since it's easier to work relative to the prior game state."]
     fn animate_move(&mut self, game: &Game, move_result: &Move);
+    fn animate_proposed_move(&mut self, game: &mut Game, proposed_move: &ProposedMove);
 }
 
 pub trait UI : LogTarget + MoveAnimator {
@@ -200,7 +206,11 @@ impl LogTarget for DefaultUI {
 
 impl MoveAnimator for DefaultUI {
     fn animate_move(&mut self, _game: &Game, _move_result: &Move) {
-        // println!("Moving: {:?}", *move_result);
+        // do nothing
+    }
+
+    fn animate_proposed_move(&mut self, _game: &mut Game, _proposed_move: &ProposedMove) {
+        // do nothing
     }
 }
 
@@ -616,7 +626,7 @@ impl MoveAnimator for TermUI {
             self.ensure_map_loc_visible(current_loc);
 
             //FIXME This draw is revealing current game state when we really need to show the past few steps of game state involved with this move
-            self.draw_no_flush(game);
+            // self.draw_no_flush(game);
 
             let mut was_combat = false;
             if let Some(ref combat) = move_.unit_combat {
@@ -655,6 +665,60 @@ impl MoveAnimator for TermUI {
         }
 
         if move_result.unit.moves_remaining() == 0 {
+            sleep_millis(250);
+        }
+    }
+
+    fn animate_proposed_move(&mut self, game: &mut Game, proposed_move: &ProposedMove) {
+        let mut current_loc = proposed_move.0.starting_loc;
+
+        self.ensure_map_loc_visible(current_loc);
+        self.draw(game);
+
+        for (move_idx, move_) in proposed_move.0.components.iter().enumerate() {
+            let target_loc = move_.loc;
+            self.ensure_map_loc_visible(current_loc);
+
+            //FIXME This draw is revealing current game state when we really need to show the past few steps of game state involved with this move
+            // self.draw_no_flush(game);
+
+            let mut was_combat = false;
+            if let Some(ref combat) = move_.unit_combat {
+                self.animate_combat(game, combat, current_loc, target_loc);
+                was_combat = true;
+            }
+
+            if let Some(ref combat) = move_.city_combat {
+                self.animate_combat(game, combat, current_loc, target_loc);
+                was_combat = true;
+            }
+
+            if move_.distance_moved() > 0 {
+                self.log_message(Message {
+                    text: format!("Unit {} {}", proposed_move.0.unit, if move_.moved_successfully() {
+                        if was_combat {"victorious"} else {"moved successfully"}
+                    } else {"destroyed"}),
+                    mark: Some('*'),
+                    fg_color: Some(Colors::Combat),
+                    bg_color: None,
+                    source: Some(MessageSource::UI)
+                });
+            }
+
+            if move_.moved_successfully() {
+                self.draw_located_observations(game, &move_.observations_after_move);
+            }
+
+            current_loc = target_loc;
+
+            self.stdout.flush().unwrap();
+
+            if move_idx < proposed_move.0.components.len() - 1 {
+                sleep_millis(100);
+            }
+        }
+
+        if proposed_move.0.unit.moves_remaining() == 0 {
             sleep_millis(250);
         }
     }

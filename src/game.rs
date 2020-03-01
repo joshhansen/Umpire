@@ -46,6 +46,8 @@ use crate::{
                 OrdersStatus,
                 OrdersOutcome,
                 OrdersResult,
+                ProposedOrdersResult,
+                ProposedSetAndFollowOrders,
             },
         },
     },
@@ -62,7 +64,8 @@ use self::move_::{
 };
 
 /// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
-trait ProposedAction {
+#[must_use = "All proposed actions issued by the game engine must be taken using `take`"]
+pub trait ProposedAction {
     type Outcome;
     fn take(self, game: &mut Game) -> Self::Outcome;
 }
@@ -122,12 +125,34 @@ impl <T:Aligned> AlignedMaybe for T {
     }
 }
 
+#[must_use]
 #[derive(Debug,PartialEq)]
+pub struct ProposedTurnStart {
+    pub turn: TurnNum,
+    pub current_player: PlayerNum,
+    pub proposed_orders_results: Vec<ProposedOrdersResult>,
+    pub production_outcomes: Vec<UnitProductionOutcome>,
+}
+
 pub struct TurnStart {
     pub turn: TurnNum,
     pub current_player: PlayerNum,
-    pub carried_out_orders: Vec<OrdersResult>,
+    pub orders_results: Vec<OrdersResult>,
     pub production_outcomes: Vec<UnitProductionOutcome>,
+}
+
+impl ProposedAction for ProposedTurnStart {
+    type Outcome = TurnStart;
+    fn take(mut self, game: &mut Game) -> Self::Outcome {
+        TurnStart {
+            turn: self.turn,
+            current_player: self.current_player,
+            orders_results: self.proposed_orders_results.drain(..).map(|proposed_orders_result| {
+                proposed_orders_result.map(|proposed_orders| proposed_orders.take(game))
+            }).collect(),
+            production_outcomes: self.production_outcomes,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -287,7 +312,7 @@ impl Game {
     /// Begin a new turn
     /// 
     /// Returns the results of any pending orders carried out
-    fn begin_turn(&mut self) -> TurnStart {
+    fn begin_turn(&mut self) -> ProposedTurnStart {
         // log.log_message(Message {
         //     text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
         //     mark: None,
@@ -302,12 +327,12 @@ impl Game {
 
         self.update_current_player_observations();
 
-        let carried_out_orders = self.follow_pending_orders();
+        let proposed_orders_results = self.propose_following_pending_orders();
 
-        TurnStart {
+        ProposedTurnStart {
             turn: self.turn,
             current_player: self.current_player,
-            carried_out_orders,
+            proposed_orders_results,
             production_outcomes,
         }
     }
@@ -331,7 +356,7 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
+    pub fn end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
         if self.turn_is_done() {
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
@@ -855,18 +880,19 @@ impl Game {
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
-        // if !self.dims().in_bounds(dest) {
-        //     return Err(OrdersError::Move{id: unit_id, dest, map_dims: self.dims()});
-        //     // return Err(format!("Cannot order unit with ID {:?} to go to {} because {} is out of bounds", unit_id, dest, dest));
-        // }
+        self.propose_order_unit_go_to(unit_id, dest).take(self)
+    }
 
-        self.set_orders(unit_id, Some(Orders::GoTo{dest}))?;
-        self.follow_unit_orders(unit_id)
+    pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> ProposedSetAndFollowOrders {
+        ProposedSetAndFollowOrders::new(unit_id, Some(Orders::GoTo{dest}))
     }
 
     pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.set_orders(unit_id, Some(Orders::Explore))?;
-        self.follow_unit_orders(unit_id)
+        self.propose_order_unit_explore(unit_id).take(self)
+    }
+
+    pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> ProposedSetAndFollowOrders {
+        ProposedSetAndFollowOrders::new(unit_id, Some(Orders::Explore))
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
@@ -914,6 +940,14 @@ impl Game {
             .collect()
     }
 
+    fn propose_following_pending_orders(&mut self) -> Vec<ProposedOrdersResult> {
+        let pending_orders: Vec<UnitID> = self.units_with_pending_orders().collect();
+
+        pending_orders.iter()
+            .map(|unit_id| self.propose_following_unit_orders(*unit_id))
+            .collect()
+    }
+
     /// Make the unit with ID `id` under the current player's control follow its orders
     /// 
     /// # Panics
@@ -930,6 +964,19 @@ impl Game {
         }
         
         result
+    }
+
+    fn propose_following_unit_orders(&mut self, id: UnitID) -> ProposedOrdersResult {
+        let orders = self.current_player_unit_by_id(id).unwrap().orders.as_ref().unwrap();
+        orders.propose(id, self)
+        // let result = orders.propose(id, self);
+
+        // // If the orders are already complete, clear them out
+        // if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
+        //     self.current_player_unit_by_id_mut(id).unwrap().orders = None;
+        // }
+        
+        // result
     }
 }
 
