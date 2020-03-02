@@ -123,15 +123,21 @@ impl ProposedOrdersOutcome {
 impl ProposedAction for ProposedOrdersOutcome {
     type Outcome = OrdersOutcome;
     fn take(self, game: &mut Game) -> Self::Outcome {
-        // if self.orders==Orders::Skip {
+        
+        // We need to run the proposed move first so the cloned unit contained therein gets put in place inside `Game`.
+        let move_ = self.proposed_move.map(|proposed_move| {
+            proposed_move.take(game)
+        });
+
+        // Now we clear the unit's orders if approprirate
         if self.status == OrdersStatus::Completed {
-            game.set_orders(self.ordered_unit_id, None).unwrap();
+            game.clear_orders(self.ordered_unit_id).unwrap();
         }
 
         OrdersOutcome {
             ordered_unit_id: self.ordered_unit_id,
             orders: self.orders,
-            move_: self.proposed_move.map(|proposed_move| proposed_move.take(game)),
+            move_,
             status: self.status,
         }
     }
@@ -167,7 +173,14 @@ impl ProposedAction for ProposedOrdersResult {
     type Outcome = OrdersResult;
 
     fn take(self, game: &mut Game) -> Self::Outcome {
-        self.map(|proposed_orders_outcome| proposed_orders_outcome.take(game))
+        let outcome = self.map(|proposed_orders_outcome| proposed_orders_outcome.take(game));
+
+        // If the orders are already complete, clear them out
+        if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, ordered_unit_id, .. }) = outcome {
+            game.clear_orders(ordered_unit_id).unwrap();
+        }
+
+        outcome
     }
 }
 
@@ -183,7 +196,7 @@ impl Orders {
     pub fn carry_out(self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
         match self {
             Orders::Skip => {
-                game.set_orders(unit_id, None).map(|_| OrdersOutcome::completed_without_move(unit_id, self))
+                game.clear_orders(unit_id).map(|_| OrdersOutcome::completed_without_move(unit_id, self))
             },
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
@@ -263,8 +276,14 @@ pub struct ProposedSetAndFollowOrders {
 
 impl ProposedAction for ProposedSetAndFollowOrders {
     type Outcome = OrdersResult;
-    fn take(self, game: &mut Game) -> Self::Outcome {
-        game.set_orders(self.unit_id, Some(self.orders))?;
+    fn take(mut self, game: &mut Game) -> Self::Outcome {
+        // Set the orders of the unit in our simulated orders outcome so that after the simulation is made real, the
+        // orders will still be set.
+        if let Ok(ref mut proposed_orders_outcome) = self.proposed_orders_result {
+            if let Some(ref mut proposed_move) = proposed_orders_outcome.proposed_move {
+                proposed_move.0.unit.orders = Some(self.orders);
+            }
+        }
         self.proposed_orders_result.take(game)
     }
 }
@@ -456,7 +475,7 @@ pub mod test_support {
             },
             unit::{
                 UnitType,
-                orders::ProposedOrdersResult,
+                orders::Orders,
             },
         },
         name::{
@@ -486,7 +505,7 @@ pub mod test_support {
 
         // Wait until the fighter is produced
         while game.unit_orders_requests().count() == 0 {
-            game.end_turn().unwrap().take(&mut game);
+            game.end_turn().unwrap();
         }
 
         game.clear_production_and_ignore(city_loc).unwrap();
@@ -499,20 +518,20 @@ pub mod test_support {
         assert!(!outcome.move_.as_ref().unwrap().components.is_empty());
 
 
+        let fighter = game.current_player_unit_by_id(fighter_id).unwrap();
+        assert_eq!(fighter.orders, Some(Orders::Explore));
+
         // Wait until the fighter has explored everything
 
         let mut done = false;
         
         while game.unit_orders_requests().count() == 0 {
-            let mut proposed_turn_start = game.end_turn().unwrap();
-            assert_eq!(proposed_turn_start.proposed_orders_results.len(), 1);
+            let turn_start = game.end_turn().unwrap();
+            assert_eq!(turn_start.orders_results.len(), 1);
 
-            let proposed_orders_result: ProposedOrdersResult = proposed_turn_start.proposed_orders_results.pop().unwrap();
-
-            match proposed_orders_result {
-                Ok(proposed_orders_outcome) => {
-                    let orders_outcome = proposed_orders_outcome.take(&mut game);
-
+            let orders_result = turn_start.orders_results.get(0).unwrap();
+            match orders_result {
+                Ok(orders_outcome) => {
                     assert!(!done);
                     if orders_outcome.move_.is_none() {
                         done = true;
@@ -534,8 +553,6 @@ pub mod test {
         game::{
             Game,
             MoveError,
-            ProposedAction,
-            ProposedTurnStart,
             map::{
                 MapData,
             },
@@ -588,15 +605,16 @@ pub mod test {
 
         // Wait while the go-to order is carried out
         while game.unit_orders_requests().next().is_none() {
-            let proposed_turn_start: ProposedTurnStart = game.end_turn().unwrap();
-            assert_eq!(proposed_turn_start.current_player, 0);
+            let turn_start = game.end_turn().unwrap();
+            assert_eq!(turn_start.current_player, 0);
 
-            match proposed_turn_start.proposed_orders_results.len() {
+            match turn_start.orders_results.len() {
                 0|1 => {/* do nothing */},
                 _ => panic!("Infantry shouldn't move more than 1 per turn")
             }
 
-            proposed_turn_start.take(&mut game);
+            // Make sure we don't go on too long
+            assert!(game.turn() < 6);
         }
 
         assert_eq!(game.turn(), 5);

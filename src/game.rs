@@ -137,6 +137,7 @@ pub struct ProposedTurnStart {
     pub production_outcomes: Vec<UnitProductionOutcome>,
 }
 
+#[derive(Debug,PartialEq)]
 pub struct TurnStart {
     pub turn: TurnNum,
     pub current_player: PlayerNum,
@@ -247,7 +248,7 @@ impl Game {
             fog_of_war,
         };
 
-        game.begin_turn().take(&mut game);
+        game.begin_turn();
         game
     }
 
@@ -316,15 +317,12 @@ impl Game {
     /// Begin a new turn
     /// 
     /// Returns the results of any pending orders carried out
-    fn begin_turn(&mut self) -> ProposedTurnStart {
-        // log.log_message(Message {
-        //     text: format!("Beginning turn {} for player {}", self.turn, self.current_player),
-        //     mark: None,
-        //     fg_color: Some(Colors::Notice),
-        //     bg_color: None,
-        //     source: Some(MessageSource::Game)
-        // });
+    fn begin_turn(&mut self) -> TurnStart {
+        self.propose_begin_turn().take(self)
+    }
 
+    /// Begin a new turn, but only simulate the orders following. These can be made real using `ProposedAction::take`.
+    fn propose_begin_turn(&mut self) -> ProposedTurnStart {
         let production_outcomes = self.produce_units();
 
         self.refresh_moves_remaining();
@@ -360,7 +358,7 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
+    pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
         if self.turn_is_done() {
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
@@ -370,6 +368,21 @@ impl Game {
             }
 
             Ok(self.begin_turn())
+        } else {
+            Err(self.current_player)
+        }
+    }
+
+    pub fn propose_end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
+        if self.turn_is_done() {
+            self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+
+            self.current_player = (self.current_player + 1) % self.num_players;
+            if self.current_player == 0 {
+                self.turn += 1;
+            }
+
+            Ok(self.propose_begin_turn())
         } else {
             Err(self.current_player)
         }
@@ -936,6 +949,11 @@ impl Game {
             Err(OrdersError::OrderedUnitDoesNotExist{id, orders: orders.unwrap()})
             // Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
         }
+    }
+
+    /// Clear the orders of the unit controlled by the current player with ID `id`.
+    fn clear_orders(&mut self, id: UnitID) -> Result<(),OrdersError> {
+        self.set_orders(id, None)
     }
 
     fn follow_pending_orders(&mut self) -> Vec<OrdersResult> {

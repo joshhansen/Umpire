@@ -129,11 +129,14 @@ impl IMode for GetUnitOrdersMode {
                             return true;
                         } else if c == conf::KEY_EXPLORE {
                             let proposed_outcome: ProposedSetAndFollowOrders = game.propose_order_unit_explore(self.unit_id);
-                            let proposed_orders_outcome = proposed_outcome.proposed_orders_result.unwrap();
-                            if let Some(proposed_move) = proposed_orders_outcome.proposed_move {
+                            let proposed_orders_outcome = proposed_outcome.proposed_orders_result.as_ref().unwrap();
+                            if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
                                 ui.animate_proposed_move(game, &proposed_move);
-                                proposed_move.take(game);
+                                // proposed_move.take(game);
                             }
+
+                            proposed_outcome.take(game).unwrap();
+
                             *mode = Mode::GetOrders;
                             return true;
                         }
