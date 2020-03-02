@@ -3,3 +3,6 @@ rust:
   - 1.37.0
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -y libasound2-dev ; fi
+os:
+ - linux
+ - osx
