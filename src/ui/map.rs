@@ -29,11 +29,18 @@ use crate::{
         },
     },
     ui::{
-        Component,Draw,
+        Component,
+        Draw,
         scroll::ScrollableComponent,
         sym::Sym,
     },
-    util::{Dims,Location,Rect,Vec2d}
+    util::{
+        Dims,
+        Location,
+        Rect,
+        Vec2d,
+        Wrap2d,
+    }
 };
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
@@ -47,6 +54,7 @@ fn nonnegative_mod(x: i32, max: u16) -> u16 {
     (result % max) as u16
 }
 
+#[deprecated]
 fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
     Location {
         x: (viewport_loc.x + viewport_offset.x) % map_dims.width, // mod implements wrapping,
@@ -203,6 +211,25 @@ impl Map {
         map_to_viewport_coords(map_loc, self.viewport_offset, self.viewport_dims(), self.map_dims)
     }
 
+    /// If the viewport location given is within the currently visible view and a map location corresponds thereto,
+    /// return the map location; otherwise return None.
+    pub fn viewport_to_map_coords(&self, game: &Game, viewport_loc: Location) -> Option<Location> {
+        self.viewport_to_map_coords_by_offset(game, viewport_loc, self.viewport_offset)
+    }
+
+    fn viewport_to_map_coords_by_offset(&self, game: &Game, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
+        if self.viewport_dims().contain(viewport_loc) {
+            let offset = Vec2d{ x: offset.x as i32, y: offset.y as i32 };
+            return game.wrapping().wrapped_add(game.dims(), viewport_loc, offset);
+            // let map_loc: Location = viewport_loc + offset;
+            // if game.dims().contain(map_loc) {
+            //     return Some(map_loc)
+            // }
+        }
+
+        None
+    }
+
     /// Center the viewport around the tile corresponding to map location `map_loc`.
     pub fn center_viewport(&mut self, map_loc: Location) {
         let new_viewport_offset = Vec2d {
@@ -273,83 +300,81 @@ impl Map {
         stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
 
 
-
-
-
-        let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
-
-        if tile_loc.y == game.dims().height - 1 {
-            // write!(stdout, "{}", Underline).unwrap();
-            stdout.queue(SetAttribute(Attribute::Underlined)).unwrap();
-        }
-
-
-
-        // write!(stdout, "{}", self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
         stdout.queue(self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
 
-        // stdout.queue(Output(String::from("X"))).unwrap();
-        if let Obs::Observed{tile, current, ..} = game.current_player_obs(tile_loc) {
-            if highlight {
-                // write!(stdout, "{}", Invert).unwrap();
-                stdout.queue(SetAttribute(Attribute::Reverse)).unwrap();
+
+        let should_clear = if let Some(tile_loc) = self.viewport_to_map_coords(game, viewport_loc) {
+
+            if tile_loc.y == game.dims().height - 1 {
+                // write!(stdout, "{}", Underline).unwrap();
+                stdout.queue(SetAttribute(Attribute::Underlined)).unwrap();
             }
 
-            if unit_active {
-                // write!(stdout, "{}{}", Blink, Bold).unwrap();
-                stdout.queue(SetAttribute(Attribute::SlowBlink)).unwrap();
-                stdout.queue(SetAttribute(Attribute::Bold)).unwrap();
-            }
-
-            let city: Option<&City> = if let Some(city_override) = city_override {
-                city_override
-            } else {
-                tile.city.as_ref()
-            };
-
-            let unit: Option<&Unit> = if let Some(unit_override) = unit_override {
-                unit_override
-            } else {
-                tile.unit.as_ref()
-            };
-
-            let (sym, fg_color, bg_color) = if let Some(ref unit) = unit {
-                if let Some(orders) = unit.orders {
-                    if orders == Orders::Sentry {
-                        // write!(stdout, "{}", Italic).unwrap();
-                        stdout.queue(SetAttribute(Attribute::Italic)).unwrap();
-                    }
+            if let Obs::Observed{tile, current, ..} = game.current_player_obs(tile_loc) {
+                if highlight {
+                    // write!(stdout, "{}", Invert).unwrap();
+                    stdout.queue(SetAttribute(Attribute::Reverse)).unwrap();
                 }
 
-                (unit.sym(self.unicode), unit.color(), tile.terrain.color())
-            } else if let Some(ref city) = city {
-                (city.sym(self.unicode), city.alignment.color(), tile.terrain.color())
+                if unit_active {
+                    // write!(stdout, "{}{}", Blink, Bold).unwrap();
+                    stdout.queue(SetAttribute(Attribute::SlowBlink)).unwrap();
+                    stdout.queue(SetAttribute(Attribute::Bold)).unwrap();
+                }
+
+                let city: Option<&City> = if let Some(city_override) = city_override {
+                    city_override
+                } else {
+                    tile.city.as_ref()
+                };
+
+                let unit: Option<&Unit> = if let Some(unit_override) = unit_override {
+                    unit_override
+                } else {
+                    tile.unit.as_ref()
+                };
+
+                let (sym, fg_color, bg_color) = if let Some(ref unit) = unit {
+                    if let Some(orders) = unit.orders {
+                        if orders == Orders::Sentry {
+                            // write!(stdout, "{}", Italic).unwrap();
+                            stdout.queue(SetAttribute(Attribute::Italic)).unwrap();
+                        }
+                    }
+
+                    (unit.sym(self.unicode), unit.color(), tile.terrain.color())
+                } else if let Some(ref city) = city {
+                    (city.sym(self.unicode), city.alignment.color(), tile.terrain.color())
+                } else {
+                    (tile.sym(self.unicode), None, tile.terrain.color())
+                };
+
+                if let Some(fg_color) = fg_color {
+                    // write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
+                    stdout.queue(SetForegroundColor(self.palette.get(fg_color, *current))).unwrap();
+                }
+                if let Some(bg_color) = bg_color {
+                    // write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
+                    stdout.queue(SetBackgroundColor(self.palette.get(bg_color, *current))).unwrap();
+                }
+                // write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
+                stdout.queue(Print(String::from(symbol_override.unwrap_or(sym)))).unwrap();
+
+                self.displayed_tiles[viewport_loc] = Some(tile.clone());
+                self.displayed_tile_currentness[viewport_loc] = Some(*current);
+
+                false
             } else {
-                (tile.sym(self.unicode), None, tile.terrain.color())
-            };
-
-            if let Some(fg_color) = fg_color {
-                // write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
-                stdout.queue(SetForegroundColor(self.palette.get(fg_color, *current))).unwrap();
+                true
             }
-            if let Some(bg_color) = bg_color {
-                // write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
-                stdout.queue(SetBackgroundColor(self.palette.get(bg_color, *current))).unwrap();
-            }
-            // write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
-            stdout.queue(Print(String::from(symbol_override.unwrap_or(sym)))).unwrap();
-
-            self.displayed_tiles[viewport_loc] = Some(tile.clone());
-            self.displayed_tile_currentness[viewport_loc] = Some(*current);
         } else {
+            true
+        };
+
+        if should_clear {
             if highlight {
-                // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Cursor))).unwrap();
                 stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Cursor))).unwrap();
-            // } else {
-            //     // write!(stdout, "{}", Bg(self.palette.get_single(Colors::Background)) ).unwrap();
-            //     stdout.queue(SetBg(self.palette.get_single(Colors::Background))).unwrap();
             }
-            // write!(stdout, " ").unwrap();
             stdout.queue(Print(String::from(" "))).unwrap();
             self.displayed_tiles[viewport_loc] = None;
             self.displayed_tile_currentness[viewport_loc] = None;
@@ -362,8 +387,9 @@ impl Map {
     }
 
     pub fn current_player_tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
-        let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
-        game.current_player_tile(tile_loc)
+        // let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
+        // game.current_player_tile(tile_loc)
+        self.viewport_to_map_coords(game, viewport_loc).and_then(|map_loc| game.current_player_tile(map_loc))
     }
 }
 
@@ -390,11 +416,15 @@ impl Component for Map {
 impl Draw for Map {
     fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
         
-        for viewport_loc in self.rect.dims().iter_locs() {
+        for viewport_loc in self.viewport_dims().iter_locs() {
 
             let should_draw_tile = {
-                let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
-                let new_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
+                // let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
+                // let new_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
+
+                let old_map_loc = self.viewport_to_map_coords_by_offset(game, viewport_loc, self.old_viewport_offset).unwrap();
+                let new_map_loc = self.viewport_to_map_coords(game, viewport_loc).unwrap();
+
 
                 let new_obs = game.current_player_obs(new_map_loc);
 

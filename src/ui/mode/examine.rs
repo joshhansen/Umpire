@@ -52,6 +52,7 @@ impl ExamineMode {
         map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, None, None, None);
     }
 
+    /// The tile visible to the current player under the examine cursor, if any
     fn current_player_tile<'a>(&'a self, game: &'a Game, ui: &TermUI) -> Option<&'a Tile> {
         let map = &ui.map_scroller.scrollable;
         map.current_player_tile(game, self.cursor_viewport_loc)
@@ -139,47 +140,34 @@ impl IMode for ExamineMode {
 
                     // If there was a recently active unit, see if we can give it orders to move to the current location
                     if let Some(most_recently_active_unit_id) = self.most_recently_active_unit_id {
-                        ui.log_message("Might move unit".to_string());
-                        let (can_move, dest) = {
-                            let unit = game.current_player_unit_by_id(most_recently_active_unit_id).unwrap();
 
-                            let can_move = if let Some(tile) = self.current_player_tile(game, ui) {
-                                unit.can_move_on_tile(tile)
-                            } else {
-                                false
-                            };
-                            let dest = self.current_player_tile(game, ui).map(|tile| tile.loc);
-                            (can_move, dest)
+                        let dest = ui.map().viewport_to_map_coords(game, self.cursor_viewport_loc).unwrap();
+
+                        let proposed_outcome: ProposedSetAndFollowOrders = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
+
+                        match proposed_outcome.proposed_orders_result {
+                            Ok(ref proposed_orders_outcome) => {
+
+                                if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
+                                    ui.animate_proposed_move(game, proposed_move);
+                                }
+                                ui.log_message(format!("Ordered unit to go to {}", dest));
+                            },
+                            Err(ref orders_err) => ui.log_message(Message {
+                                text: format!("{}", orders_err),
+                                mark: Some('-'),
+                                fg_color: Some(Colors::Notice),
+                                bg_color: Some(Colors::Background),
+                                source: Some(MessageSource::UI),
+                            })
                         };
 
-                        if can_move {
-                            let dest = dest.unwrap();
-                            let proposed_outcome: ProposedSetAndFollowOrders = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
+                        proposed_outcome.take(game).unwrap();
 
-                            match proposed_outcome.proposed_orders_result {
-                                Ok(ref proposed_orders_outcome) => {
+                        *mode = Mode::TurnResume;
 
-                                    if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
-                                        ui.animate_proposed_move(game, proposed_move);
-                                    }
-                                    ui.log_message(format!("Ordered unit to go to {}", dest));
-                                },
-                                Err(ref orders_err) => ui.log_message(Message {
-                                    text: format!("{}", orders_err),
-                                    mark: Some('-'),
-                                    fg_color: Some(Colors::Notice),
-                                    bg_color: Some(Colors::Background),
-                                    source: Some(MessageSource::UI),
-                                })
-                            };
-
-                            proposed_outcome.take(game).unwrap();
-
-                            *mode = Mode::TurnResume;
-
-                            self.clean_up(game, ui);
-                            return true;
-                        }
+                        self.clean_up(game, ui);
+                        return true;
                     }
                 } else if let KeyCode::Char(c) = key.code {
                     if let Ok(dir) = Direction::try_from(c) {

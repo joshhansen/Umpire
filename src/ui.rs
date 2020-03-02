@@ -626,6 +626,10 @@ impl TermUI {
     fn sidebar_buf_mut(&mut self) -> &mut RectBuffer {
         &mut self.sidebar_buf
     }
+
+    fn map(&self) -> &Map {
+        &self.map_scroller.scrollable
+    }
 }
 
 impl LogTarget for TermUI {

@@ -469,7 +469,6 @@ pub mod test_support {
         game::{
             Game,
             PlayerNum,
-            ProposedAction,
             map::{
                 gen::generate_map,
             },
@@ -551,6 +550,7 @@ pub mod test {
 
     use crate::{
         game::{
+            AlignedMaybe,
             Game,
             MoveError,
             map::{
@@ -619,8 +619,15 @@ pub mod test {
 
         assert_eq!(game.turn(), 5);
 
-        let final_dest = game.current_player_unit_loc(id).unwrap();
-        assert_eq!(final_dest, dest3);
+        let unit = game.current_player_unit_by_id(id).unwrap();
+        assert!(!unit.has_orders());
+        assert_eq!(unit.loc, dest3);
+        assert_eq!(unit.moves_remaining, 1);
+        assert!(unit.belongs_to_player(0));
+
+        assert!(game.current_player_units().any(|x| x.id == unit.id));
+        assert!(game.unit_orders_requests().any(|x| x == unit.id));
+        assert!(!game.units_with_pending_orders().any(|x| x == unit.id));
     }
 
     #[test]

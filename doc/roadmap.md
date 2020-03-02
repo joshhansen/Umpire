@@ -1,7 +1,6 @@
 # Umpire Roadmap
 
 ## 0.4 Milestones
-* FIXME Orders aren't being sticky for some reason
 * FIXME Auto-explore mode for units is broken
   - it happens that the auto-explore will request a move that exceeds a unit's moves remaining
 * TODO Allow examine mode go-to to unobserved tiles, on a best-effort basis

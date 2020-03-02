@@ -397,6 +397,10 @@ impl Unit {
     pub fn can_occupy_cities(&self) -> bool {
         self.type_.can_occupy_cities()
     }
+
+    pub fn has_orders(&self) -> bool {
+        self.orders.is_some()
+    }
 }
 
 impl Aligned for Unit {
