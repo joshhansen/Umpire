@@ -146,7 +146,7 @@ impl Palette {
 
 pub fn palette16() -> Palette {
     Palette {
-        background: Color::Black,
+        background: Color::Reset,// Color::Black,
         land: ColorPair::new(Color::Green, Color::DarkGreen),
         ocean: ColorPair::new(Color::Blue, Color::DarkBlue),
         players: vec![
