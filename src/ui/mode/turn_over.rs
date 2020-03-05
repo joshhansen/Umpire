@@ -11,7 +11,6 @@ use crate::{
         unit::{
             orders::{
                 OrdersError,
-                OrdersResult,
                 ProposedOrdersResult,
             },
         },
@@ -32,46 +31,46 @@ use super::{
 
 pub(in crate::ui) struct TurnOverMode {}
 impl TurnOverMode {
-    fn animate_orders(&self, game: &mut Game, ui: &mut TermUI, orders_result: OrdersResult) {
-        let (id,orders) = match orders_result {
-            Ok(ref orders_outcome) => (orders_outcome.ordered_unit_id, orders_outcome.orders),
-            Err(ref err) => match *err {
-                OrdersError::OrderedUnitDoesNotExist { id, orders } => (id,orders),
-                OrdersError::MoveError { id, orders, .. } => (id,orders),
-            }
-        };
+    // fn animate_orders(&self, game: &mut Game, ui: &mut TermUI, orders_result: OrdersResult) {
+    //     let (id,orders) = match orders_result {
+    //         Ok(ref orders_outcome) => (orders_outcome.ordered_unit_id, orders_outcome.orders),
+    //         Err(ref err) => match *err {
+    //             OrdersError::OrderedUnitDoesNotExist { id, orders } => (id,orders),
+    //             OrdersError::MoveError { id, orders, .. } => (id,orders),
+    //         }
+    //     };
 
-        let unit = game.current_player_unit_by_id(id).unwrap();
+    //     let unit = game.current_player_unit_by_id(id).unwrap();
 
-        ui.map_scroller.scrollable.center_viewport(unit.loc);
+    //     ui.map_scroller.scrollable.center_viewport(unit.loc);
 
-        ui.log_message(Message::new(
-            format!("Unit {} is {}", unit, orders.present_progressive_description()),
-            Some('@'),
-            None,
-            None,
-            None
-        ));
+    //     ui.log_message(Message::new(
+    //         format!("Unit {} is {}", unit, orders.present_progressive_description()),
+    //         Some('@'),
+    //         None,
+    //         None,
+    //         None
+    //     ));
 
-        ui.draw(game);
+    //     ui.draw(game);
 
-        match orders_result {
-            Ok(orders_outcome) => {
-                if let Some(move_) = orders_outcome.move_() {
-                    ui.animate_move(game, &move_);
-                }
-            },
-            Err(err) => {
-                ui.log_message(Message {
-                    text: format!("{}", err),
-                    mark: Some('!'),
-                    fg_color: Some(Colors::Text),
-                    bg_color: Some(Colors::Notice),
-                    source: None,
-                });
-            }
-        }
-    }
+    //     match orders_result {
+    //         Ok(orders_outcome) => {
+    //             if let Some(move_) = orders_outcome.move_() {
+    //                 ui.animate_move(game, &move_);
+    //             }
+    //         },
+    //         Err(err) => {
+    //             ui.log_message(Message {
+    //                 text: format!("{}", err),
+    //                 mark: Some('!'),
+    //                 fg_color: Some(Colors::Text),
+    //                 bg_color: Some(Colors::Notice),
+    //                 source: None,
+    //             });
+    //         }
+    //     }
+    // }
 
     fn animate_proposed_orders(&self, game: &mut Game, ui: &mut TermUI, proposed_orders_result: &ProposedOrdersResult) {
         let (id,orders) = match proposed_orders_result {

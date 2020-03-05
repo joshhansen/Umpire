@@ -9,8 +9,6 @@ use crate::{
             dijkstra::{
                 ObservedReachableByPacifistUnit,
                 PacifistXenophileUnitMovementFilter,
-                UnitMovementFilter,
-                Xenophile,
                 nearest_adjacent_unobserved_reachable_without_attacking,
                 shortest_paths
             },
@@ -434,6 +432,10 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
         (moves_remaining, shortest_paths, unit.loc)
     };
 
+    if src==dest {
+        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::ZeroLengthMove});
+    }
+
     // Find the observed tile on the path from source to destination that is nearest to the
     // destination but also within reach of this unit's limited moves
     let mut dest2 = dest;
@@ -457,6 +459,18 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
         }
     }
     let dest2 = dest2;
+
+    if dest2 == src {
+        // We aren't going anywhere---the hypothetical route to the destination isn't coming to pass
+        //FIXME I'm not sure why this situation arises---why does following the shortest path
+        //     not actually lead us to the destination sometimes?
+
+        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
+            id: unit_id,
+            src,
+            dest,
+        }});
+    }
 
     game.propose_move_unit_by_id(unit_id, dest2)
         .map(|proposed_move| {

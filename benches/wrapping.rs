@@ -5,18 +5,11 @@ use criterion::Criterion;
 use criterion::black_box;
 
 use umpire::{
-    util::{Dims,Location,Vec2d,Wrap,Wrap2d},
+    util::{Dims,Vec2d,Wrap,Wrap2d},
 };
 
 const DIM_WIDTH: u16 = 100;
 const DIMS: Dims = Dims::new(100, 100);
-// fn benchmark_wrap(wrap: Wrap) {
-
-// }
-
-// fn benchmark_wrap2d(wrap2d: Wrap2d) {
-    
-// }
 
 fn criterion_benchmark(c: &mut Criterion) {
     for wrap in &[Wrap::Wrapping, Wrap::NonWrapping] {

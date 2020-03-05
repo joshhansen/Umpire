@@ -445,9 +445,9 @@ impl Game {
         self.player_observations.get(&self.current_player).unwrap()
     }
 
-    fn current_player_observations_mut(&mut self) -> &mut ObsTracker {
-        self.player_observations.get_mut(&self.current_player).unwrap()
-    }
+    // fn current_player_observations_mut(&mut self) -> &mut ObsTracker {
+    //     self.player_observations.get_mut(&self.current_player).unwrap()
+    // }
 
     /// Every city controlled by the current player
     pub fn current_player_cities(&self) -> impl Iterator<Item=&City> {
@@ -818,7 +818,7 @@ impl Game {
                     //                                           unit in the map after all moves are complete.
                     // debug_assert!(src_tile.unit.is_some());
                     // debug_assert_eq!(src_tile.unit.as_ref().unwrap().id, unit.id);
-                    
+
                     src_tile.unit = None;
                     overlay.put(src, &src_tile);
 
@@ -1097,70 +1097,13 @@ mod test {
             Named,
             unit_namer,
         },
-        test::game_two_cities_two_infantry,
+        test::{game_two_cities_two_infantry},
         util::{Dims,Location,Wrap2d},
     };
 
-    /// 10x10 grid of land only with two cities:
-    /// * Player 0's Machang at 0,0
-    /// * Player 1's Zanzibar at 0,1
-    fn map1() -> MapData {
-        let dims = Dims{width: 10, height: 10};
-        let mut map = MapData::new(dims, |_loc| Terrain::Land);
-        map.new_city(Location{x:0,y:0}, Alignment::Belligerent{player:0}, "Machang").unwrap();
-        map.new_city(Location{x:0,y:1}, Alignment::Belligerent{player:1}, "Zanzibar").unwrap();
-        // LocationGrid::new(dims, |loc| {
-        //     let mut tile = Tile::new(Terrain::Land, loc);
-        //     if loc.x == 0 {
-        //         if loc.y == 0 {
-        //             tile.city = Some(City::new(Alignment::Belligerent{player:0}, loc, "Machang"));
-        //         } else if loc.y == 1 {
-        //             tile.city = Some(City::new(Alignment::Belligerent{player:1}, loc, "Zanzibar"));
-        //         }
-        //     }
-        //     tile
-        // })
-        map
-    }
-
-    fn game1() -> Game {
-        let players = 2;
-        let fog_of_war = true;
-
-        let map = map1();
-        let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Box::new(unit_namer), Wrap2d::BOTH)
-    }
-
     #[test]
     fn test_game() {
-        let mut game = game1();
-
-        let loc: Location = game.production_set_requests().next().unwrap();
-
-        println!("Setting production at {:?} to infantry", loc);
-        game.set_production(loc, UnitType::Infantry).unwrap();
-
-        let player = game.end_turn().unwrap().current_player;
-        assert_eq!(player, 1);
-
-        let loc: Location = game.production_set_requests().next().unwrap();
-        println!("Setting production at {:?} to infantry", loc);
-        game.set_production(loc, UnitType::Infantry).unwrap();
-
-        let player = game.end_turn().unwrap().current_player;
-        assert_eq!(player, 0);
-
-
-        for _ in 0..5 {
-            let player = game.end_turn().unwrap().current_player;
-            assert_eq!(player, 1);
-            let player = game.end_turn().unwrap().current_player;
-            assert_eq!(player, 0);
-        }
-
-        assert_eq!(game.end_turn(), Err(0));
-        assert_eq!(game.end_turn(), Err(0));
+        let mut game = game_two_cities_two_infantry();
 
         for player in 0..2 {
             assert_eq!(game.unit_orders_requests().count(), 1);

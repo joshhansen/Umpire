@@ -39,7 +39,6 @@ use crate::{
         Location,
         Rect,
         Vec2d,
-        Wrap2d,
     }
 };
 
@@ -54,33 +53,47 @@ fn nonnegative_mod(x: i32, max: u16) -> u16 {
     (result % max) as u16
 }
 
-#[deprecated]
-fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
-    Location {
-        x: (viewport_loc.x + viewport_offset.x) % map_dims.width, // mod implements wrapping,
-        y: (viewport_loc.y + viewport_offset.y) % map_dims.height // mod implements wrapping
-    }
-}
+// #[deprecated]
+// fn viewport_to_map_coords(map_dims: Dims, viewport_loc: Location, viewport_offset: Vec2d<u16>) -> Location {
+//     Location {
+//         x: (viewport_loc.x + viewport_offset.x) % map_dims.width, // mod implements wrapping,
+//         y: (viewport_loc.y + viewport_offset.y) % map_dims.height // mod implements wrapping
+//     }
+// }
 
 /*
 
 map_coord: 0
-viewport_offset: 0
+viewport_offset: 3
 viewport_width: 4
 map_width: 10
 
 ..>..<....
+None
 
+
+
+map_coord: 0
+viewport_offset: 0
+viewport_width: 10
+map_width: 4
+
+>        <
+....
+0
+
+
+
+map_coord: 0
+viewport_offset: -2
+viewport_width: 10
+map_width: 4
+>        <
+  ....
+2
 
 */
 fn map_to_viewport_coord(map_coord: u16, viewport_offset: u16, viewport_width: u16, map_dimension_width: u16) -> Result<Option<u16>,String> {
-    if viewport_width > map_dimension_width {
-        return Err(format!("Viewport width {} is larger than map dimension width {}; map_coord={}, viewport_offset={}",
-            viewport_width, map_dimension_width, map_coord, viewport_offset
-        ));
-        // return Err(String::from("Viewport width is larger than map width"));
-    }
-
     if map_coord >= map_dimension_width {
         return Err(format!("Map coordinate {} is larger than map dimension size {}", map_coord, map_dimension_width));
     }
@@ -443,14 +456,20 @@ impl Draw for Map {
                 // let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
                 // let new_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
 
-                let old_map_loc = self.viewport_to_map_coords_by_offset(game, viewport_loc, self.old_viewport_offset).unwrap();
-                let new_map_loc = self.viewport_to_map_coords(game, viewport_loc).unwrap();
+                let old_map_loc: Option<Location> = self.viewport_to_map_coords_by_offset(game, viewport_loc, self.old_viewport_offset);
+                let new_map_loc: Option<Location> = self.viewport_to_map_coords(game, viewport_loc);
 
 
-                let new_obs = game.current_player_obs(new_map_loc);
+                // let new_obs = game.current_player_obs(new_map_loc);
+                let new_obs = new_map_loc.map(|new_map_loc| game.current_player_obs(new_map_loc));
 
                 let old_currentness = self.displayed_tile_currentness[viewport_loc];
-                let new_currentness = if let Obs::Observed{current,..} = new_obs {
+                // let new_currentness = if let Obs::Observed{current,..} = new_obs {
+                //     Some(*current)
+                // } else {
+                //     None
+                // };
+                let new_currentness = if let Some(Obs::Observed{current,..}) = new_obs {
                     Some(*current)
                 } else {
                     None
@@ -459,7 +478,8 @@ impl Draw for Map {
                 
 
                 let old_tile = self.displayed_tiles[viewport_loc].as_ref();
-                let new_tile = &game.current_player_tile(new_map_loc);
+                // let new_tile = &game.current_player_tile(new_map_loc);
+                let new_tile = new_map_loc.and_then(|new_map_loc| game.current_player_tile(new_map_loc));
                 // let new_tile = &new_obs.tile;
 
                 (old_currentness != new_currentness) ||
@@ -475,11 +495,25 @@ impl Draw for Map {
                     );
                     redraw_for_mismatch
                 }) || {
-                    let redraw_for_border =
-                    old_map_loc.y != new_map_loc.y && (
-                        old_map_loc.y == game.dims().height - 1 ||
-                        new_map_loc.y == game.dims().height - 1
-                    );
+                    let redraw_for_border = if let Some(old_map_loc) = old_map_loc {
+                        if let Some(new_map_loc) = new_map_loc {
+                            old_map_loc.y != new_map_loc.y && (
+                                old_map_loc.y == game.dims().height - 1 ||
+                                new_map_loc.y == game.dims().height - 1
+                            )
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+
+
+                    // let redraw_for_border =
+                    // old_map_loc.y != new_map_loc.y && (
+                    //     old_map_loc.y == game.dims().height - 1 ||
+                    //     new_map_loc.y == game.dims().height - 1
+                    // );
                     redraw_for_border
                 }
             };
@@ -500,7 +534,24 @@ impl Draw for Map {
 
 #[cfg(test)]
 mod test {
-    use crate::ui::map::map_to_viewport_coord;
+    use std::rc::Rc;
+
+    use crate::{
+        color::{
+            Palette,
+            palette16,
+        },
+        test::game1,
+        ui::map::map_to_viewport_coord,
+        util::{
+            Dims,
+            Location,
+            Rect,
+            Vec2d,
+        },
+    };
+
+    use super::Map;
 
     #[test]
     fn test_map_to_viewport_coord() {
@@ -529,5 +580,38 @@ mod test {
         assert_eq!(map_to_viewport_coord(0, 95, 10, 100), Ok(Some(5)));
         assert_eq!(map_to_viewport_coord(4, 95, 10, 100), Ok(Some(9)));
         assert_eq!(map_to_viewport_coord(5, 95, 10, 100), Ok(None));
+    }
+
+    #[test]
+    fn test_viewport_to_map_coords_by_offset() {
+        let palette = Rc::new(palette16());
+        _test_viewport_to_map_coords(Dims::new(20, 20), palette.clone());
+
+    }
+
+    fn _test_viewport_to_map_coords(map_dims: Dims, palette: Rc<Palette>) {
+        // pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
+
+        let game = game1();
+        
+
+        let rect = Rect{
+            left: 0,
+            top: 0,
+            width: map_dims.width,
+            height: map_dims.height,
+        };
+        let mut map = Map::new(rect, map_dims, palette, false);// offset 0,0
+
+        // fn viewport_to_map_coords_by_offset(&self, game: &Game, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
+
+        assert_eq!(map.viewport_to_map_coords(&game, Location::new(0,0)), Some(Location::new(0,0)));
+
+        map.set_viewport_offset(Vec2d{x: 5, y: 6});
+
+        assert_eq!(map.viewport_to_map_coords(&game, Location::new(0,0)), Some(Location::new(5,6)));
+
+        
+
     }
 }

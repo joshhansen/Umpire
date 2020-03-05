@@ -22,7 +22,7 @@ use crate::{
         obs::Obs,
         unit::{Unit,UnitType},
     },
-    util::{Dims,Dimensioned,Located,LocatedItem,Location,Vec2d,Wrap2d},
+    util::{Dims,Dimensioned,LocatedItem,Location,Vec2d,Wrap2d},
 };
 
 impl Index<Location> for Vec<Vec<u16>> {
