@@ -7,7 +7,7 @@ use crate::{
             dijkstra::Source,
         },
     },
-    util::{Dims,Dimensioned,Location,Located,Vec2d,Wrap2d},
+    util::{Dims,Dimensioned,Location,Located,LocatedItem,Vec2d,Wrap2d},
 };
 
 
@@ -28,18 +28,9 @@ impl Obs {
     }
 }
 
-#[derive(Debug,PartialEq)]
-pub struct LocatedObs {
-    pub loc: Location,
-    pub obs: Obs,
-}
-impl LocatedObs {
-    pub const fn new(loc: Location, obs: Obs) -> Self {
-        Self { loc, obs }
-    }
-}
+pub type LocatedObs = LocatedItem<Obs>;
 
-pub trait ObsTrackerI : Dimensioned+Source<Obs> {
+pub trait ObsTrackerI : Source<Obs> {
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
 }
 
@@ -73,7 +64,7 @@ impl ObsTrackerI for ObsTracker {
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         let obs = Obs::Observed{ tile: tile.clone(), turn, current: true };
         self.observations[loc] = obs.clone();//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
-        LocatedObs{ loc, obs }
+        LocatedObs{ loc, item: obs }
     }
 }
 
@@ -132,11 +123,20 @@ impl <'a,S:Source<Obs>> Source<Obs> for OverlayObsTracker<'a, S> {
     }
 }
 
+impl <'a,S:Source<Obs>> Source<Tile> for OverlayObsTracker<'a, S> {
+    fn get(&self, loc: Location) -> &Tile {
+        match <Self as Source<Obs>>::get(self, loc) {
+            Obs::Observed{ref tile, ..} => tile,
+            Obs::Unobserved => panic!("Tried to get tile from unobserved tile {:?}", loc)
+        }
+    }
+}
+
 impl <'a,S:Source<Obs>> ObsTrackerI for OverlayObsTracker<'a, S> {
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         let obs = Obs::Observed{ tile: tile.clone(), turn, current: true };//CLONE
         self.overlay[loc] = Some(obs.clone());//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
-        LocatedObs{ loc, obs }
+        LocatedObs{ loc, item: obs }
     }
 }
 

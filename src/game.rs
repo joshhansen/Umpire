@@ -30,8 +30,10 @@ use crate::{
                 AndFilter,
                 NoCitiesButOursFilter,
                 NoUnitsFilter,
+                OverlaySource,
                 ShortestPaths,
                 Source,
+                SourceMut,
                 UnitMovementFilter,
                 neighbors_terrain_only,
                 shortest_paths
@@ -801,7 +803,26 @@ impl Game {
             for move_ in moves.iter_mut() {
                 if move_.moved_successfully() {
                     unit.loc = move_.loc;
-                    move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+                    
+                    // Create an overlay with the unit at its new location. Also pretend it isn't at the source anymore.
+                    let mut overlay = OverlaySource::new(&self.map);
+                    let mut tile = self.map.tile(move_.loc).unwrap().clone();
+                    // debug_assert!(tile.unit.is_none());
+
+                    tile.unit = Some(unit.clone());//CLONE
+                    overlay.put(move_.loc, &tile);
+
+                    let mut src_tile = self.map.tile(src).unwrap().clone();
+
+                    // Don't worry if there's no unit at `src`---Explore Mode does repeated moves but only re-places the
+                    //                                           unit in the map after all moves are complete.
+                    // debug_assert!(src_tile.unit.is_some());
+                    // debug_assert_eq!(src_tile.unit.as_ref().unwrap().id, unit.id);
+                    
+                    src_tile.unit = None;
+                    overlay.put(src, &src_tile);
+
+                    move_.observations_after_move = unit.observe(&overlay, self.turn, self.wrapping, obs_tracker);
                 }
             }
 
@@ -811,6 +832,7 @@ impl Game {
         }
     }
 
+    //FIXME Restrict to current player cities
     pub fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
         if let Some(city) = self.map.city_by_loc_mut(loc) {
             city.set_production(production);
@@ -823,6 +845,7 @@ impl Game {
         }
     }
 
+    //FIXME Restrict to current player cities
     pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(),String> {
         if let Some(city) = self.map.city_by_loc_mut(loc) {
             city.clear_production_without_ignoring();
@@ -835,6 +858,7 @@ impl Game {
         }
     }
 
+    //FIXME Restrict to current player cities
     pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(),String> {
         if let Some(city) = self.map.city_by_loc_mut(loc) {
             city.clear_production_and_ignore();
@@ -1058,6 +1082,7 @@ mod test {
                 MapData,
                 Terrain,
             },
+            obs::Obs,
             unit::{
                 UnitID,
                 UnitType,
@@ -1072,6 +1097,7 @@ mod test {
             Named,
             unit_namer,
         },
+        test::game_two_cities_two_infantry,
         util::{Dims,Location,Wrap2d},
     };
 
@@ -1325,5 +1351,51 @@ mod test {
         assert_eq!(outcome.ordered_unit_id, unit_id);
         assert_eq!(outcome.orders, Orders::Explore);
         assert_eq!(outcome.status, OrdersStatus::InProgress);
+    }
+
+
+    #[test]
+    pub fn test_propose_move_unit_by_id() {
+        // fn propose_move_unit_following_shortest_paths_custom_tracker<O:ObsTrackerI>(
+        //     &self,
+        //     unit: &Unit,
+        //     dest: Location,
+        //     shortest_paths: ShortestPaths,
+        //     obs_tracker: &mut O
+        // ) -> ProposedMoveResult
+
+        let src = Location{x:0, y:0};
+        let dest = Location{x:1, y:0};
+
+        let game = game_two_cities_two_infantry();
+
+        let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+
+        {
+            let unit = game.current_player_unit_by_id(unit_id).unwrap();
+            assert_eq!(unit.loc, src);
+        }
+
+        let proposed_move = game.propose_move_unit_by_id(unit_id, dest).unwrap();
+
+        let component = proposed_move.0.components.get(0).unwrap();
+
+        // Make sure the intended destination is now observed as containing this unit, and that no other observed tiles
+        // are observed as containing it
+        for located_obs in &component.observations_after_move {
+            match located_obs.item {
+                Obs::Observed{ref tile, turn, current} =>{
+                    if located_obs.loc == dest {
+                        let unit = tile.unit.as_ref().unwrap();
+                        assert_eq!(unit.id, unit_id);
+                        assert_eq!(turn, 6);
+                        assert!(current);
+                    } else if let Some(unit) = tile.unit.as_ref() {
+                        assert_ne!(unit.id, unit_id);
+                    }
+                },
+                Obs::Unobserved => panic!("This should be observed")
+            }
+        }
     }
 }

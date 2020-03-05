@@ -80,7 +80,8 @@ impl IMode for GetUnitOrdersMode {
             ui.draw_no_flush(game);
 
             let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit.loc).unwrap();
-            ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, None, Some(Some(unit)), None);
+            ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, 
+                None, Some(Some(unit)), None, None);
 
             unit.loc
         };

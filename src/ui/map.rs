@@ -272,8 +272,14 @@ impl Map {
             unit_override: Option<Option<&Unit>>,
             
             // A symbol to display instead of what's really here
-            symbol_override: Option<&'static str>) {
-        self.draw_tile_no_flush(game, stdout, viewport_loc, highlight, unit_active, city_override, unit_override, symbol_override);
+            symbol_override: Option<&'static str>,
+        
+            // Override the entire observation that would be at this location, instead of using the current player's
+            // observations.
+            obs_override: Option<&Obs>,
+        ) {
+        self.draw_tile_no_flush(game, stdout, viewport_loc, highlight, unit_active, city_override, unit_override,
+                                symbol_override, obs_override);
         stdout.flush().unwrap();
     }
 
@@ -292,7 +298,12 @@ impl Map {
             unit_override: Option<Option<&Unit>>,
             
             // A symbol to display instead of what's really here
-            symbol_override: Option<&'static str>) {
+            symbol_override: Option<&'static str>,
+        
+            // Override the entire observation that would be at this location, instead of using the current player's
+            // observations.
+            obs_override: Option<&Obs>,
+        ) {
 
 
 
@@ -306,18 +317,17 @@ impl Map {
         let should_clear = if let Some(tile_loc) = self.viewport_to_map_coords(game, viewport_loc) {
 
             if tile_loc.y == game.dims().height - 1 {
-                // write!(stdout, "{}", Underline).unwrap();
                 stdout.queue(SetAttribute(Attribute::Underlined)).unwrap();
             }
 
-            if let Obs::Observed{tile, current, ..} = game.current_player_obs(tile_loc) {
+            let obs = obs_override.unwrap_or_else(|| game.current_player_obs(tile_loc));
+
+            if let Obs::Observed{tile, current, ..} = obs {
                 if highlight {
-                    // write!(stdout, "{}", Invert).unwrap();
                     stdout.queue(SetAttribute(Attribute::Reverse)).unwrap();
                 }
 
                 if unit_active {
-                    // write!(stdout, "{}{}", Blink, Bold).unwrap();
                     stdout.queue(SetAttribute(Attribute::SlowBlink)).unwrap();
                     stdout.queue(SetAttribute(Attribute::Bold)).unwrap();
                 }
@@ -334,10 +344,22 @@ impl Map {
                     tile.unit.as_ref()
                 };
 
+                 // Incorporate the city and unit overrides (if any) into the tile we store for future reference
+                 let tile = {
+                     let mut tile = tile.clone();//CLONE
+
+                    if city_override.is_some() {
+                        tile.city = city.map(|city| city.clone());//CLONE
+                    }
+                    if unit_override.is_some() {
+                        tile.unit = unit.map(|unit| unit.clone());//CLONE
+                    }
+                    tile
+                };
+
                 let (sym, fg_color, bg_color) = if let Some(ref unit) = unit {
                     if let Some(orders) = unit.orders {
                         if orders == Orders::Sentry {
-                            // write!(stdout, "{}", Italic).unwrap();
                             stdout.queue(SetAttribute(Attribute::Italic)).unwrap();
                         }
                     }
@@ -350,17 +372,16 @@ impl Map {
                 };
 
                 if let Some(fg_color) = fg_color {
-                    // write!(stdout, "{}", Fg(self.palette.get(fg_color, *current))).unwrap();
                     stdout.queue(SetForegroundColor(self.palette.get(fg_color, *current))).unwrap();
                 }
                 if let Some(bg_color) = bg_color {
-                    // write!(stdout, "{}", Bg(self.palette.get(bg_color, *current))).unwrap();
                     stdout.queue(SetBackgroundColor(self.palette.get(bg_color, *current))).unwrap();
                 }
-                // write!(stdout, "{}", symbol_override.unwrap_or(sym)).unwrap();
                 stdout.queue(Print(String::from(symbol_override.unwrap_or(sym)))).unwrap();
 
-                self.displayed_tiles[viewport_loc] = Some(tile.clone());
+               
+
+                self.displayed_tiles[viewport_loc] = Some(tile);
                 self.displayed_tile_currentness[viewport_loc] = Some(*current);
 
                 false
@@ -464,7 +485,8 @@ impl Draw for Map {
             };
 
             if should_draw_tile {
-                self.draw_tile_no_flush(game, stdout, viewport_loc, false, false, None, None, None);
+                self.draw_tile_no_flush(game, stdout, viewport_loc, false, false,
+                     None, None, None, None);
             }
         }
 

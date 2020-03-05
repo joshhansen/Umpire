@@ -22,7 +22,7 @@ use crate::{
         obs::Obs,
         unit::{Unit,UnitType},
     },
-    util::{Dimensioned,Location,Vec2d,Wrap2d},
+    util::{Dims,Dimensioned,Located,LocatedItem,Location,Vec2d,Wrap2d},
 };
 
 impl Index<Location> for Vec<Vec<u16>> {
@@ -161,6 +161,78 @@ impl Filter<Tile> for TerrainFilter {
 pub trait Source<T> : Dimensioned {
     fn get(&self, loc: Location) -> &T;
 }
+pub trait SourceMut<T> : Source<T> {
+    fn put(&mut self, loc: Location, item: &T) -> LocatedItem<T>;
+}
+pub struct OverlaySource<'a,T,S:Source<T>> {
+    inner: &'a S,
+    overlay: LocationGrid<Option<T>>,
+}
+
+impl <'a,T:Clone,S:Source<T>> OverlaySource<'a,T,S> {
+    pub fn new(inner: &'a S) -> Self {
+        Self {
+            inner,
+            overlay: LocationGrid::new(inner.dims(), |_loc| None),
+        }
+    }
+
+    pub fn overlaid_items(&self) -> Vec<LocatedItem<T>> {
+        let mut observations: Vec<LocatedItem<T>> = Vec::new();
+
+        for loc in self.overlay.iter_locs() {
+            if let Some(ref item) = self.overlay[loc] {
+                observations.push(LocatedItem::new(loc, (*item).clone()));//CLONE
+            }
+        }
+
+        observations
+    }
+}
+
+impl <'a,T,S:Source<T>> Dimensioned for OverlaySource<'a,T,S> {
+    fn dims(&self) -> Dims {
+        // The inner and overlay dims are identical
+        self.inner.dims()
+    }
+}
+
+// impl <'a,S:Source<Obs>> Source<Obs> for OverlaySource<'a,Obs,S> {
+//     fn get(&self, loc: Location) -> &Obs {
+//         if let Some(overlay_obs) = self.overlay[loc].as_ref() {
+//             overlay_obs
+//         } else {
+//             self.inner.get(loc)
+//         }
+//     }
+// }
+
+// impl <'a,S:Source<Obs>> Source<Tile> for OverlaySource<'a,Obs,S> {
+//     fn get(&self, loc: Location) -> &Tile {
+//         match <Self as Source<Obs>>::get(self, loc) {
+//             Obs::Observed{ref tile, ..} => tile,
+//             Obs::Unobserved => panic!("Tried to get tile from unobserved tile {:?}", loc)
+//         }
+//     }
+// }
+
+impl <'a,T,S:Source<T>> Source<T> for OverlaySource<'a,T,S> {
+    fn get(&self, loc: Location) -> &T {
+        if let Some(overlay_item) = self.overlay[loc].as_ref() {
+            overlay_item
+        } else {
+            self.inner.get(loc)
+        }
+    }
+}
+
+impl <'a,T:Clone,S:Source<T>> SourceMut<T> for OverlaySource<'a,T,S> {
+    fn put(&mut self, loc: Location, item: &T) -> LocatedItem<T> {
+        self.overlay[loc] = Some((*item).clone());//CLONE
+        LocatedItem::new(loc, (*item).clone())//CLONE
+    }
+}
+
 pub trait Filter<T> {
     fn include(&self, item: &T) -> bool;
 }

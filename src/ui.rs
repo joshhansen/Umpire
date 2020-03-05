@@ -526,13 +526,14 @@ impl TermUI {
     fn draw_located_observations(&mut self, game: &Game, located_obs: &[LocatedObs]) {
         for located_obs in located_obs {
             if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(located_obs.loc) {
-                let (city,unit) = if let Obs::Observed{ref tile,..} = located_obs.obs {
+                let (city,unit) = if let Obs::Observed{ref tile,..} = located_obs.item {
                     (Some(tile.city.as_ref()), Some(tile.unit.as_ref()))
                 } else {
                     (Some(None),Some(None))
                 };
 
-                self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, false, city, unit, None);
+                self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, 
+                    false, None, None, None, Some(&located_obs.item));
             }
         }
     }
@@ -562,9 +563,9 @@ impl TermUI {
             };
 
             if let Some(viewport_loc) = viewport_loc {
-                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, true, false, None, None, Some(sym));
+                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, true, false, None, None, Some(sym), None);
                 sleep_millis(100);
-                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, false, false, None, None, Some(sym));
+                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, false, false, None, None, Some(sym), None);
             } else {
                 sleep_millis(100);
             }

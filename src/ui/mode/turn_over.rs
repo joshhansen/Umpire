@@ -73,7 +73,7 @@ impl TurnOverMode {
         }
     }
 
-    fn animate_proposed_orders(&self, game: &mut Game, ui: &mut TermUI, proposed_orders_result: ProposedOrdersResult) {
+    fn animate_proposed_orders(&self, game: &mut Game, ui: &mut TermUI, proposed_orders_result: &ProposedOrdersResult) {
         let (id,orders) = match proposed_orders_result {
             Ok(ref proposed_orders_outcome) => (proposed_orders_outcome.ordered_unit_id, proposed_orders_outcome.orders),
             Err(ref err) => match *err {
@@ -98,9 +98,9 @@ impl TurnOverMode {
 
         match proposed_orders_result {
             Ok(proposed_orders_outcome) => {
-                if let Some(proposed_move) = proposed_orders_outcome.proposed_move {
-                    ui.animate_proposed_move(game, &proposed_move);
-                    proposed_move.take(game);
+                if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
+                    ui.animate_proposed_move(game, proposed_move);
+                    // proposed_move.take(game);
                 }
             },
             Err(err) => {
@@ -115,16 +115,16 @@ impl TurnOverMode {
         }
     }
 
-    fn process_turn_start(&self, game: &mut Game, ui: &mut TermUI, turn_start: ProposedTurnStart) {
+    fn process_turn_start(&self, game: &mut Game, ui: &mut TermUI, turn_start: &ProposedTurnStart) {
         // for orders_result in turn_start.orders_results {
         //     self.animate_orders(game, ui, orders_result);
         // }
 
-        for proposed_orders_result in turn_start.proposed_orders_results {
+        for proposed_orders_result in &turn_start.proposed_orders_results {
             self.animate_proposed_orders(game, ui, proposed_orders_result);
         }
 
-        for production_outcome in turn_start.production_outcomes {
+        for production_outcome in &turn_start.production_outcomes {
             match production_outcome {
                 UnitProductionOutcome::UnitProduced { unit, city } => {
                     ui.log_message(format!("{} produced {}", city.short_desc(), unit.medium_desc()));
@@ -172,7 +172,8 @@ impl IMode for TurnOverMode {
 
                             match game.propose_end_turn() {
                                 Ok(proposed_turn_start) => {
-                                    self.process_turn_start(game, ui, proposed_turn_start);
+                                    self.process_turn_start(game, ui, &proposed_turn_start);
+                                    let _turn_start = proposed_turn_start.take(game);
                                     // let turn_start = proposed_turn_start.take(game);
 
                                     // self.process_turn_start(game, ui, turn_start);
@@ -200,9 +201,9 @@ impl IMode for TurnOverMode {
             // We shouldn't be in the TurnOverMode state unless game.turn_is_done() is true
             // so this unwrap should always succeed
             let proposed_turn_start = game.propose_end_turn().unwrap();
-            self.process_turn_start(game, ui, proposed_turn_start);
-            // let turn_start = proposed_turn_start.take(game);
-            // self.process_turn_start(game, ui, turn_start);
+            self.process_turn_start(game, ui, &proposed_turn_start);
+            let _turn_start = proposed_turn_start.take(game);
+            
             *mode = Mode::TurnStart;
             true
         }

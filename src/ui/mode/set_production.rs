@@ -92,7 +92,8 @@ impl IMode for SetProductionMode {
             city
         };
         let city_viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(city.loc).unwrap();
-        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, city_viewport_loc, false, true, Some(Some(city)), None, None);
+        ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, city_viewport_loc, false, true, 
+            Some(Some(city)), None, None, None);
 
         loop {
             match self.get_key(game, ui, mode) {

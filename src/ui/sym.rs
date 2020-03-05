@@ -47,6 +47,7 @@ impl Sym for Terrain {
     }
 }
 
+//NOTE `Map::draw_tile_no_flush implements a similar symbol selection algorithm that allows for city and unit overrides.
 impl Sym for Tile {
     fn sym(&self, unicode: bool) -> &'static str {
         if let Some(ref unit) = self.unit {

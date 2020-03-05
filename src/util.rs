@@ -331,6 +331,22 @@ impl fmt::Debug for Location {
     }
 }
 
+#[derive(Debug,PartialEq)]
+pub struct LocatedItem<T> {
+    pub loc: Location,
+    pub item: T,
+}
+impl <T> LocatedItem<T> {
+    pub fn new(loc: Location, item: T) -> Self {
+        Self { loc, item }
+    }
+}
+impl <T> Located for LocatedItem<T> {
+    fn loc(&self) -> Location {
+        self.loc
+    }
+}
+
 pub fn sleep_millis(millis: u64) {
     sleep(Duration::from_millis(millis));
 }
