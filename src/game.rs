@@ -1188,20 +1188,17 @@ mod test {
         let mut game = Game::new_with_map(map, 2, false, Box::new(unit_namer()), Wrap2d::BOTH);
         assert_eq!(game.current_player, 0);
 
-        let loc: Location = game.production_set_requests().next().unwrap();
-        assert_eq!(game.set_production(loc, UnitType::Armor), Ok(()));
+        let productions = vec![UnitType::Armor, UnitType::Carrier];
+        let players = vec![1, 0];
 
-        let result = game.end_turn();
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().current_player, 1);
+        for i in 0..2 {
+            let loc: Location = game.production_set_requests().next().unwrap();
+            assert_eq!(game.set_production(loc, productions[i]), Ok(()));
 
-        let loc: Location = game.production_set_requests().next().unwrap();
-        assert_eq!(game.set_production(loc, UnitType::Carrier), Ok(()));
-
-        let result = game.end_turn();
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().current_player, 0);
-
+            let result = game.end_turn();
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().current_player, players[i]);
+        }
 
         for _ in 0..11 {
             let result = game.end_turn();
@@ -1218,34 +1215,56 @@ mod test {
         for round in 0..3 {
             assert_eq!(game.unit_orders_requests().count(), 1);
             let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
-            let loc = game.current_player_unit_loc(unit_id).unwrap();
+            let loc = {
+                let unit = game.current_player_unit_by_id(unit_id).unwrap();
+                assert_eq!(unit.type_, productions[0]);
+                unit.loc
+            };
+            
             let dest_loc = Location{x: loc.x+2, y:loc.y};
             println!("Moving from {} to {}", loc, dest_loc);
             let move_result = game.move_toplevel_unit_by_loc(loc, dest_loc).unwrap();
             println!("Result: {:?}", move_result);
+            
             assert_eq!(move_result.unit.type_, UnitType::Armor);
             assert_eq!(move_result.unit.alignment, Alignment::Belligerent{player:0});
-            assert_eq!(move_result.unit.moves_remaining(), 0);
+            
 
+
+            // Check the first move component
             assert_eq!(move_result.components.len(), 2);
             let move1 = move_result.components.get(0).unwrap();
             assert_eq!(move1.loc, Location{x:loc.x+1, y:loc.y});
             assert_eq!(move1.unit_combat, None);
             assert_eq!(move1.city_combat, None);
 
-            let move2 = move_result.components.get(1).unwrap();
-            assert_eq!(move2.loc, dest_loc);
-            assert_eq!(move2.unit_combat, None);
-            if round < 2 {
-                assert_eq!(move2.city_combat, None);
-            } else {
-                assert!(move2.city_combat.is_some());
 
-                // If by chance the armor defeats the city, be sure to set its production so we can end the turn
-                if let Some(conquered_city) = move_result.conquered_city() {
+            if move_result.moved_successfully() {
+                // the unit conquered the city
+
+                assert_eq!(move_result.ending_loc().unwrap(), dest_loc);
+
+                assert_eq!(move_result.unit.moves_remaining(), 0);
+
+                // Check the second move component, only here because the unit wasn't destroyed
+                let move2 = move_result.components.get(1).unwrap();
+                assert_eq!(move2.loc, dest_loc);
+                assert_eq!(move2.unit_combat, None);
+
+                if round < 2 {
+                    assert_eq!(move2.city_combat, None);
+                } else {
+                    assert!(move2.city_combat.is_some());
+
+                    // Since the armor defeated the city, set its production so we can end the turn
+                    let conquered_city = move_result.conquered_city().unwrap();
                     let production_set_result = game.set_production(conquered_city.loc, UnitType::Fighter);
                     assert_eq!(production_set_result, Ok(()));
                 }
+
+            } else {
+                // The unit was destroyed
+                assert_eq!(move_result.unit.moves_remaining(), 1);
             }
 
             let result = game.end_turn();
