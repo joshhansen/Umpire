@@ -164,7 +164,17 @@ impl IMode for ExamineMode {
                             })
                         };
 
-                        proposed_outcome.take(game).unwrap();
+                        // We need to actually take the action contemplated for bookkeeping reasons
+                        // Make sure the outcome of actually running it is the same as expected
+                        let error_expected = proposed_outcome.proposed_orders_result.is_err();
+                        match proposed_outcome.take(game) {
+                            Ok(_) => {
+                                debug_assert!(!error_expected);
+                            },
+                            Err(_) => {
+                                debug_assert!(error_expected);
+                            }
+                        }
 
                         *mode = Mode::TurnResume;
 

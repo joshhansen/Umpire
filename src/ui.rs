@@ -722,11 +722,13 @@ impl MoveAnimator for TermUI {
                 was_combat = true;
             }
 
-            if move_.distance_moved() > 0 {
+            if was_combat {
                 self.log_message(Message {
-                    text: format!("Unit {} {}", proposed_move.0.unit, if move_.moved_successfully() {
-                        if was_combat {"victorious"} else {"moved successfully"}
-                    } else {"destroyed"}),
+                    text: format!("Unit {} was {}", proposed_move.0.unit, if move_.moved_successfully() {
+                        "victorious"
+                    } else {
+                        "destroyed"
+                    }),
                     mark: Some('*'),
                     fg_color: Some(Colors::Combat),
                     bg_color: None,
@@ -745,6 +747,16 @@ impl MoveAnimator for TermUI {
             if move_idx < proposed_move.0.components.len() - 1 {
                 sleep_millis(100);
             }
+        }
+
+        if proposed_move.0.moved_successfully() {
+            self.log_message(Message {
+                text: format!("Unit {} moved successfully", proposed_move.0.unit),
+                mark: None,
+                fg_color: Some(Colors::Combat),
+                bg_color: None,
+                source: Some(MessageSource::UI)
+            });
         }
 
         if proposed_move.0.unit.moves_remaining() == 0 {

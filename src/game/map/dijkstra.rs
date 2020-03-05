@@ -114,6 +114,34 @@ impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
     }
 }
 
+/// A filter that accepts all locations the unit could move on without attacking; unobserved are included automatically
+/// with the assumption that by the time the unit reaches that tile, it will have become observed and will be handled
+/// differently.
+pub struct PacifistXenophileUnitMovementFilter<'a> {
+    pub unit: &'a Unit,
+}
+impl <'a> Filter<Obs> for PacifistXenophileUnitMovementFilter<'a> {
+    fn include(&self, obs: &Obs) -> bool {
+        if let Obs::Observed{tile,..} = obs {
+
+            if tile.unit.is_some() {
+                return false;
+            }
+
+            if let Some(ref city) = tile.city {
+                if city.alignment != self.unit.alignment {
+                    return false;
+                }
+            }
+
+            self.unit.can_move_on_tile(tile)
+
+        } else {
+            true
+        }
+    }
+}
+
 /// A filter that yields observed tiles that a unit could reach in exploration (visiting tiles of appropriate terrain which contain no unit
 /// and only friendly cities if any)
 /// 

@@ -8,6 +8,7 @@ use crate::{
         map::{
             dijkstra::{
                 ObservedReachableByPacifistUnit,
+                PacifistXenophileUnitMovementFilter,
                 UnitMovementFilter,
                 Xenophile,
                 nearest_adjacent_unobserved_reachable_without_attacking,
@@ -175,9 +176,22 @@ impl ProposedAction for ProposedOrdersResult {
     fn take(self, game: &mut Game) -> Self::Outcome {
         let outcome = self.map(|proposed_orders_outcome| proposed_orders_outcome.take(game));
 
-        // If the orders are already complete, clear them out
-        if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, ordered_unit_id, .. }) = outcome {
-            game.clear_orders(ordered_unit_id).unwrap();
+        match outcome {
+            Ok(OrdersOutcome{ status: OrdersStatus::Completed, ordered_unit_id, .. }) => {
+                // The orders are already complete, clear them out
+                game.clear_orders(ordered_unit_id).unwrap();
+            },
+            Err(ref err) => {
+                // The orders resulted in error when carried out, clear them out
+                match err {
+                    OrdersError::OrderedUnitDoesNotExist { id , ..} | OrdersError::MoveError { id, .. } => {
+                        game.clear_orders(*id).unwrap();
+                    },
+                }
+            },
+            _ => {
+                // For all other cases, do not clear the orders
+            }
         }
 
         outcome
@@ -404,18 +418,20 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
         }});
     }
 
-    let (moves_remaining, shortest_paths) = {
+    let (moves_remaining, shortest_paths, src) = {
         let unit = game.current_player_unit_by_id(unit_id).unwrap();
         let moves_remaining = unit.moves_remaining;
+
+        let filter = PacifistXenophileUnitMovementFilter{unit: &unit};
 
         // Shortest paths emanating from the unit's location, allowing inclusion of unobserved tiles.
         let shortest_paths = shortest_paths(
             game,
             unit.loc,
-            &Xenophile::new(UnitMovementFilter::new(unit)),
+            &filter,
             game.wrapping());
 
-        (moves_remaining, shortest_paths)
+        (moves_remaining, shortest_paths, unit.loc)
     };
 
     // Find the observed tile on the path from source to destination that is nearest to the
@@ -429,7 +445,16 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
                 }
             }
         }
-        dest2 = shortest_paths.prev[dest2].unwrap();
+
+        if let Some(prev_dest) = shortest_paths.prev[dest2] {
+            dest2 = prev_dest;
+        } else {
+            return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
+                id: unit_id,
+                src,
+                dest,
+            }});
+        }
     }
     let dest2 = dest2;
 
