@@ -37,6 +37,22 @@ functions.
 A player wins when all enemy cities have been captured and all enemy units have
 been destroyed.
 
+Pressing 'x' engages Examine Mode which allows map tiles to be inspected. Pressing 'Enter' over a map tile can cancel a
+unit's orders, clear a city's production, or go-to a particular tile or empty space.
+
+### The Fog of War
+
+A fog of war mechanic is implemented but can be disabled using the `--fog off` command line option.
+
+### Wrapping
+
+Wrapping can be turned on and off in both dimensions, but at the moment turning it off provokes a few bugs.
+
+### Color support
+
+An effort has been made to support a range of color palettes. These can be controlled using the `--colors` command line
+flag. The 16 color palette is the best tested at present.
+
 ## Startup Options
 The full list of startup options can be seen thus:
 

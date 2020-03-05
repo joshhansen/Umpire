@@ -14,6 +14,7 @@
 * TODO Initial AI framework
 * TODO Make active unit blink---it's too hard to see right now.
 * FIXME Small maps aren't centered properly (e.g. 10x10)
+* FIXME Rendering issues if wrapping is off
 
 ## 0.6 Milestones
 * TODO Make splash screen respect color palette
