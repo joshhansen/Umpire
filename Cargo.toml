@@ -2,8 +2,18 @@
 name = "umpire"
 version = "0.4.0"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
+license = "GPL-3.0-only"
+categories = ["games"]
 edition = "2018"
 default-run = "umpire"
+exclude = [
+    "./.*",
+    "data/*",
+    "images/*"
+]
+
+[badges]
+travis-ci = { repository = "joshhansen/Umpire" }
 
 [dependencies]
 clap = "2.33.0"
