@@ -11,7 +11,10 @@ include = [
     "src/*",
     "README.md",
     "LICENSE",
-    "doc/roadmap.md"
+    "doc/roadmap.md",
+    "data/geonames_cities1000_2017-02-27_0201__pop-and-name.tsv.gz",
+    "data/us-census/1990/givenname_rel_freqs.csv",
+    "data/us-census/2010/surname_freqs.csv",
 ]
 repository = "https://github.com/joshhansen/Umpire"
 homepage = "https://github.com/joshhansen/Umpire"
