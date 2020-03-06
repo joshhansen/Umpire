@@ -37,17 +37,21 @@ unicode-segmentation = "1.6.0"
 criterion = "0.3.1"
 
 [[bench]]
-name = "nearest_adjacent_unobserved"
+name = "explore"
 harness = false
+path = "benches/explore.rs"
 
 [[bench]]
 name = "grid"
 harness = false
+path = "benches/grid.rs"
 
 [[bench]]
-name = "explore"
+name = "nearest_adjacent_unobserved"
 harness = false
+path = "benches/nearest_adjacent_unobserved.rs"
 
 [[bench]]
 name = "wrapping"
 harness = false
+path = "benches/wrapping.rs"
