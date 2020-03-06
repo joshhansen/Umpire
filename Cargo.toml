@@ -59,3 +59,7 @@ path = "benches/nearest_adjacent_unobserved.rs"
 name = "wrapping"
 harness = false
 path = "benches/wrapping.rs"
+
+[profile.release]
+opt-level = 'z'  # Optimize for size.
+lto = true # Link-time optimization is also dropping binary size by about 1100K
