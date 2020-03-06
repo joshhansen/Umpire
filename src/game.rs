@@ -3,7 +3,6 @@
 //!
 //! This implements the game logic without regard for user interface.
 
-pub mod ai;
 pub mod city;
 pub mod combat;
 pub mod map;
