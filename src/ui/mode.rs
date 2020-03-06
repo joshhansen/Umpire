@@ -7,6 +7,7 @@ use crate::{
     conf,
     game::{
         Game,
+        PlayerNum,
         unit::UnitID,
     },
     ui::{
@@ -29,6 +30,7 @@ use self::{
     turn_over::TurnOverMode,
     turn_start::TurnStartMode,
     turn_resume::TurnResumeMode,
+    victory::VictoryMode,
 };
 
 #[derive(Clone,Copy,Debug)]
@@ -45,12 +47,25 @@ pub(in crate::ui) enum Mode {
         cursor_viewport_loc:Location,
         most_recently_active_unit_id: Option<UnitID>,
         first: bool,
+    },
+    Victory {
+        victor: PlayerNum,
     }
 }
 
 impl Mode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
     pub fn run(&mut self, game: &mut Game, ui: &mut TermUI, prev_mode: &mut Option<Mode>) -> bool {
+
+        if let Mode::Victory{..} = self {
+            // nothing
+        } else if let Some(victor) = game.victor() {
+            *prev_mode = Some(*self);
+            *self = Mode::Victory{victor};
+            return true;
+        }
+        
+
         let continue_ = match *self {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self, prev_mode),
             Mode::TurnResume =>         TurnResumeMode{}.run(game, ui, self, prev_mode),
@@ -69,7 +84,8 @@ impl Mode {
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
             Mode::Examine{cursor_viewport_loc, most_recently_active_unit_id, first} =>
-                ExamineMode::new(cursor_viewport_loc, most_recently_active_unit_id, first).run(game, ui, self, prev_mode)
+                ExamineMode::new(cursor_viewport_loc, most_recently_active_unit_id, first).run(game, ui, self, prev_mode),
+            Mode::Victory{victor} => VictoryMode{victor}.run(game, ui, self, prev_mode),
         };
 
         *prev_mode = Some(*self);
@@ -193,3 +209,4 @@ mod set_productions;
 mod turn_over;
 mod turn_start;
 mod turn_resume;
+mod victory;

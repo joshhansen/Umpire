@@ -456,7 +456,7 @@ impl MapData {
     //     debug_assert!(removed_unit.is_some());
     // }
 
-    fn cities(&self) -> impl Iterator<Item=&City> {
+    pub(crate) fn cities(&self) -> impl Iterator<Item=&City> {
         self.tiles.iter().filter_map(|tile| tile.city.as_ref())
     }
 
@@ -464,7 +464,7 @@ impl MapData {
         self.tiles.iter_mut().filter_map(|tile| tile.city.as_mut())
     }
 
-    fn units(&self) -> impl Iterator<Item=&Unit> {
+    pub(crate) fn units(&self) -> impl Iterator<Item=&Unit> {
         self.tiles.iter().filter_map(|tile| tile.unit.as_ref())
     }
 

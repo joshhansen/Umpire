@@ -12,7 +12,7 @@ pub mod unit;
 
 
 use std::{
-    collections::{BTreeSet,HashMap},
+    collections::{BTreeSet,HashMap,HashSet},
     fmt,
 };
 
@@ -193,8 +193,6 @@ pub enum UnitProductionOutcome {
     }
 }
 
-
-
 pub struct Game {
     map: MapData,
     player_observations: HashMap<PlayerNum,ObsTracker>,
@@ -343,6 +341,38 @@ impl Game {
 
     pub fn turn_is_done(&self) -> bool {
         self.production_set_requests().next().is_none() && self.unit_orders_requests().next().is_none()
+    }
+
+    /// The victor---if any---meaning the player who has defeated all other players.
+    /// 
+    /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
+    /// has won.
+    pub fn victor(&self) -> Option<PlayerNum> {
+        let mut possible: HashSet<PlayerNum> = (0..self.num_players).collect();
+
+        for city in self.map.cities() {
+            if let Alignment::Belligerent{player} = city.alignment {
+                possible.remove(&player);
+            }
+            if possible.len() == 0 {
+                return None;
+            }
+        }
+
+        for unit in self.map.units() {
+            if let Alignment::Belligerent{player} = unit.alignment {
+                possible.remove(&player);
+            }
+            if possible.len() == 0 {
+                return None;
+            }
+        }
+
+        if possible.len() == 1 {
+            return Some(*possible.iter().next().unwrap());// unwrap to assert something's there
+        }
+
+        None
     }
 
     /// End the current player's turn and begin the next player's turn
@@ -1098,7 +1128,7 @@ mod test {
             unit_namer,
         },
         test::{game_two_cities_two_infantry},
-        util::{Dims,Location,Wrap2d},
+        util::{Location,Wrap2d},
     };
 
     #[test]
