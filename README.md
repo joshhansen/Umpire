@@ -1,3 +1,5 @@
+![Umpire](/images/Umpire-0.4.png "Umpire")
+
 # Umpire: Combat Quest of the Millennium
 
 Welcome to Umpire, a military strategy game with modern sensibilities as well as
