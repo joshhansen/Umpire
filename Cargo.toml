@@ -1,16 +1,20 @@
 [package]
 name = "umpire"
+description = "Combat Quest of the Millennium"
 version = "0.4.0"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
 license = "GPL-3.0-only"
 categories = ["games"]
 edition = "2018"
 default-run = "umpire"
-exclude = [
-    ".travis.yml",
-    "data/*",
-    "images/*"
+include = [
+    "src/*",
+    "README.md",
+    "LICENSE",
+    "doc/roadmap.md"
 ]
+repository = "https://github.com/joshhansen/Umpire"
+homepage = "https://github.com/joshhansen/Umpire"
 
 [badges]
 travis-ci = { repository = "joshhansen/Umpire" }
