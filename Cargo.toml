@@ -7,7 +7,7 @@ categories = ["games"]
 edition = "2018"
 default-run = "umpire"
 exclude = [
-    "./.*",
+    ".travis.yml",
     "data/*",
     "images/*"
 ]
