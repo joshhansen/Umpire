@@ -6,8 +6,11 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 
+use core::cell::RefCell;
+
 use std::{
     io::{BufRead,BufReader,Write,stdout},
+    rc::Rc,
     thread,
     time::{Duration,SystemTime},
 };
@@ -194,7 +197,7 @@ fn main() {
     let city_namer = city_namer();
     let unit_namer = unit_namer();
 
-    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, Box::new(unit_namer), wrapping);
+    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, Rc::new(RefCell::new(unit_namer)), wrapping);
 
     if !nosplash {
         let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();

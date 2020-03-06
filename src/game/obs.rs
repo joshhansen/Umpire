@@ -34,6 +34,7 @@ pub trait ObsTrackerI : Source<Obs> {
     fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
 }
 
+#[derive(Clone)]
 pub struct ObsTracker {
     observations: LocationGrid<Obs>
 }

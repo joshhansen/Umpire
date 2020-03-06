@@ -13,6 +13,10 @@ pub mod util;
 /// Test support functions
 #[cfg(test)]
 mod test {
+    use core::cell::RefCell;
+    
+    use std::rc::Rc;
+
     use crate::{
         game::{
             Alignment,
@@ -59,7 +63,7 @@ mod test {
  
         let map = map1();
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Box::new(unit_namer), Wrap2d::BOTH)
+        Game::new_with_map(map, players, fog_of_war, Rc::new(RefCell::new(unit_namer)), Wrap2d::BOTH)
     }
 
     pub(crate) fn game_two_cities() -> Game {
@@ -68,7 +72,7 @@ mod test {
  
         let map = map1();
         let unit_namer = unit_namer();
-        let mut game = Game::new_with_map(map, players, fog_of_war, Box::new(unit_namer), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, players, fog_of_war, Rc::new(RefCell::new(unit_namer)), Wrap2d::BOTH);
 
         let loc: Location = game.production_set_requests().next().unwrap();
 

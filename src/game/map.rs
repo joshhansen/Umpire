@@ -67,6 +67,7 @@ pub enum NewUnitError {
 ///
 /// Reasonable constraints on tiles, cities, and units are enforced. For example, if a carrier unit is destroyed,
 /// all of its carried units will also be destroyed.
+#[derive(Clone)]
 pub struct MapData {
     /// The dimensions of the map
     dims: Dims,

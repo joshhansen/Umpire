@@ -19,6 +19,7 @@ use super::{
     dijkstra::Source,
 };
 
+#[derive(Clone)]
 pub struct LocationGrid<T> {
     grid: Vec<Vec<T>>,//grid[col i.e. x][row i.e. y]
     dims: Dims

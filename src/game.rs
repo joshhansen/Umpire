@@ -3,6 +3,7 @@
 //!
 //! This implements the game logic without regard for user interface.
 
+pub mod ai;
 pub mod city;
 pub mod combat;
 pub mod map;
@@ -10,10 +11,12 @@ pub mod move_;
 pub mod obs;
 pub mod unit;
 
+use core::cell::RefCell;
 
 use std::{
     collections::{BTreeSet,HashMap,HashSet},
     fmt,
+    rc::Rc,
 };
 
 use crate::{
@@ -193,6 +196,7 @@ pub enum UnitProductionOutcome {
     }
 }
 
+#[derive(Clone)]
 pub struct Game {
     map: MapData,
     player_observations: HashMap<PlayerNum,ObsTracker>,
@@ -200,7 +204,7 @@ pub struct Game {
     num_players: PlayerNum,
     current_player: PlayerNum,
     wrapping: Wrap2d,
-    unit_namer: Box<dyn Namer>,
+    unit_namer: Rc<RefCell<dyn Namer>>,
     fog_of_war: bool,
 }
 impl Game {
@@ -215,7 +219,7 @@ impl Game {
             mut city_namer: ListNamer,
             num_players: PlayerNum,
             fog_of_war: bool,
-            unit_namer: Box<dyn Namer>,
+            unit_namer: Rc<RefCell<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
         let map = generate_map(&mut city_namer, map_dims, num_players);
@@ -223,7 +227,7 @@ impl Game {
     }
 
     pub(crate) fn new_with_map(map: MapData, num_players: PlayerNum,
-            fog_of_war: bool, unit_namer: Box<dyn Namer>,
+            fog_of_war: bool, unit_namer: Rc<RefCell<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
         let mut player_observations = HashMap::new();
@@ -274,7 +278,7 @@ impl Game {
                 (city.loc, city.alignment, unit_under_production)
             };
 
-            let name = self.unit_namer.name();
+            let name = self.unit_namer.borrow_mut().name();
 
             // Attempt to create the new unit
 
@@ -1102,7 +1106,12 @@ impl Source<Obs> for Game {
 
 #[cfg(test)]
 mod test {
-    use std::convert::TryFrom;
+    use core::cell::RefCell;
+
+    use std::{
+        convert::TryFrom,
+        rc::Rc,
+    };
 
     use crate::{
         game::{
@@ -1184,7 +1193,7 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(map, 2, false, Box::new(unit_namer()), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 2, false, Rc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
         assert_eq!(game.current_player, 0);
 
         let productions = vec![UnitType::Armor, UnitType::Carrier];
@@ -1289,7 +1298,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, Box::new(unit_namer()), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, Rc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc, infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
@@ -1301,7 +1310,7 @@ mod test {
     fn test_set_orders() {
         let unit_namer = IntNamer::new("abc");
         let map = MapData::try_from("i").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, Box::new(unit_namer), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, false, Rc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
         assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, None);
@@ -1316,7 +1325,7 @@ mod test {
     pub fn test_order_unit_explore() {
         let unit_namer = IntNamer::new("unit");
         let map = MapData::try_from("i--------------------").unwrap();
-        let mut game = Game::new_with_map(map, 1, true, Box::new(unit_namer), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, true, Rc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
         
