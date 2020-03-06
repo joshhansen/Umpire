@@ -128,7 +128,7 @@ impl IMode for ExamineMode {
                                         *mode = Mode::GetUnitOrders { unit_id: unit.id, first_move: true };
                                         return true;
                                     },
-                                    Err(GameError::NoSuchUnit{msg:_msg,id:_id}) => {
+                                    Err(GameError::NoUnitAtLocation{..}) => {
                                         // The unit we had must have been a stale observation since we can't find it now.
                                         // Doing nothing is fine.
                                     },
