@@ -290,10 +290,20 @@ pub enum MoveError {
         moves_remaining: u16,
     },
 
-    #[fail(display="Cannot move unit at source location {} with ID {:?} because none exists", src_loc, id)]
+    #[fail(display="Cannot move unit at source location {} because there is no unit there", src)]
+    SourceUnitNotAtLocation {
+        src: Location,
+    },
+
+    #[fail(display="Cannot move unit with ID {:?} because none exists", id)]
     SourceUnitDoesNotExist {
-        src_loc: Location,
         id: UnitID,
+    },
+
+    #[fail(display="Cannot move unit at source location {} with ID {:?} becuase no such unit exists", src, id)]
+    SourceUnitWithIdNotAtLocation {
+        id: UnitID,
+        src: Location,
     },
 
     #[fail(display="No route from {} to {} for unit with ID {:?}", src, dest, id)]
@@ -303,10 +313,11 @@ pub enum MoveError {
         dest: Location,
     },
 
-    #[fail(display="Destination {} lies outside of bounds {}", dest, bounds)]
+    // #[fail(display="Destination {} lies outside of bounds {}", dest, bounds)]
+    #[fail(display="Destination out of bounds")]
     DestinationOutOfBounds {
-        dest: Location,
-        bounds: Dims,
+        // dest: Location,
+        // bounds: Dims,
     }
 }
 

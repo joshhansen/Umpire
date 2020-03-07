@@ -410,10 +410,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
 }
 pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Location) -> ProposedOrdersResult {
     if !game.dims().contain(dest) {
-        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {
-            dest,
-            bounds: game.dims(),
-        }});
+        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {}});
     }
 
     let (moves_remaining, shortest_paths, src) = {
@@ -512,6 +509,7 @@ pub mod test_support {
         game::{
             Game,
             PlayerNum,
+            PlayerType,
             map::{
                 gen::generate_map,
             },
@@ -590,7 +588,7 @@ pub mod test_support {
 #[cfg(test)]
 pub mod test {
     use core::cell::RefCell;
-    
+
     use std::{
         convert::TryFrom,
         rc::Rc,
@@ -641,10 +639,7 @@ pub mod test {
 
         let dest2 = Location{x: 255, y: 255};
         let result2 = game.order_unit_go_to(id, dest2);
-        assert_eq!(result2, Err(OrdersError::MoveError{id, orders: Orders::GoTo{dest:dest2}, move_error: MoveError::DestinationOutOfBounds{
-            dest: dest2,
-            bounds: game.dims(),
-        }}));
+        assert_eq!(result2, Err(OrdersError::MoveError{id, orders: Orders::GoTo{dest:dest2}, move_error: MoveError::DestinationOutOfBounds{}}));
 
         let dest3 = Location{x:5, y:0};
         let result3 = game.order_unit_go_to(id, dest3);

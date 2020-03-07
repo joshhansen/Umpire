@@ -687,6 +687,17 @@ impl Game {
         self.propose_move_unit_by_loc_and_id_following_shortest_paths(src, id, dest, shortest_paths)
     }
 
+    /// Move a unit one step in a particular direction
+    pub fn move_unit_by_id_in_direction(&mut self, id: UnitID, direction: Direction) -> MoveResult {
+        let unit_loc = self.map.unit_by_id(id)
+            .ok_or_else(|| MoveError::SourceUnitDoesNotExist {id})?.loc;
+
+        let dest = unit_loc.shift_wrapped(direction, self.dims(), self.wrapping())
+            .ok_or_else(|| MoveError::DestinationOutOfBounds{})?;
+
+        self.move_unit_by_id(id, dest)
+    }
+
     pub fn move_unit_by_id(&mut self, id: UnitID, dest: Location) -> MoveResult {
         self.propose_move_unit_by_id(id, dest).map(|proposed_move| proposed_move.take(self))
     }
@@ -732,7 +743,7 @@ impl Game {
             self.propose_move_unit_following_shortest_paths(unit, dest, shortest_paths)
 
         } else {
-            Err(MoveError::SourceUnitDoesNotExist{src_loc: src, id})
+            Err(MoveError::SourceUnitWithIdNotAtLocation{src, id})
         }
     }
 
@@ -761,10 +772,7 @@ impl Game {
     ) -> ProposedMoveResult {
 
         if !obs_tracker.dims().contain(dest) {
-            return Err(MoveError::DestinationOutOfBounds {
-                dest,
-                bounds: obs_tracker.dims(),
-            });
+            return Err(MoveError::DestinationOutOfBounds {});
         }
 
         // We copy the unit so we can simulate what will happen to it and send that version out with the ProposedMove
