@@ -51,7 +51,7 @@ pub enum Colors {
     Neutral,
 
     /// A player's color
-    Player(u8),
+    Player(PlayerNum),
 
     /// The default text color
     Text,

@@ -56,7 +56,13 @@ use crate::{
         },
     },
     name::{Namer,ListNamer},
-    util::{Dims,Dimensioned,Location,Wrap2d},
+    util::{
+        Dims,
+        Dimensioned,
+        Direction,
+        Location,
+        Wrap2d,
+    },
 };
 
 use self::move_::{
@@ -79,7 +85,42 @@ pub trait ProposedAction {
 
 pub type TurnNum = u32;
 
-pub type PlayerNum = u8;
+pub type PlayerNum = usize;
+
+#[derive(Clone)]
+pub enum PlayerType {
+    Human,
+    Random,
+}
+
+impl PlayerType {
+    pub fn values() -> [Self; 2] {
+        [Self::Human, Self::Random]
+    }
+
+    pub fn desc(&self) -> &str {
+        match self {
+            Self::Human => "human",
+            Self::Random => "random",
+        }
+    }
+
+    /// The character used to specify this variant on the command line
+    pub fn spec_char(&self) -> char {
+        match self {
+            Self::Human => 'h',
+            Self::Random => 'r',
+        }
+    }
+
+    pub fn from_spec_char(c: char) -> Result<Self,String> {
+        match c {
+            'h' => Ok(Self::Human),
+            'r' => Ok(Self::Random),
+            _ => Err(format!("'{}' does not correspond to a player type", c))
+        }
+    }
+}
 
 #[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
 pub enum Alignment {
@@ -200,7 +241,7 @@ pub struct Game {
     map: MapData,
     player_observations: HashMap<PlayerNum,ObsTracker>,
     turn: TurnNum,
-    num_players: PlayerNum,
+    player_types: Vec<PlayerType>,
     current_player: PlayerNum,
     wrapping: Wrap2d,
     unit_namer: Rc<RefCell<dyn Namer>>,
@@ -226,11 +267,20 @@ impl Game {
     }
 
     pub(crate) fn new_with_map(map: MapData, num_players: PlayerNum,
+        fog_of_war: bool, unit_namer: Rc<RefCell<dyn Namer>>,
+        wrapping: Wrap2d) -> Self {
+            let player_types: Vec<PlayerType> = (0..num_players).map(|_player_num| PlayerType::Human).collect();
+
+            Self::new_with_map_and_player_types(map, player_types.as_slice(), fog_of_war,
+                                                    unit_namer, wrapping)
+    }
+
+    pub(crate) fn new_with_map_and_player_types(map: MapData, player_types: &[PlayerType],
             fog_of_war: bool, unit_namer: Rc<RefCell<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
         let mut player_observations = HashMap::new();
-        for player_num in 0..num_players {
+        for player_num in 0..player_types.len() {
             player_observations.insert(player_num, ObsTracker::new(map.dims()));
         }
 
@@ -244,7 +294,7 @@ impl Game {
             map,
             player_observations,
             turn: 0,
-            num_players,
+            player_types: player_types.iter().cloned().collect(),
             current_player: 0,
             wrapping,
             unit_namer,
@@ -253,6 +303,10 @@ impl Game {
 
         game.begin_turn();
         game
+    }
+
+    pub fn num_players(&self) -> PlayerNum {
+        self.player_types.len()
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
@@ -351,7 +405,7 @@ impl Game {
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
     pub fn victor(&self) -> Option<PlayerNum> {
-        let mut possible: HashSet<PlayerNum> = (0..self.num_players).collect();
+        let mut possible: HashSet<PlayerNum> = (0..self.num_players()).collect();
 
         for city in self.map.cities() {
             if let Alignment::Belligerent{player} = city.alignment {
@@ -397,7 +451,7 @@ impl Game {
         if self.turn_is_done() {
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
-            self.current_player = (self.current_player + 1) % self.num_players;
+            self.current_player = (self.current_player + 1) % self.num_players();
             if self.current_player == 0 {
                 self.turn += 1;
             }
@@ -412,7 +466,7 @@ impl Game {
         if self.turn_is_done() {
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
-            self.current_player = (self.current_player + 1) % self.num_players;
+            self.current_player = (self.current_player + 1) % self.num_players();
             if self.current_player == 0 {
                 self.turn += 1;
             }

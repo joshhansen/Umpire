@@ -20,7 +20,7 @@ use clap::{Arg, App};
 use umpire::{
     color::{Palette, palette16, palette256, palette24},
     conf,
-    game::{Game,PlayerNum},
+    game::{Game,PlayerNum,PlayerType},
     name::{city_namer,unit_namer},
     ui,
     util::{
@@ -102,13 +102,36 @@ fn main() {
         .arg(Arg::with_name("players")
             .short("p")
             .long("players")
-            .help("Number of players")
+            .help("Number of human players")
             .takes_value(true)
             .required(true)
             .default_value(conf::NUM_PLAYERS)
             .validator(|s| {
                 let players: Result<PlayerNum,_> = s.trim().parse();
                 players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
+            })
+        )
+        .arg(Arg::with_name("players")
+            .short("p")
+            .long("players")
+            .takes_value(true)
+            .required(true)
+            .default_value("hhrr")
+            .help(
+                format!("Player type specification string e.g. 'hhrr', {}", 
+                    PlayerType::values().iter()
+                    .map(|player_type| format!("'{}' for {}", player_type.spec_char(), player_type.desc()))
+                    .collect::<Vec<String>>()
+                    .join("")
+                ).as_str()
+            )
+            .validator(|s| {
+                for spec_char in s.chars() {
+                    PlayerType::from_spec_char(spec_char)
+                    .map(|_| ())
+                    .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
+                }
+                Ok(())
             })
         )
         .arg(Arg::with_name("quiet")
@@ -164,7 +187,12 @@ fn main() {
     .get_matches();
 
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
-    let num_players: PlayerNum = matches.value_of("players").unwrap().parse().unwrap();
+    let player_types: Vec<PlayerType> = matches.value_of("ptypes").unwrap()
+        .chars()
+        .map(|spec_char| PlayerType::from_spec_char(spec_char).expect(format!("'{}' is not a valid player type", spec_char).as_str()))
+        .collect()
+    ;
+    let num_players: PlayerNum = player_types.len();
     let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
     let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
     let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
@@ -183,7 +211,7 @@ fn main() {
     };
 
     let map_dims: Dims = Dims::new(map_width, map_height);
-    if map_dims.area() < u32::from(num_players) {
+    if (map_dims.area() as PlayerNum) < num_players {
         eprintln!("Map dimensions of {} give an area of {} which is not enough room for {} players; area of {} or greater required.",
             map_dims, map_dims.area(), num_players, num_players);
         return;
