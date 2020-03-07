@@ -1,4 +1,12 @@
-use std::collections::HashSet;
+//! Tool to train Umpire AI
+//! 
+//! Strategy:
+//! First we bootstrap the AI by having it play against a random baseline.
+//! Then we train it against itself.
+//! These initial games should have small maps and only two players.
+//! 
+//! Once we have a simple AI, incorporate it into the UI.
+use std::collections::HashMap;
 
 use rsrl::{
     run, make_shared, Evaluation, SerialExperiment,
@@ -21,15 +29,12 @@ use rsrl_domains::{
     Transition,
 };
 
-use spaces::{
-
-};
-
 use umpire::{
     game::{
         Game,
         PlayerNum,
         city::CityID,
+        map::terrain::Terrain,
         unit::UnitID,
     },
 };
@@ -58,105 +63,115 @@ use umpire::{
 // }
 
 
-pub struct UmpireStateSpace {
+// pub struct UmpireStateSpace {
+//     terrain_counts: HashMap<Terrain,usize>,
+// }
 
-}
+// impl Space for UmpireStateSpace {
+//     type Value = Game;
+    
 
-impl Space for UmpireStateSpace {
-    type Value = Game;
+//     fn dim(&self) -> Dim {
 
-    fn dim(&self) -> Dim {
+//     }
 
-    }
+//     fn card(&self) -> Card {
+//         // The cardinality of the game state space will be a function of the map
 
-    fn card(&self) -> Card {
-        // The cardinality of the game state space will be a function of the map
-        // Every tile could contain every possible combination of player units, as well as being empty
-        // Every carrier unit could contain every possible combination of its owner's units
-        // Every city could have every possible combination of owners
+//         // Every tile could contain every possible combination of player units, as well as being empty
+//         // Every carrier unit could contain every possible combination of its owner's units
+//         // Every city could have every possible combination of owners, and every possible production assignment (or
+//         // none at all).
 
-        // Every unit and every city could have any combination of its hitpoints from 1..=max
+//         // Every unit and every city could have any combination of its hitpoints from 1..=max
         
-        // Non-essentials like the names of the units are ignored---they're there for decorative purposes but are not
-        // combinatorially relevant.
+//         // Non-essentials like the names of the units are ignored---they're there for decorative purposes but are not
+//         // combinatorially relevant.
 
-    }
-}
+//         let mut cardinality = 0;
+
+//         for (terrain,count) in self.terrain_counts.iter() {
+
+//         }
+
+//         Card::Finite(cardinality)
+//     }
+// }
 
 
-#[derive(Clone)]
-enum UmpireActionScenario {
-    UnitOrdersRequest {
-        unit_id: UnitID,
-    },
-    ProductionSetRequest {
-        city_id: CityID,
-    }
-}
+// #[derive(Clone)]
+// enum UmpireActionScenario {
+//     UnitOrdersRequest {
+//         unit_id: UnitID,
+//     },
+//     ProductionSetRequest {
+//         city_id: CityID,
+//     }
+// }
 
-struct UmpireActionSpace {
+// struct UmpireActionSpace {
 
-}
+// }
 
-impl Space for UmpireActionSpace {
-    type Value = UmpireActionScenario;
+// impl Space for UmpireActionSpace {
+//     type Value = UmpireActionScenario;
 
-    fn dim(&self) -> Dim {
+//     fn dim(&self) -> Dim {
 
-    }
-    fn card(&self) -> Card {
+//     }
+//     fn card(&self) -> Card {
 
-    }
-}
+//     }
+// }
 
-struct UmpirePlayerTurn {
-    /// All players controlled by this AI.
-    players: HashSet<PlayerNum>,
+// struct UmpirePlayerTurn {
+//     /// The player controlled by this AI.
+//     player: PlayerNum,
 
-    // The game state
-    game: Game,
-}
+//     // The game state
+//     game: Game,
+// }
 
-impl UmpirePlayerTurn {
-    fn new(players: &[PlayerNum], game: Game) -> Self {
-        Self { players: players.iter().cloned().collect(), game }
-    }
-}
+// impl UmpirePlayerTurn {
+//     fn new(player: PlayerNum, game: Game) -> Self {
+//         Self { player, game }
+//     }
+// }
 
-impl Domain for UmpirePlayerTurn {
-    /// State space representation type class.
-    type StateSpace = GameSpace;
+// impl Domain for UmpirePlayerTurn {
+//     /// State space representation type class.
+//     type StateSpace = UmpireStateSpace;
 
-    /// Action space representation type class.
-    type ActionSpace = UmpireActionSpace;
+//     /// Action space representation type class.
+//     type ActionSpace = UmpireActionSpace;
 
-    /// Emit an observation of the current state of the environment.
-    fn emit(&self) -> Observation<State<Self>> {
-        Observation::Partial(self.game.clone())
-    }
+//     /// Emit an observation of the current state of the environment.
+//     fn emit(&self) -> Observation<State<Self>> {
+//         Observation::Partial(self.game.clone())
+//     }
 
-    /// Transition the environment forward a single step given an action, `a`.
-    fn step(&mut self, a: Action<Self>) -> Transition<State<Self>, Action<Self>> {
+//     /// Transition the environment forward a single step given an action, `a`.
+//     fn step(&mut self, a: Action<Self>) -> Transition<State<Self>, Action<Self>> {
 
-    }
+//     }
 
-    /// Returns an instance of the state space type class.
-    fn state_space(&self) -> Self::StateSpace {
+//     /// Returns an instance of the state space type class.
+//     fn state_space(&self) -> Self::StateSpace {
 
-    }
+//     }
 
-    /// Returns an instance of the action space type class.
-    fn action_space(&self) -> Self::ActionSpace {
+//     /// Returns an instance of the action space type class.
+//     fn action_space(&self) -> Self::ActionSpace {
 
-    }
-}
+//     }
+// }
 
 fn main() {
-    // let domain = MountainCar::default();
+    let domain = MountainCar::default();
 
 
 
-    let domain = UmpirePlayerTurn::new(0);
+    // let domain = UmpirePlayerTurn::new(0);
     let mut agent = {
         let n_actions = domain.action_space().card().into();
 

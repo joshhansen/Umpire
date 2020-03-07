@@ -6,7 +6,7 @@ pub mod dijkstra;
 pub mod gen;
 mod grid;
 pub mod terrain;
-mod tile;
+pub(in crate::game) mod tile;
 
 pub use self::terrain::Terrain;
 pub use self::tile::Tile;

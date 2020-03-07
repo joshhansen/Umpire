@@ -46,6 +46,12 @@ enum TransportMode {
     Air,
 }
 
+#[derive(Clone)]
+struct CarryingSpaceEssentials {
+    capacity: usize,
+    space: Vec<UnitEssentials>,
+}
+
 #[derive(Clone,Debug,PartialEq)]
 struct CarryingSpace {
     owner: Alignment,
@@ -127,7 +133,7 @@ impl UnitType {
         ]
     }
 
-    fn max_hp(self) -> u16 {
+    pub fn max_hp(self) -> u16 {
         match self {
             UnitType::Infantry | UnitType::Fighter | UnitType::Bomber => 1,
             UnitType::Armor | UnitType::Destroyer | UnitType::Submarine => 2,
@@ -223,6 +229,15 @@ impl UnitType {
     pub fn can_occupy_cities(self) -> bool {
         self.transport_mode() == TransportMode::Land
     }
+
+    pub fn movement_per_turn(&self) -> u16 {
+        match self {
+            UnitType::Infantry | UnitType::Battleship | UnitType::Carrier => 1,
+            UnitType::Armor | UnitType::Transport | UnitType::Submarine | UnitType::Cruiser => 2,
+            UnitType::Destroyer => 3,
+            UnitType::Fighter | UnitType::Bomber => 5,
+        }
+    }
 }
 
 impl fmt::Display for UnitType {
@@ -248,7 +263,16 @@ impl Ord for UnitType {
     }
 }
 
-
+#[derive(Clone)]
+pub struct UnitEssentials {
+    pub type_: UnitType,
+    pub alignment: Alignment,
+    hp: u16,
+    max_hp: u16,
+    moves_remaining: u16,
+    // pub orders: Option<Orders>,
+    carrying_space: Option<CarryingSpaceEssentials>,
+}
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct Unit {
@@ -282,12 +306,7 @@ impl Unit {
     }
 
     pub fn movement_per_turn(&self) -> u16 {
-        match self.type_ {
-            UnitType::Infantry | UnitType::Battleship | UnitType::Carrier => 1,
-            UnitType::Armor | UnitType::Transport | UnitType::Submarine | UnitType::Cruiser => 2,
-            UnitType::Destroyer => 3,
-            UnitType::Fighter | UnitType::Bomber => 5,
-        }
+        self.type_.movement_per_turn()
     }
 
     /// Indicate whether this unit can move (if only theoretically) onto a given tile.

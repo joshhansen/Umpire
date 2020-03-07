@@ -3,6 +3,7 @@
 //!
 //! This implements the game logic without regard for user interface.
 
+pub mod ai;
 pub mod city;
 pub mod combat;
 pub mod map;
@@ -432,7 +433,7 @@ impl Game {
         None
     }
 
-    /// End the current player's turn and begin the next player's turn
+    /// End the current human player's turn and begin the next human player's turn
     ///
     /// Returns the number of the now-current player.
     /// Ok if the turn ended properly
