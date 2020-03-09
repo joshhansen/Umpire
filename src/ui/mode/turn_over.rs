@@ -6,6 +6,7 @@ use crate::{
         Game,
         PlayerNum,
         ProposedAction,
+        ProposedTurnStart,
         TurnStart,
         UnitProductionOutcome,
         unit::{
@@ -146,6 +147,38 @@ impl TurnOverMode {
             }
         }
     }
+
+    fn process_proposed_turn_start(&self, game: &mut Game, ui: &mut TermUI, turn_start: &ProposedTurnStart) {
+        // for orders_result in turn_start.orders_results {
+        //     self.animate_orders(game, ui, orders_result);
+        // }
+
+        for proposed_orders_result in &turn_start.proposed_orders_results {
+            self.animate_proposed_orders(game, ui, proposed_orders_result);
+        }
+
+        for production_outcome in &turn_start.production_outcomes {
+            match production_outcome {
+                UnitProductionOutcome::UnitProduced { unit, city } => {
+                    ui.log_message(format!("{} produced {}", city.short_desc(), unit.medium_desc()));
+                },
+                UnitProductionOutcome::UnitAlreadyPresent { prior_unit, unit_type_under_production, city} => {
+                    ui.log_message(Message {
+                        text: format!(
+                            "{} would have produced {} but {} was already garrisoned",
+                            city.short_desc(),
+                            unit_type_under_production,
+                            prior_unit
+                        ),
+                        mark: None,
+                        fg_color: Some(Colors::Notice),
+                        bg_color: None,
+                        source: Some(MessageSource::Game)
+                    });
+                },
+            }
+        }
+    }
 }
 
 impl IMode for TurnOverMode {
@@ -170,9 +203,9 @@ impl IMode for TurnOverMode {
                             // If the user has altered productions using examine mode then the turn might not be over anymore
                             // Recheck
 
-                            match game.propose_end_turn().1 {
+                            match game.propose_end_turn() {
                                 Ok(proposed_turn_start) => {
-                                    self.process_turn_start(game, ui, &proposed_turn_start);
+                                    self.process_proposed_turn_start(game, ui, &proposed_turn_start);
                                     // let _turn_start = proposed_turn_start.take(game);
                                     // let turn_start = proposed_turn_start.take(game);
 
@@ -200,8 +233,8 @@ impl IMode for TurnOverMode {
         } else {
             // We shouldn't be in the TurnOverMode state unless game.turn_is_done() is true
             // so this unwrap should always succeed
-            let proposed_turn_start = game.propose_end_turn().1.unwrap();
-            self.process_turn_start(game, ui, &proposed_turn_start);
+            let proposed_turn_start = game.propose_end_turn().unwrap();
+            self.process_proposed_turn_start(game, ui, &proposed_turn_start);
             // let _turn_start = proposed_turn_start.take(game);
             
             *mode = Mode::TurnStart;
