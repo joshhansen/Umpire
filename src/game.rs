@@ -1321,7 +1321,7 @@ pub mod test_support {
         game
     }
 
-    pub(crate) fn game_two_cities_two_infantry() -> Game {
+    pub fn game_two_cities_two_infantry() -> Game {
         let mut game = game_two_cities();
 
         for _ in 0..5 {
