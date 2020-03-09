@@ -470,6 +470,13 @@ pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_typ
     neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &UnitTypeFilter{unit_type}, wrapping)
 }
 
+/// Returns the set of locations for neighbors of the given location including only those which the given unit could
+/// theoretically move onto, considering all properties of the neighboring tiles (but not unit moves remaining and
+/// such).
+pub fn neighbors_unit_could_move_to<T:Source<Tile>>(tiles: &T, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
+    neighbors(tiles, unit.loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit}, wrapping)
+}
+
 #[derive(Eq,PartialEq)]
 struct State {
     dist_: u16,
