@@ -546,6 +546,14 @@ impl Game {
         }
     }
 
+    pub fn current_player_unit_legal_one_step_destinations(&self, unit_id: UnitID) -> Result<HashSet<Location>,GameError> {
+        let unit = self.current_player_unit_by_id(unit_id).ok_or_else(||
+            GameError::NoSuchUnit { id: unit_id }
+        )?;
+
+        Ok(neighbors_unit_could_move_to(&self.map, &unit, self.wrapping))
+    }
+
     /// The current player's most recent observation of the tile at location `loc`, if any
     pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
         if let Obs::Observed{tile,..} = self.current_player_obs(loc) {
