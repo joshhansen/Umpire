@@ -63,6 +63,11 @@ harness = false
 path = "benches/nearest_adjacent_unobserved.rs"
 
 [[bench]]
+name = "propose"
+harness = false
+path = "benches/propose.rs"
+
+[[bench]]
 name = "wrapping"
 harness = false
 path = "benches/wrapping.rs"
