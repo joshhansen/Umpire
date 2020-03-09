@@ -159,6 +159,20 @@ pub enum Direction {
 }
 
 impl Direction {
+    pub fn values() -> [Self; 8] {
+        [
+            Self::Up,
+            Self::Down,
+            Self::Left,
+            Self::Right,
+            Self::UpLeft,
+            Self::UpRight,
+            Self::DownLeft,
+            Self::DownRight,
+        ]
+    }
+
+    #[deprecated]
     pub fn vec2d(self) -> Vec2d<i32> {
         match self {
             Direction::Up         => Vec2d{x: 0, y:-1},
@@ -169,6 +183,42 @@ impl Direction {
             Direction::UpRight    => Vec2d{x: 1, y:-1},
             Direction::DownLeft   => Vec2d{x:-1, y: 1},
             Direction::DownRight  => Vec2d{x: 1, y: 1}
+        }
+    }
+}
+
+impl Into<Vec2d<i32>> for Direction {
+    fn into(self) -> Vec2d<i32> {
+        match self {
+            Direction::Up         => Vec2d{x: 0, y:-1},
+            Direction::Down       => Vec2d{x: 0, y: 1},
+            Direction::Left       => Vec2d{x:-1, y: 0},
+            Direction::Right      => Vec2d{x: 1, y: 0},
+            Direction::UpLeft     => Vec2d{x:-1, y:-1},
+            Direction::UpRight    => Vec2d{x: 1, y:-1},
+            Direction::DownLeft   => Vec2d{x:-1, y: 1},
+            Direction::DownRight  => Vec2d{x: 1, y: 1}
+        }
+    }
+}
+
+impl TryFrom<Vec2d<i32>> for Direction {
+    type Error = ();
+
+    /// Turns a vector back into a direction if possible
+    /// 
+    /// If not, returns Err(())
+    fn try_from(vec: Vec2d<i32>) -> Result<Self,Self::Error> {
+        match vec {
+            Vec2d{x: 0, y:-1} => Ok(Direction::Up),
+            Vec2d{x: 0, y: 1} => Ok(Direction::Down),
+            Vec2d{x:-1, y: 0} => Ok(Direction::Left),
+            Vec2d{x: 1, y: 0} => Ok(Direction::Right),
+            Vec2d{x:-1, y:-1} => Ok(Direction::UpLeft),
+            Vec2d{x: 1, y:-1} => Ok(Direction::UpRight),
+            Vec2d{x:-1, y: 1} => Ok(Direction::DownLeft),
+            Vec2d{x: 1, y: 1} => Ok(Direction::DownRight),
+            _ => Err(())
         }
     }
 }
@@ -330,7 +380,8 @@ pub type Location = Vec2d<u16>;
 
 impl Location {
     pub fn shift_wrapped(self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
-        wrapping.wrapped_add(dims, self, dir.vec2d())
+        wrapping.wrapped_add(dims, self, dir.into())
+    }
 }
 
 impl Into<Vec2d<i32>> for Location {
