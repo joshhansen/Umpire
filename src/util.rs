@@ -3,7 +3,10 @@
 use std::{
     convert::TryFrom,
     fmt,
-    ops::Add,
+    ops::{
+        Add,
+        Sub,
+    },
     thread::sleep,
     time::Duration,
 };
@@ -119,6 +122,16 @@ impl<N:Add<Output=N>> Add for Vec2d<N> {
         Vec2d {
             x: self.x + rhs.x,
             y: self.y + rhs.y
+        }
+    }
+}
+
+impl<N:Sub<Output=N>> Sub for Vec2d<N> {
+    type Output = Vec2d<N>;
+    fn sub(self, rhs: Vec2d<N>) -> Vec2d<N> {
+        Vec2d {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y
         }
     }
 }
@@ -318,6 +331,14 @@ pub type Location = Vec2d<u16>;
 impl Location {
     pub fn shift_wrapped(self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
         wrapping.wrapped_add(dims, self, dir.vec2d())
+}
+
+impl Into<Vec2d<i32>> for Location {
+    fn into(self) -> Vec2d<i32> {
+        Vec2d {
+            x: self.x as i32,
+            y: self.y as i32,
+        }
     }
 }
 
