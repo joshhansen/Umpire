@@ -243,15 +243,31 @@ pub enum UnitProductionOutcome {
     }
 }
 
+/// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
 pub struct Game {
+    /// The underlying state of the game
     map: MapData,
+
+    /// The information that each player has about the state of the game
     player_observations: HashMap<PlayerNum,ObsTracker>,
+
+    /// The turn that it is right now
     turn: TurnNum,
+
+    /// Specification of who is human and who is what kind of robot
     player_types: Vec<PlayerType>,
+
+    /// The player that is currently the player right now
     current_player: PlayerNum,
+
+    /// The wrapping policy for the game---can you loop around the map vertically, horizontally, or both?
     wrapping: Wrap2d,
+
+    /// A name generator to give names to units
     unit_namer: Rc<RefCell<dyn Namer>>,
+
+    /// Whether players have full information about the map, or have their knowledge obscured by the "fog of war".
     fog_of_war: bool,
 }
 impl Game {
