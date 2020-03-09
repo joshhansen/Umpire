@@ -212,13 +212,22 @@ impl ProposedAction for ProposedTurnStart {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Fail)]
 pub enum GameError {
-    NoSuchUnit { msg: String, id: UnitID },
-    NoUnitAtLocation { msg: String, loc: Location },
-    NoSuchCity { msg: String, id: CityID },
-    NoCityAtLocation { msg: String, loc: Location },
-    UnitNotControlledByCurrentPlayer { msg: String }
+    #[fail(display = "No unit with ID {:?} exists", id)]
+    NoSuchUnit { id: UnitID },
+
+    #[fail(display = "No unit at location {} exists", loc)]
+    NoUnitAtLocation { loc: Location },
+
+    #[fail(display = "No city with ID {:?} exists", id)]
+    NoSuchCity { id: CityID },
+
+    #[fail(display = "No city at location {} exists", loc)]
+    NoCityAtLocation { loc: Location },
+
+    #[fail(display = "Specified unit is not controlled by the current player")]
+    UnitNotControlledByCurrentPlayer
 }
 
 #[derive(Debug,PartialEq)]
@@ -1067,15 +1076,10 @@ impl Game {
                 }
                 Ok(())
             } else {
-                Err(GameError::UnitNotControlledByCurrentPlayer{
-                    msg: format!("Could not activate unit at location {} because it does not belong to current player {}", loc, self.current_player)
-                })
+                Err(GameError::UnitNotControlledByCurrentPlayer{})
             }
         } else {
-            Err(GameError::NoUnitAtLocation{
-                msg: format!("Could not activate unit at location {} because no such unit exists", loc),
-                loc
-            })
+            Err(GameError::NoUnitAtLocation{ loc })
         }
     }
 
