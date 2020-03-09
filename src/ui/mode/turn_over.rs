@@ -6,11 +6,12 @@ use crate::{
         Game,
         PlayerNum,
         ProposedAction,
-        ProposedTurnStart,
+        TurnStart,
         UnitProductionOutcome,
         unit::{
             orders::{
                 OrdersError,
+                OrdersResult,
                 ProposedOrdersResult,
             },
         },
@@ -31,46 +32,46 @@ use super::{
 
 pub(in crate::ui) struct TurnOverMode {}
 impl TurnOverMode {
-    // fn animate_orders(&self, game: &mut Game, ui: &mut TermUI, orders_result: OrdersResult) {
-    //     let (id,orders) = match orders_result {
-    //         Ok(ref orders_outcome) => (orders_outcome.ordered_unit_id, orders_outcome.orders),
-    //         Err(ref err) => match *err {
-    //             OrdersError::OrderedUnitDoesNotExist { id, orders } => (id,orders),
-    //             OrdersError::MoveError { id, orders, .. } => (id,orders),
-    //         }
-    //     };
+    fn animate_orders(&self, game: &mut Game, ui: &mut TermUI, orders_result: &OrdersResult) {
+        let (id,orders) = match orders_result {
+            Ok(ref orders_outcome) => (orders_outcome.ordered_unit_id, orders_outcome.orders),
+            Err(ref err) => match *err {
+                OrdersError::OrderedUnitDoesNotExist { id, orders } => (id,orders),
+                OrdersError::MoveError { id, orders, .. } => (id,orders),
+            }
+        };
 
-    //     let unit = game.current_player_unit_by_id(id).unwrap();
+        let unit = game.current_player_unit_by_id(id).unwrap();
 
-    //     ui.map_scroller.scrollable.center_viewport(unit.loc);
+        ui.map_scroller.scrollable.center_viewport(unit.loc);
 
-    //     ui.log_message(Message::new(
-    //         format!("Unit {} is {}", unit, orders.present_progressive_description()),
-    //         Some('@'),
-    //         None,
-    //         None,
-    //         None
-    //     ));
+        ui.log_message(Message::new(
+            format!("Unit {} is {}", unit, orders.present_progressive_description()),
+            Some('@'),
+            None,
+            None,
+            None
+        ));
 
-    //     ui.draw(game);
+        ui.draw(game);
 
-    //     match orders_result {
-    //         Ok(orders_outcome) => {
-    //             if let Some(move_) = orders_outcome.move_() {
-    //                 ui.animate_move(game, &move_);
-    //             }
-    //         },
-    //         Err(err) => {
-    //             ui.log_message(Message {
-    //                 text: format!("{}", err),
-    //                 mark: Some('!'),
-    //                 fg_color: Some(Colors::Text),
-    //                 bg_color: Some(Colors::Notice),
-    //                 source: None,
-    //             });
-    //         }
-    //     }
-    // }
+        match orders_result {
+            Ok(orders_outcome) => {
+                if let Some(move_) = orders_outcome.move_() {
+                    ui.animate_move(game, &move_);
+                }
+            },
+            Err(err) => {
+                ui.log_message(Message {
+                    text: format!("{}", err),
+                    mark: Some('!'),
+                    fg_color: Some(Colors::Text),
+                    bg_color: Some(Colors::Notice),
+                    source: None,
+                });
+            }
+        }
+    }
 
     fn animate_proposed_orders(&self, game: &mut Game, ui: &mut TermUI, proposed_orders_result: &ProposedOrdersResult) {
         let (id,orders) = match proposed_orders_result {
@@ -114,13 +115,13 @@ impl TurnOverMode {
         }
     }
 
-    fn process_turn_start(&self, game: &mut Game, ui: &mut TermUI, turn_start: &ProposedTurnStart) {
+    fn process_turn_start(&self, game: &mut Game, ui: &mut TermUI, turn_start: &TurnStart) {
         // for orders_result in turn_start.orders_results {
         //     self.animate_orders(game, ui, orders_result);
         // }
 
-        for proposed_orders_result in &turn_start.proposed_orders_results {
-            self.animate_proposed_orders(game, ui, proposed_orders_result);
+        for orders_result in &turn_start.orders_results {
+            self.animate_orders(game, ui, orders_result);
         }
 
         for production_outcome in &turn_start.production_outcomes {
@@ -169,10 +170,10 @@ impl IMode for TurnOverMode {
                             // If the user has altered productions using examine mode then the turn might not be over anymore
                             // Recheck
 
-                            match game.propose_end_turn() {
+                            match game.propose_end_turn().1 {
                                 Ok(proposed_turn_start) => {
                                     self.process_turn_start(game, ui, &proposed_turn_start);
-                                    let _turn_start = proposed_turn_start.take(game);
+                                    // let _turn_start = proposed_turn_start.take(game);
                                     // let turn_start = proposed_turn_start.take(game);
 
                                     // self.process_turn_start(game, ui, turn_start);
@@ -199,9 +200,9 @@ impl IMode for TurnOverMode {
         } else {
             // We shouldn't be in the TurnOverMode state unless game.turn_is_done() is true
             // so this unwrap should always succeed
-            let proposed_turn_start = game.propose_end_turn().unwrap();
+            let proposed_turn_start = game.propose_end_turn().1.unwrap();
             self.process_turn_start(game, ui, &proposed_turn_start);
-            let _turn_start = proposed_turn_start.take(game);
+            // let _turn_start = proposed_turn_start.take(game);
             
             *mode = Mode::TurnStart;
             true

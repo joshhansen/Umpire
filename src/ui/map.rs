@@ -541,7 +541,7 @@ mod test {
             Palette,
             palette16,
         },
-        test::game1,
+        test_support::game1,
         ui::map::map_to_viewport_coord,
         util::{
             Dims,

@@ -1,4 +1,11 @@
-use std::collections::HashMap;
+use std::{
+    collections::{
+        HashMap,
+        HashSet,
+    },
+    convert::TryFrom,
+    iter::FromIterator,
+};
 
 use rand::seq::SliceRandom;
 
@@ -27,6 +34,7 @@ use rsrl_domains::{
 };
 
 use crate::{
+    Player,
     game::{
         Alignment,
         Game,
@@ -45,6 +53,7 @@ use crate::{
     util::{
         Direction,
         Location,
+        Vec2d,
     },
 };
 
@@ -128,31 +137,10 @@ fn unit_space_for_type_without_carrying_space() -> () {
 // }
 
 
-struct PlayerGameControl<'a> {
-    game: &'a mut Game,
-}
-impl <'a> PlayerGameControl<'a> {
-    fn unit_orders_requests<'b>(&'b self) -> impl Iterator<Item=UnitID> + 'b {
-        self.game.unit_orders_requests()
-    }
-
-    fn production_set_requests<'b>(&'b self) -> impl Iterator<Item=Location> + 'b {
-        self.game.production_set_requests()
-    }
-
-    fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
-        self.game.set_production(loc, production)
-    }
-}
 
 
-trait AI {
-    // fn move_unit(&mut self, unit_id: UnitID, game: &PlayerGameView) -> Direction;
-    
-    // fn set_production(&mut self, city_id: CityID, game: &PlayerGameView) -> UnitType;
 
-    fn take_turn(&mut self, game: &mut PlayerGameControl);
-}
+
 
 struct RandomAI {
     unit_type_vec: Vec<UnitType>,
@@ -164,8 +152,8 @@ impl RandomAI {
         }
     }
 }
-impl AI for RandomAI {
-    fn take_turn(&mut self, game: &mut PlayerGameControl) {
+impl Player for RandomAI {
+    fn take_turn(&mut self, game: &mut Game) {
         while game.production_set_requests().next().is_some() {
             let city_loc = game.production_set_requests().next().unwrap();
             let unit_type = self.unit_type_vec.choose(&mut rand::thread_rng()).unwrap();
@@ -174,9 +162,17 @@ impl AI for RandomAI {
 
         while game.unit_orders_requests().next().is_some() {
             let unit_id = game.unit_orders_requests().next().unwrap();
+            let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
+            let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
+            let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
+                let dest: Vec2d<i32> = (*dest).into();
+                let vec: Vec2d<i32> = dest - src;
+                Direction::try_from(vec).ok()
+            }).collect();
 
+            let direction = possible_dirs.choose(&mut rand::thread_rng()).unwrap();
 
-            
+            game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
         }
     }
 }

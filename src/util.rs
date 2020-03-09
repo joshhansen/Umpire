@@ -146,7 +146,7 @@ impl <T:fmt::Display> fmt::Display for Vec2d<T> {
     }
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Eq,PartialEq)]
 pub enum Direction {
     Up,
     Down,
