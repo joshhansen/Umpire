@@ -298,7 +298,7 @@ impl Game {
         Game::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 
-    pub(crate) fn new_with_map(map: MapData, num_players: PlayerNum,
+    pub fn new_with_map(map: MapData, num_players: PlayerNum,
         fog_of_war: bool, unit_namer: Rc<RefCell<dyn Namer>>,
         wrapping: Wrap2d) -> Self {
             let player_types: Vec<PlayerType> = (0..num_players).map(|_player_num| PlayerType::Human).collect();
@@ -307,7 +307,7 @@ impl Game {
                                                     unit_namer, wrapping)
     }
 
-    pub(crate) fn new_with_map_and_player_types(map: MapData, player_types: &[PlayerType],
+    pub fn new_with_map_and_player_types(map: MapData, player_types: &[PlayerType],
             fog_of_war: bool, unit_namer: Rc<RefCell<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
@@ -315,12 +315,6 @@ impl Game {
         for player_num in 0..player_types.len() {
             player_observations.insert(player_num, ObsTracker::new(map.dims()));
         }
-
-        // log.log_message(format!("Starting new game with {} players, grid size {}, and fog of war {}",
-        //                         num_players,
-        //                         map.dims(),
-        //                         if fog_of_war {"on"} else {"off"}
-        // ));
 
         let mut game = Game {
             map,
@@ -406,26 +400,49 @@ impl Game {
     /// Begin a new turn
     /// 
     /// Returns the results of any pending orders carried out
-    fn begin_turn(&mut self) -> TurnStart {
-        self.propose_begin_turn().take(self)
-    }
+    // fn begin_turn(&mut self) -> TurnStart {
+    //     self.propose_begin_turn().take(self)
+    // }
 
-    /// Begin a new turn, but only simulate the orders following. These can be made real using `ProposedAction::take`.
-    fn propose_begin_turn(&mut self) -> ProposedTurnStart {
+    fn begin_turn(&mut self) -> TurnStart {
         let production_outcomes = self.produce_units();
 
         self.refresh_moves_remaining();
 
         self.update_current_player_observations();
 
-        let proposed_orders_results = self.propose_following_pending_orders();
+        let orders_results = self.follow_pending_orders();
 
-        ProposedTurnStart {
+        TurnStart {
             turn: self.turn,
             current_player: self.current_player,
-            proposed_orders_results,
+            orders_results,
             production_outcomes,
         }
+    }
+
+    /// Begin a new turn, but only simulate the orders following. These can be made real using `ProposedAction::take`.
+    // fn propose_begin_turn(&mut self) -> ProposedTurnStart {
+    //     let production_outcomes = self.produce_units();
+
+    //     self.refresh_moves_remaining();
+
+    //     self.update_current_player_observations();
+
+    //     let proposed_orders_results = self.propose_following_pending_orders();
+
+    //     ProposedTurnStart {
+    //         turn: self.turn,
+    //         current_player: self.current_player,
+    //         proposed_orders_results,
+    //         production_outcomes,
+    //     }
+    // }
+
+    fn propose_begin_turn(&self) -> (Self,TurnStart) {
+        let mut new = self.clone();
+        let turn_start = new.begin_turn();
+        (new, turn_start)
     }
 
     pub fn turn_is_done(&self) -> bool {
@@ -494,19 +511,38 @@ impl Game {
         }
     }
 
-    pub fn propose_end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
-        if self.turn_is_done() {
-            self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+    // pub fn propose_end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
+    //     if self.turn_is_done() {
+    //         self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
-            self.current_player = (self.current_player + 1) % self.num_players();
-            if self.current_player == 0 {
-                self.turn += 1;
+    //         self.current_player = (self.current_player + 1) % self.num_players();
+    //         if self.current_player == 0 {
+    //             self.turn += 1;
+    //         }
+
+    //         Ok(self.propose_begin_turn())
+    //     } else {
+    //         Err(self.current_player)
+    //     }
+    // }
+
+    pub fn propose_end_turn(&self) -> (Self,Result<TurnStart,PlayerNum>) {
+        let mut new = self.clone();
+
+        let result = if new.turn_is_done() {
+            new.player_observations.get_mut(&new.current_player()).unwrap().archive();
+
+            new.current_player = (new.current_player + 1) % new.num_players();
+            if new.current_player == 0 {
+                new.turn += 1;
             }
 
-            Ok(self.propose_begin_turn())
+            Ok(new.begin_turn())
         } else {
-            Err(self.current_player)
-        }
+            Err(new.current_player)
+        };
+
+        (new,result)
     }
 
     /// Register the current observations of current player units
