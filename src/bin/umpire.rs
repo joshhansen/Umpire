@@ -10,7 +10,10 @@ use core::cell::RefCell;
 
 use std::{
     io::{BufRead,BufReader,Write,stdout},
-    rc::Rc,
+    sync::{
+        Arc,
+        RwLock,
+    },
     thread,
     time::{Duration,SystemTime},
 };
@@ -20,7 +23,13 @@ use clap::{Arg, App};
 use umpire::{
     color::{Palette, palette16, palette256, palette24},
     conf,
-    game::{Game,PlayerNum,PlayerType},
+    game::{
+        Game,
+        PlayerNum,
+        PlayerType,
+        ai::RandomAI,
+        player::Player,
+    },
     name::{city_namer,unit_namer},
     ui,
     util::{
@@ -99,18 +108,18 @@ fn main() {
             .long("nosplash")
             .help("Don't show the splash screen")
         )
-        .arg(Arg::with_name("players")
-            .short("p")
-            .long("players")
-            .help("Number of human players")
-            .takes_value(true)
-            .required(true)
-            .default_value(conf::NUM_PLAYERS)
-            .validator(|s| {
-                let players: Result<PlayerNum,_> = s.trim().parse();
-                players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
-            })
-        )
+        // .arg(Arg::with_name("players")
+        //     .short("p")
+        //     .long("players")
+        //     .help("Number of human players")
+        //     .takes_value(true)
+        //     .required(true)
+        //     .default_value(conf::NUM_PLAYERS)
+        //     .validator(|s| {
+        //         let players: Result<PlayerNum,_> = s.trim().parse();
+        //         players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
+        //     })
+        // )
         .arg(Arg::with_name("players")
             .short("p")
             .long("players")
@@ -225,7 +234,14 @@ fn main() {
     let city_namer = city_namer();
     let unit_namer = unit_namer();
 
-    let game = Game::new(map_dims, city_namer, num_players, fog_of_war, Rc::new(RefCell::new(unit_namer)), wrapping);
+    let game = Game::new(
+        map_dims,
+        city_namer,
+        player_types.len(),
+        fog_of_war,
+        Arc::new(RefCell::new(unit_namer)),
+        wrapping,
+    );
 
     if !nosplash {
         let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();
@@ -235,29 +251,85 @@ fn main() {
         }
     }
 
-    match color_depth {
+    let palette = match color_depth {
         16 | 256 => {
-            let palette: Palette = match color_depth {
+            match color_depth {
                 16 => palette16(),
                 256 => palette256(),
-                _ => unreachable!()
-            };
-            run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end);
-
-        },
-        24 => {
-            match palette24(num_players, fog_darkness) {
-                Ok(palette) => run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
-                Err(err) => eprintln!("Error loading truecolor palette: {}", err)
+                x => panic!("Unsupported color depth {}", x)
             }
         },
-        x => eprintln!("Unsupported color palette {}", x)
-    }
-}
+        24 => {
+            palette24(num_players, fog_darkness).expect(format!("Error loading truecolor palette").as_str())
+            // match palette24(num_players, fog_darkness) {
+            //     Ok(palette) => run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
+            //     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
+            // }
+        },
+        x => panic!("Unsupported color depth {}", x)
+    };
 
-fn run_ui(game: Game, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
-    confirm_turn_end: bool) {
-    if let Err(msg) = ui::run(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
+    // Initialize players and AI
+
+    let mut human_players = Vec::new();
+    let mut ai_players = Vec::new();
+    let mut ais: Vec<Box<RefCell<dyn Player>>> = Vec::new();
+
+    for (pnum, ptype) in player_types.iter().enumerate() {
+        match ptype {
+            PlayerType::Human => {
+                human_players.push(pnum);
+            },
+            PlayerType::Random => {
+                ai_players.push(pnum);
+                ais.push(Box::new(RefCell::new(RandomAI::new())));
+
+            },
+        }
+    }
+
+    let game = Arc::new(RwLock::new(game));
+
+    let ai_thread_handle = thread::Builder::new().name("AI".to_string()).spawn(move || {
+        'outer: loop {
+            for idx in 0..ai_players.len() {
+                let player = ai_players[idx];
+                if {
+                    let game = game.read().unwrap()
+                    game.victor().is_some()
+                } {
+                    break 'outer;
+                }
+
+                let ai = ais[idx];
+
+                let game = game.write().unwrap();
+                let ctrl = game.player_turn_control(player);
+                ai.borrow().play(ctrl);
+            }
+        }
+    }).unwrap();
+
+
+
+    // let ui_thread_handle = thread::Builder::new().name("UI".to_string()).spawn(move || {
+    if let Err(msg) = ui::run(game, human_players, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
         eprintln!("Error running UI: {}", msg);
     }
+
+    ai_thread_handle.join();
+
+    // });
+
+    // run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end);
+
+    // pub fn play(mut game: Game, players: Vec<Box<RefCell<dyn Player>>>) {
+    // play(game, players);
 }
+
+// fn run_ui(game: Game, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
+//     confirm_turn_end: bool) {
+//     if let Err(msg) = ui::run(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
+//         eprintln!("Error running UI: {}", msg);
+//     }
+// }

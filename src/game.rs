@@ -9,6 +9,7 @@ pub mod combat;
 pub mod map;
 pub mod move_;
 pub mod obs;
+pub mod player;
 pub mod unit;
 
 use core::cell::RefCell;
@@ -17,6 +18,11 @@ use std::{
     collections::{BTreeSet,HashMap,HashSet},
     fmt,
     rc::Rc,
+    sync::{
+        Arc,
+        Condvar,
+        Mutex,
+    },
 };
 
 use failure::{
@@ -27,7 +33,7 @@ use crate::{
     color::{Colors,Colorized},
     game::{
         city::{CityID,City},
-        combat::{CombatCapable},
+        combat::CombatCapable,
         map::{
             MapData,
             NewUnitError,
@@ -71,6 +77,14 @@ use crate::{
     },
 };
 
+pub use self::player::{
+    PlayerCommand,
+    PlayerNum,
+    PlayerTurnControl,
+    PlayerType,
+    TurnPlayer,
+};
+
 use self::move_::{
     MoveComponent,
     MoveError,
@@ -90,43 +104,6 @@ pub trait ProposedAction {
 }
 
 pub type TurnNum = u32;
-
-pub type PlayerNum = usize;
-
-#[derive(Clone)]
-pub enum PlayerType {
-    Human,
-    Random,
-}
-
-impl PlayerType {
-    pub fn values() -> [Self; 2] {
-        [Self::Human, Self::Random]
-    }
-
-    pub fn desc(&self) -> &str {
-        match self {
-            Self::Human => "human",
-            Self::Random => "random",
-        }
-    }
-
-    /// The character used to specify this variant on the command line
-    pub fn spec_char(&self) -> char {
-        match self {
-            Self::Human => 'h',
-            Self::Random => 'r',
-        }
-    }
-
-    pub fn from_spec_char(c: char) -> Result<Self,String> {
-        match c {
-            'h' => Ok(Self::Human),
-            'r' => Ok(Self::Random),
-            _ => Err(format!("'{}' does not correspond to a player type", c))
-        }
-    }
-}
 
 #[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
 pub enum Alignment {
@@ -212,7 +189,7 @@ impl ProposedAction for ProposedTurnStart {
     }
 }
 
-#[derive(Debug,Fail)]
+#[derive(Debug,Fail,PartialEq)]
 pub enum GameError {
     #[fail(display = "No unit with ID {:?} exists", id)]
     NoSuchUnit { id: UnitID },
@@ -265,16 +242,24 @@ pub struct Game {
     turn: TurnNum,
 
     /// Specification of who is human and who is what kind of robot
-    player_types: Vec<PlayerType>,
+    // players: Vec<Option<Rc<RefCell<dyn Player>>>>,
+    num_players: PlayerNum,
+    // player_types: Vec<PlayerType>,
+    // players: Vec<Rc<Receiver<PlayerCommand>>>,
 
     /// The player that is currently the player right now
-    current_player: PlayerNum,
+    /// 
+    /// Stored in a mutex to facilitate shared control of the game state by the UI and any AIs
+    current_player: Arc<Mutex<PlayerNum>>,
+
+    /// Conditional variable used to signal when the current player changes
+    current_player_condvar: Arc<Condvar>,
 
     /// The wrapping policy for the game---can you loop around the map vertically, horizontally, or both?
     wrapping: Wrap2d,
 
     /// A name generator to give names to units
-    unit_namer: Rc<RefCell<dyn Namer>>,
+    unit_namer: Arc<RefCell<dyn Namer>>,
 
     /// Whether players have full information about the map, or have their knowledge obscured by the "fog of war".
     fog_of_war: bool,
@@ -290,38 +275,51 @@ impl Game {
             map_dims: Dims,
             mut city_namer: ListNamer,
             num_players: PlayerNum,
+            // player_types: Vec<PlayerType>,
+            // players: Vec<Rc<Receiver<PlayerCommand>>>,
             fog_of_war: bool,
-            unit_namer: Rc<RefCell<dyn Namer>>,
+            unit_namer: Arc<RefCell<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
         let map = generate_map(&mut city_namer, map_dims, num_players);
-        Game::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
+        Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 
-    pub fn new_with_map(map: MapData, num_players: PlayerNum,
-        fog_of_war: bool, unit_namer: Rc<RefCell<dyn Namer>>,
-        wrapping: Wrap2d) -> Self {
-            let player_types: Vec<PlayerType> = (0..num_players).map(|_player_num| PlayerType::Human).collect();
+    // pub fn new_with_map(
+    //         map: MapData,
+    //         num_players: PlayerNum,
+    //         fog_of_war: bool,
+    //         unit_namer: Rc<RefCell<dyn Namer>>,
+    //         wrapping: Wrap2d) -> Self {
 
-            Self::new_with_map_and_player_types(map, player_types.as_slice(), fog_of_war,
-                                                    unit_namer, wrapping)
-    }
+    //     let player_types: Vec<PlayerType> = (0..num_players).map(|_player_num| PlayerType::Human).collect();
+    //     // let players: Vec<Option<Rc<RefCell<dyn Player>>>> = (0..num_players).map(|_player_num| None).collect();
 
-    pub fn new_with_map_and_player_types(map: MapData, player_types: &[PlayerType],
-            fog_of_war: bool, unit_namer: Rc<RefCell<dyn Namer>>,
+    //     Self::new_with_map_and_players(map, player_types, fog_of_war, unit_namer, wrapping)
+    // }
+
+    // pub fn new_with_map_and_players(
+    pub fn new_with_map(
+            map: MapData,
+            // player_types: Vec<PlayerType>,
+            // players: Vec<Rc<Receiver<PlayerCommand>>>,
+            num_players: PlayerNum,
+            fog_of_war: bool,
+            unit_namer: Arc<RefCell<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
         let mut player_observations = HashMap::new();
-        for player_num in 0..player_types.len() {
+        for player_num in 0..num_players {
             player_observations.insert(player_num, ObsTracker::new(map.dims()));
         }
 
-        let mut game = Game {
+        let mut game = Self {
             map,
             player_observations,
             turn: 0,
-            player_types: player_types.iter().cloned().collect(),
-            current_player: 0,
+            num_players,
+            current_player: Arc::new(Mutex::new(0)),
+            current_player_condvar: Arc::new(Condvar::new()),
             wrapping,
             unit_namer,
             fog_of_war,
@@ -332,7 +330,20 @@ impl Game {
     }
 
     pub fn num_players(&self) -> PlayerNum {
-        self.player_types.len()
+        // self.players.len()
+        self.num_players
+        // self.player_types.len()
+    }
+
+    pub fn player_turn_control(&mut self, player: PlayerNum) -> PlayerTurnControl {
+        // self.current_player_condvar.wait_until(self.current_player.lock().unwrap(), |current_player| *current_player == player).unwrap();
+        // (*self.current_player_condvar).wait_while(self.current_player.lock().unwrap(), |current_player| *current_player != player).unwrap();
+        while self.current_player() != player {
+            self.current_player_condvar.wait(self.current_player.lock().unwrap()).unwrap();
+        }
+
+        PlayerTurnControl::new(self)
+        
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
@@ -397,6 +408,10 @@ impl Game {
         self.current_player_units_deep_mutate(|unit: &mut Unit| unit.refresh_moves_remaining());
     }
 
+    // fn current_player_type(&self) -> PlayerType {
+    //     self.player_types[self.current_player]
+    // }
+
     /// Begin a new turn
     /// 
     /// Returns the results of any pending orders carried out
@@ -415,7 +430,7 @@ impl Game {
 
         TurnStart {
             turn: self.turn,
-            current_player: self.current_player,
+            current_player: self.current_player(),
             orders_results,
             production_outcomes,
         }
@@ -481,6 +496,24 @@ impl Game {
         None
     }
 
+    fn _end_turn(&mut self) -> Result<(),PlayerNum> {
+        if self.turn_is_done() {
+            self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+            
+            let mut current_player = self.current_player.lock();
+            let current_player = current_player.as_mut().unwrap();
+
+            **current_player = (**current_player + 1) % self.num_players();
+            if **current_player == 0 {
+                self.turn += 1;
+            }
+
+            Ok(())
+        } else {
+            Err(self.current_player())
+        }
+    }
+
     /// End the current human player's turn and begin the next human player's turn
     ///
     /// Returns the number of the now-current player.
@@ -500,15 +533,23 @@ impl Game {
         if self.turn_is_done() {
             self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
-            self.current_player = (self.current_player + 1) % self.num_players();
-            if self.current_player == 0 {
-                self.turn += 1;
-            }
+            self._inc_current_player();
 
             Ok(self.begin_turn())
         } else {
-            Err(self.current_player)
+            Err(self.current_player())
         }
+    }
+
+    fn _inc_current_player(&mut self) {
+        let mut current_player = self.current_player.lock().unwrap();
+
+        *current_player = (*current_player + 1) % self.num_players();
+        if *current_player == 0 {
+            self.turn += 1;
+        }
+
+        self.current_player_condvar.notify_all();
     }
 
     // pub fn propose_end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
@@ -528,28 +569,32 @@ impl Game {
 
     pub fn propose_end_turn(&self) -> (Self,Result<TurnStart,PlayerNum>) {
         let mut new = self.clone();
+        let result = new.end_turn();
+        (new, result)
 
-        let result = if new.turn_is_done() {
-            new.player_observations.get_mut(&new.current_player()).unwrap().archive();
+        // let result = if new.turn_is_done() {
+        //     new.player_observations.get_mut(&new.current_player()).unwrap().archive();
 
-            new.current_player = (new.current_player + 1) % new.num_players();
-            if new.current_player == 0 {
-                new.turn += 1;
-            }
+        //     // new.current_player = (new.current_player + 1) % new.num_players();
+        //     // if new.current_player == 0 {
+        //     //     new.turn += 1;
+        //     // }
+        //     new._inc_current_player();
 
-            Ok(new.begin_turn())
-        } else {
-            Err(new.current_player)
-        };
+        //     Ok(new.begin_turn())
+        // } else {
+        //     Err(new.current_player())
+        // };
 
-        (new,result)
+        // (new,result)
     }
 
     /// Register the current observations of current player units
     /// 
     /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
     fn update_current_player_observations(&mut self) {
-        let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+        let current_player = self.current_player();
+        let obs_tracker = self.player_observations.get_mut(&current_player).unwrap();
 
         for loc in self.map.dims().iter_locs() {
             let tile = self.map.tile(loc).unwrap();
@@ -560,7 +605,7 @@ impl Game {
                 
                 if let Some(ref city) = tile.city {
                     if let Alignment::Belligerent{player} = city.alignment {
-                        if player==self.current_player {
+                        if player==current_player {
                             city.observe(&self.map, self.turn, self.wrapping, obs_tracker);
                         }
                     }
@@ -568,7 +613,7 @@ impl Game {
 
                 if let Some(ref unit) = tile.unit {
                     if let Alignment::Belligerent{player} = unit.alignment {
-                        if player==self.current_player {
+                        if player==current_player {
                             unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
                         }
                     }
@@ -605,7 +650,7 @@ impl Game {
     }
 
     pub fn current_player_observations(&self) -> &ObsTracker {
-        self.player_observations.get(&self.current_player).unwrap()
+        self.player_observations.get(&self.current_player()).unwrap()
     }
 
     // fn current_player_observations_mut(&mut self) -> &mut ObsTracker {
@@ -614,17 +659,17 @@ impl Game {
 
     /// Every city controlled by the current player
     pub fn current_player_cities(&self) -> impl Iterator<Item=&City> {
-        self.map.player_cities(self.current_player)
+        self.map.player_cities(self.current_player())
     }
 
     /// All cities controlled by the current player which have a production target set
     pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item=&City> {
-        self.map.player_cities_with_production_target(self.current_player)
+        self.map.player_cities_with_production_target(self.current_player())
     }
 
     /// All cities controlled by the current player which have a production target set, mutably
     fn current_player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
-        self.map.player_cities_with_production_target_mut(self.current_player)
+        self.map.player_cities_with_production_target_mut(self.current_player())
     }
 
     /// Mutate all units controlled by the current player according to the callback `callback`
@@ -644,17 +689,33 @@ impl Game {
 
     /// Every unit controlled by the current player
     pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
-        self.map.player_units(self.current_player)
+        self.map.player_units(self.current_player())
     }
 
     /// Every unit controlled by the current player, mutably
     fn current_player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
-        self.map.player_units_mut(self.current_player)
+        self.map.player_units_mut(self.current_player())
     }
 
     /// If the current player controls a city at location `loc`, return it
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
+    }
+
+    /// If the current player controls a city at location `loc`, return it mutably
+    pub fn current_player_city_by_loc_mut(&mut self, loc: Location) -> Option<&mut City> {
+        let current_player = self.current_player();
+        self.map.city_by_loc_mut(loc).filter(|city| city.alignment == Alignment::Belligerent{player: current_player})
+    }
+
+    /// If the current player controls a city with ID `city_id`, return it
+    pub fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City> {
+        self.current_player_cities().find(|city| city.id==city_id)
+    }
+
+    /// If the current player controls a city with ID `city_id`, return it mutably
+    pub fn current_player_city_by_id_mut(&mut self, city_id: CityID) -> Option<&mut City> {
+        self.map.player_cities_mut(self.current_player()).find(|city| city.id==city_id)
     }
 
     /// If the current player controls a unit with ID `id`, return it
@@ -688,14 +749,14 @@ impl Game {
     }
 
     pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
-        self.map.player_cities_lacking_production_target(self.current_player).map(|city| city.loc)
+        self.map.player_cities_lacking_production_target(self.current_player()).map(|city| city.loc)
     }
 
     /// Which if the current player's units need orders?
     /// 
     /// In other words, which of the current player's units have no orders and have moves remaining?
     pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
-        self.map.player_units_deep(self.current_player)
+        self.map.player_units_deep(self.current_player())
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
             .map(|unit| unit.id)
     }
@@ -774,8 +835,8 @@ impl Game {
         self.move_unit_by_id(id, dest)
     }
 
-    pub fn move_unit_by_id(&mut self, id: UnitID, dest: Location) -> MoveResult {
-        self.propose_move_unit_by_id(id, dest).map(|proposed_move| proposed_move.take(self))
+    pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
+        self.propose_move_unit_by_id(unit_id, dest).map(|proposed_move| proposed_move.take(self))
     }
 
     pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
@@ -1003,17 +1064,22 @@ impl Game {
         }
     }
 
-    //FIXME Restrict to current player cities
-    pub fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
-        if let Some(city) = self.map.city_by_loc_mut(loc) {
-            city.set_production(production);
-            Ok(())
-        } else {
-            Err(format!(
-                "Attempted to set production for city at location {} but there is no city at that location",
-                loc
-            ))
-        }
+    /// Sets the production of the current player's city at location `loc` to `production`.
+    /// 
+    /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
+    pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<(),GameError> {
+        let city = self.current_player_city_by_loc_mut(loc).ok_or_else(|| GameError::NoCityAtLocation{loc})?;
+        city.set_production(production);
+        Ok(())
+    }
+
+    /// Sets the production of the current player's city with ID `city_id` to `production`.
+    /// 
+    /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
+    pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<(),GameError> {
+        let city = self.current_player_city_by_id_mut(city_id).ok_or_else(|| GameError::NoSuchCity{id: city_id})?;
+        city.set_production(production);
+        Ok(())
     }
 
     //FIXME Restrict to current player cities
@@ -1047,7 +1113,7 @@ impl Game {
     }
 
     pub fn current_player(&self) -> PlayerNum {
-        self.current_player
+        *self.current_player.lock().unwrap()
     }
 
     /// The logical dimensions of the game map
@@ -1075,15 +1141,15 @@ impl Game {
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    pub fn order_unit_sentry(&mut self, id: UnitID) -> OrdersResult {
+    pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Sentry;
 
-        self.current_player_unit_by_id_mut(id)
+        self.current_player_unit_by_id_mut(unit_id)
             .map(|unit| {        
                 unit.orders = Some(orders);
-                OrdersOutcome::completed_without_move(id, orders)
+                OrdersOutcome::completed_without_move(unit_id, orders)
             })
-            .ok_or(OrdersError::OrderedUnitDoesNotExist{id, orders})
+            .ok_or(OrdersError::OrderedUnitDoesNotExist{id: unit_id, orders})
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
@@ -1111,7 +1177,7 @@ impl Game {
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
     pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
-        let current_player = self.current_player;
+        let current_player = self.current_player();
         if let Some(unit) = self.current_player_toplevel_unit_by_loc_mut(loc) {
             if unit.belongs_to_player(current_player) {
                 unit.orders = None;
@@ -1240,7 +1306,7 @@ pub mod test_support {
 
     use core::cell::RefCell;
 
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use crate::{
         game::{
@@ -1328,7 +1394,7 @@ pub mod test_support {
  
         let map = map1();
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Rc::new(RefCell::new(unit_namer)), Wrap2d::BOTH)
+        Game::new_with_map(map, players, fog_of_war, Arc::new(RefCell::new(unit_namer)), Wrap2d::BOTH)
     }
 
     pub(crate) fn game_two_cities() -> Game {
@@ -1337,19 +1403,19 @@ pub mod test_support {
  
         let map = map1();
         let unit_namer = unit_namer();
-        let mut game = Game::new_with_map(map, players, fog_of_war, Rc::new(RefCell::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, players, fog_of_war, Arc::new(RefCell::new(unit_namer)), Wrap2d::BOTH);
 
         let loc: Location = game.production_set_requests().next().unwrap();
 
         // println!("Setting production at {:?} to infantry", loc);
-        game.set_production(loc, UnitType::Infantry).unwrap();
+        game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
 
         let player = game.end_turn().unwrap().current_player;
         assert_eq!(player, 1);
 
         let loc: Location = game.production_set_requests().next().unwrap();
         // println!("Setting production at {:?} to infantry", loc);
-        game.set_production(loc, UnitType::Infantry).unwrap();
+        game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
 
         let player = game.end_turn().unwrap().current_player;
         assert_eq!(player, 0);
@@ -1380,7 +1446,7 @@ mod test {
 
     use std::{
         convert::TryFrom,
-        rc::Rc,
+        sync::Arc,
     };
 
     use crate::{
@@ -1463,15 +1529,15 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(map, 2, false, Rc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
-        assert_eq!(game.current_player, 0);
+        let mut game = Game::new_with_map(map, 2, false, Arc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
+        assert_eq!(game.current_player(), 0);
 
         let productions = vec![UnitType::Armor, UnitType::Carrier];
         let players = vec![1, 0];
 
         for i in 0..2 {
             let loc: Location = game.production_set_requests().next().unwrap();
-            assert_eq!(game.set_production(loc, productions[i]), Ok(()));
+            assert_eq!(game.set_production_by_loc(loc, productions[i]), Ok(()));
 
             let result = game.end_turn();
             assert!(result.is_ok());
@@ -1536,7 +1602,7 @@ mod test {
 
                     // Since the armor defeated the city, set its production so we can end the turn
                     let conquered_city = move_result.conquered_city().unwrap();
-                    let production_set_result = game.set_production(conquered_city.loc, UnitType::Fighter);
+                    let production_set_result = game.set_production_by_loc(conquered_city.loc, UnitType::Fighter);
                     assert_eq!(production_set_result, Ok(()));
                 }
 
@@ -1568,7 +1634,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, Rc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc, infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
@@ -1580,7 +1646,7 @@ mod test {
     fn test_set_orders() {
         let unit_namer = IntNamer::new("abc");
         let map = MapData::try_from("i").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, Rc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
         assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, None);
@@ -1595,7 +1661,7 @@ mod test {
     pub fn test_order_unit_explore() {
         let unit_namer = IntNamer::new("unit");
         let map = MapData::try_from("i--------------------").unwrap();
-        let mut game = Game::new_with_map(map, 1, true, Rc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, true, Arc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
         

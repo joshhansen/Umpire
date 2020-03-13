@@ -10,41 +10,79 @@ pub mod name;
 pub mod ui;
 pub mod util;
 
-use crate::{
-    game::{
-        Game,
-        unit::{
-            UnitID,
-            UnitType,
-        },
+// use std::sync::mpsc::{
+//     Sender,
+//     channel,
+// };
+
+// use crate::{
+//     game::{
+//         Game,
+//         GameError,
+//         city::CityID,
+//         move_::MoveResult,
+//         unit::{
+//             UnitID,
+//             UnitType,
+//             orders::{
+//                 Orders,
+//                 OrdersResult,
+//             },
+//         },
+//     },
+//     util::{
+//         Direction,
+//         Location,
+//     },
+// };
+
+
+
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{
+        Arc,
+        RwLock,
     },
-    util::Location,
 };
 
-// pub struct PlayerGameControl<'a> {
+use self::game::Game;
+
+
+
+pub use self::game::player::{
+    PlayerTurnControl,
+    TurnPlayer,
+};
+
+pub use self::game::player::Player;
+
+// struct GamePlayerFixture<'a> {
 //     game: &'a mut Game,
+//     players: Vec<Box<RefCell<dyn Player>>>,
 // }
-// impl <'a> PlayerGameControl<'a> {
-//     fn unit_orders_requests<'b>(&'b self) -> impl Iterator<Item=UnitID> + 'b {
-//         self.game.unit_orders_requests()
+// impl <'a> GamePlayerFixture<'a> {
+//     fn new(game: &'a mut Game, players: Vec<Box<RefCell<dyn Player>>>) -> Self {
+//         Self { game, players }
 //     }
 
-//     fn production_set_requests<'b>(&'b self) -> impl Iterator<Item=Location> + 'b {
-//         self.game.production_set_requests()
-//     }
-
-//     fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
-//         self.game.set_production(loc, production)
-//     }
+//     fn play()
 // }
 
-pub trait Player {
-    // fn move_unit(&mut self, unit_id: UnitID, game: &PlayerGameView) -> Direction;
-    
-    // fn set_production(&mut self, city_id: CityID, game: &PlayerGameView) -> UnitType;
 
-    fn take_turn(&mut self, game: &mut Game);
-}
+// pub fn play(game: Arc<RwLock<Game>>, players: Vec<Box<RefCell<dyn Player>>>) {
+//     while {
+//         let game = game.read();
+//         game.unwrap().victor().is_none()
+//     } {
+//         for player in &players {
+//             let mut game = game.write();
+//             let game = game.as_mut().unwrap();
+//             player.borrow_mut().play(game);
+//         }
+//     }
+// }
 
 pub(crate) mod test_support {
     pub(crate) use crate::game::test_support::{

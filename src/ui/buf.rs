@@ -14,7 +14,7 @@ use crossterm::{
 
 use crate::{
     color::Palette,
-    game::Game,
+    game::player::PlayerTurnControl,
     ui::Draw,
     util::Rect
 };
@@ -93,7 +93,7 @@ impl RectBuffer {
 }
 
 impl Draw for RectBuffer {
-    fn draw_no_flush(&mut self, _game: &Game, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(&mut self, _game: &PlayerTurnControl, stdout: &mut Stdout, _palette: &Palette) {
         for dirty_row_idx in &self.dirty_rows {
             self._draw_row(*dirty_row_idx, stdout);
         }

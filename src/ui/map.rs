@@ -19,10 +19,10 @@ use crate::{
     color::{Colors,Colorized,Palette},
     game::{
         AlignedMaybe,
-        Game,
         city::City,
         map::{LocationGrid,Tile},
         obs::Obs,
+        player::PlayerTurnControl,
         unit::{
             orders::Orders,
             Unit,
@@ -226,11 +226,11 @@ impl Map {
 
     /// If the viewport location given is within the currently visible view and a map location corresponds thereto,
     /// return the map location; otherwise return None.
-    pub fn viewport_to_map_coords(&self, game: &Game, viewport_loc: Location) -> Option<Location> {
+    pub fn viewport_to_map_coords(&self, game: &PlayerTurnControl, viewport_loc: Location) -> Option<Location> {
         self.viewport_to_map_coords_by_offset(game, viewport_loc, self.viewport_offset)
     }
 
-    fn viewport_to_map_coords_by_offset(&self, game: &Game, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
+    fn viewport_to_map_coords_by_offset(&self, game: &PlayerTurnControl, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
         if self.viewport_dims().contain(viewport_loc) {
             let offset = Vec2d{ x: offset.x as i32, y: offset.y as i32 };
             return game.wrapping().wrapped_add(game.dims(), viewport_loc, offset);
@@ -272,7 +272,7 @@ impl Map {
     ///
     /// Flushes stdout for convenience
     pub fn draw_tile_and_flush(&mut self,
-            game: &Game,
+            game: &PlayerTurnControl,
             stdout: &mut Stdout,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
@@ -298,7 +298,7 @@ impl Map {
 
     /// Renders a particular location in the viewport
     pub fn draw_tile_no_flush(&mut self,
-            game: &Game,
+            game: &PlayerTurnControl,
             stdout: &mut Stdout,
             viewport_loc: Location,
             highlight: bool,// Highlighting as for a cursor
@@ -420,7 +420,7 @@ impl Map {
         // stdout.flush().unwrap();
     }
 
-    pub fn current_player_tile<'a>(&self, game: &'a Game, viewport_loc: Location) -> Option<&'a Tile> {
+    pub fn current_player_tile<'a>(&self, game: &'a PlayerTurnControl, viewport_loc: Location) -> Option<&'a Tile> {
         // let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
         // game.current_player_tile(tile_loc)
         self.viewport_to_map_coords(game, viewport_loc).and_then(|map_loc| game.current_player_tile(map_loc))
@@ -448,7 +448,7 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, _palette: &Palette) {
         
         for viewport_loc in self.viewport_dims().iter_locs() {
 
@@ -592,8 +592,8 @@ mod test {
     fn _test_viewport_to_map_coords(map_dims: Dims, palette: Rc<Palette>) {
         // pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
 
-        let game = game1();
-        
+        let mut game = game1();
+        let ctrl = game.player_turn_control(0);
 
         let rect = Rect{
             left: 0,
@@ -605,11 +605,11 @@ mod test {
 
         // fn viewport_to_map_coords_by_offset(&self, game: &Game, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
 
-        assert_eq!(map.viewport_to_map_coords(&game, Location::new(0,0)), Some(Location::new(0,0)));
+        assert_eq!(map.viewport_to_map_coords(&ctrl, Location::new(0,0)), Some(Location::new(0,0)));
 
         map.set_viewport_offset(Vec2d{x: 5, y: 6});
 
-        assert_eq!(map.viewport_to_map_coords(&game, Location::new(0,0)), Some(Location::new(5,6)));
+        assert_eq!(map.viewport_to_map_coords(&ctrl, Location::new(0,0)), Some(Location::new(5,6)));
 
         
 

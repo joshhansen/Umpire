@@ -17,7 +17,7 @@ use crossterm::{
 
 use crate::{
     color::{Colors,Palette},
-    game::Game,
+    game::player::PlayerTurnControl,
     log::{
         LogTarget,
         Message,
@@ -111,7 +111,7 @@ impl LogTarget for LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw_no_flush(&mut self, _game: &Game, stdout: &mut Stdout, palette: &Palette) {
+    fn draw_no_flush(&mut self, _game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
         // write!(*stdout,
         //     "{}{}Message Log{}",
         //     self.goto(0, 0),

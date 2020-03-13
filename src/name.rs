@@ -10,7 +10,6 @@ use flate2::read::GzDecoder;
 use rand::{
     thread_rng,
     prelude::SliceRandom,
-    rngs::ThreadRng,
     distributions::{
         Distribution,
         uniform::{
@@ -21,7 +20,7 @@ use rand::{
 };
 
 /// Something that generates names.
-pub trait Namer {
+pub trait Namer: Send {
     fn name(&mut self) -> String;
 }
 
@@ -69,14 +68,14 @@ impl Namer for ListNamer {
 /// Generate names by sampling from a weighted distribution of names.
 pub struct WeightedNamer<N:Default+SampleUniform> {
     cumulatively_weighted_names: Vec<CumWeight<String,N>>,
-    sample_range: Uniform<N>,
-    rng: ThreadRng
+    // sample_range: Uniform<N>,
+    // rng: ThreadRng
 }
 impl <N: Copy+Default+PartialOrd+SampleUniform> WeightedNamer<N> {
     pub fn new(cumulatively_weighted_names: Vec<CumWeight<String,N>>) -> Self {
         // let total_weight = weighted_names.iter().fold(0, |acc, &weighted| acc + weighted.weight);
-        let zero: N = Default::default();
-        let weight_range = Uniform::new_inclusive(zero, cumulatively_weighted_names[cumulatively_weighted_names.len()-1].cum_weight);
+        // let zero: N = Default::default();
+        // let weight_range = Uniform::new_inclusive(zero, cumulatively_weighted_names[cumulatively_weighted_names.len()-1].cum_weight);
 
         // let mut cumulatively_weighted_names
         // WeightedNamer {
@@ -88,15 +87,17 @@ impl <N: Copy+Default+PartialOrd+SampleUniform> WeightedNamer<N> {
             // weighted_names_dist: choice,
             // weighted_names: weighted_names,
             cumulatively_weighted_names,
-            sample_range: weight_range,
-            rng: thread_rng()
+            // sample_range: weight_range,
+            // rng: thread_rng()
         }
     }
 }
-impl <N: Default+PartialOrd+SampleUniform> Namer for WeightedNamer<N> {
+impl <N: Copy+Default+PartialOrd+SampleUniform+Send> Namer for WeightedNamer<N> {
     fn name(&mut self) -> String {
         // self.weighted_names_dist.ind_sample(&mut self.rng)
-        let x = self.sample_range.sample(&mut self.rng);
+        let zero: N = Default::default();
+        let sample_range = Uniform::new_inclusive(zero, self.cumulatively_weighted_names[self.cumulatively_weighted_names.len()-1].cum_weight);
+        let x = sample_range.sample(&mut rand::thread_rng());
         for cumulatively_weighted_name in &self.cumulatively_weighted_names {
             if cumulatively_weighted_name.cum_weight >= x {
                 return cumulatively_weighted_name.item.clone();

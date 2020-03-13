@@ -1,4 +1,6 @@
-use std::convert::TryFrom;
+use std::{
+    convert::TryFrom,
+};
 
 use crossterm::event::KeyCode;
 
@@ -6,10 +8,13 @@ use crate::{
     color::Colors,
     game::{
         AlignedMaybe,
-        Game,
         GameError,
         ProposedAction,
         map::Tile,
+        player::{
+            PlayerTurnControl,
+            ProposedActionWrapper,
+        },
         unit::orders::ProposedSetAndFollowOrders,
         unit::UnitID,
     },
@@ -30,6 +35,7 @@ use super::{
     IMode,
     KeyStatus,
     Mode,
+    ModeStatus,
     StateDisposition,
 };
 
@@ -47,19 +53,19 @@ impl ExamineMode {
             first,
         }
     }
-    fn clean_up(&self, game: &Game, ui: &mut TermUI) {
+    fn clean_up(&self, game: &PlayerTurnControl, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
         map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, 
             None, None, None, None);
     }
 
     /// The tile visible to the current player under the examine cursor, if any
-    fn current_player_tile<'a>(&'a self, game: &'a Game, ui: &TermUI) -> Option<&'a Tile> {
+    fn current_player_tile<'a>(&'a self, game: &'a PlayerTurnControl, ui: &TermUI) -> Option<&'a Tile> {
         let map = &ui.map_scroller.scrollable;
         map.current_player_tile(game, self.cursor_viewport_loc)
     }
 
-    fn draw_tile<'a>(&'a self, game: &'a Game, ui: &mut TermUI) {
+    fn draw_tile<'a>(&'a self, game: &'a PlayerTurnControl, ui: &mut TermUI) {
         let map = &mut ui.map_scroller.scrollable;
         map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, 
             None, None, None, None);
@@ -74,7 +80,8 @@ impl ExamineMode {
     }
 }
 impl IMode for ExamineMode {
-    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+
         self.draw_tile(game, ui);
 
         let description = {
@@ -113,7 +120,7 @@ impl IMode for ExamineMode {
                             if city.belongs_to_player(game.current_player()) {
                                 *mode = Mode::SetProduction{city_loc:city.loc};
                                 self.clean_up(game, ui);
-                                return true;
+                                return ModeStatus::Continue;
                             }
                         }
 
@@ -126,7 +133,7 @@ impl IMode for ExamineMode {
                                     Ok(()) => {
                                         ui.log_message(format!("Activated unit {}", unit));
                                         *mode = Mode::GetUnitOrders { unit_id: unit.id, first_move: true };
-                                        return true;
+                                        return ModeStatus::Continue;
                                     },
                                     Err(GameError::NoUnitAtLocation{..}) => {
                                         // The unit we had must have been a stale observation since we can't find it now.
@@ -145,9 +152,9 @@ impl IMode for ExamineMode {
 
                         let dest = ui.map().viewport_to_map_coords(game, self.cursor_viewport_loc).unwrap();
 
-                        let proposed_outcome: ProposedSetAndFollowOrders = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
+                        let proposed_outcome: ProposedActionWrapper<ProposedSetAndFollowOrders> = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
 
-                        match proposed_outcome.proposed_orders_result {
+                        match proposed_outcome.item.proposed_orders_result {
                             Ok(ref proposed_orders_outcome) => {
 
                                 if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
@@ -166,7 +173,7 @@ impl IMode for ExamineMode {
 
                         // We need to actually take the action contemplated for bookkeeping reasons
                         // Make sure the outcome of actually running it is the same as expected
-                        let error_expected = proposed_outcome.proposed_orders_result.is_err();
+                        let error_expected = proposed_outcome.item.proposed_orders_result.is_err();
                         match proposed_outcome.take(game) {
                             Ok(_) => {
                                 debug_assert!(!error_expected);
@@ -179,7 +186,7 @@ impl IMode for ExamineMode {
                         *mode = Mode::TurnResume;
 
                         self.clean_up(game, ui);
-                        return true;
+                        return ModeStatus::Continue;
                     }
                 } else if let KeyCode::Char(c) = key.code {
                     if let Ok(dir) = Direction::try_from(c) {
@@ -201,12 +208,12 @@ impl IMode for ExamineMode {
                 }
 
                 self.clean_up(game, ui);
-                true
+                ModeStatus::Continue
             },
             KeyStatus::Handled(state_disposition) => {
                 match state_disposition {
-                    StateDisposition::Quit => false,
-                    StateDisposition::Next | StateDisposition::Stay => true
+                    StateDisposition::Quit => ModeStatus::Quit,
+                    StateDisposition::Next | StateDisposition::Stay => ModeStatus::Continue,
                 }
             }
         }

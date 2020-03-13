@@ -5,7 +5,7 @@ use crossterm::event::{
 use crate::{
     conf,
     game::{
-        Game,
+        player::PlayerTurnControl,
         unit::UnitType,
     },
     log::{LogTarget,Message,MessageSource},
@@ -24,6 +24,7 @@ use super::{
     IVisibleMode,
     KeyStatus,
     Mode,
+    ModeStatus,
     StateDisposition,
     COL_WIDTH,
 };
@@ -52,7 +53,7 @@ impl SetProductionMode {
         row
     }
 
-    fn write_buf(&self, game: &Game, ui: &mut TermUI) {
+    fn write_buf(&self, game: &PlayerTurnControl, ui: &mut TermUI) {
         let tile = &game.current_player_tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
@@ -75,7 +76,7 @@ impl SetProductionMode {
 }
 
 impl IMode for SetProductionMode {
-    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
         ui.map_scroller.scrollable.center_viewport(self.loc);
 
         ui.play_sound(Sounds::Silence);
@@ -100,7 +101,7 @@ impl IMode for SetProductionMode {
                 KeyStatus::Unhandled(key) => {
                     if let KeyCode::Char(c) = key.code {
                         if let Some(unit_type) = UnitType::from_key(c) {
-                            game.set_production(self.loc, unit_type).unwrap();
+                            game.set_production_by_loc(self.loc, unit_type).unwrap();
 
                             let city = &game.current_player_city_by_loc(self.loc).unwrap();
                             ui.log_message(Message {
@@ -116,7 +117,7 @@ impl IMode for SetProductionMode {
                             Self::clear_buf(ui);
 
                             *mode = Mode::TurnResume;
-                            return true;
+                            return ModeStatus::Continue;
                         } else if c == conf::KEY_NO_PRODUCTION {
                             
                             if game.player_cities_producing_or_not_ignored() <= 1 {
@@ -136,14 +137,14 @@ impl IMode for SetProductionMode {
                             }
 
                             *mode = Mode::TurnResume;
-                            return true;
+                            return ModeStatus::Continue;
                         }
                     }
                 },
                 KeyStatus::Handled(state_disposition) => {
                     match state_disposition {
-                        StateDisposition::Quit => return false,
-                        StateDisposition::Next => return true,
+                        StateDisposition::Quit => return ModeStatus::Quit,
+                        StateDisposition::Next => return ModeStatus::Continue,
                         StateDisposition::Stay => {}
                     }
                 }

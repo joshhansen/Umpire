@@ -1,3 +1,8 @@
+use std::sync::{
+    Arc,
+    RwLock,
+};
+
 use crossterm::event::{
     KeyCode,
     KeyEvent,
@@ -8,6 +13,7 @@ use crate::{
     game::{
         Game,
         PlayerNum,
+        player::PlayerTurnControl,
         unit::UnitID,
     },
     ui::{
@@ -55,15 +61,16 @@ pub(in crate::ui) enum Mode {
 
 impl Mode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    pub fn run(&mut self, game: &mut Game, ui: &mut TermUI, prev_mode: &mut Option<Mode>) -> bool {
+    pub fn run(&mut self, game: &mut PlayerTurnControl, ui: &mut TermUI, prev_mode: &mut Option<Mode>) -> ModeStatus {
 
         if let Mode::Victory{..} = self {
             // nothing
         } else if let Some(victor) = game.victor() {
             *prev_mode = Some(*self);
             *self = Mode::Victory{victor};
-            return true;
+            return ModeStatus::Continue;
         }
+        
         
 
         let continue_ = match *self {
@@ -94,6 +101,26 @@ impl Mode {
     }
 }
 
+/// The outcome of running a mode
+/// 
+/// Says whether we keep going in this user's turn, move to the next user's turn, or quit the game
+/// 
+/// FIXME: Why is this separate from StateDisposition?
+#[derive(PartialEq)]
+pub enum ModeStatus {
+    /// Continue to the next mode
+    Continue,
+
+    /// End the current player's turn
+    TurnOver,
+
+    /// Quit the game
+    Quit,
+}
+
+/// What the handling of a key event means about how state transitions should proceed
+/// 
+/// FIXME: Why is this separate from ModeStatus?
 #[derive(PartialEq)]
 enum StateDisposition {
     Stay,
@@ -108,9 +135,9 @@ enum KeyStatus {
 
 trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, prev_mode: &Option<Mode>) -> bool;
+    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, prev_mode: &Option<Mode>) -> ModeStatus;
 
-    fn get_key(&self, game: &Game, ui: &mut TermUI, mode: &mut Mode) -> KeyStatus {
+    fn get_key(&self, game: &PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode) -> KeyStatus {
         let key = ui.get_key();
         if let KeyCode::Char(c) = key.code {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {

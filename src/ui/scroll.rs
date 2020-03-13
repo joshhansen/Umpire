@@ -12,7 +12,7 @@ use crossterm::{
 };
 
 use crate::color::{Colors,Palette};
-use crate::game::Game;
+use crate::game::player::PlayerTurnControl;
 use crate::ui::{Component,Draw};
 use crate::util::{Dims,Rect,Vec2d};
 
@@ -46,7 +46,7 @@ impl<S:ScrollableComponent> Scroller<S> {
         (f32::from(self.rect.height)  * (f32::from(self.scrollable.offset().y) / f32::from(map_height))) as u16
     }
 
-    fn draw_scroll_bars(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
+    fn draw_scroll_bars(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(game.dims().width);
         let h_scroll_y = viewport_rect.bottom();
@@ -113,7 +113,7 @@ impl<S:ScrollableComponent> Scroller<S> {
 }
 
 impl<S:ScrollableComponent> Draw for Scroller<S> {
-    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
         self.draw_scroll_bars(game, stdout, palette);
         self.scrollable.draw_no_flush(game, stdout, palette);
     }

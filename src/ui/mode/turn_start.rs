@@ -1,5 +1,5 @@
 use crate::{
-    game::Game,
+    game::player::PlayerTurnControl,
     log::{LogTarget,Message,MessageSource},
     ui::{
         Draw,
@@ -10,11 +10,12 @@ use crate::{
 use super::{
     IMode,
     Mode,
+    ModeStatus,
 };
 
 pub(in crate::ui) struct TurnStartMode {}
 impl IMode for TurnStartMode {
-    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
         ui.current_player.draw(game, &mut ui.stdout, &ui.palette);
 
         // A newline for spacing
@@ -30,6 +31,6 @@ impl IMode for TurnStartMode {
 
         *mode = Mode::TurnResume;
 
-        true
+        ModeStatus::Continue
     }
 }

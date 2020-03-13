@@ -6,11 +6,17 @@
 
 use std::{
     io::{Stdout,Write,stdout},
-    rc::Rc,
-    sync::mpsc::{
-        channel,
-        Receiver,
-        Sender,
+    rc::{
+        Rc,
+    },
+    sync::{
+        Arc,
+        RwLock,
+        mpsc::{
+            Receiver,
+            Sender,
+            channel,
+        },
     },
     thread,
 };
@@ -52,12 +58,14 @@ use crate::{
     },
     game::{
         Game,
+        PlayerNum,
         combat::{CombatCapable,CombatOutcome,CombatParticipant},
         move_::{
             Move,
             ProposedMove,
         },
         obs::LocatedObs,
+        player::PlayerTurnControl,
     },
     log::{LogTarget,Message,MessageSource},
     util::{Dims,Rect,Location,sleep_millis}
@@ -69,10 +77,11 @@ use self::{
         Sounds,
     },
     buf::RectBuffer,
+    mode::ModeStatus,
     sym::Sym,
 };
 
-pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
+pub fn run(game: Arc<RwLock<Game>>, human_players: Vec<PlayerNum>, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
     confirm_turn_end: bool
 ) -> Result<(),String> {
     // {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
@@ -169,8 +178,13 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
     let (width, height) = terminal_size().map_err(|error_kind| format!("{}", error_kind))?;
     let term_dims = Dims { width, height };
 
+    let map_dims = {
+        let game = game.read().unwrap();
+        game.dims()
+    };
+
     let mut ui = TermUI::new(
-        game.dims(),
+        map_dims,
         term_dims,
         stdout,
         palette,
@@ -183,8 +197,14 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
     let mut prev_mode: Option<Mode> = None;
     let mut mode = self::mode::Mode::TurnStart;
 
-    while mode.run(&mut game, &mut ui, &mut prev_mode) {
-        // nothing here
+    loop {
+        for human_player in &human_players {
+            let mut game = game.write().unwrap();
+            let mut ctrl = game.player_turn_control(*human_player);
+            while mode.run(&mut ctrl, &mut ui, &mut prev_mode) == ModeStatus::Continue {
+                // nothing here
+            }
+        }
     }
 
     if use_alt_screen {
@@ -208,8 +228,8 @@ pub fn run(mut game: Game, use_alt_screen: bool, palette: Palette, unicode: bool
 
 pub trait MoveAnimator {
     #[deprecated = "Use `animate_proposed_move` instead. We want to animate based on the proposal and then actually take the action defined by the move so the game state doesn't reflect the move yet, since it's easier to work relative to the prior game state."]
-    fn animate_move(&mut self, game: &Game, move_result: &Move);
-    fn animate_proposed_move(&mut self, game: &mut Game, proposed_move: &ProposedMove);
+    fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move);
+    fn animate_proposed_move(&mut self, game: &mut PlayerTurnControl, proposed_move: &ProposedMove);
 }
 
 pub trait UI : LogTarget + MoveAnimator {
@@ -229,11 +249,11 @@ impl LogTarget for DefaultUI {
 }
 
 impl MoveAnimator for DefaultUI {
-    fn animate_move(&mut self, _game: &Game, _move_result: &Move) {
+    fn animate_move(&mut self, _game: &PlayerTurnControl, _move_result: &Move) {
         // do nothing
     }
 
-    fn animate_proposed_move(&mut self, _game: &mut Game, _proposed_move: &ProposedMove) {
+    fn animate_proposed_move(&mut self, _game: &mut PlayerTurnControl, _proposed_move: &ProposedMove) {
         // do nothing
     }
 }
@@ -243,11 +263,11 @@ impl UI for DefaultUI {
 }
 
 trait Draw {
-    fn draw(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette) {
+    fn draw(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
         self.draw_no_flush(game, stdout, palette);
         stdout.flush().unwrap();
     }
-    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, palette: &Palette);
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette);
 }
 
 trait Component : Draw {
@@ -467,13 +487,13 @@ impl TermUI {
         // }
     }
 
-    fn set_viewport_size(&mut self, game: &Game, viewport_size: ViewportSize) {
+    fn set_viewport_size(&mut self, game: &PlayerTurnControl, viewport_size: ViewportSize) {
         self.viewport_size = viewport_size;
         self.map_scroller.set_rect(self.viewport_size.rect(self.term_dims));
         self.draw(game);
     }
 
-    pub fn rotate_viewport_size(&mut self, game: &Game) {
+    pub fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) {
         let new_size = match self.viewport_size {
             ViewportSize::REGULAR => ViewportSize::THEATER,
             ViewportSize::THEATER => ViewportSize::FULLSCREEN,
@@ -484,12 +504,12 @@ impl TermUI {
         self.draw(game);
     }
 
-    fn draw(&mut self, game: &Game) {
+    fn draw(&mut self, game: &PlayerTurnControl) {
         self.draw_no_flush(game);
         self.stdout.flush().unwrap();
     }
 
-    fn draw_no_flush(&mut self, game: &Game) {
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl) {
         if self.first_draw {
             // write!(self.stdout, "{}{}{}{}",
             //     // termion::clear::All,
@@ -523,7 +543,7 @@ impl TermUI {
         ).unwrap();
     }
 
-    fn draw_located_observations(&mut self, game: &Game, located_obs: &[LocatedObs]) {
+    fn draw_located_observations(&mut self, game: &PlayerTurnControl, located_obs: &[LocatedObs]) {
         for located_obs in located_obs {
             if let Some(viewport_loc) = self.map_scroller.scrollable.map_to_viewport_coords(located_obs.loc) {
                 // let (city,unit) = if let Obs::Observed{ref tile,..} = located_obs.item {
@@ -540,7 +560,7 @@ impl TermUI {
 
     fn animate_combat<A:CombatCapable+Sym,D:CombatCapable+Sym>(
         &mut self,
-        game: &Game,
+        game: &PlayerTurnControl,
         outcome: &CombatOutcome<A,D>,
         attacker_loc: Location,
         defender_loc: Location) {
@@ -576,7 +596,7 @@ impl TermUI {
         self.viewport_size.rect(self.term_dims)
     }
 
-    fn cursor_viewport_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
+    fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
         let map = &self.map_scroller.scrollable;
 
         match *mode {
@@ -593,7 +613,7 @@ impl TermUI {
         self.map_scroller.scrollable.center_viewport_if_not_visible(map_loc);
     }
 
-    fn cursor_map_loc(&self, mode: &Mode, game: &Game) -> Option<Location> {
+    fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
         match *mode {
             Mode::SetProduction{city_loc} => Some(city_loc),
             Mode::GetUnitOrders{unit_id,..} => {
@@ -644,7 +664,7 @@ impl LogTarget for TermUI {
 }
 
 impl MoveAnimator for TermUI {
-    fn animate_move(&mut self, game: &Game, move_result: &Move) {
+    fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move) {
         let mut current_loc = move_result.starting_loc;
 
         self.ensure_map_loc_visible(current_loc);
@@ -698,7 +718,7 @@ impl MoveAnimator for TermUI {
         }
     }
 
-    fn animate_proposed_move(&mut self, game: &mut Game, proposed_move: &ProposedMove) {
+    fn animate_proposed_move(&mut self, game: &mut PlayerTurnControl, proposed_move: &ProposedMove) {
         let mut current_loc = proposed_move.0.starting_loc;
 
         self.ensure_map_loc_visible(current_loc);

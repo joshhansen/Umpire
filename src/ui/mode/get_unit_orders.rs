@@ -1,12 +1,17 @@
-use std::convert::TryFrom;
+use std::{
+    convert::TryFrom,
+};
 
 use crossterm::event::KeyCode;
 
 use crate::{
     conf::{self, key_desc},
     game::{
-        Game,
         ProposedAction,
+        player::{
+            PlayerTurnControl,
+            ProposedActionWrapper,
+        },
         unit::{
             UnitID,
             orders::ProposedSetAndFollowOrders,
@@ -27,6 +32,7 @@ use super::{
     IVisibleMode,
     KeyStatus,
     Mode,
+    ModeStatus,
     StateDisposition,
     cols,
 };
@@ -46,7 +52,7 @@ impl IVisibleMode for GetUnitOrdersMode {
     }
 }
 impl GetUnitOrdersMode {
-    fn write_buf(&self, game: &Game, ui: &mut TermUI) {
+    fn write_buf(&self, game: &PlayerTurnControl, ui: &mut TermUI) {
         let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
 
         let buf = ui.sidebar_buf_mut();
@@ -62,7 +68,9 @@ impl GetUnitOrdersMode {
     }
 }
 impl IMode for GetUnitOrdersMode {
-    fn run(&self, game: &mut Game, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> bool {
+    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+        
+
         let unit_loc = {
             let unit = {
                 let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
@@ -96,7 +104,7 @@ impl IMode for GetUnitOrdersMode {
 
                                 match game.propose_move_unit_by_id(self.unit_id, dest) {
                                     Ok(proposed_move) => {
-                                        ui.animate_proposed_move(game, &proposed_move);
+                                        ui.animate_proposed_move(game, &proposed_move.item);
 
                                         let move_ = proposed_move.take(game);
 
@@ -109,7 +117,7 @@ impl IMode for GetUnitOrdersMode {
                                         }
                                         
                                         Self::clear_buf(ui);
-                                        return true;
+                                        return ModeStatus::Continue;
 
                                     },
                                     Err(msg) => {
@@ -121,16 +129,16 @@ impl IMode for GetUnitOrdersMode {
                             game.order_unit_skip(self.unit_id).unwrap();
                             *mode = Mode::GetOrders;
                             Self::clear_buf(ui);
-                            return true;
+                            return ModeStatus::Continue;
                         } else if c == conf::KEY_SENTRY {
                             ui.log_message("Going sentry");
                             game.order_unit_sentry(self.unit_id).unwrap();
                             *mode = Mode::GetOrders;
                             Self::clear_buf(ui);
-                            return true;
+                            return ModeStatus::Continue;
                         } else if c == conf::KEY_EXPLORE {
-                            let proposed_outcome: ProposedSetAndFollowOrders = game.propose_order_unit_explore(self.unit_id);
-                            let proposed_orders_outcome = proposed_outcome.proposed_orders_result.as_ref().unwrap();
+                            let proposed_outcome: ProposedActionWrapper<ProposedSetAndFollowOrders> = game.propose_order_unit_explore(self.unit_id);
+                            let proposed_orders_outcome = proposed_outcome.item.proposed_orders_result.as_ref().unwrap();
                             if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
                                 ui.animate_proposed_move(game, &proposed_move);
                                 // proposed_move.take(game);
@@ -139,14 +147,14 @@ impl IMode for GetUnitOrdersMode {
                             proposed_outcome.take(game).unwrap();
 
                             *mode = Mode::GetOrders;
-                            return true;
+                            return ModeStatus::Continue;
                         }
                     }
                 },
                 KeyStatus::Handled(state_disposition) => {
                     match state_disposition {
-                        StateDisposition::Quit => return false,
-                        StateDisposition::Next => return true,
+                        StateDisposition::Quit => return ModeStatus::Quit,
+                        StateDisposition::Next => return ModeStatus::Continue,
                         StateDisposition::Stay => {}
                     }
                 }

@@ -10,7 +10,7 @@ use crossterm::{
 
 use crate::{
     color::Palette,
-    game::Game,
+    game::player::PlayerTurnControl,
     ui::{Component,Draw},
     util::Rect
 };
@@ -28,7 +28,7 @@ impl CurrentPlayer {
 }
 
 impl Draw for CurrentPlayer {
-    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, _palette: &Palette) {
         // write!(*stdout,
         //     "{}Current Player: {}  ",
         //     self.goto(0, 0),
@@ -59,7 +59,7 @@ impl Turn {
 }
 
 impl Draw for Turn {
-    fn draw_no_flush(&mut self, game: &Game, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, _palette: &Palette) {
         // write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
         queue!(*stdout, self.goto(0, 0), PrintStyledContent(style(format!("Turn: {}", game.turn())))).unwrap();
     }

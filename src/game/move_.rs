@@ -214,7 +214,7 @@ impl ProposedAction for ProposedMove {
 
         for move_component in move_.components.iter() {
             if move_component.moved_successfully() {
-                let obs_tracker = game.player_observations.get_mut(&game.current_player).unwrap();
+                let obs_tracker = game.player_observations.get_mut(&game.current_player()).unwrap();
                 unit.loc = move_component.loc;
                 unit.observe(&game.map, game.turn, game.wrapping, obs_tracker);
             }
