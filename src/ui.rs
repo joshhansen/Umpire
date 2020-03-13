@@ -197,12 +197,18 @@ pub fn run(game: Arc<RwLock<Game>>, human_players: Vec<PlayerNum>, use_alt_scree
     let mut prev_mode: Option<Mode> = None;
     let mut mode = self::mode::Mode::TurnStart;
 
-    loop {
+    'outer: loop {
         for human_player in &human_players {
             let mut game = game.write().unwrap();
-            let mut ctrl = game.player_turn_control(*human_player);
-            while mode.run(&mut ctrl, &mut ui, &mut prev_mode) == ModeStatus::Continue {
-                // nothing here
+            {
+                let mut ctrl = game.player_turn_control(*human_player);
+                while mode.run(&mut ctrl, &mut ui, &mut prev_mode) == ModeStatus::Continue {
+                    // nothing here
+                }
+            }
+
+            if game.victor().is_some() {
+                break 'outer;
             }
         }
     }

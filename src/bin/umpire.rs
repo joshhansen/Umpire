@@ -196,7 +196,7 @@ fn main() {
     .get_matches();
 
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
-    let player_types: Vec<PlayerType> = matches.value_of("ptypes").unwrap()
+    let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
         .chars()
         .map(|spec_char| PlayerType::from_spec_char(spec_char).expect(format!("'{}' is not a valid player type", spec_char).as_str()))
         .collect()
@@ -239,7 +239,7 @@ fn main() {
         city_namer,
         player_types.len(),
         fog_of_war,
-        Arc::new(RefCell::new(unit_namer)),
+        Arc::new(RwLock::new(unit_namer)),
         wrapping,
     );
 
@@ -290,34 +290,38 @@ fn main() {
 
     let game = Arc::new(RwLock::new(game));
 
-    let ai_thread_handle = thread::Builder::new().name("AI".to_string()).spawn(move || {
-        'outer: loop {
-            for idx in 0..ai_players.len() {
-                let player = ai_players[idx];
-                if {
-                    let game = game.read().unwrap()
-                    game.victor().is_some()
-                } {
-                    break 'outer;
+    
+    let ai_thread_handle = {
+        let game = Arc::clone(&game);
+        thread::Builder::new().name("AI".to_string()).spawn(move || {
+            'outer: loop {
+                for idx in 0..ai_players.len() {
+                    let player = ai_players[idx];
+                    if {
+                        let game = game.read().unwrap();
+                        game.victor().is_some()
+                    } {
+                        break 'outer;
+                    }
+
+                    let ai = ais.get(idx).unwrap();
+
+                    let mut game = game.write().unwrap();
+                    let ctrl = game.player_turn_control(player);
+                    ai.borrow_mut().play(ctrl);
                 }
-
-                let ai = ais[idx];
-
-                let game = game.write().unwrap();
-                let ctrl = game.player_turn_control(player);
-                ai.borrow().play(ctrl);
             }
-        }
-    }).unwrap();
+        }).unwrap()
+    };
 
 
 
     // let ui_thread_handle = thread::Builder::new().name("UI".to_string()).spawn(move || {
-    if let Err(msg) = ui::run(game, human_players, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
+    if let Err(msg) = ui::run(Arc::clone(&game), human_players, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
         eprintln!("Error running UI: {}", msg);
     }
 
-    ai_thread_handle.join();
+    ai_thread_handle.join().unwrap();
 
     // });
 

@@ -20,7 +20,7 @@ use rand::{
 };
 
 /// Something that generates names.
-pub trait Namer: Send {
+pub trait Namer: Send+Sync {
     fn name(&mut self) -> String;
 }
 
@@ -92,7 +92,7 @@ impl <N: Copy+Default+PartialOrd+SampleUniform> WeightedNamer<N> {
         }
     }
 }
-impl <N: Copy+Default+PartialOrd+SampleUniform+Send> Namer for WeightedNamer<N> {
+impl <N: Copy+Default+PartialOrd+SampleUniform+Send+Sync> Namer for WeightedNamer<N> {
     fn name(&mut self) -> String {
         // self.weighted_names_dist.ind_sample(&mut self.rng)
         let zero: N = Default::default();

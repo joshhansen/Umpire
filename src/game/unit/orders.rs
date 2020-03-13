@@ -501,9 +501,10 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
 }
 
 pub mod test_support {
-    use core::cell::RefCell;
-
-    use std::sync::Arc;
+    use std::sync::{
+        Arc,
+        RwLock,
+    };
 
     use crate::{
         game::{
@@ -536,7 +537,7 @@ pub mod test_support {
         let players: PlayerNum = 1;
         let map = generate_map(&mut city_namer, dims, players);
 
-        let mut game = Game::new_with_map(map, players, true, Arc::new(RefCell::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, players, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
 
         // Request a fighter to be produced
         let city_loc = game.production_set_requests().next().unwrap();
@@ -586,11 +587,12 @@ pub mod test_support {
 
 #[cfg(test)]
 pub mod test {
-    use core::cell::RefCell;
-
     use std::{
         convert::TryFrom,
-        sync::Arc,
+        sync::{
+            Arc,
+            RwLock,
+        },
     };
 
     use crate::{
@@ -628,7 +630,7 @@ pub mod test {
     #[test]
     fn test_go_to() {
         let map = MapData::try_from("i----------").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer())), Wrap2d::BOTH);
         
         let id = game.current_player_toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
 
@@ -684,7 +686,7 @@ pub mod test {
     //    pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> ProposedOrdersResult {
         let unit_namer = IntNamer::new("abc");
         let map = MapData::try_from("i--------------------").unwrap();
-        let game = Game::new_with_map(map, 1, true, Arc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
+        let game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 

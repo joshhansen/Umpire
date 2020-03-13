@@ -12,16 +12,14 @@ pub mod obs;
 pub mod player;
 pub mod unit;
 
-use core::cell::RefCell;
-
 use std::{
     collections::{BTreeSet,HashMap,HashSet},
     fmt,
-    rc::Rc,
     sync::{
         Arc,
         Condvar,
         Mutex,
+        RwLock,
     },
 };
 
@@ -259,7 +257,7 @@ pub struct Game {
     wrapping: Wrap2d,
 
     /// A name generator to give names to units
-    unit_namer: Arc<RefCell<dyn Namer>>,
+    unit_namer: Arc<RwLock<dyn Namer>>,
 
     /// Whether players have full information about the map, or have their knowledge obscured by the "fog of war".
     fog_of_war: bool,
@@ -278,7 +276,7 @@ impl Game {
             // player_types: Vec<PlayerType>,
             // players: Vec<Rc<Receiver<PlayerCommand>>>,
             fog_of_war: bool,
-            unit_namer: Arc<RefCell<dyn Namer>>,
+            unit_namer: Arc<RwLock<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
         let map = generate_map(&mut city_namer, map_dims, num_players);
@@ -305,7 +303,7 @@ impl Game {
             // players: Vec<Rc<Receiver<PlayerCommand>>>,
             num_players: PlayerNum,
             fog_of_war: bool,
-            unit_namer: Arc<RefCell<dyn Namer>>,
+            unit_namer: Arc<RwLock<dyn Namer>>,
             wrapping: Wrap2d) -> Self {
 
         let mut player_observations = HashMap::new();
@@ -336,10 +334,11 @@ impl Game {
     }
 
     pub fn player_turn_control(&mut self, player: PlayerNum) -> PlayerTurnControl {
-        // self.current_player_condvar.wait_until(self.current_player.lock().unwrap(), |current_player| *current_player == player).unwrap();
-        // (*self.current_player_condvar).wait_while(self.current_player.lock().unwrap(), |current_player| *current_player != player).unwrap();
-        while self.current_player() != player {
-            self.current_player_condvar.wait(self.current_player.lock().unwrap()).unwrap();
+        {
+            let mut current_player = self.current_player.lock().unwrap();
+            while *current_player != player {
+                current_player = self.current_player_condvar.wait(current_player).unwrap();
+            }
         }
 
         PlayerTurnControl::new(self)
@@ -368,7 +367,10 @@ impl Game {
                 (city.loc, city.alignment, unit_under_production)
             };
 
-            let name = self.unit_namer.borrow_mut().name();
+            let name = {
+                let mut namer = self.unit_namer.write().unwrap();
+                namer.name()
+            };
 
             // Attempt to create the new unit
 
@@ -1304,9 +1306,10 @@ impl Source<Obs> for Game {
 /// Test support functions
 pub mod test_support {
 
-    use core::cell::RefCell;
-
-    use std::sync::Arc;
+    use std::sync::{
+        Arc,
+        RwLock,
+    };
 
     use crate::{
         game::{
@@ -1394,7 +1397,7 @@ pub mod test_support {
  
         let map = map1();
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Arc::new(RefCell::new(unit_namer)), Wrap2d::BOTH)
+        Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH)
     }
 
     pub(crate) fn game_two_cities() -> Game {
@@ -1403,7 +1406,7 @@ pub mod test_support {
  
         let map = map1();
         let unit_namer = unit_namer();
-        let mut game = Game::new_with_map(map, players, fog_of_war, Arc::new(RefCell::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
 
         let loc: Location = game.production_set_requests().next().unwrap();
 
@@ -1442,11 +1445,12 @@ pub mod test_support {
 
 #[cfg(test)]
 mod test {
-    use core::cell::RefCell;
-
     use std::{
         convert::TryFrom,
-        sync::Arc,
+        sync::{
+            Arc,
+            RwLock,
+        },
     };
 
     use crate::{
@@ -1529,7 +1533,7 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(map, 2, false, Arc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 2, false, Arc::new(RwLock::new(unit_namer())), Wrap2d::BOTH);
         assert_eq!(game.current_player(), 0);
 
         let productions = vec![UnitType::Armor, UnitType::Carrier];
@@ -1634,7 +1638,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RefCell::new(unit_namer())), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer())), Wrap2d::BOTH);
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc, infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
@@ -1646,7 +1650,7 @@ mod test {
     fn test_set_orders() {
         let unit_namer = IntNamer::new("abc");
         let map = MapData::try_from("i").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
         assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, None);
@@ -1661,7 +1665,7 @@ mod test {
     pub fn test_order_unit_explore() {
         let unit_namer = IntNamer::new("unit");
         let map = MapData::try_from("i--------------------").unwrap();
-        let mut game = Game::new_with_map(map, 1, true, Arc::new(RefCell::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
         
