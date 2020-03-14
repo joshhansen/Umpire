@@ -7,7 +7,6 @@ use crossterm::event::KeyCode;
 use crate::{
     conf::{self, key_desc},
     game::{
-        ProposedAction,
         player::{
             PlayerTurnControl,
             ProposedActionWrapper,

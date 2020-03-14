@@ -440,11 +440,11 @@ impl Game {
     //     }
     // }
 
-    fn propose_begin_turn(&self) -> (Self,TurnStart) {
-        let mut new = self.clone();
-        let turn_start = new.begin_turn();
-        (new, turn_start)
-    }
+    // fn propose_begin_turn(&self) -> (Self,TurnStart) {
+    //     let mut new = self.clone();
+    //     let turn_start = new.begin_turn();
+    //     (new, turn_start)
+    // }
 
     pub fn turn_is_done(&self) -> bool {
         self.production_set_requests().next().is_none() && self.unit_orders_requests().next().is_none()
@@ -1204,13 +1204,13 @@ impl Game {
             .collect()
     }
 
-    fn propose_following_pending_orders(&mut self) -> Vec<ProposedOrdersResult> {
-        let pending_orders: Vec<UnitID> = self.units_with_pending_orders().collect();
+    // fn propose_following_pending_orders(&mut self) -> Vec<ProposedOrdersResult> {
+    //     let pending_orders: Vec<UnitID> = self.units_with_pending_orders().collect();
 
-        pending_orders.iter()
-            .map(|unit_id| self.propose_following_unit_orders(*unit_id))
-            .collect()
-    }
+    //     pending_orders.iter()
+    //         .map(|unit_id| self.propose_following_unit_orders(*unit_id))
+    //         .collect()
+    // }
 
     /// Make the unit with ID `id` under the current player's control follow its orders
     /// 
@@ -1230,10 +1230,10 @@ impl Game {
         result
     }
 
-    fn propose_following_unit_orders(&mut self, id: UnitID) -> ProposedOrdersResult {
-        let orders = self.current_player_unit_by_id(id).unwrap().orders.as_ref().unwrap();
-        orders.propose(id, self)
-    }
+    // fn propose_following_unit_orders(&mut self, id: UnitID) -> ProposedOrdersResult {
+    //     let orders = self.current_player_unit_by_id(id).unwrap().orders.as_ref().unwrap();
+    //     orders.propose(id, self)
+    // }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
     fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedSetAndFollowOrders {

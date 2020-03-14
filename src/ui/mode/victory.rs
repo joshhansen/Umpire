@@ -18,7 +18,6 @@ use super::{
     IMode,
     Mode,
     ModeStatus,
-    StateDisposition,
 };
 
 pub(in crate::ui) struct VictoryMode {
@@ -35,7 +34,9 @@ impl IMode for VictoryMode {
         });
         ui.log.draw(game, &mut ui.stdout, &ui.palette);// this will flush
 
-        let result = self.get_key(game, ui, mode);
+        // Wait for a keypress
+        self.get_key(game, ui, mode);
+        
         ModeStatus::Quit 
     }
 }

@@ -1,11 +1,8 @@
 use std::{
     collections::{
-        HashMap,
         HashSet,
     },
     convert::TryFrom,
-    iter::FromIterator,
-    sync::mpsc::Sender,
 };
 
 use rand::seq::SliceRandom;
@@ -37,22 +34,12 @@ use rsrl_domains::{
 use crate::{
     game::{
         Alignment,
-        Game,
         PlayerNum,
-        city::CityID,
-        map::{
-            terrain::Terrain,
-            tile::Tile,
-        },
         player::{
-            Player,
-            PlayerCommand,
             PlayerTurnControl,
-            TurnPlayer,
             TurnTaker,
         },
         unit::{
-            UnitEssentials,
             UnitID,
             UnitType,
         },

@@ -16,7 +16,7 @@ use crate::{
             UnitID,Unit,
         },
     },
-    util::{Dims,Location},
+    util::Location,
 };
 
 pub type MoveResult = Result<Move,MoveError>;
@@ -320,4 +320,3 @@ pub enum MoveError {
         // bounds: Dims,
     }
 }
-

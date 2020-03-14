@@ -21,7 +21,6 @@ use crate::{
             MoveError,
             MoveResult,
             ProposedMove,
-            ProposedMoveResult,
         },
         obs::{
             Obs,
@@ -32,7 +31,6 @@ use crate::{
             UnitID,
             UnitType,
             orders::{
-                OrdersOutcome,
                 OrdersResult,
                 ProposedSetAndFollowOrders,
             },

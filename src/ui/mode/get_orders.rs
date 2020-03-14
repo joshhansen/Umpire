@@ -1,8 +1,3 @@
-use std::sync::{
-    Arc,
-    RwLock,
-};
-
 use crate::{
     game::player::PlayerTurnControl,
     ui::TermUI,

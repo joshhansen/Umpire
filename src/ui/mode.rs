@@ -1,8 +1,3 @@
-use std::sync::{
-    Arc,
-    RwLock,
-};
-
 use crossterm::event::{
     KeyCode,
     KeyEvent,
@@ -11,7 +6,6 @@ use crossterm::event::{
 use crate::{
     conf,
     game::{
-        Game,
         PlayerNum,
         player::PlayerTurnControl,
         unit::UnitID,
@@ -70,8 +64,6 @@ impl Mode {
             *self = Mode::Victory{victor};
             return ModeStatus::Continue;
         }
-        
-        
 
         let continue_ = match *self {
             Mode::TurnStart =>          TurnStartMode{}.run(game, ui, self, prev_mode),
@@ -141,7 +133,7 @@ trait IMode {
         let key = ui.get_key();
         if let KeyCode::Char(c) = key.code {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
-                ui.map_scroller.scrollable.scroll_relative(dir.vec2d());
+                ui.map_scroller.scrollable.scroll_relative(dir.into());
                 ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
                 return KeyStatus::Handled(StateDisposition::Stay);
             }

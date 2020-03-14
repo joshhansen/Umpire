@@ -9,7 +9,6 @@ use crate::{
     game::{
         AlignedMaybe,
         GameError,
-        ProposedAction,
         map::Tile,
         player::{
             PlayerTurnControl,
@@ -200,7 +199,7 @@ impl IMode for ExamineMode {
                             // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport
                             // such that the cursor will still be at its edge
 
-                            ui.map_scroller.scrollable.shift_viewport(dir.vec2d());
+                            ui.map_scroller.scrollable.shift_viewport(dir.into());
                             ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
                             // Don't change `mode` since we'll basically pick up where we left off
                         }
