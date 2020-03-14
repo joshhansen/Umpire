@@ -68,6 +68,11 @@ harness = false
 path = "benches/propose.rs"
 
 [[bench]]
+name = "random_ai"
+harness = false
+path = "benches/random_ai.rs"
+
+[[bench]]
 name = "wrapping"
 harness = false
 path = "benches/wrapping.rs"
