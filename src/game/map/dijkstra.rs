@@ -455,6 +455,14 @@ pub fn neighbors_iter<'a, T, F, N, S>(tiles: &'a S, loc: Location, rel_neighbs: 
                    .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
 }
 
+pub fn neighbors_iter_owned_filter<'a, T, F, N, S>(tiles: &'a S, loc: Location, rel_neighbs: N,
+                                 filter: F, wrapping: Wrap2d) -> impl Iterator<Item=Location> + 'a
+    where F:Filter<T>+'a, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>>+'a {
+
+        rel_neighbs.filter_map(move |rel_neighb| wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb))
+                   .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
+}
+
 struct UnitTypeFilter {
     unit_type: UnitType
 }
@@ -475,6 +483,13 @@ pub fn neighbors_terrain_only<T:Source<Tile>>(tiles: &T, loc: Location, unit_typ
 /// such).
 pub fn neighbors_unit_could_move_to<T:Source<Tile>>(tiles: &T, unit: &Unit, wrapping: Wrap2d) -> HashSet<Location> {
     neighbors(tiles, unit.loc, RELATIVE_NEIGHBORS.iter(), &UnitMovementFilter{unit}, wrapping)
+}
+
+pub fn neighbors_unit_could_move_to_iter<'a, T:Source<Tile>>(tiles: &'a T, unit: &'a Unit, wrapping: Wrap2d) -> impl Iterator<Item=Location> + 'a {
+    let loc = unit.loc;
+    let neighb_iter = RELATIVE_NEIGHBORS.iter();
+    let filter = UnitMovementFilter{unit};
+    neighbors_iter_owned_filter(tiles, loc, neighb_iter, filter, wrapping)
 }
 
 #[derive(Eq,PartialEq)]

@@ -152,7 +152,7 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.victor()
     }
 
-    pub fn current_player_unit_legal_one_step_destinations(&self, unit_id: UnitID) -> Result<HashSet<Location>,GameError> {
+    pub fn current_player_unit_legal_one_step_destinations(&'a self, unit_id: UnitID) -> Result<impl Iterator<Item=Location>+'a,GameError> {
         self.game.current_player_unit_legal_one_step_destinations(unit_id)
     }
 

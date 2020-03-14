@@ -229,17 +229,9 @@ impl TurnTaker for RandomAI {
 
         let unit_orders_requests: Vec<UnitID> = game.unit_orders_requests().collect();
         for unit_id in unit_orders_requests {
-            let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
-            let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
-            let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
-                let dest: Vec2d<i32> = (*dest).into();
-                let vec: Vec2d<i32> = dest - src;
-                Direction::try_from(vec).ok()
-            }).collect();
-
-            let direction = possible_dirs.choose(&mut rng).unwrap();
-
-            game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
+            let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
+            let dest = possible.choose(&mut rng).unwrap();
+            game.move_unit_by_id(unit_id, *dest).unwrap();
         }
     }
 }

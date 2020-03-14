@@ -45,7 +45,7 @@ use crate::{
                 SourceMut,
                 UnitMovementFilter,
                 neighbors_terrain_only,
-                neighbors_unit_could_move_to,
+                neighbors_unit_could_move_to_iter,
                 shortest_paths
             },
         },
@@ -611,12 +611,12 @@ impl Game {
         }
     }
 
-    pub fn current_player_unit_legal_one_step_destinations(&self, unit_id: UnitID) -> Result<HashSet<Location>,GameError> {
+    pub fn current_player_unit_legal_one_step_destinations<'a>(&'a self, unit_id: UnitID) -> Result<impl Iterator<Item=Location>+'a,GameError> {
         let unit = self.current_player_unit_by_id(unit_id).ok_or_else(||
             GameError::NoSuchUnit { id: unit_id }
         )?;
 
-        Ok(neighbors_unit_could_move_to(&self.map, &unit, self.wrapping))
+        Ok(neighbors_unit_could_move_to_iter(&self.map, &unit, self.wrapping))
     }
 
     /// The current player's most recent observation of the tile at location `loc`, if any
