@@ -514,11 +514,7 @@ impl Game {
     /// At the end of a turn, production counts will be incremented.
     fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
         if self.turn_is_done() {
-            self.player_observations.get_mut(&self.current_player()).unwrap().archive();
-
-            self._inc_current_player();
-
-            Ok(self.begin_turn())
+            Ok(self.force_end_turn())
         } else {
             Err(self.current_player())
         }
@@ -529,6 +525,15 @@ impl Game {
         if self.current_player == 0 {
             self.turn += 1;
         }
+    }
+
+    /// End the turn without checking that the player has filled all production and orders requests.
+    fn force_end_turn(&mut self) -> TurnStart {
+        self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+
+        self._inc_current_player();
+
+        self.begin_turn()
     }
 
     // pub fn propose_end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {

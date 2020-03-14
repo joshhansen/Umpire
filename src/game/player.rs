@@ -369,10 +369,10 @@ impl <'a> PlayerTurnControl<'a> {
 
 /// If for whatever reason a careless user fails to end the turn, we do it for them so the game continues to advance.
 /// 
-/// FIXME: If they haven't met the conditions of turn end, there will be a panic
+/// This forces the turn to end regardless of the state of production and orders requests.
 impl <'a> Drop for PlayerTurnControl<'a> {
     fn drop(&mut self) {
-        self.game.end_turn().unwrap();
+        self.game.force_end_turn();
     }
 }
 
