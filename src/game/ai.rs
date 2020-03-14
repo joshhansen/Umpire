@@ -49,6 +49,7 @@ use crate::{
             PlayerCommand,
             PlayerTurnControl,
             TurnPlayer,
+            TurnTaker,
         },
         unit::{
             UnitEssentials,
@@ -158,53 +159,78 @@ impl RandomAI {
         }
     }
 }
-impl TurnPlayer for RandomAI {
-    // fn take_turn(&mut self, game: &mut Game) {
-    //     while game.production_set_requests().next().is_some() {
-    //         let city_loc = game.production_set_requests().next().unwrap();
-    //         let unit_type = self.unit_type_vec.choose(&mut rand::thread_rng()).unwrap();
-    //         game.set_production(city_loc, *unit_type).unwrap();
-    //     }
+// impl TurnPlayer for RandomAI {
+//     // fn take_turn(&mut self, game: &mut Game) {
+//     //     while game.production_set_requests().next().is_some() {
+//     //         let city_loc = game.production_set_requests().next().unwrap();
+//     //         let unit_type = self.unit_type_vec.choose(&mut rand::thread_rng()).unwrap();
+//     //         game.set_production(city_loc, *unit_type).unwrap();
+//     //     }
 
-    //     while game.unit_orders_requests().next().is_some() {
-    //         let unit_id = game.unit_orders_requests().next().unwrap();
-    //         let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
-    //         let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
-    //         let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
-    //             let dest: Vec2d<i32> = (*dest).into();
-    //             let vec: Vec2d<i32> = dest - src;
-    //             Direction::try_from(vec).ok()
-    //         }).collect();
+//     //     while game.unit_orders_requests().next().is_some() {
+//     //         let unit_id = game.unit_orders_requests().next().unwrap();
+//     //         let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
+//     //         let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
+//     //         let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
+//     //             let dest: Vec2d<i32> = (*dest).into();
+//     //             let vec: Vec2d<i32> = dest - src;
+//     //             Direction::try_from(vec).ok()
+//     //         }).collect();
 
-    //         let direction = possible_dirs.choose(&mut rand::thread_rng()).unwrap();
+//     //         let direction = possible_dirs.choose(&mut rand::thread_rng()).unwrap();
 
-    //         game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
-    //     }
-    // }
+//     //         game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
+//     //     }
+//     // }
 
-    // fn take_turn(&mut self, game: &Game, tx: &Sender<PlayerCommand>) {
-    //     while game.production_set_requests().next().is_some() {
-    //         let city_loc = game.production_set_requests().next().unwrap();
-    //         let unit_type = self.unit_type_vec.choose(&mut rand::thread_rng()).unwrap();
-    //         game.set_production(city_loc, *unit_type).unwrap();
-    //     }
+//     // fn take_turn(&mut self, game: &Game, tx: &Sender<PlayerCommand>) {
+//     //     while game.production_set_requests().next().is_some() {
+//     //         let city_loc = game.production_set_requests().next().unwrap();
+//     //         let unit_type = self.unit_type_vec.choose(&mut rand::thread_rng()).unwrap();
+//     //         game.set_production(city_loc, *unit_type).unwrap();
+//     //     }
 
-    //     while game.unit_orders_requests().next().is_some() {
-    //         let unit_id = game.unit_orders_requests().next().unwrap();
-    //         let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
-    //         let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
-    //         let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
-    //             let dest: Vec2d<i32> = (*dest).into();
-    //             let vec: Vec2d<i32> = dest - src;
-    //             Direction::try_from(vec).ok()
-    //         }).collect();
+//     //     while game.unit_orders_requests().next().is_some() {
+//     //         let unit_id = game.unit_orders_requests().next().unwrap();
+//     //         let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
+//     //         let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
+//     //         let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
+//     //             let dest: Vec2d<i32> = (*dest).into();
+//     //             let vec: Vec2d<i32> = dest - src;
+//     //             Direction::try_from(vec).ok()
+//     //         }).collect();
 
-    //         let direction = possible_dirs.choose(&mut rand::thread_rng()).unwrap();
+//     //         let direction = possible_dirs.choose(&mut rand::thread_rng()).unwrap();
 
-    //         game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
-    //     }
-    // }
+//     //         game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
+//     //     }
+//     // }
 
+//     fn take_turn(&mut self, game: &mut PlayerTurnControl) {
+//         while game.production_set_requests().next().is_some() {
+//             let city_loc = game.production_set_requests().next().unwrap();
+//             let unit_type = self.unit_type_vec.choose(&mut rand::thread_rng()).unwrap();
+//             game.set_production_by_loc(city_loc, *unit_type).unwrap();
+//         }
+
+//         while game.unit_orders_requests().next().is_some() {
+//             let unit_id = game.unit_orders_requests().next().unwrap();
+//             let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
+//             let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
+//             let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
+//                 let dest: Vec2d<i32> = (*dest).into();
+//                 let vec: Vec2d<i32> = dest - src;
+//                 Direction::try_from(vec).ok()
+//             }).collect();
+
+//             let direction = possible_dirs.choose(&mut rand::thread_rng()).unwrap();
+
+//             game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
+//         }
+//     }
+// }
+
+impl TurnTaker for RandomAI {
     fn take_turn(&mut self, game: &mut PlayerTurnControl) {
         while game.production_set_requests().next().is_some() {
             let city_loc = game.production_set_requests().next().unwrap();

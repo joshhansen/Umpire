@@ -10,15 +10,16 @@ use std::{
         Rc,
     },
     sync::{
-        Arc,
-        RwLock,
         mpsc::{
             Receiver,
             Sender,
             channel,
         },
     },
-    thread,
+    thread::{
+        self,
+        JoinHandle,
+    },
 };
 
 use crossterm::{
@@ -57,15 +58,16 @@ use crate::{
         HEADER_HEIGHT,
     },
     game::{
-        Game,
-        PlayerNum,
         combat::{CombatCapable,CombatOutcome,CombatParticipant},
         move_::{
             Move,
             ProposedMove,
         },
         obs::LocatedObs,
-        player::PlayerTurnControl,
+        player::{
+            PlayerTurnControl,
+            TurnTaker,
+        },
     },
     log::{LogTarget,Message,MessageSource},
     util::{Dims,Rect,Location,sleep_millis}
@@ -81,156 +83,157 @@ use self::{
     sym::Sym,
 };
 
-pub fn run(game: Arc<RwLock<Game>>, human_players: Vec<PlayerNum>, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
-    confirm_turn_end: bool
-) -> Result<(),String> {
-    // {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
+// pub fn run(game: Arc<RwLock<Game>>, human_players: Vec<PlayerNum>, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
+//     confirm_turn_end: bool
+// ) -> Result<(),String> {
+//     // {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
 
         
 
-    //     let _alt_screen_maybe: Option<AlternateScreen> = if use_alt_screen {
-    //         Some(
-    //             AlternateScreen::to_alternate(true)
-    //             .map_err(|err| format!("Error obtaining alternate screen in raw mode: {}", err))?
-    //         )
-    //     } else {
-    //         None
-    //     };
+//     //     let _alt_screen_maybe: Option<AlternateScreen> = if use_alt_screen {
+//     //         Some(
+//     //             AlternateScreen::to_alternate(true)
+//     //             .map_err(|err| format!("Error obtaining alternate screen in raw mode: {}", err))?
+//     //         )
+//     //     } else {
+//     //         None
+//     //     };
 
-    // The input thread
-    let (input_thread_tx, input_thread_rx) = channel();
-    let _input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
-        // let _raw = RawScreen::into_raw_mode().unwrap();
-        enable_raw_mode().unwrap();
+//     // The input thread
+//     let (input_thread_tx, input_thread_rx) = channel();
+//     let _input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
+//         // let _raw = RawScreen::into_raw_mode().unwrap();
+//         enable_raw_mode().unwrap();
 
-        // let input = input();
-        // let reader = input.read_sync();
-        // for input_event in reader {
-        //     match input_event {
-        //         InputEvent::Keyboard(key_event) => {
-        //             let will_return = key_event==KeyCode::Char(conf::KEY_QUIT);
-        //             input_thread_tx.send(key_event).unwrap();
+//         // let input = input();
+//         // let reader = input.read_sync();
+//         // for input_event in reader {
+//         //     match input_event {
+//         //         InputEvent::Keyboard(key_event) => {
+//         //             let will_return = key_event==KeyCode::Char(conf::KEY_QUIT);
+//         //             input_thread_tx.send(key_event).unwrap();
 
-        //             if will_return {
-        //                 // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
-        //                 return;
-        //             }
-        //         }
-        //         InputEvent::Mouse(_mouse_event) => {
-        //             // do nothing
-        //         },
-        //         InputEvent::Unsupported(_data) => {
-        //             // do nothing
-        //         },
-        //         InputEvent::Unknown => {
-        //             // do nothing
-        //         }
-        //     }
-        // }
+//         //             if will_return {
+//         //                 // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
+//         //                 return;
+//         //             }
+//         //         }
+//         //         InputEvent::Mouse(_mouse_event) => {
+//         //             // do nothing
+//         //         },
+//         //         InputEvent::Unsupported(_data) => {
+//         //             // do nothing
+//         //         },
+//         //         InputEvent::Unknown => {
+//         //             // do nothing
+//         //         }
+//         //     }
+//         // }
 
-        loop {
-            match read_event() {
-                Ok(event) => {
-                    match event {
-                        Event::Key(key_event) => {
-                            let will_return = key_event.code==KeyCode::Char(conf::KEY_QUIT);
-                            input_thread_tx.send(key_event).unwrap();
+//         loop {
+//             match read_event() {
+//                 Ok(event) => {
+//                     match event {
+//                         Event::Key(key_event) => {
+//                             let will_return = key_event.code==KeyCode::Char(conf::KEY_QUIT);
+//                             input_thread_tx.send(key_event).unwrap();
         
-                            if will_return {
-                                disable_raw_mode().unwrap();
-                                return;
-                            }
-                        },
-                        Event::Mouse(_mouse_event) => {},
-                        Event::Resize(_columns, _rows) => {
-                            //TODO Handle resize events
-                        },
-                    }
-                },
-                Err(err) => {
-                    eprintln!("Error reading event: {}", err);
-                    break;
-                },
-            }
+//                             if will_return {
+//                                 disable_raw_mode().unwrap();
+//                                 return;
+//                             }
+//                         },
+//                         Event::Mouse(_mouse_event) => {},
+//                         Event::Resize(_columns, _rows) => {
+//                             //TODO Handle resize events
+//                         },
+//                     }
+//                 },
+//                 Err(err) => {
+//                     eprintln!("Error reading event: {}", err);
+//                     break;
+//                 },
+//             }
 
-        }
+//         }
 
-        disable_raw_mode().unwrap();
-    });
+//         disable_raw_mode().unwrap();
+//     });
 
-    // The audio thread (if applicable)
-    let (audio_thread_handle, audio_thread_tx) = if !quiet {
-        let (tx, rx) = channel();
-        let handle = thread::Builder::new().name("audio".to_string()).spawn(move || {
-            play_sounds(rx, Sounds::Silence).unwrap();
-        });
-        (Some(handle), Some(tx))
-    } else {
-        (None, None)
-    };
+//     // The audio thread (if applicable)
+//     let (audio_thread_handle, audio_thread_tx) = if !quiet {
+//         let (tx, rx) = channel();
+//         let handle = thread::Builder::new().name("audio".to_string()).spawn(move || {
+//             play_sounds(rx, Sounds::Silence).unwrap();
+//         });
+//         (Some(handle), Some(tx))
+//     } else {
+//         (None, None)
+//     };
 
-    let mut stdout = stdout();
+//     let mut stdout = stdout();
 
-    if use_alt_screen {
-        queue!(stdout, EnterAlternateScreen).unwrap();
-    }
+//     if use_alt_screen {
+//         queue!(stdout, EnterAlternateScreen).unwrap();
+//     }
 
-    let (width, height) = terminal_size().map_err(|error_kind| format!("{}", error_kind))?;
-    let term_dims = Dims { width, height };
+//     // let (width, height) = terminal_size().map_err(|error_kind| format!("{}", error_kind))?;
+//     // let term_dims = Dims { width, height };
+//     let term_dims = Dims::new(120, 60);
 
-    let map_dims = {
-        let game = game.read().unwrap();
-        game.dims()
-    };
+//     let map_dims = {
+//         let game = game.read().unwrap();
+//         game.dims()
+//     };
 
-    let mut ui = TermUI::new(
-        map_dims,
-        term_dims,
-        stdout,
-        palette,
-        unicode,
-        confirm_turn_end,
-        audio_thread_tx,
-        input_thread_rx,
-    );
+//     let mut ui = TermUI::new(
+//         map_dims,
+//         term_dims,
+//         stdout,
+//         palette,
+//         unicode,
+//         confirm_turn_end,
+//         audio_thread_tx,
+//         input_thread_rx,
+//     );
 
-    let mut prev_mode: Option<Mode> = None;
-    let mut mode = self::mode::Mode::TurnStart;
+//     let mut prev_mode: Option<Mode> = None;
+//     let mut mode = self::mode::Mode::TurnStart;
 
-    'outer: loop {
-        for human_player in &human_players {
-            let mut game = game.write().unwrap();
-            {
-                let mut ctrl = game.player_turn_control(*human_player);
-                while mode.run(&mut ctrl, &mut ui, &mut prev_mode) == ModeStatus::Continue {
-                    // nothing here
-                }
-            }
+//     'outer: loop {
+//         for human_player in &human_players {
+//             let mut game = game.write().unwrap();
+//             {
+//                 let mut ctrl = game.player_turn_control(*human_player);
+//                 while mode.run(&mut ctrl, &mut ui, &mut prev_mode) == ModeStatus::Continue {
+//                     // nothing here
+//                 }
+//             }
 
-            if game.victor().is_some() {
-                break 'outer;
-            }
-        }
-    }
+//             if game.victor().is_some() {
+//                 break 'outer;
+//             }
+//         }
+//     }
 
-    if use_alt_screen {
-        queue!(ui.stdout, LeaveAlternateScreen).unwrap();
-    }
+//     if use_alt_screen {
+//         queue!(ui.stdout, LeaveAlternateScreen).unwrap();
+//     }
 
-    if audio_thread_handle.is_some() {
-        ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
-    }
+//     if audio_thread_handle.is_some() {
+//         ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
+//     }
 
-    println!("\n\n\tHe rules a moment: Chaos umpire sits,
-\tAnd by decision more embroils the fray
-\tBy which he reigns: next him, high arbiter,
-\tChance governs all.
+//     println!("\n\n\tHe rules a moment: Chaos umpire sits,
+// \tAnd by decision more embroils the fray
+// \tBy which he reigns: next him, high arbiter,
+// \tChance governs all.
 
-\t\t\t\tParadise Lost (2.907-910)\n"
-    );
+// \t\t\t\tParadise Lost (2.907-910)\n"
+//     );
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 pub trait MoveAnimator {
     #[deprecated = "Use `animate_proposed_move` instead. We want to animate based on the proposal and then actually take the action defined by the move so the game state doesn't reflect the move yet, since it's easier to work relative to the prior game state."]
@@ -399,7 +402,7 @@ const H_SCROLLBAR_HEIGHT: u16 = 1;
 const V_SCROLLBAR_WIDTH: u16 = 1;
 
 /// The terminal-based user interface.
-struct TermUI {
+pub struct TermUI {
     stdout: Stdout,
     term_dims: Dims,
     viewport_size: ViewportSize,
@@ -413,21 +416,39 @@ struct TermUI {
     palette: Rc<Palette>,
     unicode: bool,
     confirm_turn_end: bool,
+
+    /// Whether or not to use Crossterm's alternate screen. Useful to disable this when debugging messages are desired.
+    use_alt_screen: bool,
+
+    /// Sender by which to send sound events to the audio thread (if not quieted)
     audio_thread_tx: Option<Sender<Sounds>>,
+
+    /// Receiver by which to get input events from the input thread
     input_thread_rx: Receiver<KeyEvent>,
+
+    /// We need to keep the audio thread handle because the thread is killed when it goes out of scope.
+    _audio_thread_handle: Option<JoinHandle<()>>,
+
+    /// We need to keep the input thread handle because the thread is killed when it goes out of scope.
+    _input_thread_handle: JoinHandle<()>,
 }
 
 impl TermUI {
-    fn new(
+    /// This method initializes the terminal user interface.
+    /// 
+    /// It will be de-initialized when this struct goes out of scope. See the `Drop` implementation.
+    pub fn new(
         map_dims: Dims,
-        term_dims: Dims,
-        stdout: Stdout,
         palette: Palette,
         unicode: bool,
         confirm_turn_end: bool,
-        audio_thread_tx: Option<Sender<Sounds>>,
-        input_thread_rx: Receiver<KeyEvent>,
-    ) -> Self {
+        quiet: bool,
+        use_alt_screen: bool,
+    ) -> Result<Self,crossterm::ErrorKind> {
+        let (width, height) = terminal_size()?;
+        let term_dims = Dims { width, height };
+        // let term_dims = Dims::new(120, 60);
+
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
         let sidebar_rect = sidebar_rect(viewport_rect, term_dims);
@@ -451,7 +472,59 @@ impl TermUI {
         let cp_rect = current_player_rect();
         let current_player = CurrentPlayer::new(cp_rect);
 
-        let mut ui = TermUI {
+        // The input thread
+        let (input_thread_tx, input_thread_rx) = channel();
+        let input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
+            enable_raw_mode().unwrap();
+
+            loop {
+                match read_event() {
+                    Ok(event) => {
+                        match event {
+                            Event::Key(key_event) => {
+                                let will_return = key_event.code==KeyCode::Char(conf::KEY_QUIT);
+                                input_thread_tx.send(key_event).unwrap();
+            
+                                if will_return {
+                                    disable_raw_mode().unwrap();
+                                    return;
+                                }
+                            },
+                            Event::Mouse(_mouse_event) => {},
+                            Event::Resize(_columns, _rows) => {
+                                //TODO Handle resize events
+                            },
+                        }
+                    },
+                    Err(err) => {
+                        eprintln!("Error reading event: {}", err);
+                        break;
+                    },
+                }
+            }
+
+            disable_raw_mode().unwrap();
+        }).unwrap();
+
+        // The audio thread (if applicable)
+        let (audio_thread_handle, audio_thread_tx) = if !quiet {
+            let (tx, rx) = channel();
+            let handle = thread::Builder::new().name("audio".to_string()).spawn(move || {
+                play_sounds(rx, Sounds::Silence).unwrap();
+            }).unwrap();
+            (Some(handle), Some(tx))
+        } else {
+            (None, None)
+        };
+
+        let mut stdout = stdout();
+
+        if use_alt_screen {
+            queue!(stdout, EnterAlternateScreen).unwrap();
+        }
+
+
+        let mut ui = Self {
             stdout,
             term_dims,
             viewport_size,
@@ -471,13 +544,17 @@ impl TermUI {
 
             confirm_turn_end,
 
+            use_alt_screen,
+
             audio_thread_tx,
             input_thread_rx,
+            _audio_thread_handle: audio_thread_handle,
+            _input_thread_handle: input_thread_handle,
         };
 
         ui.clear();
 
-        ui
+        Ok(ui)
     }
 
     fn clear(&mut self) {
@@ -788,5 +865,31 @@ impl MoveAnimator for TermUI {
         if proposed_move.0.unit.moves_remaining() == 0 {
             sleep_millis(250);
         }
+    }
+}
+
+impl TurnTaker for TermUI {
+    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl) {
+        let mut prev_mode: Option<Mode> = None;
+        let mut mode = self::mode::Mode::TurnStart;
+        while mode.run(ctrl, self, &mut prev_mode) == ModeStatus::Continue {
+            // nothing here
+        }
+    }
+}
+
+impl Drop for TermUI {
+    fn drop(&mut self) {
+        if self.use_alt_screen {
+            queue!(self.stdout, LeaveAlternateScreen).unwrap();
+        }
+    
+        if let Some(ref tx) = self.audio_thread_tx {
+            tx.send(Sounds::Silence).unwrap();
+        }
+
+        // if audio_thread_handle.is_some() {
+        //     ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
+        // }
     }
 }

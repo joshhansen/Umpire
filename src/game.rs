@@ -17,8 +17,6 @@ use std::{
     fmt,
     sync::{
         Arc,
-        Condvar,
-        Mutex,
         RwLock,
     },
 };
@@ -240,18 +238,12 @@ pub struct Game {
     turn: TurnNum,
 
     /// Specification of who is human and who is what kind of robot
-    // players: Vec<Option<Rc<RefCell<dyn Player>>>>,
     num_players: PlayerNum,
-    // player_types: Vec<PlayerType>,
-    // players: Vec<Rc<Receiver<PlayerCommand>>>,
 
     /// The player that is currently the player right now
     /// 
     /// Stored in a mutex to facilitate shared control of the game state by the UI and any AIs
-    current_player: Arc<Mutex<PlayerNum>>,
-
-    /// Conditional variable used to signal when the current player changes
-    current_player_condvar: Arc<Condvar>,
+    current_player: PlayerNum,
 
     /// The wrapping policy for the game---can you loop around the map vertically, horizontally, or both?
     wrapping: Wrap2d,
@@ -316,8 +308,7 @@ impl Game {
             player_observations,
             turn: 0,
             num_players,
-            current_player: Arc::new(Mutex::new(0)),
-            current_player_condvar: Arc::new(Condvar::new()),
+            current_player: 0,
             wrapping,
             unit_namer,
             fog_of_war,
@@ -328,18 +319,11 @@ impl Game {
     }
 
     pub fn num_players(&self) -> PlayerNum {
-        // self.players.len()
         self.num_players
-        // self.player_types.len()
     }
 
     pub fn player_turn_control(&mut self, player: PlayerNum) -> PlayerTurnControl {
-        {
-            let mut current_player = self.current_player.lock().unwrap();
-            while *current_player != player {
-                current_player = self.current_player_condvar.wait(current_player).unwrap();
-            }
-        }
+        debug_assert_eq!(player, self.current_player);
 
         PlayerTurnControl::new(self)
         
@@ -498,23 +482,20 @@ impl Game {
         None
     }
 
-    fn _end_turn(&mut self) -> Result<(),PlayerNum> {
-        if self.turn_is_done() {
-            self.player_observations.get_mut(&self.current_player()).unwrap().archive();
-            
-            let mut current_player = self.current_player.lock();
-            let current_player = current_player.as_mut().unwrap();
+    // fn _end_turn(&mut self) -> Result<(),PlayerNum> {
+    //     if self.turn_is_done() {
+    //         self.player_observations.get_mut(&self.current_player()).unwrap().archive();
 
-            **current_player = (**current_player + 1) % self.num_players();
-            if **current_player == 0 {
-                self.turn += 1;
-            }
+    //         self.current_player = (self.current_player + 1) % self.num_players();
+    //         if self.current_player == 0 {
+    //             self.turn += 1;
+    //         }
 
-            Ok(())
-        } else {
-            Err(self.current_player())
-        }
-    }
+    //         Ok(())
+    //     } else {
+    //         Err(self.current_player())
+    //     }
+    // }
 
     /// End the current human player's turn and begin the next human player's turn
     ///
@@ -544,14 +525,10 @@ impl Game {
     }
 
     fn _inc_current_player(&mut self) {
-        let mut current_player = self.current_player.lock().unwrap();
-
-        *current_player = (*current_player + 1) % self.num_players();
-        if *current_player == 0 {
+        self.current_player = (self.current_player + 1) % self.num_players();
+        if self.current_player == 0 {
             self.turn += 1;
         }
-
-        self.current_player_condvar.notify_all();
     }
 
     // pub fn propose_end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
@@ -1115,7 +1092,7 @@ impl Game {
     }
 
     pub fn current_player(&self) -> PlayerNum {
-        *self.current_player.lock().unwrap()
+        self.current_player
     }
 
     /// The logical dimensions of the game map

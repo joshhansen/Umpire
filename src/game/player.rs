@@ -127,10 +127,15 @@ impl <T:ProposedAction> ProposedActionWrapper<T> {
 
 pub struct PlayerTurnControl<'a> {
     game: &'a mut Game,
+
+    /// Which player is this control shim representing? A copy of `Game::current_player`'s result. Shouldn't get stale
+    /// since we lock down anything that would change who the current player is. We do this for convenience.
+    pub player: PlayerNum,
 }
 impl <'a> PlayerTurnControl<'a> {
     pub fn new(game: &'a mut Game) -> Self {
-        Self { game }
+        let player = game.current_player();
+        Self { game, player }
     }
 
     pub fn num_players(&self) -> PlayerNum {
@@ -371,7 +376,9 @@ impl <'a> Drop for PlayerTurnControl<'a> {
     }
 }
 
-
+pub trait TurnTaker {
+    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl);
+}
 
 pub trait Player: Send {
     fn play(&mut self, game: PlayerTurnControl);

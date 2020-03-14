@@ -6,8 +6,6 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 
-use core::cell::RefCell;
-
 use std::{
     io::{BufRead,BufReader,Write,stdout},
     sync::{
@@ -21,17 +19,19 @@ use std::{
 use clap::{Arg, App};
 
 use umpire::{
-    color::{Palette, palette16, palette256, palette24},
+    color::{palette16, palette256, palette24},
     conf,
     game::{
         Game,
         PlayerNum,
         PlayerType,
         ai::RandomAI,
-        player::Player,
+        player::{
+            TurnTaker,
+        },
     },
     name::{city_namer,unit_namer},
-    ui,
+    ui::TermUI,
     util::{
         Dims,
         Wrap,
@@ -108,18 +108,6 @@ fn main() {
             .long("nosplash")
             .help("Don't show the splash screen")
         )
-        // .arg(Arg::with_name("players")
-        //     .short("p")
-        //     .long("players")
-        //     .help("Number of human players")
-        //     .takes_value(true)
-        //     .required(true)
-        //     .default_value(conf::NUM_PLAYERS)
-        //     .validator(|s| {
-        //         let players: Result<PlayerNum,_> = s.trim().parse();
-        //         players.map(|_n| ()).map_err(|_e| String::from("Couldn't parse number of players"))
-        //     })
-        // )
         .arg(Arg::with_name("players")
             .short("p")
             .long("players")
@@ -269,71 +257,56 @@ fn main() {
         x => panic!("Unsupported color depth {}", x)
     };
 
-    // Initialize players and AI
 
-    let mut human_players = Vec::new();
-    let mut ai_players = Vec::new();
-    let mut ais: Vec<Box<RefCell<dyn Player>>> = Vec::new();
+    let map_dims = game.dims();
 
-    for (pnum, ptype) in player_types.iter().enumerate() {
-        match ptype {
-            PlayerType::Human => {
-                human_players.push(pnum);
-            },
-            PlayerType::Random => {
-                ai_players.push(pnum);
-                ais.push(Box::new(RefCell::new(RandomAI::new())));
+    {// Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
 
-            },
-        }
-    }
+        let mut ui = TermUI::new(
+            map_dims,
+            palette,
+            unicode,
+            confirm_turn_end,
+            quiet,
+            use_alt_screen,
+        ).unwrap();
 
-    let game = Arc::new(RwLock::new(game));
+        // We can share one instance of RandomAI across players since it's stateless
+        let mut random_ai = RandomAI::new();
 
-    
-    let ai_thread_handle = {
-        let game = Arc::clone(&game);
-        thread::Builder::new().name("AI".to_string()).spawn(move || {
-            'outer: loop {
-                for idx in 0..ai_players.len() {
-                    let player = ai_players[idx];
-                    if {
-                        let game = game.read().unwrap();
-                        game.victor().is_some()
-                    } {
-                        break 'outer;
+        let mut game = game;
+
+        'outer: loop {
+            for (pnum, ptype) in player_types.iter().enumerate() {
+                if game.victor().is_some() {
+                    break 'outer;
+                }
+
+                let mut ctrl = game.player_turn_control(pnum);
+                loop {// Loop until the turn is actually done, otherwise PlayerTurnControl will panic on drop
+                    match ptype {
+                        PlayerType::Human => {
+                            ui.take_turn(&mut ctrl);
+                        },
+                        PlayerType::Random => {
+                            random_ai.take_turn(&mut ctrl);
+                        },
                     }
 
-                    let ai = ais.get(idx).unwrap();
-
-                    let mut game = game.write().unwrap();
-                    let ctrl = game.player_turn_control(player);
-                    ai.borrow_mut().play(ctrl);
+                    if ctrl.turn_is_done() {
+                        break;
+                    }
                 }
             }
-        }).unwrap()
-    };
+        }
 
+    }// UI drops here, deinitializing the user interface
 
+    println!("\n\n\tHe rules a moment: Chaos umpire sits,
+    \tAnd by decision more embroils the fray
+    \tBy which he reigns: next him, high arbiter,
+    \tChance governs all.
 
-    // let ui_thread_handle = thread::Builder::new().name("UI".to_string()).spawn(move || {
-    if let Err(msg) = ui::run(Arc::clone(&game), human_players, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
-        eprintln!("Error running UI: {}", msg);
-    }
-
-    ai_thread_handle.join().unwrap();
-
-    // });
-
-    // run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end);
-
-    // pub fn play(mut game: Game, players: Vec<Box<RefCell<dyn Player>>>) {
-    // play(game, players);
+    \t\t\t\tParadise Lost (2.907-910)\n"
+    );
 }
-
-// fn run_ui(game: Game, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
-//     confirm_turn_end: bool) {
-//     if let Err(msg) = ui::run(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end) {
-//         eprintln!("Error running UI: {}", msg);
-//     }
-// }
