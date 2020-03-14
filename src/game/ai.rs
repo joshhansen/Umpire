@@ -219,14 +219,16 @@ impl RandomAI {
 
 impl TurnTaker for RandomAI {
     fn take_turn(&mut self, game: &mut PlayerTurnControl) {
-        while game.production_set_requests().next().is_some() {
-            let city_loc = game.production_set_requests().next().unwrap();
-            let unit_type = self.unit_type_vec.choose(&mut rand::thread_rng()).unwrap();
+        let mut rng = rand::thread_rng();
+
+        let production_set_requests: Vec<Location> = game.production_set_requests().collect();
+        for city_loc in production_set_requests {
+            let unit_type = self.unit_type_vec.choose(&mut rng).unwrap();
             game.set_production_by_loc(city_loc, *unit_type).unwrap();
         }
 
-        while game.unit_orders_requests().next().is_some() {
-            let unit_id = game.unit_orders_requests().next().unwrap();
+        let unit_orders_requests: Vec<UnitID> = game.unit_orders_requests().collect();
+        for unit_id in unit_orders_requests {
             let src: Vec2d<i32> = game.current_player_unit_loc(unit_id).unwrap().into();
             let possible: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
             let possible_dirs: Vec<Direction> = possible.iter().filter_map(|dest| {
@@ -235,7 +237,7 @@ impl TurnTaker for RandomAI {
                 Direction::try_from(vec).ok()
             }).collect();
 
-            let direction = possible_dirs.choose(&mut rand::thread_rng()).unwrap();
+            let direction = possible_dirs.choose(&mut rng).unwrap();
 
             game.move_unit_by_id_in_direction(unit_id, *direction).unwrap();
         }
