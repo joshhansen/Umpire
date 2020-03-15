@@ -53,6 +53,10 @@ impl ObsTracker {
             }
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item=&Obs> {
+        self.observations.iter()
+    }
 }
 
 impl Dimensioned for ObsTracker {

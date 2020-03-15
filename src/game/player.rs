@@ -318,7 +318,7 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Units that could be produced by a city located at the given location
-    pub fn valid_productions(&self, loc: Location) -> BTreeSet<UnitType> {
+    pub fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item=UnitType> + 'a {
         self.game.valid_productions(loc)
     }
 
@@ -354,9 +354,10 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.activate_unit_by_loc(loc)
     }
 
-    pub fn propose_end_turn(&self) -> Result<TurnStart,PlayerNum> {
+    pub fn propose_end_turn(&self) -> (Game,Result<TurnStart,PlayerNum>) {
         let mut game = self.game.clone();
-        game.end_turn()
+        let result = game.end_turn();
+        (game, result)
     }
 
     // ----- Consuming methods -----
@@ -396,7 +397,7 @@ impl <P:TurnPlayer> Player for P {
         loop {
             self.take_turn(&mut game);
 
-            if let Ok(_) = game.propose_end_turn() {
+            if let (_,Ok(_)) = game.propose_end_turn() {
                 break;
             }
         }

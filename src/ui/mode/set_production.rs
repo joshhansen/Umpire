@@ -63,7 +63,7 @@ impl SetProductionMode {
 
         let mut highest_y = 0;
 
-        for (i,unit_type) in game.valid_productions(self.loc).iter().enumerate() {
+        for (i,unit_type) in game.valid_productions(self.loc).enumerate() {
             let y = i + 2;
             let row = self.row(unit_type.key(), unit_type.sym(self.unicode), unit_type.name(), Some(unit_type.cost()));
             buf.set_row(y, row);
@@ -103,7 +103,7 @@ impl IMode for SetProductionMode {
                         if let Some(unit_type) = UnitType::from_key(c) {
                             game.set_production_by_loc(self.loc, unit_type).unwrap();
 
-                            let city = &game.current_player_city_by_loc(self.loc).unwrap();
+                            let city = game.current_player_city_by_loc(self.loc).unwrap();
                             ui.log_message(Message {
                                 text: format!("Set {}'s production to {}", city.short_desc(), unit_type),
                                 mark: Some('·'),

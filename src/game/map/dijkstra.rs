@@ -22,7 +22,7 @@ use crate::{
         obs::Obs,
         unit::{Unit,UnitType},
     },
-    util::{Dims,Dimensioned,LocatedItem,Location,Vec2d,Wrap2d},
+    util::{Dims,Dimensioned,Direction,LocatedItem,Location,Vec2d,Wrap2d},
 };
 
 impl Index<Location> for Vec<Vec<u16>> {
@@ -66,6 +66,8 @@ impl ShortestPaths {
         path
     }
 }
+
+static DIRECTIONS: [Direction; 8] = Direction::values();
 
 const REL_NEIGHB_BOTTOM_LEFT:  Vec2d<i32> = Vec2d::new(-1, -1);
 const REL_NEIGHB_BOTTOM:       Vec2d<i32> = Vec2d::new(-1,  0);
@@ -463,6 +465,18 @@ pub fn neighbors_iter_owned_filter<'a, T, F, N, S>(tiles: &'a S, loc: Location, 
                    .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
 }
 
+pub fn directions_iter_owned_filter<'a, T, F, N, S>(tiles: &'a S, loc: Location, directions: N,
+                                 filter: F, wrapping: Wrap2d) -> impl Iterator<Item=Direction> + 'a
+    where F:Filter<T>+'a, S:Source<T>, N:Iterator<Item=&'a Direction>+'a {
+
+        directions.filter_map(move |direction| {
+            wrapping.wrapped_add(tiles.dims(), loc, (*direction).into())
+            .map(|loc| (direction,loc))
+        })
+        .filter(move |(_direction,neighb_loc)| filter.include(tiles.get(*neighb_loc)))
+        .map(|(direction,_neighb_loc)| *direction)
+}
+
 struct UnitTypeFilter {
     unit_type: UnitType
 }
@@ -490,6 +504,14 @@ pub fn neighbors_unit_could_move_to_iter<'a, T:Source<Tile>>(tiles: &'a T, unit:
     let neighb_iter = RELATIVE_NEIGHBORS.iter();
     let filter = UnitMovementFilter{unit};
     neighbors_iter_owned_filter(tiles, loc, neighb_iter, filter, wrapping)
+}
+
+pub fn directions_unit_could_move_iter<'a, T:Source<Tile>>(tiles: &'a T, unit: &'a Unit, wrapping: Wrap2d) -> impl Iterator<Item=Direction> + 'a {
+    let loc = unit.loc;
+    // let neighb_iter = RELATIVE_NEIGHBORS.iter();
+    // let dir_iter = Direction::values().iter();
+    let filter = UnitMovementFilter{unit};
+    directions_iter_owned_filter(tiles, loc, DIRECTIONS.iter(), filter, wrapping)
 }
 
 #[derive(Eq,PartialEq)]

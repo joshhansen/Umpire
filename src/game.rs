@@ -44,6 +44,7 @@ use crate::{
                 Source,
                 SourceMut,
                 UnitMovementFilter,
+                directions_unit_could_move_iter,
                 neighbors_terrain_only,
                 neighbors_unit_could_move_to_iter,
                 shortest_paths
@@ -88,6 +89,8 @@ use self::move_::{
     ProposedMove,
     ProposedMoveResult,
 };
+
+static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
 /// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
 #[must_use = "All proposed actions issued by the game engine must be taken using `take`"]
@@ -512,7 +515,7 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
+    pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
         if self.turn_is_done() {
             Ok(self.force_end_turn())
         } else {
@@ -619,6 +622,14 @@ impl Game {
         Ok(neighbors_unit_could_move_to_iter(&self.map, &unit, self.wrapping))
     }
 
+    pub fn current_player_unit_legal_directions<'a>(&'a self, unit_id: UnitID) -> Result<impl Iterator<Item=Direction>+'a,GameError> {
+        let unit = self.current_player_unit_by_id(unit_id).ok_or_else(||
+            GameError::NoSuchUnit { id: unit_id }
+        )?;
+
+        Ok(directions_unit_could_move_iter(&self.map, &unit, self.wrapping))
+    }
+
     /// The current player's most recent observation of the tile at location `loc`, if any
     pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
         if let Obs::Observed{tile,..} = self.current_player_obs(loc) {
@@ -674,6 +685,28 @@ impl Game {
     /// Every unit controlled by the current player
     pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
         self.map.player_units(self.current_player())
+    }
+
+    /// Every enemy unit known to the current player (as of most recent observations)
+    pub fn observed_enemy_units<'a>(&'a self) -> impl Iterator<Item=&Unit> + 'a {
+        let current_player = self.current_player();
+        self.current_player_observations().iter().filter_map(move |obs| match obs {
+            Obs::Observed { tile, .. } => if let Some(ref unit) = tile.unit {
+                if let Alignment::Belligerent{player} = unit.alignment {
+                    if player != current_player {
+                        Some(unit)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            },
+            _ => None,
+        })
+        // self.map.units().filter(move |unit| unit.alignment != Alignment::Belligerent{player:current_player})
     }
 
     /// Every unit controlled by the current player, mutably
@@ -1110,10 +1143,10 @@ impl Game {
     }
 
     /// Units that could be produced by a city located at the given location
-    pub fn valid_productions(&self, loc: Location) -> BTreeSet<UnitType> {
-        UnitType::values().iter()
+    pub fn valid_productions<'a>(&'a self, loc: Location) -> impl Iterator<Item=UnitType> + 'a {
+        UNIT_TYPES.iter()
         .cloned()
-        .filter(|unit_type| {
+        .filter(move |unit_type| {
             for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
                 let tile = self.map.tile(neighb_loc).unwrap();
                 if unit_type.can_move_on_tile( &tile ) {
@@ -1121,7 +1154,7 @@ impl Game {
                 }
             }
             false
-        }).collect()
+        })
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry

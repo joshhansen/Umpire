@@ -118,7 +118,7 @@ pub enum UnitType {
 }
 
 impl UnitType {
-    pub fn values() -> [UnitType;10] {
+    pub const fn values() -> [UnitType;10] {
         [
             UnitType::Infantry,
             UnitType::Armor,

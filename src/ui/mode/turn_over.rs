@@ -202,7 +202,7 @@ impl IMode for TurnOverMode {
                             // If the user has altered productions using examine mode then the turn might not be over anymore
                             // Recheck
 
-                            match game.propose_end_turn() {
+                            match game.propose_end_turn().1 {
                                 Ok(turn_start) => {
                                     self.process_turn_start(game, ui, &turn_start);
                                     // *mode = Mode::TurnStart;
@@ -227,11 +227,10 @@ impl IMode for TurnOverMode {
         } else {
             // We shouldn't be in the TurnOverMode state unless game.turn_is_done() is true
             // so this unwrap should always succeed
-            let turn_start = game.propose_end_turn().unwrap();
+            let (_game2, turn_start) = game.propose_end_turn();
+            let turn_start = turn_start.unwrap();
+
             self.process_turn_start(game, ui, &turn_start);
-            
-            // *mode = Mode::TurnStart;
-            // true
 
             return ModeStatus::TurnOver;
         }
