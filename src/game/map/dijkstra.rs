@@ -500,7 +500,12 @@ struct State {
 
 impl Ord for State {
     fn cmp(&self, other: &State) -> Ordering {
-        other.dist_.cmp(&self.dist_)
+        let c = other.dist_.cmp(&self.dist_);
+        if c == Ordering::Equal {
+            self.loc.cmp(&other.loc)
+        } else {
+            c
+        }
     }
 }
 
