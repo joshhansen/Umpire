@@ -11,13 +11,18 @@ use std::collections::{
     HashMap,
 };
 
+use rand::seq::SliceRandom;
+
 use rsrl::{
     run, make_shared, Evaluation, SerialExperiment,
     control::td::QLearning,
     domains::{Domain, MountainCar},
-    fa::linear::{basis::{Fourier, Projector}, optim::SGD, LFA},
+    fa::{
+        EnumerableStateActionFunction,
+        linear::{basis::{Fourier, Projector}, optim::SGD, LFA}
+    },
     logging,
-    policies::{EpsilonGreedy, Greedy, Random},
+    policies::{EnumerablePolicy, EpsilonGreedy, Greedy, Policy, Random},
     spaces::{
         BoundedSpace,
         Card,
@@ -133,6 +138,78 @@ const VICTORY_SCORE: f64 = 999999.0;
 
 
 
+// /// Represent the first player's game state as a vector
+// fn game_to_vec(game: &Game) -> Vec<f64> {
+//     // For every tile we add these f64's:
+//     // is the tile observed or not?
+//     // which player controls the tile (one hot encoded)
+//     // is there a city or not?
+//     // what is the unit type? (one hot encoded, could be none---all zeros)
+//     // for each of the five potential carried units:
+//     //   what is the unit type? (one hot encoded, could be none---all zeros)
+//     // 
+//     let mut x = Vec::new();
+
+//     let observations = game.player_observations.get(&0).unwrap();
+
+//     for obs in observations.iter() {
+//         match obs {
+//             Obs::Unobserved => {
+//                 let n_zeros = 1// unobserved
+//                     + game.num_players// which player controls the tile (nobody, one hot encoded)
+//                     + 1//city or not
+//                     + 6 * UnitType::values().len()// what is the unit type? (one hot encoded), for this unit and any
+//                                                     // carried units. Could be none (all zeros)
+//                 ;
+//                 x.extend_from_slice(&vec![0.0; n_zeros]);
+//             },
+//             Obs::Observed{tile,..} => {
+
+//                 x.push(1.0);// observed
+//                 for p in 0..self.num_players {// which player controls the tile (one hot encoded)
+//                     x.push(if let Some(Alignment::Belligerent{player}) = tile.alignment_maybe() {
+//                         if player==p {
+//                             1.0
+//                         } else {
+//                             0.0
+//                         }
+//                     } else {
+//                         0.0
+//                     });
+//                 }
+
+//                 x.push(if tile.city.is_some() { 1.0 } else { 0.0 });// city or not
+
+//                 let mut units_unaccounted_for = 6;
+
+//                 if let Some(ref unit) = tile.unit {
+//                     units_unaccounted_for -= 1;
+//                     for t in UnitType::values().iter() {
+//                         x.push(if unit.type_ == *t { 1.0 } else { 0.0 });
+//                     }
+
+//                     for carried_unit in unit.carried_units() {
+//                         units_unaccounted_for -= 1;
+//                         for t in UnitType::values().iter() {
+//                             x.push(if carried_unit.type_ == *t { 1.0 } else { 0.0 });
+//                         }
+//                     }
+//                 }
+
+//                 x.extend_from_slice(&vec![0.0; 6 * units_unaccounted_for]);// fill in zeros for any missing
+//                                                                                     // units
+
+
+//             }
+//         }
+//     }
+
+//     x
+// }
+
+
+
+
 pub struct UmpireStateSpace {
     // num_tiles: usize,
     // num_players: PlayerNum,
@@ -141,41 +218,147 @@ pub struct UmpireStateSpace {
 }
 
 impl UmpireStateSpace {
+    // fn ordinal_product_space_from_game_state(game: &Game) -> ProductSpace<Ordinal> {
+    //     let players = game.num_players();
+    //     let units = UnitType::values().len();
+
+    //     let mut dims: Vec<Ordinal> = vec![
+    //         // Is the tile observed or not? x 2
+    //         Ordinal::new(2),
+    //         // Interval::new(Some(0.0), Some(1.0)),
+
+    //         // Is there no city (0), a neutral city (1) or the city of any of the players (2:2+players)? x (2 + players)
+    //         Ordinal::new(2 + players),
+    //         // Interval::new(Some(0.0), Some(1.0 + players)),
+
+    //         // Is the city production n/a (0), none (1), or any of the unit types (2:2+units)? x (2 + units)
+    //         Ordinal::new(2 + units),
+    //         // Interval::new(Some(0.0), Some(1.0 + units)),
+
+    //         // Is there no unit, or a unit of a particular type belong to a particular player? (1 + players*units)
+    //         Ordinal::new(1 + players*units),
+    //         // Interval::new(Some(0.0), Some(players*units)),
+
+    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
+    //         Ordinal::new(9),
+    //         // Interval::new(Some(0.0), Some(8.0)),
+    //     ];
+
+    //     for _carrying_space_slot in 0..=5 {
+    //         // Is there no unit, or a unit of any unit type with the same alignment as the carrier? (1 + units)
+    //         dims.push(Ordinal::new(1 + units));
+    //         // dims.push(Interval::new(Some(0.0), Some(units)));
+
+    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
+    //         dims.push(Ordinal::new(9));
+    //         // dims.push(Interval::new(Some(0.0), Some(8.0)));
+    //     }
+
+    //     ProductSpace::new(dims)
+    // }
+
+    // fn interval_product_space_from_game_state(game: &Game) -> ProductSpace<Interval> {
+    //     let players = game.num_players() as f64;
+    //     let units = UnitType::values().len() as f64;
+
+    //     let mut dims: Vec<Interval> = vec![
+    //         // Is the tile observed or not? x 2
+    //         // Ordinal::new(2),
+    //         Interval::new(Some(0.0), Some(1.0)),
+
+    //         // Is there no city (0), a neutral city (1) or the city of any of the players (2:2+players)? x (2 + players)
+    //         // Ordinal::new(2 + players),
+    //         Interval::new(Some(0.0), Some(1.0 + players)),
+
+    //         // Is the city production n/a (0), none (1), or any of the unit types (2:2+units)? x (2 + units)
+    //         // Ordinal::new(2 + units),
+    //         Interval::new(Some(0.0), Some(1.0 + units)),
+
+    //         // Is there no unit, or a unit of a particular type belong to a particular player? (1 + players*units)
+    //         // Ordinal::new(1 + players*units),
+    //         Interval::new(Some(0.0), Some(players*units)),
+
+    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
+    //         // Ordinal::new(9),
+    //         Interval::new(Some(0.0), Some(8.0)),
+    //     ];
+
+    //     for _carrying_space_slot in 0..=5 {
+    //         // Is there no unit, or a unit of any unit type with the same alignment as the carrier? (1 + units)
+    //         // dims.push(Ordinal::new(1 + units));
+    //         dims.push(Interval::new(Some(0.0), Some(units)));
+
+    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
+    //         // dims.push(Ordinal::new(9));
+    //         dims.push(Interval::new(Some(0.0), Some(8.0)));
+    //     }
+
+    //     ProductSpace::new(dims)
+    // }
+
     fn from_game_state(game: &Game) -> Self {
-        let players = game.num_players() as f64;
-        let units = UnitType::values().len() as f64;
+        // For every tile:
+        // is the tile observed or not?
+        // which player controls the tile (one hot encoded)
+        // is there a city or not?
+        // what is the unit type? (one hot encoded, could be none---all zeros)
+        // for each of the five potential carried units:
+        //   what is the unit type? (one hot encoded, could be none---all zeros)
+        // 
+        
+        let players = game.num_players();
+        let units = UnitType::values().len();
 
-        let mut dims: Vec<Interval<f64>> = vec![
-            // Is the tile observed or not? x 2
-            // Ordinal::new(2),
-            Interval::new(Some(0.0), Some(1.0)),
-
-            // Is there no city (0), a neutral city (1) or the city of any of the players (2:2+players)? x (2 + players)
-            // Ordinal::new(2 + players),
-            Interval::new(Some(0.0), Some(1.0 + players)),
-
-            // Is the city production n/a (0), none (1), or any of the unit types (2:2+units)? x (2 + units)
-            // Ordinal::new(2 + units),
-            Interval::new(Some(0.0), Some(1.0 + units)),
-
-            // Is there no unit, or a unit of a particular type belong to a particular player? (1 + players*units)
-            // Ordinal::new(1 + players*units),
-            Interval::new(Some(0.0), Some(players*units)),
-
-            // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-            // Ordinal::new(9),
-            Interval::new(Some(0.0), Some(8.0)),
-        ];
-
-        for _carrying_space_slot in 0..=5 {
-            // Is there no unit, or a unit of any unit type with the same alignment as the carrier? (1 + units)
-            // dims.push(Ordinal::new(1 + units));
-            dims.push(Interval::new(Some(0.0), Some(units)));
-
-            // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-            // dims.push(Ordinal::new(9));
-            dims.push(Interval::new(Some(0.0), Some(8.0)));
+        let mut dims: Vec<Interval<f64>> = vec![Interval::new(Some(0.0), Some(1.0))];// is the tile observed or not?
+        for _ in 0..players {
+            dims.push(Interval::new(Some(0.0), Some(1.0)));// which player controls the tile (one hot encoded)
         }
+
+        dims.push(Interval::new(Some(0.0), Some(1.0)));// is there a city or not?
+
+        for _ in 0..units {// what is the unit type (one hot encoded, all zeros if no unit)
+            dims.push(Interval::new(Some(0.0), Some(1.0)));
+        }
+
+        // for each of the five potential carried units:
+        for _ in 0..5 {
+            for _ in 0..units {// what is the unit type (one hot encoded, all zeros if no unit)
+                dims.push(Interval::new(Some(0.0), Some(1.0)));
+            }
+        }
+
+
+        // let mut dims: Vec<Interval<f64>> = vec![
+        //     // Is the tile observed or not? x 2
+        //     // Ordinal::new(2),
+        //     Interval::new(Some(0.0), Some(1.0)),
+
+        //     // Is there no city (0), a neutral city (1) or the city of any of the players (2:2+players)? x (2 + players)
+        //     // Ordinal::new(2 + players),
+        //     Interval::new(Some(0.0), Some(1.0 + players)),
+
+        //     // Is the city production n/a (0), none (1), or any of the unit types (2:2+units)? x (2 + units)
+        //     // Ordinal::new(2 + units),
+        //     Interval::new(Some(0.0), Some(1.0 + units)),
+
+        //     // Is there no unit, or a unit of a particular type belong to a particular player? (1 + players*units)
+        //     // Ordinal::new(1 + players*units),
+        //     Interval::new(Some(0.0), Some(players*units)),
+
+        //     // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
+        //     // Ordinal::new(9),
+        //     Interval::new(Some(0.0), Some(8.0)),
+        // ];
+
+        // for _carrying_space_slot in 0..=5 {
+        //     // Is there no unit, or a unit of any unit type with the same alignment as the carrier? (1 + units)
+        //     // dims.push(Ordinal::new(1 + units));
+        //     dims.push(Interval::new(Some(0.0), Some(units)));
+
+        //     // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
+        //     // dims.push(Ordinal::new(9));
+        //     dims.push(Interval::new(Some(0.0), Some(8.0)));
+        // }
 
         Self {
             space: ProductSpace::new(dims)
@@ -186,6 +369,7 @@ impl UmpireStateSpace {
 impl Space for UmpireStateSpace {
     type Value = Game;
     // type Value = ObsTracker;
+    // type Value = Vec<f64>;
     
 
     fn dim(&self) -> Dim {
@@ -278,48 +462,92 @@ impl UmpireAction {
 
         a
     }
-}
 
-struct UmpireActionSpace {
-    actions: Vec<UmpireAction>,
-}
+    /// The number of possible actions in the abstract
+    fn possible_actions() -> usize {
+        UnitType::values().len() + Direction::values().len()
+    }
 
-impl UmpireActionSpace {
-    fn from_game_state(game: &Game) -> Self {
-        Self {
-            actions: UmpireAction::legal_actions(game).into_sorted_vec()
+    fn to_idx(&self) -> usize {
+        match self {
+            UmpireAction::SetNextCityProduction{unit_type} => {
+                let types = UnitType::values();
+                for i in 0..types.len() {
+                    if types[i] == *unit_type {
+                        return i;
+                    }
+                }
+                unreachable!()
+            },
+            UmpireAction::MoveNextUnit{direction} => {
+                let dirs = Direction::values();
+                for i in 0..dirs.len() {
+                    if dirs[i] == *direction {
+                        return UnitType::values().len() + i;
+                    }
+                }
+                unreachable!()
+            }
         }
+    }
+
+    fn from_idx(mut idx: usize) -> Result<Self,()> {
+        let unit_types = UnitType::values();
+        if unit_types.len() > idx {
+            return Ok(UmpireAction::SetNextCityProduction{unit_type: unit_types[idx]});
+        }
+
+        idx -= unit_types.len();
+
+        let dirs = Direction::values();
+        if dirs.len() > idx {
+            return Ok(UmpireAction::MoveNextUnit{direction: dirs[idx]});
+        }
+
+        Err(())
     }
 }
 
+struct UmpireActionSpace;// {
+//     actions: Vec<UmpireAction>,
+// }
+
+// impl UmpireActionSpace {
+//     fn from_game_state(game: &Game) -> Self {
+//         Self {
+//             actions: UmpireAction::legal_actions(game).into_sorted_vec()
+//         }
+//     }
+// }
+
 impl Space for UmpireActionSpace {
     // type Value = UmpireActionScenario;
-    type Value = UmpireAction;
+    type Value = usize;
 
     fn dim(&self) -> Dim {
         Dim::one()
     }
     fn card(&self) -> Card {
-        Card::Finite(self.actions.len())
+        Card::Finite(UmpireAction::possible_actions())
     }
 }
 
-impl BoundedSpace for UmpireActionSpace {
-    /// Returns the value of the dimension's infimum, if it exists.
-    fn inf(&self) -> Option<Self::Value> {
-        self.actions.get(0).cloned()
-    }
+// impl BoundedSpace for UmpireActionSpace {
+//     /// Returns the value of the dimension's infimum, if it exists.
+//     fn inf(&self) -> Option<Self::Value> {
+//         self.actions.get(0).cloned()
+//     }
 
-    /// Returns the value of the dimension's supremum, if it exists.
-    fn sup(&self) -> Option<Self::Value> {
-        self.actions.get(self.actions.len() - 1).cloned()
-    }
+//     /// Returns the value of the dimension's supremum, if it exists.
+//     fn sup(&self) -> Option<Self::Value> {
+//         self.actions.get(self.actions.len() - 1).cloned()
+//     }
 
-    /// Returns true iff `val` lies within the dimension's bounds (closed).
-    fn contains(&self, val: Self::Value) -> bool {
-        self.actions.contains(&val)
-    }
-}
+//     /// Returns true iff `val` lies within the dimension's bounds (closed).
+//     fn contains(&self, val: Self::Value) -> bool {
+//         self.actions.contains(&val)
+//     }
+// }
 
 // /// Trait for defining spaces containing a finite set of values.
 // impl FiniteSpace for UmpireActionSpace {
@@ -398,24 +626,29 @@ impl Default for UmpireDomain {
 impl Domain for UmpireDomain {
     /// State space representation type class.
     type StateSpace = UmpireStateSpace;
+    // type StateSpace = ProductSpace<Interval>;
 
     /// Action space representation type class.
     type ActionSpace = UmpireActionSpace;
 
     /// Emit an observation of the current state of the environment.
     fn emit(&self) -> Observation<State<Self>> {
+        // let v = self.game.to_feature_vec();
+        let v = self.game.clone();
         if self.game.victor().is_some() {
-            Observation::Terminal(self.game.clone())
+            Observation::Terminal(v)
         } else {
             // Partial unless we happen to be observing every tile in the current turn, which we'll assume doesn't happen
-            Observation::Partial(self.game.clone())
+            Observation::Partial(v)
         }
     }
 
     /// Transition the environment forward a single step given an action, `a`.
-    fn step(&mut self, action: UmpireAction) -> Transition<State<Self>, Action<Self>> {
+    fn step(&mut self, action_idx: usize) -> Transition<State<Self>, Action<Self>> {
         let start_score = self.current_player_score();
         let from = self.emit();
+
+        let action = UmpireAction::from_idx(action_idx).unwrap();
 
         self.update_state(action);
 
@@ -426,7 +659,7 @@ impl Domain for UmpireDomain {
 
         Transition {
             from,
-            action,
+            action: action_idx,
             reward,
             to,
         }
@@ -435,13 +668,177 @@ impl Domain for UmpireDomain {
     /// Returns an instance of the state space type class.
     fn state_space(&self) -> Self::StateSpace {
         UmpireStateSpace::from_game_state(&self.game)
+        // UmpireStateSpace::interval_product_space_from_game_state(&self.game)
     }
 
     /// Returns an instance of the action space type class.
     fn action_space(&self) -> Self::ActionSpace {
-        UmpireActionSpace::from_game_state(&self.game)
+        // UmpireActionSpace::from_game_state(&self.game)
+        UmpireActionSpace
     }
 }
+
+
+// use crate::policies::{EnumerablePolicy, Policy};
+use rand::{distributions::{Distribution, Uniform}, Rng};
+
+// #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+// #[derive(Clone, Debug)]
+pub struct UmpireRandom;
+
+// impl Random {
+//     pub fn new(n_actions: usize) -> Self { Random(n_actions) }
+// }
+
+// impl RandomActionPolicy {
+//     fn permitted_actions(state: &Game) -> Vec<UmpireAction> {
+
+//     }
+// }
+
+impl Policy<Game> for UmpireRandom {
+    type Action = usize;
+
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> usize {
+        // Uniform::new(0, self.0).sample(rng)
+        // let mut rng = rand::thread_rng();
+        let legal = UmpireAction::legal_actions(state).into_vec();
+        // legal.choose(rng).cloned().unwrap()
+        let indices: Vec<usize> = (0..legal.len()).collect();
+        indices.choose(rng).cloned().unwrap()
+
+
+    }
+
+    fn probability(&self, state: &Game, action: &Self::Action) -> f64 {
+        let legal_indices: Vec<usize> = UmpireAction::legal_actions(state).iter().map(|action| action.to_idx()).collect();
+        if legal_indices.contains(action) {
+            1.0 / legal_indices.len() as f64
+        } else {
+            0.0
+        }
+
+        // let n_legal = UmpireAction::legal_actions(state).len();
+        // 1.0 / n_legal as f64
+    }
+}
+
+// impl<S> EnumerablePolicy<S> for RandomActionPolicy {
+//     fn n_actions(&self) -> usize {
+//         UmpireAction::legal_actions()
+//     }
+
+//     fn probabilities(&self, _: &S) -> Vec<f64> { vec![1.0 / self.0 as f64; self.0].into() }
+// }
+
+// struct UmpireEpsilonGreedy {
+
+// }
+
+// // #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+// // #[derive(Clone, Debug)]
+// struct UmpireGreedy<Q>(Q);
+
+// impl<Q> UmpireGreedy<Q> {
+//     pub fn new(q_func: Q) -> Self { Self(q_func) }
+
+//     pub fn argmax_qs(qs: &[f64]) -> usize {
+//         // argmaxima(qs).1[0]
+
+//     }
+// }
+
+// impl<S, Q: EnumerableStateActionFunction<S>> Policy<S> for UmpireGreedy<Q> {
+//     type Action = usize;
+
+//     fn mpa(&self, s: &S) -> Self::Action {
+
+//         let qs = self.0.evaluate_all(s);
+
+//         // Self::<Q>::argmax_qs(&self.0.evaluate_all(s))
+//     }
+
+//     fn probability(&self, s: &S, a: &Self::Action) -> f64 { self.probabilities(s)[*a] }
+// }
+
+// impl<S, Q: EnumerableStateActionFunction<S>> EnumerablePolicy<S> for UmpireGreedy<Q> {
+//     fn n_actions(&self) -> usize { self.0.n_actions() }
+
+//     fn probabilities(&self, s: &S) -> Vec<f64> {
+//         let qs = self.0.evaluate_all(s);
+//         let mut ps = vec![0.0; qs.len()];
+
+//         let (_, maxima) = argmaxima(&qs);
+
+//         let p = 1.0 / maxima.len() as f64;
+//         for i in maxima {
+//             ps[i] = p;
+//         }
+
+//         ps.into()
+//     }
+// }
+
+
+
+
+
+
+struct UmpireEpsilonGreedy<Q> {
+    greedy: Greedy<Q>,
+    random: UmpireRandom,
+
+    pub epsilon: f64,
+}
+
+impl<Q> UmpireEpsilonGreedy<Q> {
+    pub fn new(greedy: Greedy<Q>, random: UmpireRandom, epsilon: f64) -> Self {
+        Self {
+            greedy,
+            random,
+
+            epsilon,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn from_Q<S>(q_func: Q, epsilon: f64) -> Self where Q: EnumerableStateActionFunction<S> {
+        let greedy = Greedy::new(q_func);
+        // let random = Random::new(greedy.n_actions());
+        let random = UmpireRandom;
+
+        Self::new(greedy, random, epsilon)
+    }
+}
+
+impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireEpsilonGreedy<Q> {
+    type Action = usize;
+
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, s: &Game) -> Self::Action {
+        if rng.gen_bool(self.epsilon) {
+            self.random.sample(rng, s)
+        } else {
+            self.greedy.sample(rng, s)
+        }
+    }
+
+    fn mpa(&self, s: &Game) -> Self::Action { self.greedy.mpa(s) }
+
+    fn probability(&self, s: &Game, a: &Self::Action) -> f64 { self.probabilities(s)[*a] }
+}
+
+impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireEpsilonGreedy<Q> {
+    fn n_actions(&self) -> usize { self.greedy.n_actions() }
+
+    fn probabilities(&self, s: &Game) -> Vec<f64> {
+        let prs = self.greedy.probabilities(s);
+        let pr = self.epsilon / prs.len() as f64;
+
+        prs.into_iter().map(|p| pr + p * (1.0 - self.epsilon)).collect()
+    }
+}
+
+
 
 fn main() {
     // let domain = MountainCar::default();
@@ -450,13 +847,22 @@ fn main() {
     let mut agent = {
         let n_actions: usize = domain.action_space().card().into();
 
+        println!("# actions: {}", n_actions);
+        // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
         // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
         let basis = Fourier::from_space(1, domain.state_space().space).with_constant();
-        let q_func = make_shared(LFA::vector(basis, SGD(1.0), n_actions));
+        let lfa = LFA::vector(basis, SGD(1.0), n_actions);
+        let q_func = make_shared(lfa);
 
-        let policy = EpsilonGreedy::new(
+        // let policy = EpsilonGreedy::new(
+        //     Greedy::new(q_func.clone()),
+        //     Random::new(n_actions),
+        //     0.2
+        // );
+
+        let policy = UmpireEpsilonGreedy::new(
             Greedy::new(q_func.clone()),
-            Random::new(n_actions),
+            UmpireRandom,
             0.2
         );
 
@@ -466,8 +872,8 @@ fn main() {
     let logger = logging::root(logging::stdout());
 
     //FIXME Construct UmpireDomain instead of MountainCar
-    let domain_builder = Box::new(MountainCar::default);
-    // let domain_builder = Box::new(UmpireDomain::default);
+    // let domain_builder = Box::new(MountainCar::default);
+    let domain_builder = Box::new(UmpireDomain::default);
 
     // Training phase:
     let _training_result = {

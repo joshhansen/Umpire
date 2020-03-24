@@ -25,6 +25,8 @@ use failure::{
     Fail,
 };
 
+use rsrl::DerefVec;
+
 use crate::{
     color::{Colors,Colorized},
     game::{
@@ -1317,6 +1319,77 @@ impl Source<Obs> for Game {
 //         self.map_dims()
 //     }
 // }
+
+/// Represent the first player's game state as a vector
+impl DerefVec for Game {
+    fn deref_vec(&self) -> Vec<f64> {
+        // For every tile we add these f64's:
+        // is the tile observed or not?
+        // which player controls the tile (one hot encoded)
+        // is there a city or not?
+        // what is the unit type? (one hot encoded, could be none---all zeros)
+        // for each of the five potential carried units:
+        //   what is the unit type? (one hot encoded, could be none---all zeros)
+        // 
+        let mut x = Vec::new();
+
+        let observations = self.player_observations.get(&0).unwrap();
+
+        for obs in observations.iter() {
+            match obs {
+                Obs::Unobserved => {
+                    let n_zeros = 1// unobserved
+                        + self.num_players// which player controls the tile (nobody, one hot encoded)
+                        + 1//city or not
+                        + 6 * UnitType::values().len()// what is the unit type? (one hot encoded), for this unit and any
+                                                      // carried units. Could be none (all zeros)
+                    ;
+                    x.extend_from_slice(&vec![0.0; n_zeros]);
+                },
+                Obs::Observed{tile,..} => {
+
+                    x.push(1.0);// observed
+                    for p in 0..self.num_players {// which player controls the tile (one hot encoded)
+                        x.push(if let Some(Alignment::Belligerent{player}) = tile.alignment_maybe() {
+                            if player==p {
+                                1.0
+                            } else {
+                                0.0
+                            }
+                        } else {
+                            0.0
+                        });
+                    }
+
+                    x.push(if tile.city.is_some() { 1.0 } else { 0.0 });// city or not
+
+                    let mut units_unaccounted_for = 6;
+
+                    if let Some(ref unit) = tile.unit {
+                        units_unaccounted_for -= 1;
+                        for t in UnitType::values().iter() {
+                            x.push(if unit.type_ == *t { 1.0 } else { 0.0 });
+                        }
+
+                        for carried_unit in unit.carried_units() {
+                            units_unaccounted_for -= 1;
+                            for t in UnitType::values().iter() {
+                                x.push(if carried_unit.type_ == *t { 1.0 } else { 0.0 });
+                            }
+                        }
+                    }
+
+                    x.extend_from_slice(&vec![0.0; 6 * units_unaccounted_for]);// fill in zeros for any missing
+                                                                                      // units
+
+
+                }
+            }
+        }
+
+        x
+    }
+}
 
 /// Test support functions
 pub mod test_support {
