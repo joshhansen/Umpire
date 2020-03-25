@@ -171,9 +171,11 @@ impl ProposedAction for ProposedMove {
             if let Some(city_combat) = move_component.city_combat.as_ref() {
                 
                 if city_combat.victorious() {
-                    let mut city = game.map.city_by_loc_mut(loc).unwrap();
-                    city.alignment = unit.alignment;
-                    city.clear_production_without_ignoring();
+                    game.map.set_city_alignment_by_loc(loc, unit.alignment).unwrap();
+                    game.map.clear_city_production_without_ignoring_by_loc(loc).unwrap();
+                    // let mut city = game.map.city_by_loc_mut(loc).unwrap();
+                    // city.alignment = unit.alignment;
+                    // city.clear_production_without_ignoring();
                 }
             }
 

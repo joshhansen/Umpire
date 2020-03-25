@@ -351,7 +351,7 @@ impl Game {
         producing_city_locs.iter().cloned().map(|city_loc| {
 
             let (city_loc, city_alignment, unit_under_production) = {
-                let city = self.map.city_by_loc_mut(city_loc).unwrap();
+                let city = self.map.city_by_loc(city_loc).unwrap();
                 let unit_under_production = city.production().unwrap();
                 (city.loc, city.alignment, unit_under_production)
             };
@@ -369,10 +369,13 @@ impl Game {
                 Ok(_new_unit_id) => {
                     // We know the unit will be at top-level because that's where freshly-minted units go
                     
-                    let city = self.map.city_by_loc_mut(city_loc).unwrap();
-                    city.production_progress = 0;
+                    // let city = self.map.city_by_loc_mut(city_loc).unwrap();
+                    // city.production_progress = 0;
 
-                    let city = city.clone();
+                    self.map.clear_city_production_progress_by_loc(city_loc).unwrap();
+                    let city = self.map.city_by_loc(city_loc).unwrap().clone();
+
+                    // let city = city.clone();
                     let unit = self.map.toplevel_unit_by_loc(city_loc).unwrap().clone();
 
                     UnitProductionOutcome::UnitProduced {
@@ -721,11 +724,11 @@ impl Game {
         self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
     }
 
-    /// If the current player controls a city at location `loc`, return it mutably
-    pub fn current_player_city_by_loc_mut(&mut self, loc: Location) -> Option<&mut City> {
-        let current_player = self.current_player();
-        self.map.city_by_loc_mut(loc).filter(|city| city.alignment == Alignment::Belligerent{player: current_player})
-    }
+    // /// If the current player controls a city at location `loc`, return it mutably
+    // pub fn current_player_city_by_loc_mut(&mut self, loc: Location) -> Option<&mut City> {
+    //     let current_player = self.current_player();
+    //     self.map.city_by_loc_mut(loc).filter(|city| city.alignment == Alignment::Belligerent{player: current_player})
+    // }
 
     /// If the current player controls a city with ID `city_id`, return it
     pub fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City> {
@@ -1087,9 +1090,10 @@ impl Game {
     /// 
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
     pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<(),GameError> {
-        let city = self.current_player_city_by_loc_mut(loc).ok_or_else(|| GameError::NoCityAtLocation{loc})?;
-        city.set_production(production);
-        Ok(())
+        self.map.set_player_city_production_by_loc(self.current_player, loc, production)
+        // let city = self.current_player_city_by_loc_mut(loc).ok_or_else(|| GameError::NoCityAtLocation{loc})?;
+        // city.set_production(production);
+        // Ok(())
     }
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
@@ -1103,28 +1107,38 @@ impl Game {
 
     //FIXME Restrict to current player cities
     pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(),String> {
-        if let Some(city) = self.map.city_by_loc_mut(loc) {
-            city.clear_production_without_ignoring();
-            Ok(())
-        } else {
-            Err(format!(
-                "Attempted to clear production for city at location {} but there is no city at that location",
-                loc
-            ))
-        }
+        self.map.clear_city_production_without_ignoring_by_loc(loc).map_err(|_| format!(
+            "Attempted to clear production for city at location {} but there is no city at that location",
+            loc
+        ))
+        // if let Some(city) = self.map.city_by_loc_mut(loc) {
+        //     city.clear_production_without_ignoring();
+        //     Ok(())
+        // } else {
+        //     Err(format!(
+        //         "Attempted to clear production for city at location {} but there is no city at that location",
+        //         loc
+        //     ))
+        // }
     }
 
     //FIXME Restrict to current player cities
     pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(),String> {
-        if let Some(city) = self.map.city_by_loc_mut(loc) {
-            city.clear_production_and_ignore();
-            Ok(())
-        } else {
-            Err(format!(
+        self.map.clear_city_production_and_ignore_by_loc(loc).map_err(|_|
+            format!(
                 "Attempted to clear production for city at location {} but there is no city at that location",
                 loc
-            ))
-        }
+            )
+        )
+        // if let Some(city) = self.map.city_by_loc_mut(loc) {
+        //     city.clear_production_and_ignore();
+        //     Ok(())
+        // } else {
+        //     Err(format!(
+        //         "Attempted to clear production for city at location {} but there is no city at that location",
+        //         loc
+        //     ))
+        // }
     }
 
     pub fn turn(&self) -> TurnNum {

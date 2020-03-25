@@ -30,6 +30,7 @@ use crate::{
     game::{
         AlignedMaybe,
         Alignment,
+        GameError,
         PlayerNum,
         city::{CityID,City},
         unit::{UnitID,Unit,UnitType},
@@ -204,6 +205,7 @@ impl MapData {
     }
 
     /// Get the top-level unit at the given location, if any exists; mutably
+    #[deprecated]
     pub fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.unit.as_mut()
@@ -226,6 +228,7 @@ impl MapData {
     }
 
     /// Get the top-level unit or carried unit at `loc` which has ID `id`, if any; mutably
+    #[deprecated]
     pub fn unit_by_loc_and_id_mut(&mut self, loc: Location, id: UnitID) -> Option<&mut Unit> {
         if let Some(toplevel_unit) = self.toplevel_unit_by_loc_mut(loc) {
             if toplevel_unit.id==id {
@@ -263,6 +266,7 @@ impl MapData {
     }
 
     /// Get a mutable reference to the top-level unit at the given location, if any exists
+    #[deprecated]
     pub fn unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.unit.as_mut()
@@ -359,6 +363,7 @@ impl MapData {
         self.unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
     }
 
+    #[deprecated]
     pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
     }
@@ -417,7 +422,7 @@ impl MapData {
         }
     }
 
-    pub fn city_by_loc_mut(&mut self, loc: Location) -> Option<&mut City> {
+    fn city_by_loc_mut(&mut self, loc: Location) -> Option<&mut City> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.city.as_mut()
         } else {
@@ -437,7 +442,7 @@ impl MapData {
         self.city_by_loc(self.city_loc_by_id[&id])
     }
 
-    pub fn city_by_id_mut(&mut self, id: CityID) -> Option<&mut City> {
+    fn city_by_id_mut(&mut self, id: CityID) -> Option<&mut City> {
         self.city_by_loc_mut(self.city_loc_by_id[&id])
     }
 
@@ -482,6 +487,7 @@ impl MapData {
         self.units().filter(move |unit| unit.belongs_to_player(player))
     }
 
+    #[deprecated]
     pub fn player_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
         self.units_mut().filter(move |unit| unit.belongs_to_player(player))
     }
@@ -490,6 +496,7 @@ impl MapData {
         self.units_deep().filter(move |unit| unit.belongs_to_player(player))
     }
 
+    #[deprecated]
     pub fn player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
         for unit in self.player_units_mut(player) {
             callback(unit);
@@ -505,14 +512,20 @@ impl MapData {
         self.cities().filter(move |city| city.belongs_to_player(player))
     }
 
+    #[deprecated]
     pub fn player_cities_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut City> {
         self.cities_mut().filter(move |city| city.belongs_to_player(player))
+    }
+
+    fn player_city_by_loc_mut(&mut self, player: PlayerNum, loc: Location) -> Option<&mut City> {
+        self.city_by_loc_mut(loc).filter(|city| city.belongs_to_player(player))
     }
 
     pub fn player_cities_with_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
         self.player_cities(player).filter(|city| city.production().is_some())
     }
 
+    #[deprecated]
     pub fn player_cities_with_production_target_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut City> {
         self.player_cities_mut(player).filter(|city| city.production().is_some())
     }
@@ -523,6 +536,33 @@ impl MapData {
 
     pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
         self.tiles.iter_locs()
+    }
+
+    pub fn clear_city_production_progress_by_loc(&mut self, loc: Location) -> Result<(),()> {
+        self.city_by_loc_mut(loc).map(|city| city.production_progress = 0)
+                                    .ok_or(())
+    }
+
+    pub fn clear_city_production_progress_by_id(&mut self, city_id: CityID) -> Result<(),()> {
+        self.city_by_id_mut(city_id).map(|city| city.production_progress = 0)
+                                    .ok_or(())
+    }
+
+    pub fn clear_city_production_and_ignore_by_loc(&mut self, loc: Location) -> Result<(),()> {
+        self.city_by_loc_mut(loc).map(|city| city.clear_production_and_ignore()).ok_or(())
+    }
+
+    pub fn clear_city_production_without_ignoring_by_loc(&mut self, loc: Location) -> Result<(),()> {
+        self.city_by_loc_mut(loc).map(|city| city.clear_production_without_ignoring()).ok_or(())
+    }
+
+    pub fn set_city_alignment_by_loc(&mut self, loc: Location, alignment: Alignment) -> Result<(),()> {
+        self.city_by_loc_mut(loc).map(|city| city.alignment = alignment).ok_or(())
+    }
+
+    pub fn set_player_city_production_by_loc(&mut self, player: PlayerNum, loc: Location, production: UnitType) -> Result<(),GameError> {
+        self.player_city_by_loc_mut(player, loc).map(|city| city.set_production(production))
+                                                .ok_or(GameError::NoCityAtLocation{loc})
     }
 }
 
