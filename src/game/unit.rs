@@ -10,6 +10,7 @@ use crate::{
     game::{
         Aligned,
         Alignment,
+        GameError,
         combat::CombatCapable,
         map::{
             Terrain,
@@ -75,9 +76,9 @@ impl CarryingSpace {
         self.space.len() < self.capacity
     }
 
-    fn carry(&mut self, unit: Unit) -> Result<usize,String> {
+    fn carry(&mut self, unit: Unit) -> Result<usize,GameError> {
         if !self.can_carry_unit(&unit) {
-            return Err(format!("Cannot carry unit {}", unit));
+            return Err(GameError::CannotCarryUnit{carried_id: unit.id});
         }
 
         self.space.push(unit);
@@ -379,12 +380,12 @@ impl Unit {
     /// For example, make a Transport carry an Armor.
     /// 
     /// This method call should only be called by MapData's carry_unit method.
-    pub(in crate::game) fn carry(&mut self, mut unit: Unit) -> Result<usize,String> {
+    pub(in crate::game) fn carry(&mut self, mut unit: Unit) -> Result<usize,GameError> {
         if let Some(ref mut carrying_space) = self.carrying_space {
             unit.loc = self.loc;
             carrying_space.carry(unit)
         } else {
-            Err(format!("Unit cannot carry unit {} as it has no carrying space at all", unit))
+            Err(GameError::UnitHasNoCarryingSpace{id: self.id})
         }
     }
 

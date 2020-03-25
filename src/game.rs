@@ -205,7 +205,14 @@ pub enum GameError {
     NoCityAtLocation { loc: Location },
 
     #[fail(display = "Specified unit is not controlled by the current player")]
-    UnitNotControlledByCurrentPlayer
+    UnitNotControlledByCurrentPlayer,
+
+    #[fail(display = "The unit with ID {:?} has no carrying space", id)]
+    UnitHasNoCarryingSpace { id: UnitID },
+
+    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} due to wrong terrain type or insufficient
+                      space.", carried_id)]
+    CannotCarryUnit { carried_id: UnitID },
 }
 
 #[derive(Debug,PartialEq)]

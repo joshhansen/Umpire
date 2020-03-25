@@ -377,12 +377,12 @@ impl MapData {
     }
 
     /// Make top-level carrier unit with ID `carrier_unit_id` carry `carried_unit`.
-    pub fn carry_unit(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> Result<usize,String> {
+    pub fn carry_unit(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> Result<usize,GameError> {
         let carried_unit_id = carried_unit.id;
 
         let (carry_result, carrier_unit_loc) = {
                 let carrier_unit = self.unit_by_id_mut(carrier_unit_id)
-                .ok_or_else(|| format!("Unit with ID {:?} cannot carry any units because it does not exist", carrier_unit_id))?;
+                                                  .ok_or(GameError::NoSuchUnit{id: carrier_unit_id})?;
 
                 (carrier_unit.carry(carried_unit), carrier_unit.loc)
         };
