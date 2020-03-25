@@ -229,9 +229,13 @@ impl TurnTaker for RandomAI {
 
         let unit_orders_requests: Vec<UnitID> = game.unit_orders_requests().collect();
         for unit_id in unit_orders_requests {
+
             let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
-            let dest = possible.choose(&mut rng).unwrap();
-            game.move_unit_by_id(unit_id, *dest).unwrap();
+            if let Some(dest) = possible.choose(&mut rng) {
+                game.move_unit_by_id(unit_id, *dest).unwrap();
+            } else {
+                game.order_unit_skip(unit_id).unwrap();
+            }
         }
     }
 }
