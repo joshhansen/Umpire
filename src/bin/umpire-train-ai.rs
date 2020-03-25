@@ -6,10 +6,16 @@
 //! These initial games should have small maps and only two players.
 //! 
 //! Once we have a simple AI, incorporate it into the UI.
-use std::collections::{
-    BinaryHeap,
-    HashMap,
+use std::{
+    collections::{
+        BinaryHeap,
+        HashMap,
+        HashSet,
+    },
+    ops::RangeInclusive,
 };
+
+// use itertools::Itertools;
 
 use rand::seq::SliceRandom;
 
@@ -19,7 +25,8 @@ use rsrl::{
     domains::{Domain, MountainCar},
     fa::{
         EnumerableStateActionFunction,
-        linear::{basis::{Fourier, Projector}, optim::SGD, LFA}
+        StateFunction,
+        linear::{basis::{Constant, Fourier, Projector}, optim::SGD, LFA}
     },
     logging,
     policies::{EnumerablePolicy, EpsilonGreedy, Greedy, Policy, Random},
@@ -67,70 +74,6 @@ use umpire::{
     },
 };
 
-// pub enum Observation<S> {
-//     Full(S),
-//     Partial(S),
-//     Terminal(S),
-// }
-
-// pub enum Card {
-//     Finite(usize),
-//     Infinite,
-// }
-
-// pub enum Dim {
-//     Finite(usize),
-//     Infinite,
-// }
-
-// /// Container class for data associated with a domain transition.
-// #[derive(Clone, Copy, Debug)]
-// pub struct Transition<S, A> {
-//     /// State transitioned _from_, `s`.
-//     pub from: Observation<S>,
-
-//     /// Action taken to initiate the transition (control tasks).
-//     pub action: A,
-
-//     /// Reward obtained from the transition.
-//     pub reward: f64,
-
-//     /// State transitioned _to_, `s'`.
-//     pub to: Observation<S>,
-// }
-
-// /// Trait for defining spaces with at least one finite bound.
-// ///
-// /// Note: If both `inf` and `sup` are well defined (i.e. are not None), then the interval is
-// /// totally bounded and we have a compact space; this is true in `spaces` as bounds are treated as
-// /// closed.
-// pub trait BoundedSpace: Space where Self::Value: PartialOrd {
-//     /// Returns the value of the dimension's infimum, if it exists.
-//     fn inf(&self) -> Option<Self::Value>;
-
-//     /// Returns the value of the dimension's supremum, if it exists.
-//     fn sup(&self) -> Option<Self::Value>;
-
-//     /// Returns true iff `val` lies within the dimension's bounds (closed).
-//     fn contains(&self, val: Self::Value) -> bool;
-
-//     /// Returns true iff `self` has a finite infimum.
-//     fn is_left_bounded(&self) -> bool { self.inf().is_some() }
-
-//     /// Returns true iff `self` has a finite supremum.
-//     fn is_right_bounded(&self) -> bool { self.sup().is_some() }
-
-//     /// Returns true iff `self` has finite bounds in both directions.
-//     ///
-//     /// Note: this trait assumed closedness, so compactness follows.
-//     fn is_compact(&self) -> bool { self.is_left_bounded() && self.is_right_bounded() }
-// }
-
-// /// Trait for defining spaces containing a finite set of values.
-// pub trait FiniteSpace: BoundedSpace where Self::Value: PartialOrd {
-//     /// Returns the finite range of values contained by this space.
-//     fn range(&self) -> ::std::ops::Range<Self::Value>;
-// }
 
 /// How important is a city in and of itself?
 const CITY_INTRINSIC_SCORE: f64 = 40.0;
@@ -138,163 +81,12 @@ const VICTORY_SCORE: f64 = 999999.0;
 
 
 
-// /// Represent the first player's game state as a vector
-// fn game_to_vec(game: &Game) -> Vec<f64> {
-//     // For every tile we add these f64's:
-//     // is the tile observed or not?
-//     // which player controls the tile (one hot encoded)
-//     // is there a city or not?
-//     // what is the unit type? (one hot encoded, could be none---all zeros)
-//     // for each of the five potential carried units:
-//     //   what is the unit type? (one hot encoded, could be none---all zeros)
-//     // 
-//     let mut x = Vec::new();
-
-//     let observations = game.player_observations.get(&0).unwrap();
-
-//     for obs in observations.iter() {
-//         match obs {
-//             Obs::Unobserved => {
-//                 let n_zeros = 1// unobserved
-//                     + game.num_players// which player controls the tile (nobody, one hot encoded)
-//                     + 1//city or not
-//                     + 6 * UnitType::values().len()// what is the unit type? (one hot encoded), for this unit and any
-//                                                     // carried units. Could be none (all zeros)
-//                 ;
-//                 x.extend_from_slice(&vec![0.0; n_zeros]);
-//             },
-//             Obs::Observed{tile,..} => {
-
-//                 x.push(1.0);// observed
-//                 for p in 0..self.num_players {// which player controls the tile (one hot encoded)
-//                     x.push(if let Some(Alignment::Belligerent{player}) = tile.alignment_maybe() {
-//                         if player==p {
-//                             1.0
-//                         } else {
-//                             0.0
-//                         }
-//                     } else {
-//                         0.0
-//                     });
-//                 }
-
-//                 x.push(if tile.city.is_some() { 1.0 } else { 0.0 });// city or not
-
-//                 let mut units_unaccounted_for = 6;
-
-//                 if let Some(ref unit) = tile.unit {
-//                     units_unaccounted_for -= 1;
-//                     for t in UnitType::values().iter() {
-//                         x.push(if unit.type_ == *t { 1.0 } else { 0.0 });
-//                     }
-
-//                     for carried_unit in unit.carried_units() {
-//                         units_unaccounted_for -= 1;
-//                         for t in UnitType::values().iter() {
-//                             x.push(if carried_unit.type_ == *t { 1.0 } else { 0.0 });
-//                         }
-//                     }
-//                 }
-
-//                 x.extend_from_slice(&vec![0.0; 6 * units_unaccounted_for]);// fill in zeros for any missing
-//                                                                                     // units
-
-
-//             }
-//         }
-//     }
-
-//     x
-// }
-
-
-
 
 pub struct UmpireStateSpace {
-    // num_tiles: usize,
-    // num_players: PlayerNum,
-    // unit_types: usize,
     space: ProductSpace<Interval<f64>>,
 }
 
 impl UmpireStateSpace {
-    // fn ordinal_product_space_from_game_state(game: &Game) -> ProductSpace<Ordinal> {
-    //     let players = game.num_players();
-    //     let units = UnitType::values().len();
-
-    //     let mut dims: Vec<Ordinal> = vec![
-    //         // Is the tile observed or not? x 2
-    //         Ordinal::new(2),
-    //         // Interval::new(Some(0.0), Some(1.0)),
-
-    //         // Is there no city (0), a neutral city (1) or the city of any of the players (2:2+players)? x (2 + players)
-    //         Ordinal::new(2 + players),
-    //         // Interval::new(Some(0.0), Some(1.0 + players)),
-
-    //         // Is the city production n/a (0), none (1), or any of the unit types (2:2+units)? x (2 + units)
-    //         Ordinal::new(2 + units),
-    //         // Interval::new(Some(0.0), Some(1.0 + units)),
-
-    //         // Is there no unit, or a unit of a particular type belong to a particular player? (1 + players*units)
-    //         Ordinal::new(1 + players*units),
-    //         // Interval::new(Some(0.0), Some(players*units)),
-
-    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-    //         Ordinal::new(9),
-    //         // Interval::new(Some(0.0), Some(8.0)),
-    //     ];
-
-    //     for _carrying_space_slot in 0..=5 {
-    //         // Is there no unit, or a unit of any unit type with the same alignment as the carrier? (1 + units)
-    //         dims.push(Ordinal::new(1 + units));
-    //         // dims.push(Interval::new(Some(0.0), Some(units)));
-
-    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-    //         dims.push(Ordinal::new(9));
-    //         // dims.push(Interval::new(Some(0.0), Some(8.0)));
-    //     }
-
-    //     ProductSpace::new(dims)
-    // }
-
-    // fn interval_product_space_from_game_state(game: &Game) -> ProductSpace<Interval> {
-    //     let players = game.num_players() as f64;
-    //     let units = UnitType::values().len() as f64;
-
-    //     let mut dims: Vec<Interval> = vec![
-    //         // Is the tile observed or not? x 2
-    //         // Ordinal::new(2),
-    //         Interval::new(Some(0.0), Some(1.0)),
-
-    //         // Is there no city (0), a neutral city (1) or the city of any of the players (2:2+players)? x (2 + players)
-    //         // Ordinal::new(2 + players),
-    //         Interval::new(Some(0.0), Some(1.0 + players)),
-
-    //         // Is the city production n/a (0), none (1), or any of the unit types (2:2+units)? x (2 + units)
-    //         // Ordinal::new(2 + units),
-    //         Interval::new(Some(0.0), Some(1.0 + units)),
-
-    //         // Is there no unit, or a unit of a particular type belong to a particular player? (1 + players*units)
-    //         // Ordinal::new(1 + players*units),
-    //         Interval::new(Some(0.0), Some(players*units)),
-
-    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-    //         // Ordinal::new(9),
-    //         Interval::new(Some(0.0), Some(8.0)),
-    //     ];
-
-    //     for _carrying_space_slot in 0..=5 {
-    //         // Is there no unit, or a unit of any unit type with the same alignment as the carrier? (1 + units)
-    //         // dims.push(Ordinal::new(1 + units));
-    //         dims.push(Interval::new(Some(0.0), Some(units)));
-
-    //         // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-    //         // dims.push(Ordinal::new(9));
-    //         dims.push(Interval::new(Some(0.0), Some(8.0)));
-    //     }
-
-    //     ProductSpace::new(dims)
-    // }
 
     fn from_game_state(game: &Game) -> Self {
         // For every tile:
@@ -327,39 +119,6 @@ impl UmpireStateSpace {
             }
         }
 
-
-        // let mut dims: Vec<Interval<f64>> = vec![
-        //     // Is the tile observed or not? x 2
-        //     // Ordinal::new(2),
-        //     Interval::new(Some(0.0), Some(1.0)),
-
-        //     // Is there no city (0), a neutral city (1) or the city of any of the players (2:2+players)? x (2 + players)
-        //     // Ordinal::new(2 + players),
-        //     Interval::new(Some(0.0), Some(1.0 + players)),
-
-        //     // Is the city production n/a (0), none (1), or any of the unit types (2:2+units)? x (2 + units)
-        //     // Ordinal::new(2 + units),
-        //     Interval::new(Some(0.0), Some(1.0 + units)),
-
-        //     // Is there no unit, or a unit of a particular type belong to a particular player? (1 + players*units)
-        //     // Ordinal::new(1 + players*units),
-        //     Interval::new(Some(0.0), Some(players*units)),
-
-        //     // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-        //     // Ordinal::new(9),
-        //     Interval::new(Some(0.0), Some(8.0)),
-        // ];
-
-        // for _carrying_space_slot in 0..=5 {
-        //     // Is there no unit, or a unit of any unit type with the same alignment as the carrier? (1 + units)
-        //     // dims.push(Ordinal::new(1 + units));
-        //     dims.push(Interval::new(Some(0.0), Some(units)));
-
-        //     // Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-        //     // dims.push(Ordinal::new(9));
-        //     dims.push(Interval::new(Some(0.0), Some(8.0)));
-        // }
-
         Self {
             space: ProductSpace::new(dims)
         }
@@ -367,75 +126,19 @@ impl UmpireStateSpace {
 }
 
 impl Space for UmpireStateSpace {
-    type Value = Game;
-    // type Value = ObsTracker;
-    // type Value = Vec<f64>;
-    
+    type Value = Game;    
 
     fn dim(&self) -> Dim {
-        // let per_tile_dim = 15;
-        // Dim::Finite(self.num_tiles * per_tile_dim)
         self.space.dim()
     }
 
     fn card(&self) -> Card {
-        // The cardinality of the game state space will be a function of the map
         self.space.card()
-
-        // For each tile:
-        //   Is the tile observed or not (2)
-        //   Is there no city, a neutral city, or the city of any of the players? (2 + players)
-        //   Is the city production n/a, none, or any of the unit types? (2 + units)
-        //   Is there no unit, or a unit a particular type belonging to any of the players? (1 + players*units)
-        //   Are the unit's hitpoints n/a, or between 1 and max hp for all units? (1 + 8 = 9)
-        //   For each of five carrying space slots, is there no unit, or a unit of a particular type matching the carrier's
-        //     alignment? 5 * (1 + units)
-        //   For each of five carrying space slots, the same unit hp calculation again 5 * (9)
-
-        // let per_tile_cardinality = 2
-        //     * (2 + self.num_players)
-        //     * (2 + self.unit_types)
-        //     * (1 + self.num_players*self.unit_types)
-        //     * 9
-        //     * 5 * (1 + self.unit_types)
-        //     * 5 * 9;
-        
-        // Card::Finite(self.num_tiles * per_tile_cardinality)
-
-
-        // // Every tile could contain every possible combination of player units, as well as being empty
-        // // Every carrier unit could contain every possible combination of its owner's units
-        // // Every city could have every possible combination of owners, and every possible production assignment (or
-        // // none at all).
-
-        // // Every unit and every city could have any combination of its hitpoints from 1..=max
-        
-        // // Non-essentials like the names of the units are ignored---they're there for decorative purposes but are not
-        // // combinatorially relevant.
-
-        // let mut cardinality = 0;
-
-        // for (terrain,count) in self.terrain_counts.iter() {
-
-        // }
-
-        // Card::Finite(cardinality)
     }
 }
 
-
-// #[derive(Clone)]
-// enum UmpireActionScenario {
-//     UnitOrdersRequest {
-//         unit_id: UnitID,
-//     },
-//     ProductionSetRequest {
-//         city_id: CityID,
-//     }
-// }
-
-#[derive(Clone,Copy,Eq,Ord,PartialEq,PartialOrd)]
-enum UmpireAction {
+#[derive(Clone,Copy,Eq,Hash,Ord,PartialEq,PartialOrd)]
+pub enum UmpireAction {
     // SetProduction{city_loc: Location, unit_type: UnitType},
     // MoveUnit{unit_id: UnitID, direction: Direction}
     SetNextCityProduction{unit_type: UnitType},
@@ -463,8 +166,19 @@ impl UmpireAction {
         a
     }
 
+    fn possible_actions() -> BinaryHeap<Self> {
+        let mut a = BinaryHeap::new();
+        for unit_type in UnitType::values().iter().cloned() {
+            a.push(UmpireAction::SetNextCityProduction{unit_type});
+        }
+        for direction in Direction::values().iter().cloned() {
+            a.push(UmpireAction::MoveNextUnit{direction});
+        }
+        a
+    }
+
     /// The number of possible actions in the abstract
-    fn possible_actions() -> usize {
+    fn n_possible_actions() -> usize {
         UnitType::values().len() + Direction::values().len()
     }
 
@@ -508,17 +222,17 @@ impl UmpireAction {
     }
 }
 
-struct UmpireActionSpace;// {
-//     actions: Vec<UmpireAction>,
-// }
+struct UmpireActionSpace {
+    legal_actions: Vec<UmpireAction>,
+}
 
-// impl UmpireActionSpace {
-//     fn from_game_state(game: &Game) -> Self {
-//         Self {
-//             actions: UmpireAction::legal_actions(game).into_sorted_vec()
-//         }
-//     }
-// }
+impl UmpireActionSpace {
+    fn from_game_state(game: &Game) -> Self {
+        Self {
+            legal_actions: UmpireAction::legal_actions(game).into_sorted_vec()
+        }
+    }
+}
 
 impl Space for UmpireActionSpace {
     // type Value = UmpireActionScenario;
@@ -528,7 +242,8 @@ impl Space for UmpireActionSpace {
         Dim::one()
     }
     fn card(&self) -> Card {
-        Card::Finite(UmpireAction::possible_actions())
+        // Card::Finite(UmpireAction::possible_actions())
+        Card::Finite(self.legal_actions.len())
     }
 }
 
@@ -565,26 +280,32 @@ struct UmpireDomain {
 }
 
 impl UmpireDomain {
-//     fn new() -> Self {
-//         let game = game_two_cities_two_infantry_big();
-
-//         Self { game, random_ai: RandomAI::new() }
-//     }
-
-
     fn update_state(&mut self, action: UmpireAction) {
+
+        debug_assert_eq!(self.game.current_player(), 0);
+        debug_assert!(!self.game.turn_is_done());
+
         match action {
             UmpireAction::SetNextCityProduction{unit_type} => {
-                let city_loc = self.game.production_set_requests().next().unwrap();
-                self.game.set_production_by_loc(city_loc, unit_type).unwrap();
+                //FIXME We can't assume the request is available since the system is still selecting invalid actions
+
+                if self.game.production_set_requests().next().is_some() {
+                    let city_loc = self.game.production_set_requests().next().unwrap();
+                    self.game.set_production_by_loc(city_loc, unit_type).unwrap();
+                }
             },
             UmpireAction::MoveNextUnit{direction} => {
-                let unit_id = self.game.unit_orders_requests().next().unwrap();
-                self.game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
+                //FIXME We can't assume the request is available since the system is still selecting invalid actions
+
+                if self.game.unit_orders_requests().next().is_some() {
+                    let unit_id = self.game.unit_orders_requests().next().unwrap();
+                    self.game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
+                }
             },
         }
 
-        if self.game.turn_is_done() {
+        // Run AI turns until the human player has something to do
+        while self.game.turn_is_done() {
             self.game.end_turn().unwrap();
 
             let mut ctrl = self.game.player_turn_control(1);
@@ -626,7 +347,6 @@ impl Default for UmpireDomain {
 impl Domain for UmpireDomain {
     /// State space representation type class.
     type StateSpace = UmpireStateSpace;
-    // type StateSpace = ProductSpace<Interval>;
 
     /// Action space representation type class.
     type ActionSpace = UmpireActionSpace;
@@ -674,7 +394,7 @@ impl Domain for UmpireDomain {
     /// Returns an instance of the action space type class.
     fn action_space(&self) -> Self::ActionSpace {
         // UmpireActionSpace::from_game_state(&self.game)
-        UmpireActionSpace
+        UmpireActionSpace::from_game_state(&self.game)
     }
 }
 
@@ -684,115 +404,125 @@ use rand::{distributions::{Distribution, Uniform}, Rng};
 
 // #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 // #[derive(Clone, Debug)]
-pub struct UmpireRandom;
+pub struct UmpireRandom {
+    possible_indices: HashMap<UmpireAction,usize>,
+}
 
-// impl Random {
-//     pub fn new(n_actions: usize) -> Self { Random(n_actions) }
-// }
+impl UmpireRandom {
+    fn new() -> Self {
+        Self {
+            possible_indices: UmpireAction::possible_actions().iter().enumerate().map(|(i,action)| (*action,i)).collect()
+        }
+    }
 
-// impl RandomActionPolicy {
-//     fn permitted_actions(state: &Game) -> Vec<UmpireAction> {
-
-//     }
-// }
+    /// The indices of all legal actions for a given game state, given in a consistent manner regardless of which (if
+    /// any) are actually present.
+    fn canonical_legal_indices(&self, state: &Game) -> Vec<usize> {
+        UmpireAction::legal_actions(state).iter().map(|action| {
+            self.possible_indices.get(action).cloned().unwrap()
+        }).collect()
+    }
+}
 
 impl Policy<Game> for UmpireRandom {
     type Action = usize;
+    
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> usize {
-        // Uniform::new(0, self.0).sample(rng)
-        // let mut rng = rand::thread_rng();
-        let legal = UmpireAction::legal_actions(state).into_vec();
-        // legal.choose(rng).cloned().unwrap()
-        let indices: Vec<usize> = (0..legal.len()).collect();
-        indices.choose(rng).cloned().unwrap()
-
-
+        self.canonical_legal_indices(state).choose(rng).cloned().unwrap()
     }
 
     fn probability(&self, state: &Game, action: &Self::Action) -> f64 {
-        let legal_indices: Vec<usize> = UmpireAction::legal_actions(state).iter().map(|action| action.to_idx()).collect();
+        let legal_indices = self.canonical_legal_indices(state);
         if legal_indices.contains(action) {
             1.0 / legal_indices.len() as f64
         } else {
             0.0
         }
-
-        // let n_legal = UmpireAction::legal_actions(state).len();
-        // 1.0 / n_legal as f64
     }
 }
 
-// impl<S> EnumerablePolicy<S> for RandomActionPolicy {
-//     fn n_actions(&self) -> usize {
-//         UmpireAction::legal_actions()
-//     }
+fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
+    let mut max = std::f64::MIN;
+    let mut ixs = vec![];
 
-//     fn probabilities(&self, _: &S) -> Vec<f64> { vec![1.0 / self.0 as f64; self.0].into() }
-// }
+    for i in legal_indices.iter().cloned() {
+        let v = vals[i];
+        if (v - max).abs() < 1e-7 {
+            ixs.push(i);
+        } else if v > max {
+            max = v;
+            ixs.clear();
+            ixs.push(i);
+        }
+    }
 
-// struct UmpireEpsilonGreedy {
+    (max, ixs)
+}
 
-// }
+// #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+// #[derive(Clone, Debug)]
+pub struct UmpireGreedy<Q>(Q);
 
-// // #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-// // #[derive(Clone, Debug)]
-// struct UmpireGreedy<Q>(Q);
+impl<Q> UmpireGreedy<Q> {
+    pub fn new(q_func: Q) -> Self { Self(q_func) }
 
-// impl<Q> UmpireGreedy<Q> {
-//     pub fn new(q_func: Q) -> Self { Self(q_func) }
+    pub fn legal_argmax_qs(qs: &[f64], state: &Game) -> usize {
+        let legal = UmpireRandom::new().canonical_legal_indices(state);
+        legal_argmaxima(qs, &legal).1[0]
+    }
+}
 
-//     pub fn argmax_qs(qs: &[f64]) -> usize {
-//         // argmaxima(qs).1[0]
+impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireGreedy<Q> {
+    type Action = usize;
 
-//     }
-// }
+    fn mpa(&self, state: &Game) -> usize {
+        Self::legal_argmax_qs(&self.0.evaluate_all(state), state)
+    }
 
-// impl<S, Q: EnumerableStateActionFunction<S>> Policy<S> for UmpireGreedy<Q> {
-//     type Action = usize;
+    fn probability(&self, s: &Game, a: &usize) -> f64 { self.probabilities(s)[*a] }
+}
 
-//     fn mpa(&self, s: &S) -> Self::Action {
+impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGreedy<Q> {
+    fn n_actions(&self) -> usize { self.0.n_actions() }
 
-//         let qs = self.0.evaluate_all(s);
+    fn probabilities(&self, state: &Game) -> Vec<f64> {
+        let qs = self.0.evaluate_all(state);
+        let mut ps = vec![0.0; qs.len()];
 
-//         // Self::<Q>::argmax_qs(&self.0.evaluate_all(s))
-//     }
+        // let (_, maxima) = argmaxima(&qs);
 
-//     fn probability(&self, s: &S, a: &Self::Action) -> f64 { self.probabilities(s)[*a] }
-// }
+        // let maxima: HashSet<usize> = maxima.iter().cloned().collect();
 
-// impl<S, Q: EnumerableStateActionFunction<S>> EnumerablePolicy<S> for UmpireGreedy<Q> {
-//     fn n_actions(&self) -> usize { self.0.n_actions() }
+        // let legal: HashSet<usize> = UmpireRandom::new().canonical_legal_indices(state).iter().cloned().collect();
+        
+        // let legal_maxima: Vec<usize> = maxima.intersection(&legal).cloned().collect();
 
-//     fn probabilities(&self, s: &S) -> Vec<f64> {
-//         let qs = self.0.evaluate_all(s);
-//         let mut ps = vec![0.0; qs.len()];
+        let legal_indices = UmpireRandom::new().canonical_legal_indices(state);
+        debug_assert!(!legal_indices.is_empty());
 
-//         let (_, maxima) = argmaxima(&qs);
+        let (_, legal_maxima) = legal_argmaxima(&qs, &legal_indices);
 
-//         let p = 1.0 / maxima.len() as f64;
-//         for i in maxima {
-//             ps[i] = p;
-//         }
+        let p = 1.0 / legal_maxima.len() as f64;
+        for i in legal_maxima {
+            ps[i] = p;
+        }
 
-//         ps.into()
-//     }
-// }
-
-
-
+        ps.into()
+    }
+}
 
 
 
 struct UmpireEpsilonGreedy<Q> {
-    greedy: Greedy<Q>,
+    greedy: UmpireGreedy<Q>,
     random: UmpireRandom,
 
     pub epsilon: f64,
 }
 
 impl<Q> UmpireEpsilonGreedy<Q> {
-    pub fn new(greedy: Greedy<Q>, random: UmpireRandom, epsilon: f64) -> Self {
+    pub fn new(greedy: UmpireGreedy<Q>, random: UmpireRandom, epsilon: f64) -> Self {
         Self {
             greedy,
             random,
@@ -801,24 +531,24 @@ impl<Q> UmpireEpsilonGreedy<Q> {
         }
     }
 
-    #[allow(non_snake_case)]
-    pub fn from_Q<S>(q_func: Q, epsilon: f64) -> Self where Q: EnumerableStateActionFunction<S> {
-        let greedy = Greedy::new(q_func);
-        // let random = Random::new(greedy.n_actions());
-        let random = UmpireRandom;
+    // #[allow(non_snake_case)]
+    // pub fn from_Q<S>(q_func: Q, epsilon: f64) -> Self where Q: EnumerableStateActionFunction<S> {
+    //     let greedy = Greedy::new(q_func);
+    //     // let random = Random::new(greedy.n_actions());
+    //     let random = UmpireRandom::new();
 
-        Self::new(greedy, random, epsilon)
-    }
+    //     Self::new(greedy, random, epsilon)
+    // }
 }
 
 impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireEpsilonGreedy<Q> {
     type Action = usize;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, s: &Game) -> Self::Action {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> Self::Action {
         if rng.gen_bool(self.epsilon) {
-            self.random.sample(rng, s)
+            self.random.sample(rng, state)
         } else {
-            self.greedy.sample(rng, s)
+            self.greedy.sample(rng, state)
         }
     }
 
@@ -839,18 +569,114 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireEp
 }
 
 
+// Constant:
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+struct UmpireConstant<V>(pub V);
+
+impl<V: Clone> StateFunction<Game> for UmpireConstant<V> {
+    type Output = V;
+
+    fn evaluate(&self, state: &Game) -> Self::Output {
+         self.0.clone()
+    }
+
+    fn update(&mut self, _: &Game, _: Self::Output) {}
+}
+
+// impl<V> Parameterised for Constant<V> {
+//     fn weights(&self) -> Weights { Weights::zeros((0, 0)) }
+
+//     fn weights_view(&self) -> WeightsView { WeightsView::from_shape((0, 0), &[]).unwrap() }
+
+//     fn weights_view_mut(&mut self) -> WeightsViewMut {
+//         WeightsViewMut::from_shape((0, 0), &mut []).unwrap()
+//     }
+// }
+
+// impl<I, V: Clone, M> StdDev<I, M> for Constant<V> {
+//     fn stddev(&self, _: &I) -> V { self.0.clone() }
+
+//     fn grad_log(&self, _: &I, _: &M, _: M) -> Array2<f64> { Array2::default((0, 0)) }
+
+//     fn update_stddev(&mut self, _: &I, _: &M, _: M, _: f64) {}
+// }
+
+
+
+
+
+
+
+
+// fn compute_coefficients(order: u8, dim: usize) -> impl Iterator<Item=Vec<u8>> {// impl Iterator<Item = Vec<u8>> {
+//     (0..dim)
+//         .map(move |_| 0..=order)
+//         .multi_cartesian_product()
+//         // .skip(1)
+//         // .sorted_by(|a, b| a.partial_cmp(b).unwrap())
+//         // .dedup()
+// }
+
+fn get_bounds(d: &Interval) -> (f64, f64) {
+    match (d.inf(), d.sup()) {
+        (Some(lb), Some(ub)) => (lb, ub),
+        (Some(_), None) => panic!("Dimension {} is missing an upper bound (sup).", d),
+        (None, Some(_)) => panic!("Dimension {} is missing a lower bound (inf).", d),
+        (None, None) => panic!("Dimension {} must be bounded.", d),
+    }
+}
+
+
 
 fn main() {
+    println!("Hello!");
+
+    // let c = compute_coefficients(1, 64);
+
+    // println!("c count: {}", c.count());
+
+    // return;
+
+
+
+
+
+
     // let domain = MountainCar::default();
     let domain = UmpireDomain::default();
 
     let mut agent = {
-        let n_actions: usize = domain.action_space().card().into();
+
+        let n_actions = UmpireAction::possible_actions().len();
+        // let n_actions: usize = domain.action_space().card().into();
+
+        let order = 2;
 
         println!("# actions: {}", n_actions);
         // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
         // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
-        let basis = Fourier::from_space(1, domain.state_space().space).with_constant();
+
+        let limits: Vec<(f64,f64)> = domain.state_space().space.iter().map(get_bounds).collect();
+        println!("Limits: {}", limits.len());
+
+        // let coefficients: Vec<Vec<f64>> = compute_coefficients(order, limits.len())
+        // .map(|cfs| cfs.into_iter().map(|c| c as f64).collect())
+        // .collect();
+
+        // let x = compute_coefficients(order, limits.len());
+
+        // println!("Count: {}", x.count());
+
+        // // let coefficients: Vec<Vec<u8>> = x.collect();
+
+        // // let coefficients: Vec<Vec<u8>> = compute_coefficients(order, limits.len()).collect();
+
+        // // println!("Coefficients: {}", coefficients.len());
+
+        // return;
+
+        // let basis = Fourier::from_space(order, domain.state_space().space).with_constant();
+        let basis = Constant::new(5.0);
         let lfa = LFA::vector(basis, SGD(1.0), n_actions);
         let q_func = make_shared(lfa);
 
@@ -861,8 +687,8 @@ fn main() {
         // );
 
         let policy = UmpireEpsilonGreedy::new(
-            Greedy::new(q_func.clone()),
-            UmpireRandom,
+            UmpireGreedy::new(q_func.clone()),
+            UmpireRandom::new(),
             0.2
         );
 
