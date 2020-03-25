@@ -1379,7 +1379,7 @@ impl DerefVec for Game {
                         }
                     }
 
-                    x.extend_from_slice(&vec![0.0; 6 * units_unaccounted_for]);// fill in zeros for any missing
+                    x.extend_from_slice(&vec![0.0; UnitType::values().len() * units_unaccounted_for]);// fill in zeros for any missing
                                                                                       // units
 
 
