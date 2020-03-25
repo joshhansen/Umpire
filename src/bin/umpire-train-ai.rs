@@ -10,14 +10,13 @@ use std::{
     collections::{
         BinaryHeap,
         HashMap,
-        HashSet,
     },
-    ops::RangeInclusive,
 };
 
-// use itertools::Itertools;
-
-use rand::seq::SliceRandom;
+use rand::{
+    Rng,
+    seq::SliceRandom,
+};
 
 use rsrl::{
     run, make_shared, Evaluation, SerialExperiment,
@@ -55,22 +54,16 @@ use rsrl_domains::{
 use umpire::{
     game::{
         Game,
-        PlayerNum,
         ai::RandomAI,
-        city::CityID,
         combat::CombatCapable,
-        map::terrain::Terrain,
-        obs::ObsTracker,
         player::TurnTaker,
         test_support::game_two_cities_two_infantry_big,
         unit::{
-            UnitID,
             UnitType,
         },
     },
     util::{
         Direction,
-        Location,
     },
 };
 
@@ -177,33 +170,33 @@ impl UmpireAction {
         a
     }
 
-    /// The number of possible actions in the abstract
-    fn n_possible_actions() -> usize {
-        UnitType::values().len() + Direction::values().len()
-    }
+    // /// The number of possible actions in the abstract
+    // fn n_possible_actions() -> usize {
+    //     UnitType::values().len() + Direction::values().len()
+    // }
 
-    fn to_idx(&self) -> usize {
-        match self {
-            UmpireAction::SetNextCityProduction{unit_type} => {
-                let types = UnitType::values();
-                for i in 0..types.len() {
-                    if types[i] == *unit_type {
-                        return i;
-                    }
-                }
-                unreachable!()
-            },
-            UmpireAction::MoveNextUnit{direction} => {
-                let dirs = Direction::values();
-                for i in 0..dirs.len() {
-                    if dirs[i] == *direction {
-                        return UnitType::values().len() + i;
-                    }
-                }
-                unreachable!()
-            }
-        }
-    }
+    // fn to_idx(&self) -> usize {
+    //     match self {
+    //         UmpireAction::SetNextCityProduction{unit_type} => {
+    //             let types = UnitType::values();
+    //             for i in 0..types.len() {
+    //                 if types[i] == *unit_type {
+    //                     return i;
+    //                 }
+    //             }
+    //             unreachable!()
+    //         },
+    //         UmpireAction::MoveNextUnit{direction} => {
+    //             let dirs = Direction::values();
+    //             for i in 0..dirs.len() {
+    //                 if dirs[i] == *direction {
+    //                     return UnitType::values().len() + i;
+    //                 }
+    //             }
+    //             unreachable!()
+    //         }
+    //     }
+    // }
 
     fn from_idx(mut idx: usize) -> Result<Self,()> {
         let unit_types = UnitType::values();
@@ -246,29 +239,6 @@ impl Space for UmpireActionSpace {
         Card::Finite(self.legal_actions.len())
     }
 }
-
-// impl BoundedSpace for UmpireActionSpace {
-//     /// Returns the value of the dimension's infimum, if it exists.
-//     fn inf(&self) -> Option<Self::Value> {
-//         self.actions.get(0).cloned()
-//     }
-
-//     /// Returns the value of the dimension's supremum, if it exists.
-//     fn sup(&self) -> Option<Self::Value> {
-//         self.actions.get(self.actions.len() - 1).cloned()
-//     }
-
-//     /// Returns true iff `val` lies within the dimension's bounds (closed).
-//     fn contains(&self, val: Self::Value) -> bool {
-//         self.actions.contains(&val)
-//     }
-// }
-
-// /// Trait for defining spaces containing a finite set of values.
-// impl FiniteSpace for UmpireActionSpace {
-//     /// Returns the finite range of values contained by this space.
-//     fn range(&self) -> ::std::ops::Range<Self::Value>;
-// }
 
 /// The domain of the game of Umpire being played by player 0 against an AI opponent
 struct UmpireDomain {
@@ -398,10 +368,6 @@ impl Domain for UmpireDomain {
     }
 }
 
-
-// use crate::policies::{EnumerablePolicy, Policy};
-use rand::{distributions::{Distribution, Uniform}, Rng};
-
 // #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 // #[derive(Clone, Debug)]
 pub struct UmpireRandom {
@@ -490,14 +456,6 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGr
         let qs = self.0.evaluate_all(state);
         let mut ps = vec![0.0; qs.len()];
 
-        // let (_, maxima) = argmaxima(&qs);
-
-        // let maxima: HashSet<usize> = maxima.iter().cloned().collect();
-
-        // let legal: HashSet<usize> = UmpireRandom::new().canonical_legal_indices(state).iter().cloned().collect();
-        
-        // let legal_maxima: Vec<usize> = maxima.intersection(&legal).cloned().collect();
-
         let legal_indices = UmpireRandom::new().canonical_legal_indices(state);
         debug_assert!(!legal_indices.is_empty());
 
@@ -517,7 +475,6 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGr
 struct UmpireEpsilonGreedy<Q> {
     greedy: UmpireGreedy<Q>,
     random: UmpireRandom,
-
     pub epsilon: f64,
 }
 
@@ -530,15 +487,6 @@ impl<Q> UmpireEpsilonGreedy<Q> {
             epsilon,
         }
     }
-
-    // #[allow(non_snake_case)]
-    // pub fn from_Q<S>(q_func: Q, epsilon: f64) -> Self where Q: EnumerableStateActionFunction<S> {
-    //     let greedy = Greedy::new(q_func);
-    //     // let random = Random::new(greedy.n_actions());
-    //     let random = UmpireRandom::new();
-
-    //     Self::new(greedy, random, epsilon)
-    // }
 }
 
 impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireEpsilonGreedy<Q> {
@@ -576,46 +524,12 @@ struct UmpireConstant<V>(pub V);
 impl<V: Clone> StateFunction<Game> for UmpireConstant<V> {
     type Output = V;
 
-    fn evaluate(&self, state: &Game) -> Self::Output {
+    fn evaluate(&self, _state: &Game) -> Self::Output {
          self.0.clone()
     }
 
     fn update(&mut self, _: &Game, _: Self::Output) {}
 }
-
-// impl<V> Parameterised for Constant<V> {
-//     fn weights(&self) -> Weights { Weights::zeros((0, 0)) }
-
-//     fn weights_view(&self) -> WeightsView { WeightsView::from_shape((0, 0), &[]).unwrap() }
-
-//     fn weights_view_mut(&mut self) -> WeightsViewMut {
-//         WeightsViewMut::from_shape((0, 0), &mut []).unwrap()
-//     }
-// }
-
-// impl<I, V: Clone, M> StdDev<I, M> for Constant<V> {
-//     fn stddev(&self, _: &I) -> V { self.0.clone() }
-
-//     fn grad_log(&self, _: &I, _: &M, _: M) -> Array2<f64> { Array2::default((0, 0)) }
-
-//     fn update_stddev(&mut self, _: &I, _: &M, _: M, _: f64) {}
-// }
-
-
-
-
-
-
-
-
-// fn compute_coefficients(order: u8, dim: usize) -> impl Iterator<Item=Vec<u8>> {// impl Iterator<Item = Vec<u8>> {
-//     (0..dim)
-//         .map(move |_| 0..=order)
-//         .multi_cartesian_product()
-//         // .skip(1)
-//         // .sorted_by(|a, b| a.partial_cmp(b).unwrap())
-//         // .dedup()
-// }
 
 fn get_bounds(d: &Interval) -> (f64, f64) {
     match (d.inf(), d.sup()) {
@@ -629,17 +543,7 @@ fn get_bounds(d: &Interval) -> (f64, f64) {
 
 
 fn main() {
-    println!("Hello!");
-
-    // let c = compute_coefficients(1, 64);
-
-    // println!("c count: {}", c.count());
-
-    // return;
-
-
-
-
+    println!("Training Umpire AI.");
 
 
     // let domain = MountainCar::default();
@@ -650,30 +554,12 @@ fn main() {
         let n_actions = UmpireAction::possible_actions().len();
         // let n_actions: usize = domain.action_space().card().into();
 
-        let order = 2;
-
         println!("# actions: {}", n_actions);
         // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
         // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
 
         let limits: Vec<(f64,f64)> = domain.state_space().space.iter().map(get_bounds).collect();
         println!("Limits: {}", limits.len());
-
-        // let coefficients: Vec<Vec<f64>> = compute_coefficients(order, limits.len())
-        // .map(|cfs| cfs.into_iter().map(|c| c as f64).collect())
-        // .collect();
-
-        // let x = compute_coefficients(order, limits.len());
-
-        // println!("Count: {}", x.count());
-
-        // // let coefficients: Vec<Vec<u8>> = x.collect();
-
-        // // let coefficients: Vec<Vec<u8>> = compute_coefficients(order, limits.len()).collect();
-
-        // // println!("Coefficients: {}", coefficients.len());
-
-        // return;
 
         // let basis = Fourier::from_space(order, domain.state_space().space).with_constant();
         let basis = Constant::new(5.0);

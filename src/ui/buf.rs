@@ -57,15 +57,15 @@ impl RectBuffer {
         self.set(row_idx, None);
     }
 
-    /// Draw an individual row
-    /// 
-    /// The row will then be marked clean
-    pub fn draw_row(&mut self, row_idx: usize, stdout: &mut Stdout) {
-        if self.dirty_rows.contains(&row_idx) {
-            self._draw_row(row_idx, stdout);
-            self.dirty_rows.remove(&row_idx);
-        }
-    }
+    // /// Draw an individual row
+    // /// 
+    // /// The row will then be marked clean
+    // pub fn draw_row(&mut self, row_idx: usize, stdout: &mut Stdout) {
+    //     if self.dirty_rows.contains(&row_idx) {
+    //         self._draw_row(row_idx, stdout);
+    //         self.dirty_rows.remove(&row_idx);
+    //     }
+    // }
 
     fn _draw_row(&self, row_idx: usize, stdout: &mut Stdout) {
         queue!(stdout, MoveTo(self.rect.left, self.rect.top + row_idx as u16), PrintStyledContent(

@@ -236,8 +236,9 @@ use self::{
 // }
 
 pub trait MoveAnimator {
-    #[deprecated = "Use `animate_proposed_move` instead. We want to animate based on the proposal and then actually take the action defined by the move so the game state doesn't reflect the move yet, since it's easier to work relative to the prior game state."]
     fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move);
+
+    #[deprecated = "Proposed moves now ARE moves, just not applied to the principal game state yet."]
     fn animate_proposed_move(&mut self, game: &mut PlayerTurnControl, proposed_move: &ProposedMove);
 }
 
@@ -718,10 +719,10 @@ impl TermUI {
         self.input_thread_rx.recv().unwrap()
     }
 
-    /// Return Some(key) if a key from the input thread is waiting for us, otherwise return None
-    fn try_get_key(&self) -> Option<KeyEvent> {
-        self.input_thread_rx.try_recv().ok()
-    }
+    // /// Return Some(key) if a key from the input thread is waiting for us, otherwise return None
+    // fn try_get_key(&self) -> Option<KeyEvent> {
+    //     self.input_thread_rx.try_recv().ok()
+    // }
 
     fn confirm_turn_end(&self) -> bool {
         self.confirm_turn_end

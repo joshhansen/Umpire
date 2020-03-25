@@ -14,7 +14,7 @@ use crossterm::{
 use crate::color::{Colors,Palette};
 use crate::game::player::PlayerTurnControl;
 use crate::ui::{Component,Draw};
-use crate::util::{Dims,Rect,Vec2d};
+use crate::util::{Rect,Vec2d};
 
 pub(in crate::ui) trait ScrollableComponent : Component {
     fn offset(&self) -> Vec2d<u16>;
@@ -104,12 +104,12 @@ impl<S:ScrollableComponent> Scroller<S> {
         ).unwrap();
     }
 
-    pub fn viewport_dims(&self) -> Dims {
-        Dims {
-            width: self.rect.width - 1,
-            height: self.rect.height - 1
-        }
-    }
+    // pub fn viewport_dims(&self) -> Dims {
+    //     Dims {
+    //         width: self.rect.width - 1,
+    //         height: self.rect.height - 1
+    //     }
+    // }
 }
 
 impl<S:ScrollableComponent> Draw for Scroller<S> {
