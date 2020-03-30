@@ -31,7 +31,8 @@ impl Obs {
 pub type LocatedObs = LocatedItem<Obs>;
 
 pub trait ObsTrackerI : Source<Obs> {
-    fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
+    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
+}
 }
 
 #[derive(Clone)]
@@ -66,7 +67,7 @@ impl Dimensioned for ObsTracker {
 }
 
 impl ObsTrackerI for ObsTracker {
-    fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
+    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         let obs = Obs::Observed{ tile: tile.clone(), turn, current: true };
         self.observations[loc] = obs.clone();//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
         LocatedObs{ loc, item: obs }
@@ -138,7 +139,7 @@ impl <'a,S:Source<Obs>> Source<Tile> for OverlayObsTracker<'a, S> {
 }
 
 impl <'a,S:Source<Obs>> ObsTrackerI for OverlayObsTracker<'a, S> {
-    fn observe(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
+    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         let obs = Obs::Observed{ tile: tile.clone(), turn, current: true };//CLONE
         self.overlay[loc] = Some(obs.clone());//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
         LocatedObs{ loc, item: obs }
@@ -166,7 +167,7 @@ pub trait Observer : Located {
         visible_coords_iter(self.sight_distance())
             .filter_map(|inc| wrapping.wrapped_add(tiles.dims(), self.loc(), inc))
             .map(|loc| {
-                obs_tracker.observe(loc, tiles.get(loc), turn)
+                obs_tracker.track_observation(loc, tiles.get(loc), turn)
             })
             .collect()
         // for inc in visible_coords_iter(self.sight_distance()) {
@@ -207,7 +208,7 @@ mod test {
 
         let turn = 0;
 
-        tracker.observe(loc, &tile, turn);
+        tracker.track_observation(loc, &tile, turn);
 
         assert_eq!(*tracker.get(loc), Obs::Observed{tile: tile, turn: turn, current: true});
 

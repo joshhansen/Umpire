@@ -621,7 +621,7 @@ impl Game {
             } else {
                 // Without "fog of war" we get updated observations everywhere
 
-                obs_tracker.observe(loc, tile, self.turn);
+                obs_tracker.track_observation(loc, tile, self.turn);
             }
         }
     }
