@@ -70,9 +70,6 @@ pub enum NewUnitError {
 /// all of its carried units will also be destroyed.
 #[derive(Clone)]
 pub struct MapData {
-    /// The dimensions of the map
-    dims: Dims,
-
     /// A grid of map tiles. All cities and units are owned by the tiles that contain them.
     tiles: LocationGrid<Tile>,
 
@@ -100,10 +97,9 @@ pub struct MapData {
 impl MapData {
     pub fn new<F>(dims: Dims, terrain_initializer: F) -> Self
         where F: Fn(Location)->Terrain {
+        Self::new_from_grid(LocationGrid::new(dims, |loc| Tile::new(terrain_initializer(loc), loc)))
+    }
 
-        Self {
-            dims,
-            tiles: LocationGrid::new(dims, |loc| Tile::new(terrain_initializer(loc), loc)),
             unit_loc_by_id: HashMap::new(),
             unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
@@ -155,12 +151,10 @@ impl MapData {
         }
     }
 
-    pub fn dims(&self) -> Dims {
-        self.dims
     }
 
     fn in_bounds(&self, loc: Location) -> bool {
-        self.dims.contain(loc)
+        self.dims().contain(loc)
     }
 
     pub fn terrain(&self, loc: Location) -> Option<&Terrain> {
@@ -176,7 +170,7 @@ impl MapData {
     /// Returns the ID of the new unit.
     pub fn new_unit<S:Into<String>>(&mut self, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Result<UnitID,NewUnitError> {
         if !self.in_bounds(loc) {
-            return Err(NewUnitError::OutOfBounds { loc, dims: self.dims });
+            return Err(NewUnitError::OutOfBounds { loc, dims: self.dims() });
         }
 
         if let Some(ref prior_unit) = self.tiles.get(loc).unwrap().unit {
@@ -394,7 +388,7 @@ impl MapData {
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {
         if !self.in_bounds(loc) {
-            return Err(format!("Attempted to create city at location {} which is out of bounds {}", loc, self.dims));
+            return Err(format!("Attempted to create city at location {} which is out of bounds {}", loc, self.dims()));
         }
 
         if let Some(ref prior_city) = self.tiles.get(loc).unwrap().city {
@@ -568,7 +562,7 @@ impl MapData {
 
 impl Dimensioned for MapData {
     fn dims(&self) -> Dims {
-        self.dims
+        self.tiles.dims()
     }
 }
 
@@ -580,7 +574,7 @@ impl Source<Tile> for MapData {
 
 impl Debug for MapData {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        for y in 0..self.dims.height {
+        for y in 0..self.dims().height {
             for x in 0..self.dims().width {
                 write!(f, "{:?}", self.get(Location{x,y}))?;
             }
