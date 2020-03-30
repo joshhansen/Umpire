@@ -180,13 +180,13 @@ impl UnitType {
         }
     }
 
-    pub fn from_key(c: char) -> Option<UnitType> {
+    pub fn try_from_key(c: char) -> Result<UnitType,()> {
         for unit_type in &UnitType::values() {
             if unit_type.key() == c {
-                return Some(*unit_type);
+                return Ok(*unit_type);
             }
         }
-        None
+        Err(())
     }
 
     /// Determine whether a unit of this type could potentially move to a particular tile
