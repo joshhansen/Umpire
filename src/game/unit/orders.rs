@@ -530,7 +530,7 @@ pub mod test_support {
     use super::OrdersStatus;
 
 
-    // We keep this out of cfg(test) so it can be used in a tenchmark
+    // We keep this out of cfg(test) so it can be used in a benchmark
     pub fn test_explore(dims: Dims) {
         let mut city_namer = IntNamer::new("city");
         let unit_namer = IntNamer::new("unit");
