@@ -25,6 +25,11 @@ impl CityID {
         Self{ id: self.id + 1 }
     }
 }
+impl Default for CityID {
+    fn default() -> Self {
+        CityID::new(0)
+    }
+}
 
 pub const CITY_MAX_HP: u16 = 1;
 

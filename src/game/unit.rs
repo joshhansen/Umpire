@@ -40,6 +40,12 @@ impl UnitID {
     }
 }
 
+impl Default for UnitID {
+    fn default() -> Self {
+        UnitID::new(0)
+    }
+}
+
 #[derive(Clone,Debug,PartialEq)]
 enum TransportMode {
     Land,

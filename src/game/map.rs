@@ -103,8 +103,8 @@ impl MapData {
             unit_loc_by_id: HashMap::new(),
             unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
-            next_unit_id: UnitID::new(0),
-            next_city_id: CityID::new(0),
+            next_unit_id: UnitID::default(),
+            next_city_id: CityID::default(),
         }
     }
 
@@ -646,5 +646,41 @@ impl TryFrom<&'static str> for MapData {
         }
 
         Ok(map)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        game::{
+            Alignment,
+            map::{
+                CityID,
+                terrain::Terrain,
+            },
+            unit::{
+                UnitID,
+                UnitType,
+            },
+        },
+        util::{
+            Dims,
+            Location,
+        }
+    };
+    use super::MapData;
+
+    #[test]
+    pub fn test_identifiers() {
+        let mut map = MapData::new(Dims::new(5, 5), |_loc| Terrain::Land);
+        let unit_id = map.new_unit(Location::new(2,3), UnitType::Destroyer,
+            Alignment::Belligerent{player:0}, "Edsgar").unwrap();
+        
+        let city_id = map.new_city(Location::new(1,1),
+            Alignment::Belligerent{player:0}, "Steubenville").unwrap().id;
+
+        assert_eq!(city_id, CityID::default());
+        assert_eq!(unit_id, UnitID::default());
+        
     }
 }
