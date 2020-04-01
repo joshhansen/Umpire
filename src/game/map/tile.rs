@@ -89,11 +89,13 @@ impl fmt::Debug for Tile {
         } else if let Some(ref unit) = self.unit {
             write!(f, "{}", unit.type_.key())
         } else {
-            write!(f, "·")
+            match self.terrain {
+                Terrain::Land => write!(f, "·"),
+                Terrain::Water => write!(f, "~"),
+            }
         }
     }
 }
-
 
 #[cfg(test)]
 mod test {
