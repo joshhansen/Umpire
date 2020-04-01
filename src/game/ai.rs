@@ -55,3 +55,49 @@ impl TurnTaker for RandomAI {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::sync::{
+        Arc,
+        RwLock,
+    };
+
+    use crate::{
+        game::{
+            Alignment,
+            Game,
+            map::{
+                MapData,
+                terrain::Terrain,
+
+            },
+            player::TurnTaker,
+        },
+        name::IntNamer,
+        util::{
+            Dims,
+            Location,
+            Wrap2d,
+        },
+    };
+
+    use super::RandomAI;
+
+    #[test]
+    pub fn test_random_ai() {
+        let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
+        // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
+        map.new_city(Location::new(0,0), Alignment::Belligerent{player:0}, "Hebevund").unwrap();
+
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let mut ctrl = game.player_turn_control(0);
+
+        let mut ai = RandomAI::new();
+
+        for _ in 0..1000 {
+            ai.take_turn(&mut ctrl);
+        }
+    }
+}
