@@ -275,11 +275,12 @@ impl UmpireDomain {
         }
 
         // Run AI turns until the human player has something to do
-        while self.game.turn_is_done() {
+        while self.game.victor().is_none() && self.game.turn_is_done() {
             self.game.end_turn().unwrap();
 
             let mut ctrl = self.game.player_turn_control(1);
             self.random_ai.take_turn(&mut ctrl);
+            // Turn gets ended when ctrl goes out of scope
         }
     }
 
