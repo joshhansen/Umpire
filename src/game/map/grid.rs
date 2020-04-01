@@ -131,14 +131,9 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = write!(f, "");
 
-        for j in 0..self.dims.height {
-            // let j_ = self.dims.height - j - 1;
-
-            for i in 0..self.dims.width {
-                // if i > 0 {
-                //     result = result.and(write!(f, "\t"));
-                // }
-                result = result.and(self[Location{x:j, y:i}].fmt(f));
+        for y in 0..self.dims.height {
+            for x in 0..self.dims.width {
+                result = result.and(self[Location::new(x,y)].fmt(f));
             }
             result = result.and(writeln!(f));
         }
