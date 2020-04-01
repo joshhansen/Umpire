@@ -1637,6 +1637,10 @@ pub mod test_support {
 #[cfg(test)]
 mod test {
     use std::{
+        collections::{
+            HashMap,
+            HashSet,
+        },
         convert::TryFrom,
         sync::{
             Arc,
@@ -1651,6 +1655,8 @@ mod test {
             map::{
                 MapData,
                 Terrain,
+                grid::LocationGrid,
+                tile::Tile,
             },
             test_support::{game_two_cities_two_infantry},
             unit::{
@@ -1668,7 +1674,7 @@ mod test {
             unit_namer,
         },
         
-        util::{Location,Wrap2d},
+        util::{Dimensioned,Dims,Direction,Location,Vec2d,Wrap2d},
     };
 
     #[test]
@@ -1870,5 +1876,115 @@ mod test {
     #[test]
     pub fn test_propose_move_unit_by_id() {
         super::test_support::test_propose_move_unit_by_id();
+    }
+
+    #[test]
+    pub fn test_current_player_unit_legal_one_step_destinations() {
+        let dirs = [
+            Direction::UpLeft,
+            Direction::Up,
+            Direction::UpRight,
+            Direction::Left,
+            Direction::Right,
+            Direction::DownLeft,
+            Direction::Down,
+            Direction::DownRight,
+        ];
+
+        let possible: Vec<char> = " 01iI".chars().collect();
+        let mut traversable: HashMap<char,bool> = HashMap::new();
+        traversable.insert(' ', false);//water
+        traversable.insert('0', true);//friendly city
+        traversable.insert('1', true);//enemy city
+        traversable.insert('i', false);//friendly unit
+        traversable.insert('I', true);//enemy unit
+
+        for up_left in &possible {
+            for up in &possible {
+                for up_right in &possible {
+                    for left in &possible {
+                        for right in &possible {
+                            for down_left in &possible {
+                                for down in &possible {
+                                    for down_right in &possible {
+
+                                        let cs: Vec<char> = dirs.iter().map(|dir| match dir {
+                                            Direction::UpLeft => up_left,
+                                            Direction::Up => up,
+                                            Direction::UpRight => up_right,
+                                            Direction::Left => left,
+                                            Direction::Right => right,
+                                            Direction::DownLeft => down_left,
+                                            Direction::Down => down,
+                                            Direction::DownRight => down_right,
+                                        }).cloned().collect();
+
+                                        let s = format!("{}{}{}\n{}i{}\n{}{}{}",
+                                            cs[0], cs[1], cs[2], cs[3], cs[4], cs[5], cs[6], cs[7]
+                                        );
+
+                                        let map = MapData::try_from(s.clone()).unwrap();
+                                        assert_eq!(map.dims(), Dims::new(3, 3));
+
+                                        let unit_namer = IntNamer::new("unit");
+                                        let game = Game::new_with_map(map, 2, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+
+                                        let id = game.current_player_toplevel_unit_by_loc(Location{x:1,y:1}).unwrap().id;
+
+                                        let inclusions: Vec<bool> = cs.iter().map(|c| traversable.get(&c).unwrap()).cloned().collect();
+
+                                        assert_eq!(cs.len(), inclusions.len());
+                                        assert_eq!(cs.len(), dirs.len());
+
+                                        let src = Location::new(1, 1);
+                                        let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(id).unwrap().collect();
+
+                                        for (i, loc) in dirs.iter().map(|dir| {
+                                            let v: Vec2d<i32> = (*dir).into();
+                                            Location {
+                                                x: ((src.x as i32) + v.x) as u16,
+                                                y: ((src.y as i32) + v.y) as u16,
+                                            }
+                                        }).enumerate() {
+                                            if inclusions[i] {
+                                                assert!(dests.contains(&loc), "Erroneously omitted {:?} on \"{}\"", loc, s.replace("\n","\\n"));
+                                            } else {
+                                                assert!(!dests.contains(&loc), "Erroneously included {:?} on \"{}\"", loc, s.replace("\n","\\n"));
+                                            }
+                                        }
+                                    }// down_right
+                                }// down
+                            }// down_left
+                        }// right
+                    }// left
+                }// up_right
+            }// up
+        }// up_left
+    }
+
+    #[test]
+    pub fn test_one_step_routes() {
+        let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
+        let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
+
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+
+        for (i, src) in game.dims().iter_locs().enumerate() {
+            if i > 0 {
+                // If we're not at the start we need to recenter the unit on `src`
+                game.move_unit_by_id(unit_id, src).unwrap();
+                game.order_unit_skip(unit_id).unwrap();
+                game.end_turn().unwrap();
+            }
+
+            for dir in Direction::values().iter().cloned() {
+                let dest = game.wrapping.wrapped_add(game.dims(), src, dir.into()).unwrap();
+
+                game.move_unit_by_id(unit_id, dest).unwrap();
+                game.move_unit_by_id(unit_id, src).unwrap();
+                game.end_turn().unwrap();
+            }
+        }
     }
 }
