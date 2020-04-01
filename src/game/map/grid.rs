@@ -9,6 +9,11 @@ use crate::{
         PlayerNum,
         city::{CityID,City},
         obs::Obs,
+        unit::{
+            Unit,
+            UnitID,
+            UnitType,
+        },
     },
     util::{Dims,Dimensioned,Location},
 };
@@ -147,20 +152,24 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
 /// For example:
 /// `LocationGrid::try_from(
 /// "xx x x\
-///  xx  xx\
-///  x1  0x"
+///  xI  xx\
+///  x1  0a"
 /// )`
 /// would yield a location grid with tiles populated thus:
 /// * numerals represent land terrain with a city belonging to the player of that number
 ///   i.e. character "3" becomes a city belonging to player 3 located on land.
-/// * other non-whitespace characters correspond to land
+/// * letters corresponding to a UnitType key represent a unit of that type belonging to player 0
+/// * letters whose lowercase corresponds to a UnitType key represent a unit of that type belonging to player 1
+/// * other non-whitespace characters correspond to empty land
 /// * whitespace characters correspond to water
 ///
 /// Error if there are no lines or if the lines aren't of equal length
-impl TryFrom<&'static str> for LocationGrid<Tile> {
+/// 
+/// FIXME Eliminate the duplication with TryFrom<String> for LocationGrid<Obs>
+impl TryFrom<String> for LocationGrid<Tile> {
     type Error = String;
-    fn try_from(str: &'static str) -> Result<LocationGrid<Tile>,String> {
-        let lines = Vec::from_iter( str.lines().map(|line| Vec::from_iter( line.chars() )) );
+    fn try_from(s: String) -> Result<LocationGrid<Tile>,String> {
+        let lines = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
         if lines.is_empty() {
             return Err(String::from("String contained no lines"));
         }
@@ -200,10 +209,41 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
                             format!("City_{}_{}", loc.x, loc.y)
                         ));
                     }
+                    if let Ok(unit_type) = UnitType::try_from_key(c) {
+                        tile.unit = Some(
+                            Unit::new(
+                                UnitID::new(id),
+                                loc,
+                                unit_type,
+                                Alignment::Belligerent{player: 0},
+                                format!("Unit_{}_{}", loc.x, loc.y)
+                            )
+                        );
+                    } else if let Some(c_lower) = c.to_lowercase().next() {
+                        if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
+                            tile.unit = Some(
+                                Unit::new(
+                                    UnitID::new(id),
+                                    loc,
+                                    unit_type,
+                                    Alignment::Belligerent{player: 1},
+                                    format!("Unit_{}_{}", loc.x, loc.y)
+                                )
+                            );
+                        }
+                    }
+
                     tile
                 }
             )
         )
+    }
+}
+
+impl TryFrom<&'static str> for LocationGrid<Tile> {
+    type Error = String;
+    fn try_from(s: &'static str) -> Result<Self,String> {
+        LocationGrid::try_from(String::from(s))
     }
 }
 
@@ -212,22 +252,26 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
 /// For example:
 /// `LocationGrid::try_from(
 /// "?x x x\
-///  ?x  xx\
-///  x1  0x"
+///  ?I  xx\
+///  x1  0a"
 /// )`
 /// would yield a location grid with tiles populated thus:
 /// * question marks represent unobserved tiles
 /// * non-question-mark characters represent tiles observed in turn 0:
-///   - numerals represent land terrain with a city belonging to the player of that number i.e.
-///     character "3" becomes a city belonging to player 3 located on land.
-///   - other non-whitespace characters correspond to land
-///   - whitespace characters correspond to water
+///  - numerals represent land terrain with a city belonging to the player of that number
+///    i.e. character "3" becomes a city belonging to player 3 located on land.
+///  - letters corresponding to a UnitType key represent a unit of that type belonging to player 0
+///  - letters whose lowercase corresponds to a UnitType key represent a unit of that type belonging to player 1
+///  - other non-whitespace characters correspond to empty land
+///  - whitespace characters correspond to water
 ///
 /// Error if there are no lines or if the lines aren't of equal length
-impl TryFrom<&'static str> for LocationGrid<Obs> {
+/// 
+/// FIXME Eliminate the duplication with TryFrom<String> for LocationGrid<Tile>
+impl TryFrom<String> for LocationGrid<Obs> {
     type Error = String;
-    fn try_from(str: &'static str) -> Result<LocationGrid<Obs>,String> {
-        let lines = Vec::from_iter( str.lines().map(|line| Vec::from_iter( line.chars() )) );
+    fn try_from(s: String) -> Result<LocationGrid<Obs>,String> {
+        let lines = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
         if lines.is_empty() {
             return Err(String::from("String contained no lines"));
         }
@@ -272,6 +316,29 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
                                 format!("City_{}_{}", loc.x, loc.y)
                             ));
                         }
+                        if let Ok(unit_type) = UnitType::try_from_key(c) {
+                            tile.unit = Some(
+                                Unit::new(
+                                    UnitID::new(id),
+                                    loc,
+                                    unit_type,
+                                    Alignment::Belligerent{player: 0},
+                                    format!("Unit_{}_{}", loc.x, loc.y)
+                                )
+                            );
+                        } else if let Some(c_lower) = c.to_lowercase().next() {
+                            if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
+                                tile.unit = Some(
+                                    Unit::new(
+                                        UnitID::new(id),
+                                        loc,
+                                        unit_type,
+                                        Alignment::Belligerent{player: 1},
+                                        format!("Unit_{}_{}", loc.x, loc.y)
+                                    )
+                                );
+                            }
+                        }
 
                         // Obs::Observed{tile, turn: 0}
                         Obs::Observed{ tile, turn: 0, current: false }
@@ -279,6 +346,13 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
                 }
             )
         )
+    }
+}
+
+impl TryFrom<&'static str> for LocationGrid<Obs> {
+    type Error = String;
+    fn try_from(s: &'static str) -> Result<LocationGrid<Obs>,String> {
+        LocationGrid::try_from(String::from(s))
     }
 }
 
@@ -312,9 +386,9 @@ mod test {
         }
 
         match LocationGrid::<Tile>::try_from(
-            "blah h\n\
-             zzz zz\n\
-             zz   z") {
+            ".... .\n\
+             ... ..\n\
+             ..   .") {
             Err(err) => {
                 panic!("Error parsing grid string: {}", err);
             },
@@ -322,26 +396,26 @@ mod test {
                 assert_eq!(map.dims.width, 6);
                 assert_eq!(map.dims.height, 3);
 
-                assert_eq!(map[Location{x:0,y:0}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:1,y:0}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:2,y:0}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:3,y:0}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:4,y:0}].terrain, Terrain::Water);
-                assert_eq!(map[Location{x:5,y:0}].terrain, Terrain::Land);
+                assert_eq!(map[Location{x:0,y:0}], Tile{ terrain: Terrain::Land, loc: Location{x:0,y:0}, city: None, unit: None });
+                assert_eq!(map[Location{x:1,y:0}], Tile{ terrain: Terrain::Land, loc: Location{x:1,y:0}, city: None, unit: None });
+                assert_eq!(map[Location{x:2,y:0}], Tile{ terrain: Terrain::Land, loc: Location{x:2,y:0}, city: None, unit: None });
+                assert_eq!(map[Location{x:3,y:0}], Tile{ terrain: Terrain::Land, loc: Location{x:3,y:0}, city: None, unit: None });
+                assert_eq!(map[Location{x:4,y:0}], Tile{ terrain: Terrain::Water, loc: Location{x:4,y:0}, city: None, unit: None });
+                assert_eq!(map[Location{x:5,y:0}], Tile{ terrain: Terrain::Land, loc: Location{x:5,y:0}, city: None, unit: None });
 
-                assert_eq!(map[Location{x:0,y:1}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:1,y:1}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:2,y:1}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:3,y:1}].terrain, Terrain::Water);
-                assert_eq!(map[Location{x:4,y:1}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:5,y:1}].terrain, Terrain::Land);
+                assert_eq!(map[Location{x:0,y:1}], Tile{ terrain: Terrain::Land, loc: Location{x:0,y:1}, city: None, unit: None });
+                assert_eq!(map[Location{x:1,y:1}], Tile{ terrain: Terrain::Land, loc: Location{x:1,y:1}, city: None, unit: None });
+                assert_eq!(map[Location{x:2,y:1}], Tile{ terrain: Terrain::Land, loc: Location{x:2,y:1}, city: None, unit: None });
+                assert_eq!(map[Location{x:3,y:1}], Tile{ terrain: Terrain::Water, loc: Location{x:3,y:1}, city: None, unit: None });
+                assert_eq!(map[Location{x:4,y:1}], Tile{ terrain: Terrain::Land, loc: Location{x:4,y:1}, city: None, unit: None });
+                assert_eq!(map[Location{x:5,y:1}], Tile{ terrain: Terrain::Land, loc: Location{x:5,y:1}, city: None, unit: None });
 
-                assert_eq!(map[Location{x:0,y:2}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:1,y:2}].terrain, Terrain::Land);
-                assert_eq!(map[Location{x:2,y:2}].terrain, Terrain::Water);
-                assert_eq!(map[Location{x:3,y:2}].terrain, Terrain::Water);
-                assert_eq!(map[Location{x:4,y:2}].terrain, Terrain::Water);
-                assert_eq!(map[Location{x:5,y:2}].terrain, Terrain::Land);
+                assert_eq!(map[Location{x:0,y:2}], Tile{ terrain: Terrain::Land, loc: Location{x:0,y:2}, city: None, unit: None });
+                assert_eq!(map[Location{x:1,y:2}], Tile{ terrain: Terrain::Land, loc: Location{x:1,y:2}, city: None, unit: None });
+                assert_eq!(map[Location{x:2,y:2}], Tile{ terrain: Terrain::Water, loc: Location{x:2,y:2}, city: None, unit: None });
+                assert_eq!(map[Location{x:3,y:2}], Tile{ terrain: Terrain::Water, loc: Location{x:3,y:2}, city: None, unit: None });
+                assert_eq!(map[Location{x:4,y:2}], Tile{ terrain: Terrain::Water, loc: Location{x:4,y:2}, city: None, unit: None });
+                assert_eq!(map[Location{x:5,y:2}], Tile{ terrain: Terrain::Land, loc: Location{x:5,y:2}, city: None, unit: None });
             }
         }
     }
@@ -350,9 +424,9 @@ mod test {
     fn test_str_to_obs_map() {
         LocationGrid::<Obs>::try_from(
             "\
-            *xx\n\
+            *..\n\
             ???\n\
-            xxx").unwrap();
+            ...").unwrap();
 
 
         if let Ok(_map) = LocationGrid::<Tile>::try_from("") {
@@ -369,9 +443,9 @@ mod test {
         }
 
         match LocationGrid::<Obs>::try_from(
-            "blah h\n\
-             zz? zz\n\
-             zz ? z") {
+            ".... .\n\
+             ..? ..\n\
+             .. ? .") {
             Err(err) => {
                 panic!("Error parsing grid string: {}", err);
             },
@@ -416,7 +490,7 @@ mod test {
             Location{x:2,y:0}, Location{x:2,y:1}, Location{x:2,y:2}
         ];
 
-        let grid: LocationGrid<Tile> = LocationGrid::try_from("abc\nd f\nhij").unwrap();
+        let grid: LocationGrid<Tile> = LocationGrid::try_from("...\n. .\n...").unwrap();
 
         let mut count = 0;
         for (i, tile) in grid.iter().enumerate() {
@@ -429,5 +503,4 @@ mod test {
         }
         assert_eq!(9, count);
     }
-
 }

@@ -4,7 +4,7 @@
 
 pub mod dijkstra;
 pub mod gen;
-mod grid;
+pub(in crate::game) mod grid;
 pub mod terrain;
 pub(in crate::game) mod tile;
 
@@ -100,11 +100,40 @@ impl MapData {
         Self::new_from_grid(LocationGrid::new(dims, |loc| Tile::new(terrain_initializer(loc), loc)))
     }
 
+    pub fn new_from_grid(tiles: LocationGrid<Tile>) -> Self {
+        let mut map_data = Self {
+            tiles,
             unit_loc_by_id: HashMap::new(),
             unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
             next_unit_id: UnitID::default(),
             next_city_id: CityID::default(),
+        };
+
+        map_data.index();
+
+        map_data
+    }
+
+    /// Index all tiles
+    /// 
+    /// Assumes that none of them have been previously indexed
+    fn index(&mut self) {
+        for loc in self.tiles.iter_locs() {
+            self.index_tile(loc);
+        }
+    }
+
+    fn index_tile(&mut self, loc: Location) {
+        let tile = self.tiles.get(loc).cloned().unwrap();//CLONE
+        if let Some(city) = tile.city.as_ref() {
+            self.index_city(&city);
+        }
+        if let Some(unit) = tile.unit.as_ref() {
+            self.index_toplevel_unit(unit);
+            for carried_unit in unit.carried_units() {
+                self.index_carried_unit(carried_unit, unit);
+            }
         }
     }
 
@@ -144,13 +173,23 @@ impl MapData {
     /// Remove a top-level unit (and all carried units) from the relevant indices
     fn unindex_toplevel_unit(&mut self, unit: &Unit) {
         let removed_loc: Option<Location> = self.unit_loc_by_id.remove(&unit.id);
-        debug_assert!(removed_loc.is_some());
+        debug_assert_eq!(removed_loc.unwrap(), unit.loc);
 
         for carried_unit in unit.carried_units() {
             self.unindex_carried_unit(&carried_unit);
         }
     }
 
+    /// Add a city to the relevant indices
+    fn index_city(&mut self, city: &City) {
+        let insertion_result = self.city_loc_by_id.insert(city.id, city.loc);
+        debug_assert!(insertion_result.is_none());
+    }
+
+    /// Remove a city from the relevant indices
+    fn unindex_city(&mut self, city: &City) {
+        let removed_loc = self.city_loc_by_id.remove(&city.id);
+        debug_assert_eq!(removed_loc.unwrap(), city.loc);
     }
 
     fn in_bounds(&self, loc: Location) -> bool {
@@ -236,27 +275,12 @@ impl MapData {
     }
 
     pub fn pop_unit_by_loc_and_id(&mut self, loc: Location, id: UnitID) -> Option<Unit> {
-        self.pop_toplevel_unit_by_loc_and_id(loc, id).or_else(|| self.pop_carried_unit_by_loc_and_id(loc, id))
-        // let should_pop_toplevel: bool = if let Some(toplevel_unit) = self.toplevel_unit_by_loc(loc) {
-        //     toplevel_unit.id==id
-        // } else {
-        //     return None;
-        // };
-        
-        // if should_pop_toplevel {
-        //     return self.pop_toplevel_unit_by_loc(loc);
-        // }
+        self.pop_toplevel_unit_by_loc_and_id(loc, id)
+            .or_else(|| self.pop_carried_unit_by_loc_and_id(loc, id))
+    }
 
-        // if let Some(toplevel_unit) = self.unit_by_loc_mut(loc) {
-        //     if let Some(carried_unit) = toplevel_unit.release_by_id(id) {
-        //         self.unindex_carried_unit(&carried_unit);
-        //         Some(carried_unit)
-        //     } else {
-        //         None
-        //     }
-        // } else {
-        //     None
-        // }
+    pub fn pop_unit_by_id(&mut self, id: UnitID) -> Option<Unit> {
+        self.pop_toplevel_unit_by_id(id).or_else(|| self.pop_carried_unit_by_id(id))
     }
 
     /// Get a mutable reference to the top-level unit at the given location, if any exists
@@ -340,7 +364,6 @@ impl MapData {
         for carried_unit in unit.carried_units_mut() {
             carried_unit.loc = loc;
         }
-        
 
         let old_unit = self.pop_toplevel_unit_by_loc(loc);
 
@@ -357,6 +380,9 @@ impl MapData {
         self.unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
     }
 
+    /// Get the unit with ID `id`, if any, mutably
+    /// 
+    /// This covers all units, whether top-level or carried.
     #[deprecated]
     pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
@@ -400,8 +426,7 @@ impl MapData {
 
         let city = City::new(city_id, alignment, loc, name);
 
-        let insertion_result = self.city_loc_by_id.insert(city_id, loc);
-        debug_assert!(insertion_result.is_none());
+        self.index_city(&city);
 
         self.tiles[loc].city = Some(city);
 
@@ -426,7 +451,11 @@ impl MapData {
 
     pub fn pop_city_by_loc(&mut self, loc: Location) -> Option<City> {
         if let Some(tile) = self.tiles.get_mut(loc) {
-            tile.city.take()
+            let old_city = tile.city.take();
+            if let Some(old_city) = old_city.as_ref() {
+                self.unindex_city(old_city);
+            }
+            old_city
         } else {
             None
         }
@@ -605,47 +634,17 @@ impl Debug for MapData {
 /// Error if there are no lines or if the lines aren't of equal length
 impl TryFrom<&'static str> for MapData {
     type Error = String;
-    fn try_from(str: &'static str) -> Result<Self,String> {
-        let lines = Vec::from_iter( str.lines().map(|line| Vec::from_iter( line.chars() )) );
-        if lines.is_empty() {
-            return Err(String::from("String contained no lines"));
-        }
+    fn try_from(s: &'static str) -> Result<Self,String> {
+        let grid = LocationGrid::try_from(s)?;
+        Ok(Self::new_from_grid(grid))
+    }
+}
 
-        let width = lines[0].len();
-        if lines.len() == 1 && width == 0 {
-            return Err(String::from("No map was provided (the string was empty)"));
-        }
-
-        for line in &lines {
-            if line.len() != width {
-                return Err(format!("Lines aren't all the same width. Expected {}, found {}", width, line.len()));
-            }
-        }
-
-        let dims = Dims{width: width as u16, height: lines.len() as u16 };
-        let mut map = Self::new(dims, |loc| {
-            let c = lines[loc.y as usize][loc.x as usize];
-
-            if c==' ' {
-                Terrain::Water
-            } else {
-                Terrain::Land
-            }
-        });
-
-        for loc in map.iter_locs() {
-            let c = lines[loc.y as usize][loc.x as usize];
-            let c_lower = c.to_lowercase().next().unwrap();
-            if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
-                map.new_city(loc, Alignment::Belligerent{player: player_num}, format!("City_{}_{}", loc.x, loc.y)).unwrap();
-            }
-            if let Some(unit_type) = UnitType::from_key(c_lower) {
-                let player_num = if c.is_lowercase() { 0 } else { 1 };
-                map.new_unit(loc, unit_type, Alignment::Belligerent{player: player_num}, format!("Unit_{}_{}", loc.x, loc.y)).unwrap();
-            }
-        }
-
-        Ok(map)
+impl TryFrom<String> for MapData {
+    type Error = String;
+    fn try_from(s: String) -> Result<Self,String> {
+        let grid = LocationGrid::try_from(s)?;
+        Ok(Self::new_from_grid(grid))
     }
 }
 
