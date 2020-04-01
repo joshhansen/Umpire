@@ -470,28 +470,28 @@ impl Game {
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
     pub fn victor(&self) -> Option<PlayerNum> {
-        let mut possible: HashSet<PlayerNum> = (0..self.num_players()).collect();
+        let mut represented: HashSet<PlayerNum> = HashSet::new();
 
         for city in self.map.cities() {
             if let Alignment::Belligerent{player} = city.alignment {
-                possible.remove(&player);
+                represented.insert(player);
             }
-            if possible.len() == 0 {
+            if represented.len() > 1 {
                 return None;
             }
         }
 
         for unit in self.map.units() {
             if let Alignment::Belligerent{player} = unit.alignment {
-                possible.remove(&player);
+                represented.insert(player);
             }
-            if possible.len() == 0 {
+            if represented.len() > 1 {
                 return None;
             }
         }
 
-        if possible.len() == 1 {
-            return Some(*possible.iter().next().unwrap());// unwrap to assert something's there
+        if represented.len() == 1 {
+            return Some(*represented.iter().next().unwrap());// unwrap to assert something's there
         }
 
         None
