@@ -8,6 +8,7 @@ use crate::{
         map::{
             dijkstra::{
                 ObservedReachableByPacifistUnit,
+                OverlaySource,
                 PacifistXenophileUnitMovementFilter,
                 nearest_adjacent_unobserved_reachable_without_attacking,
                 shortest_paths
@@ -21,6 +22,7 @@ use crate::{
         },
         obs::{
             OverlayObsTracker,
+            UnifiedObsTracker,
         },
         unit::UnitID,
     },
@@ -310,7 +312,13 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> ProposedOrdersResult {
 
     // An overlay atop the player's observations which tracks the changes that occur during this move
-    let mut overlay = OverlayObsTracker::new(game.current_player_observations());
+    // let mut overlay = OverlayObsTracker::new(game.current_player_observations());
+    // let mut overlay = UnifiedObsTracker::new(&game.map, game.current_player_observations().clone());
+
+    // let observations = game.current_player_observations();
+
+    let mut overlay_map = OverlaySource::new(&game.map);
+    let mut overlay_observations = OverlayObsTracker::new(game.current_player_observations());
 
     // Clone the unit and simulate exploration using the clone
     let mut unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
@@ -327,15 +335,18 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
             return Ok(ProposedOrdersOutcome::in_progress_with_move(unit_id, orders, ProposedMove::new(unit, starting_loc, move_components).unwrap()));
         }
 
-        if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(&overlay, unit.loc, &unit, game.wrapping()) {
+        if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(&overlay_observations, unit.loc, &unit, game.wrapping()) {
 
             //                                                     //FIXME this simplistic filter may be the source of some trouble
             // let shortest_paths = shortest_paths(game, unit.loc, &ObservedFilter{}, game.wrapping());
 
-            let shortest_paths = {
-                let filter = ObservedReachableByPacifistUnit{unit: &unit};
-                shortest_paths(&overlay, unit.loc, &filter, game.wrapping())
-            };
+            let filter = ObservedReachableByPacifistUnit{unit: &unit};
+            let shortest_paths = shortest_paths(&overlay_observations, unit.loc, &filter, game.wrapping());
+
+            // let shortest_paths = {
+            //     let filter = ObservedReachableByPacifistUnit{unit: &unit};
+            //     shortest_paths(&overlay, unit.loc, &filter, game.wrapping())
+            // };
 
             let mut dist_to_real_goal = shortest_paths.dist[goal].unwrap();
             while dist_to_real_goal > unit.moves_remaining() {
@@ -347,8 +358,12 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
             // let mut move_result = game.propose_move_unit_avoiding_combat(unit, goal)
             //                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
-            let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(&unit, goal, shortest_paths, &mut overlay)
-                                      .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
+            let mut move_ = game.propose_move_unit_using_filter_custom_tracker(
+                &unit, goal, &filter, &overlay_map, &mut overlay_observations,
+            ).map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
+
+            // let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(&unit, goal, shortest_paths, &mut overlay)
+            //                           .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
 
             if move_.0.moved_successfully() {

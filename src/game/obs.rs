@@ -1,10 +1,15 @@
+use std::fmt;
+
 use crate::{
     game::{
         TurnNum,
         map::{
             LocationGrid,
             Tile,
-            dijkstra::Source,
+            dijkstra::{
+                Source,
+                SourceMut,
+            },
         },
     },
     util::{Dims,Dimensioned,Location,Located,LocatedItem,Vec2d,Wrap2d},
@@ -42,7 +47,94 @@ pub type LocatedObs = LocatedItem<Obs>;
 pub trait ObsTrackerI : Source<Obs> {
     fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
 }
+
+pub trait UnifiedObsTrackerI : ObsTrackerI + Source<Obs> + Source<Tile> {
+    fn track_observation_unified(&mut self, loc: Location, turn: TurnNum) -> LocatedObs;
 }
+
+pub struct UnifiedObsTracker<'a, O, S> {
+    truth: &'a mut S,
+    // observations: LocationGrid<Option<Obs>>,
+    observations: &'a mut O,
+    // overlay: HashMap<Location,Option<Obs>>,
+}
+
+impl <'a, O:ObsTrackerI, S:Source<Tile>> UnifiedObsTracker<'a, O, S> {
+    pub fn new(truth: &'a mut S, observations: &'a mut O) -> Self {
+        Self {
+            truth,
+            observations,
+        }
+    }
+
+    pub fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
+        self.observations.track_observation(loc, tile, turn)
+    }
+}
+
+impl <'a, O:ObsTrackerI, S:SourceMut<Tile>> UnifiedObsTracker<'a, O, S> {
+    pub fn put_truth(&mut self, loc: Location, item: &Tile) -> LocatedItem<Tile> {
+        self.truth.put(loc, item)
+    }
+}
+
+
+
+impl <'a, O:ObsTrackerI, S:Source<Tile>> Dimensioned for UnifiedObsTracker<'a, O, S> {
+    fn dims(&self) -> Dims {
+        // The truth and overlay dims are identical
+        self.truth.dims()
+    }
+}
+
+impl <'a, O:ObsTrackerI, S:Source<Tile>> Source<Obs> for UnifiedObsTracker<'a, O, S> {
+    fn get(&self, loc: Location) -> &Obs {
+        self.observations.get(loc)
+        // self.observations[loc].as_ref().unwrap()
+        // if let Some(overlay_obs) = self.overlay[loc].as_ref() {
+        //     overlay_obs
+        // } else {
+        //     self.inner.get(loc)
+        // }
+    }
+}
+
+impl <'a, O:ObsTrackerI, S:Source<Tile>> Source<Tile> for UnifiedObsTracker<'a, O, S> {
+    fn get(&self, loc: Location) -> &Tile {
+        match <Self as Source<Obs>>::get(self, loc) {
+            Obs::Observed{ref tile, ..} => tile,
+            Obs::Unobserved => panic!("Tried to get tile from unobserved tile {:?}", loc)
+        }
+    }
+}
+
+impl <'a, O:ObsTrackerI, S:Source<Tile>> ObsTrackerI for UnifiedObsTracker<'a, O, S> {
+    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
+        self.observations.track_observation(loc, tile, turn)
+        // let tile = <Self as Source<Tile>>::get(self, loc).clone();//CLONE
+        // let obs = Obs::Observed{ tile, turn, current: true };
+        // // self.observations[loc] = Some(obs.clone());//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
+        // self.observations.observe(loc, &tile, turn);
+        // LocatedObs{ loc, item: obs }
+    }
+}
+
+impl <'a, O:ObsTrackerI, S:Source<Tile>> UnifiedObsTrackerI for UnifiedObsTracker<'a, O, S> {
+    fn track_observation_unified(&mut self, loc: Location, turn: TurnNum) -> LocatedObs {
+        // let tile = <Self as Source<Tile>>::get(self, loc).clone();//CLONE
+        let tile = self.truth.get(loc).clone();//CLONE
+
+        self.observations.track_observation(loc, &tile, turn);
+
+        let obs = Obs::Observed{ tile, turn, current: true };
+        // self.observations[loc] = Some(obs.clone());//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
+        
+        LocatedObs{ loc, item: obs }
+    }
+}
+
+
+
 
 #[derive(Clone)]
 pub struct ObsTracker {
@@ -183,6 +275,23 @@ pub trait Observer : Located {
             .filter_map(|inc| wrapping.wrapped_add(tiles.dims(), self.loc(), inc))
             .map(|loc| {
                 obs_tracker.track_observation(loc, tiles.get(loc), turn)
+            })
+            .collect()
+        // for inc in visible_coords_iter(self.sight_distance()) {
+        //     if let Some(loc) = wrapping.wrapped_add(tiles.dims(), self.loc(), inc) {
+        //         obs_tracker.observe(loc, tiles.get(loc), turn);
+        //     }
+        // }
+    }
+
+    /// FIXME If we ever get support for impl Trait on trait methods switch to that rather than the likely performance hit of this
+    /// vector instantiation
+    fn observe_unified<O:UnifiedObsTrackerI>(&self, tiles: &mut O, turn: TurnNum, wrapping: Wrap2d) -> Vec<LocatedObs> {
+        let dims = tiles.dims();
+        visible_coords_iter(self.sight_distance())
+            .filter_map(|inc| wrapping.wrapped_add(dims, self.loc(), inc))
+            .map(|loc| {
+                tiles.track_observation_unified(loc, turn)
             })
             .collect()
         // for inc in visible_coords_iter(self.sight_distance()) {
