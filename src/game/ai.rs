@@ -34,6 +34,7 @@ impl TurnTaker for RandomAI {
         let production_set_requests: Vec<Location> = game.production_set_requests().collect();
         for city_loc in production_set_requests {
             let unit_type = self.unit_type_vec.choose(&mut rng).unwrap();
+            println!("{:?} -> {:?}", city_loc, unit_type);
             game.set_production_by_loc(city_loc, *unit_type).unwrap();
         }
 
