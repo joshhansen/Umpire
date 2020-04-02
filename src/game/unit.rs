@@ -377,10 +377,6 @@ impl Unit {
         }
     }
 
-    pub fn is_friendly_to(&self, unit: &Unit) -> bool {
-        self.alignment == unit.alignment
-    }
-
     /// Carry a unit in this unit's carrying space.
     /// 
     /// For example, make a Transport carry an Armor.

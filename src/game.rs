@@ -133,6 +133,10 @@ impl fmt::Display for Alignment {
 
 pub trait Aligned : AlignedMaybe {
     fn alignment(&self) -> Alignment;
+
+    fn is_friendly_to<A:Aligned>(&self, other: &A) -> bool {
+        self.alignment() == other.alignment()
+    }
 }
 
 pub trait AlignedMaybe {
