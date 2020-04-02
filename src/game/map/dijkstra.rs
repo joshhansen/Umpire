@@ -465,16 +465,20 @@ pub fn neighbors_iter_owned_filter<'a, T, F, N, S>(tiles: &'a S, loc: Location, 
                    .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
 }
 
-pub fn directions_iter_owned_filter<'a, T, F, N, S>(tiles: &'a S, loc: Location, directions: N,
+pub fn directions_iter_owned_filter<'a, T, F, D, S>(tiles: &'a S, loc: Location, directions: D,
                                  filter: F, wrapping: Wrap2d) -> impl Iterator<Item=Direction> + 'a
-    where F:Filter<T>+'a, S:Source<T>, N:Iterator<Item=&'a Direction>+'a {
+    where F:Filter<T>+'a, S:Source<T>, D:Iterator<Item=&'a Direction>+'a {
 
-        directions.filter_map(move |direction| {
-            wrapping.wrapped_add(tiles.dims(), loc, (*direction).into())
-            .map(|loc| (direction,loc))
-        })
-        .filter(move |(_direction,neighb_loc)| filter.include(tiles.get(*neighb_loc)))
-        .map(|(direction,_neighb_loc)| *direction)
+        directions
+            .filter_map(move |direction| {
+                wrapping
+                    .wrapped_add(tiles.dims(), loc, (*direction).into())
+                    .map(|loc| (direction,loc))
+            })
+            .filter(move |(_direction,neighb_loc)| {
+                filter.include(tiles.get(*neighb_loc))
+            })
+            .map(|(direction,_neighb_loc)| *direction)
 }
 
 struct UnitTypeFilter {
