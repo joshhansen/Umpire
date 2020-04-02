@@ -10,8 +10,11 @@ use std::{
     collections::{
         BinaryHeap,
         HashMap,
+        HashSet,
     },
 };
+
+use clap::{Arg, App};
 
 use rand::{
     Rng,
@@ -19,28 +22,28 @@ use rand::{
 };
 
 use rsrl::{
-    run, make_shared, Evaluation, SerialExperiment,
-    control::td::QLearning,
+    Evaluation,
+    SerialExperiment,
+    run,
+    make_shared,
+    control::{
+        td::QLearning,
+    },
     domains::{Domain, MountainCar},
     fa::{
         EnumerableStateActionFunction,
         StateFunction,
-        linear::{basis::{Constant, Fourier, Projector}, optim::SGD, LFA}
+        linear::{basis::{Constant}, optim::SGD, LFA}
     },
     logging,
-    policies::{EnumerablePolicy, EpsilonGreedy, Greedy, Policy, Random},
+    policies::{EnumerablePolicy, Policy},
     spaces::{
         BoundedSpace,
         Card,
         Dim,
-        FiniteSpace,
         Interval,
         ProductSpace,
         Space,
-        discrete::{
-            // Interval,
-            Ordinal,
-        },
     },
 };
 
@@ -52,17 +55,23 @@ use rsrl_domains::{
 };
 
 use umpire::{
+    conf,
     game::{
         Game,
         ai::RandomAI,
         combat::CombatCapable,
         player::TurnTaker,
-        test_support::game_two_cities_two_infantry_big,
+        test_support::{
+            game_two_cities_two_infantry,
+            game_two_cities_two_infantry_big,
+            game_two_cities_two_infantry_dims,
+        },
         unit::{
             UnitType,
         },
     },
     util::{
+        Dims,
         Direction,
     },
 };
@@ -132,35 +141,34 @@ impl Space for UmpireStateSpace {
 
 #[derive(Clone,Copy,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub enum UmpireAction {
-    // SetProduction{city_loc: Location, unit_type: UnitType},
-    // MoveUnit{unit_id: UnitID, direction: Direction}
     SetNextCityProduction{unit_type: UnitType},
     MoveNextUnit{direction: Direction},
+
 }
 
 impl UmpireAction {
-    fn legal_actions(game: &Game) -> BinaryHeap<Self> {
-        let mut a = BinaryHeap::new();
+    fn legal_actions(game: &Game) -> HashSet<Self> {
+        let mut a = HashSet::new();
 
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
         if let Some(city_loc) = game.production_set_requests().next() {
             for unit_type in game.valid_productions(city_loc) {
-                a.push(UmpireAction::SetNextCityProduction{unit_type});
+                a.insert(UmpireAction::SetNextCityProduction{unit_type});
             }
         }
 
         //TODO Possibly consider actions for all units instead of just the next one that needs orders
         if let Some(unit_id) = game.unit_orders_requests().next() {
             for direction in game.current_player_unit_legal_directions(unit_id).unwrap() {
-                a.push(UmpireAction::MoveNextUnit{direction});
+                a.insert(UmpireAction::MoveNextUnit{direction});
             }
         }
 
         a
     }
 
-    fn possible_actions() -> BinaryHeap<Self> {
-        let mut a = BinaryHeap::new();
+    fn possible_actions() -> Vec<Self> {
+        let mut a = Vec::new();
         for unit_type in UnitType::values().iter().cloned() {
             a.push(UmpireAction::SetNextCityProduction{unit_type});
         }
@@ -216,13 +224,13 @@ impl UmpireAction {
 }
 
 struct UmpireActionSpace {
-    legal_actions: Vec<UmpireAction>,
+    legal_actions: HashSet<UmpireAction>,
 }
 
 impl UmpireActionSpace {
     fn from_game_state(game: &Game) -> Self {
         Self {
-            legal_actions: UmpireAction::legal_actions(game).into_sorted_vec()
+            legal_actions: UmpireAction::legal_actions(game)
         }
     }
 }
@@ -250,6 +258,15 @@ struct UmpireDomain {
 }
 
 impl UmpireDomain {
+    fn new(dims: Dims, verbose: bool) -> Self {
+        Self {
+            game: game_two_cities_two_infantry_dims(dims),
+            random_ai: RandomAI::new(verbose)
+        }
+    }
+}
+
+impl UmpireDomain {
     fn update_state(&mut self, action: UmpireAction) {
 
         debug_assert_eq!(self.game.current_player(), 0);
@@ -257,20 +274,18 @@ impl UmpireDomain {
 
         match action {
             UmpireAction::SetNextCityProduction{unit_type} => {
-                //FIXME We can't assume the request is available since the system is still selecting invalid actions
-
-                if self.game.production_set_requests().next().is_some() {
-                    let city_loc = self.game.production_set_requests().next().unwrap();
-                    self.game.set_production_by_loc(city_loc, unit_type).unwrap();
-                }
+                let city_loc = self.game.production_set_requests().next().unwrap();
+                self.game.set_production_by_loc(city_loc, unit_type).unwrap();
             },
             UmpireAction::MoveNextUnit{direction} => {
-                //FIXME We can't assume the request is available since the system is still selecting invalid actions
+                let unit_id = self.game.unit_orders_requests().next().unwrap();
+                debug_assert!({
+                    let legal: HashSet<Direction> = self.game.current_player_unit_legal_directions(unit_id).unwrap()
+                                                             .collect();
+                    legal.contains(&direction)
+                });
 
-                if self.game.unit_orders_requests().next().is_some() {
-                    let unit_id = self.game.unit_orders_requests().next().unwrap();
-                    self.game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
-                }
+                self.game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
             },
         }
 
@@ -307,13 +322,14 @@ impl UmpireDomain {
     }
 }
 
-impl Default for UmpireDomain {
-    fn default() -> Self {
-        let game = game_two_cities_two_infantry_big();
+// impl Default for UmpireDomain {
+//     fn default() -> Self {
+//         // let game = game_two_cities_two_infantry_big();
+//         let game = game_two_cities_two_infantry_dims(Dims::new(20, 20));
 
-        Self { game, random_ai: RandomAI::new() }
-    }
-}
+//         Self { game, random_ai: RandomAI::new(true) }
+//     }
+// }
 
 impl Domain for UmpireDomain {
     /// State space representation type class.
@@ -369,8 +385,6 @@ impl Domain for UmpireDomain {
     }
 }
 
-// #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-// #[derive(Clone, Debug)]
 pub struct UmpireRandom {
     possible_indices: HashMap<UmpireAction,usize>,
 }
@@ -427,8 +441,6 @@ fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
     (max, ixs)
 }
 
-// #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-// #[derive(Clone, Debug)]
 pub struct UmpireGreedy<Q>(Q);
 
 impl<Q> UmpireGreedy<Q> {
@@ -541,26 +553,64 @@ fn get_bounds(d: &Interval) -> (f64, f64) {
     }
 }
 
-
-
 fn main() {
+    let matches = App::new("Umpire AI Trainer")
+    .version(conf::APP_VERSION)
+    .author("Josh Hansen <hansen.joshuaa@gmail.com>")
+    .arg(
+        Arg::with_name("episodes")
+        .short("e")
+        .long("episodes")
+        .takes_value(true)
+        .default_value("1000")
+        .validator(|s| {
+            let episodes: Result<usize,_> = s.trim().parse();
+            episodes.map(|_n| ()).map_err(|_e| format!("Invalid episodes '{}'", s))
+        })
+    )
+    .arg(
+        Arg::with_name("steps")
+        .short("s")
+        .long("steps")
+        .takes_value(true)
+        .default_value("5000")
+        .validator(|s| {
+            let steps: Result<u64,_> = s.trim().parse();
+            steps.map(|_n| ()).map_err(|_e| format!("Invalid steps '{}'", s))
+        })
+    )
+    .arg(
+        Arg::with_name("verbose")
+        .short("v")
+        .long("verbose")
+        .help("Show verbose output")
+    )
+    .get_matches();
+
+    let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
+    let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
+    let verbose = matches.is_present("verbose");
+
     println!("Training Umpire AI.");
 
 
-    // let domain = MountainCar::default();
-    let domain = UmpireDomain::default();
+    // let domain_builder = Box::new(MountainCar::default);
+    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(20, 20), verbose));
 
     let mut agent = {
 
         let n_actions = UmpireAction::possible_actions().len();
         // let n_actions: usize = domain.action_space().card().into();
 
-        println!("# actions: {}", n_actions);
+        if verbose {
+            println!("# actions: {}", n_actions);
+
+            let limits: Vec<(f64,f64)> = domain_builder().state_space().space.iter().map(get_bounds).collect();
+            println!("Limits: {}", limits.len());
+        }
+        
         // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
         // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
-
-        let limits: Vec<(f64,f64)> = domain.state_space().space.iter().map(get_bounds).collect();
-        println!("Limits: {}", limits.len());
 
         // let basis = Fourier::from_space(order, domain.state_space().space).with_constant();
         let basis = Constant::new(5.0);
@@ -584,17 +634,13 @@ fn main() {
 
     let logger = logging::root(logging::stdout());
 
-    //FIXME Construct UmpireDomain instead of MountainCar
-    // let domain_builder = Box::new(MountainCar::default);
-    let domain_builder = Box::new(UmpireDomain::default);
-
     // Training phase:
     let _training_result = {
         // Start a serial learning experiment up to 1000 steps per episode.
-        let e = SerialExperiment::new(&mut agent, domain_builder.clone(), 1000);
+        let e = SerialExperiment::new(&mut agent, domain_builder.clone(), steps);
 
         // Realise 1000 episodes of the experiment generator.
-        run(e, 1000, Some(logger.clone()))
+        run(e, episodes, Some(logger.clone()))
     };
 
     // Testing phase:

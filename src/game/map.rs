@@ -373,6 +373,18 @@ impl MapData {
         old_unit
     }
 
+    /// Relocate a unit from anywhere on the map to the destination
+    /// 
+    /// This makes no consideration of whether that makes sense. For actual game logic see Game::move_unit_by_id
+    /// 
+    /// The contained value is an Option representing any unit that was present at the destination
+    pub fn relocate_unit_by_id(&mut self, id: UnitID, dest: Location) -> Result<Option<Unit>,GameError> {
+        let unit = self.pop_unit_by_id(id)
+                             .ok_or(GameError::NoSuchUnit{id})?;
+        
+        Ok(self.set_unit(dest, unit))
+    }
+
     /// Get the unit with ID `id`, if any
     /// 
     /// This covers all units, whether top-level or carried.
@@ -380,12 +392,29 @@ impl MapData {
         self.unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
     }
 
+
+
     /// Get the unit with ID `id`, if any, mutably
     /// 
     /// This covers all units, whether top-level or carried.
     #[deprecated]
     pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
+    }
+
+    pub fn mark_unit_movement_complete(&mut self, id: UnitID) -> Result<(),GameError> {
+        let unit = self.unit_by_id_mut(id)
+            .ok_or(GameError::NoSuchUnit{id})?;
+
+        unit.movement_complete();
+        Ok(())
+    }
+
+    pub fn record_unit_movement(&mut self, id: UnitID, moves: u16) -> Result<Result<u16,String>,GameError> {
+        let unit = self.unit_by_id_mut(id)
+            .ok_or(GameError::NoSuchUnit{id})?;
+        
+        Ok(unit.record_movement(moves))
     }
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {
@@ -410,6 +439,13 @@ impl MapData {
         self.index_carried_unit_piecemeal(carried_unit_id, carrier_unit_id, carrier_unit_loc);
 
         carry_result
+    }
+
+    /// Move a unit on the map to the carrying space of another unit on the map
+    pub fn carry_unit_by_id(&mut self, carrier_unit_id: UnitID, carried_unit_id: UnitID) -> Result<usize,GameError> {
+        let unit = self.pop_unit_by_id(carried_unit_id)
+                                     .ok_or(GameError::NoSuchUnit{id: carried_unit_id})?;
+        self.carry_unit(carrier_unit_id, unit)
     }
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {

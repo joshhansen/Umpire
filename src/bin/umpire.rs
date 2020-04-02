@@ -272,7 +272,7 @@ fn main() {
         ).unwrap();
 
         // We can share one instance of RandomAI across players since it's stateless
-        let mut random_ai = RandomAI::new();
+        let mut random_ai = RandomAI::new(false);
 
         let mut game = game;
 

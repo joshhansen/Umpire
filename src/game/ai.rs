@@ -19,11 +19,13 @@ use crate::{
 
 pub struct RandomAI {
     unit_type_vec: Vec<UnitType>,
+    verbose: bool,
 }
 impl RandomAI {
-    pub fn new() -> Self {
+    pub fn new(verbose: bool) -> Self {
         Self {
             unit_type_vec: UnitType::values().to_vec(),
+            verbose,
         }
     }
 }
@@ -31,26 +33,45 @@ impl TurnTaker for RandomAI {
     fn take_turn(&mut self, game: &mut PlayerTurnControl) {
         let mut rng = rand::thread_rng();
 
+        if self.verbose {
+            println!("Initial:\n{:?}", game.current_player_observations());
+        }
+
         let production_set_requests: Vec<Location> = game.production_set_requests().collect();
         for city_loc in production_set_requests {
             let unit_type = self.unit_type_vec.choose(&mut rng).unwrap();
-            println!("{:?} -> {:?}", city_loc, unit_type);
+
+            if self.verbose {
+                println!("{:?} -> {:?}", city_loc, unit_type);
+            }
+
             game.set_production_by_loc(city_loc, *unit_type).unwrap();
         }
 
         let unit_orders_requests: Vec<UnitID> = game.unit_orders_requests().collect();
         for unit_id in unit_orders_requests {
 
-            println!("{:?}", game.current_player_observations());
+            
 
             let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
             if let Some(dest) = possible.choose(&mut rng) {
                 // println!("dest: {:?}", dest);
-                println!("{:?} -> {:?}", unit_id, dest);
-                game.move_unit_by_id(unit_id, *dest).unwrap();
+                if self.verbose {
+                    println!("{:?} -> {:?}", unit_id, dest);
+                }
+                let result = game.move_unit_by_id(unit_id, *dest).unwrap();
+                if self.verbose && !result.moved_successfully() {
+                    println!("**DESTROYED");
+                }
+
+                if self.verbose {
+                    println!("{:?}", game.current_player_observations());
+                }
 
             } else {
-                println!("skip");
+                if self.verbose {
+                    println!("skip");
+                }
                 game.order_unit_skip(unit_id).unwrap();
             }
         }

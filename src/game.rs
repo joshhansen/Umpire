@@ -86,6 +86,7 @@ pub use self::player::{
 };
 
 use self::move_::{
+    Move,
     MoveComponent,
     MoveError,
     MoveResult,
@@ -864,7 +865,13 @@ impl Game {
     }
 
     pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
-        self.propose_move_unit_by_id(unit_id, dest).map(|proposed_move| proposed_move.take(self))
+        // self.propose_move_unit_by_id(unit_id, dest).map(|proposed_move| proposed_move.take(self))
+        // let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
+        let unit = self.current_player_unit_by_id(unit_id)
+            .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
+
+        let filter = UnitMovementFilter::new(&unit);
+        self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 
     pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
@@ -886,7 +893,8 @@ impl Game {
             ),
             UnitMovementFilter{unit}
         );
-        self.propose_move_unit_using_filter(unit, dest, &unit_filter)
+        // self.propose_move_unit_using_filter(unit, dest, &unit_filter)
+        self.propose_move_unit_by_id_using_filter(id, dest, &unit_filter)
     }
 
     /// Simulate and propose moving the unit at location `loc` with ID `id` to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
@@ -927,6 +935,7 @@ impl Game {
     /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
     /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
     /// potentially other behaviors like unit carrying and combat.
+    #[deprecated = "Use propose_move_unit_by_id_using_filter instead"]
     fn propose_move_unit_using_filter_custom_tracker<F:Filter<Obs>,O:ObsTrackerI,S:Source<Tile>>(
         &self,
         unit: &Unit,
@@ -1085,8 +1094,239 @@ impl Game {
         ProposedMove::new(unit, src, moves)
     }
 
+    /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
+    /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
+    /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
+    /// potentially other behaviors like unit carrying and combat.
+    fn propose_move_unit_by_id_using_filter<F:Filter<Obs>>(
+        &self,
+        unit_id: UnitID,
+        dest: Location,
+        tile_filter: &F) -> ProposedMoveResult {
+        
+        let mut game = self.clone();
+        game.move_unit_by_id_using_filter(unit_id, dest, tile_filter)
+            .map(ProposedMove)
+    }
+
+    /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
+    /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
+    /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
+    /// potentially other behaviors like unit carrying and combat.
+    fn move_unit_by_id_using_filter<F:Filter<Obs>>(
+        &mut self,
+        unit_id: UnitID,
+        dest: Location,
+        tile_filter: &F) -> MoveResult {
+
+        if !self.dims().contain(dest) {
+            return Err(MoveError::DestinationOutOfBounds {});
+        }
+
+        // Grab a copy of the unit to work with
+        let mut unit = self.current_player_unit_by_id(unit_id)
+            .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
+
+        // let obs_tracker = self.current_player_observations_mut();
+        let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+
+        // Keep a copy of the source location around
+        let src = unit.loc;
+
+        // The move components we will populate along the way
+        let mut moves = Vec::new();
+
+        let mut move_complete = false;
+
+        while unit.loc != dest {
+            let shortest_paths = shortest_paths(obs_tracker, unit.loc, tile_filter, self.wrapping);
+
+            if let Some(distance) = shortest_paths.dist[dest] {
+                if distance == 0 {
+                    return Err(MoveError::ZeroLengthMove);
+                }
+    
+                if distance > unit.moves_remaining() {
+                    return Err(MoveError::RemainingMovesExceeded {
+                        id: unit_id,
+                        src,
+                        dest,
+                        intended_distance: distance,
+                        moves_remaining: unit.moves_remaining(),
+                    });
+                }
+
+                let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
+
+                let loc = shortest_path[1];// skip the current location
+                
+                let prev_loc = unit.loc;
+
+                // Move our simulated unit along the path
+                unit.loc = loc;
+
+                moves.push(MoveComponent::new(prev_loc, loc));
+                let mut move_ = moves.last_mut().unwrap();
+                
+                // If there is a unit at the destination:
+                //   If it is a friendly unit:
+                //     If it has carrying capacity
+                //       Have it carry this unit
+                //     else
+                //       This doesn't happen---the search algorithm won't consider the location of there's no capacity
+                //   else
+                //     It is an enemy unit.
+                //     Fight it.
+                //     If victorious:
+                //       If there is a city at the destination:
+                //         It must be an enemy or there wouldn't have been an enemy unit there
+                //         If this unit can occupy cities:
+                //           Fight the city
+                //           If victorious:
+                //             Move this unit to the destination
+                //           else:
+                //             Destroy this unit
+                //             END THE OVERALL MOVE
+                //     If defeated:
+                //       Destroy this unit
+                //       END THE OVERALL MOVE
+                // else if there is a city at the destination:
+                //   If it is a friendly city
+                //     Move this unit to the destination
+                //   else if this unit can occupy cities
+                //     Fight the city
+                //     If victorious:
+                //       Move this unit to the destination
+                //     else
+                //       Destroy this unit
+                //     END THE OVERALL MOVE
+                // else:
+                //   There is nothing at the destination
+                //   Move this unit to the destination, free and easy
+
+                // If there is a unit at the destination:
+                if let Some(ref other_unit) = self.map.toplevel_unit_by_loc(loc).cloned() {// CLONE to dodge mutability
+
+                    // If it is a friendly unit:
+                    if unit.is_friendly_to(other_unit) {
+
+                        // the friendly unit must have space for us in its carrying capacity or else the
+                        // path search wouldn't have included it
+                        move_.carrier = Some(other_unit.id);
+                        self.map.carry_unit_by_id(other_unit.id, unit.id).unwrap();
+
+                    } else {
+                        // It is an enemy unit.
+                        // Fight it.
+                        move_.unit_combat = Some(unit.fight(other_unit));
+                        if move_.unit_combat.as_ref().unwrap().victorious() {
+                            // We were victorious over the unit
+                            
+                            // Deal with any city
+                            if let Some(city) = self.map.city_by_loc(loc) {
+                                // It must be an enemy city or there wouldn't have been an enemy unit there
+                                
+                                // If this unit can occupy cities
+                                if unit.can_occupy_cities() {
+                                    // Fight the enemy city
+                                    move_.city_combat = Some(unit.fight(city));
+
+                                    // If victorious
+                                    if move_.city_combat.as_ref().unwrap().victorious() {
+                                        // Move this unit to the destination
+                                        self.map.relocate_unit_by_id(unit_id, loc).unwrap();
+
+                                        // We also mark the unit's movement complete since no movement is allowed
+                                        // after conquering a city
+                                        move_complete = true;
+                                    } else {
+                                        // Destroy this unit
+                                        self.map.pop_unit_by_id(unit_id).unwrap();
+                                    }
+
+                                } else {
+                                    // This unit can't occupy cities
+                                    // Nerf this move since we didn't actually go anywhere and end the overall move
+                                    // We don't have to set the unit's location here since MapData takes care of that
+                                    move_.loc = prev_loc;
+                                    unit.loc = prev_loc;
+                                }
+
+                                // END THE OVERALL MOVE
+                                // We either occupied an enemy city (thus ending movement), or were destroyed fighting
+                                // a city, or had to stop because this unit cannot occupy cities
+                                break;
+                            }
+
+                        } else {
+                            // We were not victorious against the enemy unit
+                            // Destroy this unit and end the overall move
+                            self.map.pop_unit_by_id(unit.id).unwrap();
+                            // return Move::new(unit, src, moves);
+                            break;
+                        }
+                    }
+                
+                } else if let Some(city) = self.map.city_by_loc(loc) {
+                    // If it is a friendly city
+                    if unit.is_friendly_to(city) {
+                        // Move this unit to the destination
+                        self.map.relocate_unit_by_id(unit.id, loc).unwrap();
+
+                    } else {
+                        if unit.can_occupy_cities() {
+                            move_.city_combat = Some(unit.fight(city));
+
+                            // If victorious
+                            if move_.city_combat.as_ref().unwrap().victorious() {
+
+                                // Move this unit to the destination
+                                self.map.relocate_unit_by_id(unit.id, loc).unwrap();
 
 
+                            } else {
+
+                                // Destroy this unit
+                                self.map.pop_unit_by_id(unit.id).unwrap();
+                            }
+                        }
+
+                        // END THE OVERALL MOVE
+                        // We either occupied an enemy city (thus ending movement), or were destroyed fighting
+                        // a city, or had to stop because this unit cannot occupy cities
+                        break;
+                    }
+                } else {
+                    // There is nothing at the destination
+                    // Move this unit to the destination, free and easy
+
+                    let prior_unit = self.map.relocate_unit_by_id(unit.id, loc).unwrap();
+                    debug_assert!(prior_unit.is_none());
+                }
+
+                // ----- Make observations from the unit's new location -----
+                move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+
+            } else {
+                return Err(MoveError::NoRoute{src, dest, id: unit_id});
+            }
+        }// while
+
+        let move_ = moves.last_mut().unwrap();
+        // ----- Make observations from the unit's new location -----
+        move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+
+        if move_.moved_successfully() {
+            if move_complete {
+                self.map.mark_unit_movement_complete(unit_id).unwrap();
+            } else {
+                let distance_moved: usize = moves.iter().map(|move_| move_.distance_moved()).sum();
+                self.map.record_unit_movement(unit_id, distance_moved as u16).unwrap().unwrap();
+            }
+        }
+
+        Move::new(unit, src, moves)
+    }
 
     /// Sets the production of the current player's city at location `loc` to `production`.
     /// 
@@ -1964,9 +2204,12 @@ mod test {
             }
 
             for dir in Direction::values().iter().cloned() {
+                let src = game.current_player_unit_loc(unit_id).unwrap();
                 let dest = game.wrapping.wrapped_add(game.dims(), src, dir.into()).unwrap();
 
                 game.move_unit_by_id(unit_id, dest).unwrap();
+                assert_eq!(game.current_player_unit_loc(unit_id), Some(dest), "Wrong location after moving {:?} from {:?} to {:?}", dir, src, dest);
+
                 game.move_unit_by_id(unit_id, src).unwrap();
                 game.end_turn().unwrap();
             }
