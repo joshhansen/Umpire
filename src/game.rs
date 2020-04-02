@@ -72,6 +72,7 @@ use crate::{
         Dimensioned,
         Direction,
         Location,
+        Vec2d,
         Wrap2d,
     },
 };
