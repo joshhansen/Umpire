@@ -78,7 +78,7 @@ use umpire::{
 
 
 /// How important is a city in and of itself?
-const CITY_INTRINSIC_SCORE: f64 = 40.0;
+const CITY_INTRINSIC_SCORE: f64 = 1000.0;
 const VICTORY_SCORE: f64 = 999999.0;
 
 
