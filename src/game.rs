@@ -348,8 +348,14 @@ impl Game {
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
+        let max_unit_cost: u16 = UnitType::values().iter().map(|ut| ut.cost()).max().unwrap();
+
         for city in self.current_player_cities_with_production_target_mut() {
-            city.production_progress += 1;
+            // We cap the production progress since, in weird circumstances such as a city having a unit blocking its
+            // production for a very long time, the production progress adds can overflow
+            if city.production_progress < max_unit_cost {
+                city.production_progress += 1;
+            }
         }
 
         let producing_city_locs: Vec<Location> = self.current_player_cities_with_production_target()
