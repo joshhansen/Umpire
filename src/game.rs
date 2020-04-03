@@ -1800,6 +1800,21 @@ pub mod test_support {
         game
     }
 
+    fn map_tunnel(dims: Dims) -> MapData {
+        let mut map = MapData::new(dims, |_loc| Terrain::Land);
+        map.new_city(Location::new(0, dims.height / 2), Alignment::Belligerent{player:0}, "City 0").unwrap();
+        map.new_city(Location::new(dims.width - 1, dims.height / 2), Alignment::Belligerent{player:1}, "City 1").unwrap();
+        map
+    }
+
+    pub fn game_tunnel(dims: Dims) -> Game {
+        let players = 2;
+        let fog_of_war = true;
+        let map = map_tunnel(dims);
+        let unit_namer = unit_namer();
+        Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER)
+    }
+
     pub(crate) fn game_two_cities() -> Game {
         game_two_cities_dims(Dims::new(10, 10))
     }

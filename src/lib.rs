@@ -14,6 +14,7 @@ pub mod util;
 pub(crate) mod test_support {
     pub(crate) use crate::game::test_support::{
         game1,
+        game_tunnel,
         game_two_cities,
         game_two_cities_two_infantry,
     };

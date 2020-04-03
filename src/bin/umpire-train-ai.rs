@@ -260,7 +260,8 @@ struct UmpireDomain {
 impl UmpireDomain {
     fn new(dims: Dims, verbose: bool) -> Self {
         Self {
-            game: game_two_cities_two_infantry_dims(dims),
+            // game: game_two_cities_two_infantry_dims(dims),
+            game: game_tunnel(dims),
             random_ai: RandomAI::new(verbose)
         }
     }
