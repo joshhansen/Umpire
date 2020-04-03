@@ -344,12 +344,17 @@ impl Domain for UmpireDomain {
 
     /// Transition the environment forward a single step given an action, `a`.
     fn step(&mut self, action_idx: usize) -> Transition<State<Self>, Action<Self>> {
+
+        debug_assert_eq!(self.game.current_player(), 0);
+
         let start_score = self.current_player_score();
         let from = self.emit();
 
         let action = UmpireAction::from_idx(action_idx).unwrap();
 
         self.update_state(action);
+
+        debug_assert_eq!(self.game.current_player(), 0);
 
         let end_score = self.current_player_score();
         let to = self.emit();
