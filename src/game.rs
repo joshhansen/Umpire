@@ -2218,6 +2218,12 @@ mod test {
 
                 game.move_unit_by_id(unit_id, src).unwrap();
                 game.end_turn().unwrap();
+
+                game.move_unit_by_id_in_direction(unit_id, dir).unwrap();
+                assert_eq!(game.current_player_unit_loc(unit_id), Some(dest), "Wrong location after moving {:?} from {:?} to {:?}", dir, src, dest);
+
+                game.move_unit_by_id_in_direction(unit_id, dir.opposite()).unwrap();
+                game.end_turn().unwrap();
             }
         }
     }

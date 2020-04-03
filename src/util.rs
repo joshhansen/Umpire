@@ -185,6 +185,19 @@ impl Direction {
             Direction::DownRight  => Vec2d{x: 1, y: 1}
         }
     }
+
+    pub fn opposite(self) -> Self {
+        match self {
+            Self::Up         => Self::Down,
+            Self::Down       => Self::Up,
+            Self::Left       => Self::Right,
+            Self::Right      => Self::Left,
+            Self::UpLeft     => Self::DownRight,
+            Self::UpRight    => Self::DownLeft,
+            Self::DownLeft   => Self::UpRight,
+            Self::DownRight  => Self::UpLeft,
+        }
+    }
 }
 
 impl Into<Vec2d<i32>> for Direction {
