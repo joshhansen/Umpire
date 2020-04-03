@@ -1,6 +1,6 @@
 use crate::{
     game::player::PlayerTurnControl,
-    ui::TermUI,
+    ui::UI,
 };
 
 use super::{
@@ -11,7 +11,7 @@ use super::{
 
 pub(in crate::ui) struct QuitMode;
 impl IMode for QuitMode {
-    fn run(&self, _game: &mut PlayerTurnControl, _ui: &mut TermUI, _mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+    fn run<U:UI>(&self, _game: &mut PlayerTurnControl, _ui: &mut U, _mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
         ModeStatus::Quit
     }
 }

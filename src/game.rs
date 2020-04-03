@@ -2242,4 +2242,23 @@ mod test {
             }
         }
     }
+
+    #[test]
+    pub fn test_order_unit_skip() {
+        let mut map = MapData::new(Dims::new(10, 10), |_loc| Terrain::Land);
+        let unit_id = map.new_unit(Location::new(0, 0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Skipper").unwrap();
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+
+        game.move_unit_by_id_in_direction(unit_id, Direction::Right).unwrap();
+        game.end_turn().unwrap();
+
+        game.order_unit_skip(unit_id).unwrap();
+        game.end_turn().unwrap();
+
+        assert_eq!(game.unit_orders_requests().next(), Some(unit_id));
+
+        game.current_player_unit_by_id(unit_id).unwrap();
+
+    }
 }

@@ -18,7 +18,7 @@ use crate::util::{Rect,Vec2d};
 
 pub(in crate::ui) trait ScrollableComponent : Component {
     fn offset(&self) -> Vec2d<u16>;
-    fn scroll_relative(&mut self, offset: Vec2d<i32>);
+    fn scroll_relative<V:Into<Vec2d<i32>>>(&mut self, offset: V);
 }
 
 pub(in crate::ui) struct Scroller<S:ScrollableComponent> {

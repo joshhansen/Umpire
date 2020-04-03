@@ -16,12 +16,9 @@ use crate::{
             orders::ProposedSetAndFollowOrders,
         },
     },
-    log::LogTarget,
     ui::{
         audio::Sounds,
-        buf::RectBuffer,
-        MoveAnimator,
-        TermUI,
+        UI,
     },
     util::{Direction,Rect},
 };
@@ -42,32 +39,35 @@ pub(in crate::ui) struct GetUnitOrdersMode{
     pub first_move: bool
 }
 impl IVisibleMode for GetUnitOrdersMode {
+    fn clear_buf<U:UI>(ui: &mut U) {
+        ui.clear_sidebar();
+    }
+
     fn rect(&self) -> Rect {
         self.rect
     }
 
-    fn buf_mut(ui: &mut TermUI) -> &mut RectBuffer {
-        ui.sidebar_buf_mut()
-    }
+    // fn buf_mut<U:UI>(ui: &mut U) -> &mut RectBuffer {
+    //     ui.sidebar_buf_mut()
+    // }
 }
 impl GetUnitOrdersMode {
-    fn write_buf(&self, game: &PlayerTurnControl, ui: &mut TermUI) {
+    fn write_buf<U:UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
         let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
 
-        let buf = ui.sidebar_buf_mut();
-        buf.set_row(0, format!("Get Orders for {}", unit));
-        buf.set_row(2, format!("Move: ↖ ↗          {} {}", conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT));
-        buf.set_row(3, format!("       ← ↓ ↑ →      {} {} {} {}", conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT));
-        buf.set_row(4, format!("      ↙ ↘          {} {}", conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT));
-        buf.set_row(6, cols("Examine:", conf::KEY_EXAMINE));
-        buf.set_row(8, cols("Explore:", conf::KEY_EXPLORE));
-        buf.set_row(10, cols("Skip:", key_desc(conf::KEY_SKIP)));
-        buf.set_row(12, cols("Sentry:", conf::KEY_SENTRY));
-        buf.set_row(14, cols("Quit:", conf::KEY_QUIT));
+        ui.set_sidebar_row(0, format!("Get Orders for {}", unit));
+        ui.set_sidebar_row(2, format!("Move: ↖ ↗          {} {}", conf::KEY_UP_LEFT, conf::KEY_UP_RIGHT));
+        ui.set_sidebar_row(3, format!("       ← ↓ ↑ →      {} {} {} {}", conf::KEY_LEFT, conf::KEY_DOWN, conf::KEY_UP, conf::KEY_RIGHT));
+        ui.set_sidebar_row(4, format!("      ↙ ↘          {} {}", conf::KEY_DOWN_LEFT, conf::KEY_DOWN_RIGHT));
+        ui.set_sidebar_row(6, cols("Examine:", conf::KEY_EXAMINE));
+        ui.set_sidebar_row(8, cols("Explore:", conf::KEY_EXPLORE));
+        ui.set_sidebar_row(10, cols("Skip:", key_desc(conf::KEY_SKIP)));
+        ui.set_sidebar_row(12, cols("Sentry:", conf::KEY_SENTRY));
+        ui.set_sidebar_row(14, cols("Quit:", conf::KEY_QUIT));
     }
 }
 impl IMode for GetUnitOrdersMode {
-    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+    fn run<U:UI>(&self, game: &mut PlayerTurnControl, ui: &mut U, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
         
 
         let unit_loc = {
@@ -80,14 +80,14 @@ impl IMode for GetUnitOrdersMode {
 
             if self.first_move {
                 ui.play_sound(Sounds::Unit(unit.type_));
-                ui.map_scroller.scrollable.center_viewport(unit.loc);
+                ui.center_map(unit.loc);
             }
 
             self.write_buf(game, ui);
             ui.draw_no_flush(game);
 
-            let viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(unit.loc).unwrap();
-            ui.map_scroller.scrollable.draw_tile_and_flush(game, &mut ui.stdout, viewport_loc, false, true, 
+            let viewport_loc = ui.map_to_viewport_coords(unit.loc).unwrap();
+            ui.draw_map_tile_and_flush(game, viewport_loc, false, true, 
                 None, Some(Some(unit)), None, None);
 
             unit.loc

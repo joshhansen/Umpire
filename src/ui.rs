@@ -59,18 +59,24 @@ use crate::{
     },
     game::{
         combat::{CombatCapable,CombatOutcome,CombatParticipant},
+        city::City,
+        map::Tile,
         move_::{
             Move,
             ProposedMove,
         },
-        obs::LocatedObs,
+        obs::{
+            LocatedObs,
+            Obs,
+        },
         player::{
             PlayerTurnControl,
             TurnTaker,
         },
+        unit::Unit,
     },
     log::{LogTarget,Message,MessageSource},
-    util::{Dims,Rect,Location,sleep_millis}
+    util::{Dims,Rect,Location,Vec2d,sleep_millis}
 };
 
 use self::{
@@ -80,160 +86,9 @@ use self::{
     },
     buf::RectBuffer,
     mode::ModeStatus,
+    scroll::ScrollableComponent,
     sym::Sym,
 };
-
-// pub fn run(game: Arc<RwLock<Game>>, human_players: Vec<PlayerNum>, use_alt_screen: bool, palette: Palette, unicode: bool, quiet: bool,
-//     confirm_turn_end: bool
-// ) -> Result<(),String> {
-//     // {//This is here so screen drops completely when the game ends. That lets us print a farewell message to a clean console.
-
-        
-
-//     //     let _alt_screen_maybe: Option<AlternateScreen> = if use_alt_screen {
-//     //         Some(
-//     //             AlternateScreen::to_alternate(true)
-//     //             .map_err(|err| format!("Error obtaining alternate screen in raw mode: {}", err))?
-//     //         )
-//     //     } else {
-//     //         None
-//     //     };
-
-//     // The input thread
-//     let (input_thread_tx, input_thread_rx) = channel();
-//     let _input_thread_handle = thread::Builder::new().name("input".to_string()).spawn(move || {
-//         // let _raw = RawScreen::into_raw_mode().unwrap();
-//         enable_raw_mode().unwrap();
-
-//         // let input = input();
-//         // let reader = input.read_sync();
-//         // for input_event in reader {
-//         //     match input_event {
-//         //         InputEvent::Keyboard(key_event) => {
-//         //             let will_return = key_event==KeyCode::Char(conf::KEY_QUIT);
-//         //             input_thread_tx.send(key_event).unwrap();
-
-//         //             if will_return {
-//         //                 // It's important to kill this thread upon quitting so the RawMode gets cleaned up promptly
-//         //                 return;
-//         //             }
-//         //         }
-//         //         InputEvent::Mouse(_mouse_event) => {
-//         //             // do nothing
-//         //         },
-//         //         InputEvent::Unsupported(_data) => {
-//         //             // do nothing
-//         //         },
-//         //         InputEvent::Unknown => {
-//         //             // do nothing
-//         //         }
-//         //     }
-//         // }
-
-//         loop {
-//             match read_event() {
-//                 Ok(event) => {
-//                     match event {
-//                         Event::Key(key_event) => {
-//                             let will_return = key_event.code==KeyCode::Char(conf::KEY_QUIT);
-//                             input_thread_tx.send(key_event).unwrap();
-        
-//                             if will_return {
-//                                 disable_raw_mode().unwrap();
-//                                 return;
-//                             }
-//                         },
-//                         Event::Mouse(_mouse_event) => {},
-//                         Event::Resize(_columns, _rows) => {
-//                             //TODO Handle resize events
-//                         },
-//                     }
-//                 },
-//                 Err(err) => {
-//                     eprintln!("Error reading event: {}", err);
-//                     break;
-//                 },
-//             }
-
-//         }
-
-//         disable_raw_mode().unwrap();
-//     });
-
-//     // The audio thread (if applicable)
-//     let (audio_thread_handle, audio_thread_tx) = if !quiet {
-//         let (tx, rx) = channel();
-//         let handle = thread::Builder::new().name("audio".to_string()).spawn(move || {
-//             play_sounds(rx, Sounds::Silence).unwrap();
-//         });
-//         (Some(handle), Some(tx))
-//     } else {
-//         (None, None)
-//     };
-
-//     let mut stdout = stdout();
-
-//     if use_alt_screen {
-//         queue!(stdout, EnterAlternateScreen).unwrap();
-//     }
-
-//     // let (width, height) = terminal_size().map_err(|error_kind| format!("{}", error_kind))?;
-//     // let term_dims = Dims { width, height };
-//     let term_dims = Dims::new(120, 60);
-
-//     let map_dims = {
-//         let game = game.read().unwrap();
-//         game.dims()
-//     };
-
-//     let mut ui = TermUI::new(
-//         map_dims,
-//         term_dims,
-//         stdout,
-//         palette,
-//         unicode,
-//         confirm_turn_end,
-//         audio_thread_tx,
-//         input_thread_rx,
-//     );
-
-//     let mut prev_mode: Option<Mode> = None;
-//     let mut mode = self::mode::Mode::TurnStart;
-
-//     'outer: loop {
-//         for human_player in &human_players {
-//             let mut game = game.write().unwrap();
-//             {
-//                 let mut ctrl = game.player_turn_control(*human_player);
-//                 while mode.run(&mut ctrl, &mut ui, &mut prev_mode) == ModeStatus::Continue {
-//                     // nothing here
-//                 }
-//             }
-
-//             if game.victor().is_some() {
-//                 break 'outer;
-//             }
-//         }
-//     }
-
-//     if use_alt_screen {
-//         queue!(ui.stdout, LeaveAlternateScreen).unwrap();
-//     }
-
-//     if audio_thread_handle.is_some() {
-//         ui.audio_thread_tx.unwrap().send(Sounds::Silence).unwrap();
-//     }
-
-//     println!("\n\n\tHe rules a moment: Chaos umpire sits,
-// \tAnd by decision more embroils the fray
-// \tBy which he reigns: next him, high arbiter,
-// \tChance governs all.
-
-// \t\t\t\tParadise Lost (2.907-910)\n"
-//     );
-
-//     Ok(())
-// }
 
 pub trait MoveAnimator {
     fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move);
@@ -242,11 +97,105 @@ pub trait MoveAnimator {
     fn animate_proposed_move(&mut self, game: &mut PlayerTurnControl, proposed_move: &ProposedMove);
 }
 
-pub trait UI : LogTarget + MoveAnimator {
+/// An abstraction on the terminal UI, basically for test mocking purposes
+pub(in crate::ui) trait UI : LogTarget + MoveAnimator {
+    fn confirm_turn_end(&self) -> bool;
 
+    /// Center the map view on the given map location
+    fn center_map(&mut self, map_loc: Location);
+
+    fn clear_sidebar(&mut self);
+
+    fn viewport_rect(&self) -> Rect;
+
+    fn term_dims(&self) -> Dims;
+
+    fn unicode(&self) -> bool;
+
+    fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
+    
+    fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
+    
+    fn current_player_map_tile<'a>(&self, ctrl: &'a PlayerTurnControl, viewport_loc: Location) -> Option<&'a Tile>;
+
+    fn draw(&mut self, game: &PlayerTurnControl);
+
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl);
+
+    fn draw_current_player(&mut self, ctrl: &PlayerTurnControl);
+
+    fn draw_log(&mut self, ctrl: &PlayerTurnControl);
+
+    fn draw_map(&mut self, ctrl: &PlayerTurnControl);
+
+    /// Renders a particular location in the map viewport
+    ///
+    /// Flushes stdout for convenience
+    fn draw_map_tile_and_flush(&mut self,
+        game: &PlayerTurnControl,
+        viewport_loc: Location,
+        highlight: bool,// Highlighting as for a cursor
+        unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+
+        // Pretend the given city is actually at this location (instead of what might really be there)
+        city_override: Option<Option<&City>>,
+
+        // Pretend the given unit is actually at this location (instead of what might really be there)
+        unit_override: Option<Option<&Unit>>,
+        
+        // A symbol to display instead of what's really here
+        symbol_override: Option<&'static str>,
+    
+        // Override the entire observation that would be at this location, instead of using the current player's
+        // observations.
+        obs_override: Option<&Obs>,
+    );
+    
+    /// Renders a particular location in the map viewport
+    fn draw_map_tile_no_flush(&mut self,
+        game: &PlayerTurnControl,
+        viewport_loc: Location,
+        highlight: bool,// Highlighting as for a cursor
+        unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+
+        // Pretend the given city is actually at this location (instead of what might really be there)
+        city_override: Option<Option<&City>>,
+
+        // Pretend the given unit is actually at this location (instead of what might really be there)
+        unit_override: Option<Option<&Unit>>,
+        
+        // A symbol to display instead of what's really here
+        symbol_override: Option<&'static str>,
+    
+        // Override the entire observation that would be at this location, instead of using the current player's
+        // observations.
+        obs_override: Option<&Obs>,
+    );
+
+    /// Block until a key is pressed; return that key
+    fn get_key(&self) -> KeyEvent;
+
+    fn map_to_viewport_coords(&self, map_loc: Location) -> Option<Location>;
+
+    fn play_sound(&self, sound: Sounds);
+
+    fn pop_log_message(&mut self) -> Option<Message>;
+
+    fn rotate_viewport_size(&mut self, game: &PlayerTurnControl);
+
+    // fn sidebar_buf_mut(&mut self) -> &mut RectBuffer;
+
+    fn scroll_map_relative<V:Into<Vec2d<i32>>>(&mut self, direction: V);
+
+    fn set_sidebar_row(&mut self, row_idx: usize, row: String);
+
+    #[deprecated]
+    fn shift_map_viewport<V:Into<Vec2d<i32>>>(&mut self, direction: V);
+
+    fn viewport_to_map_coords(&self, game: &PlayerTurnControl, viewport_loc: Location) -> Option<Location>;
 }
 
-pub struct DefaultUI;
+struct DefaultUI;
 
 impl LogTarget for DefaultUI {
     fn log_message<T>(&mut self, _message: T) where Message:From<T> {
@@ -269,7 +218,146 @@ impl MoveAnimator for DefaultUI {
 }
 
 impl UI for DefaultUI {
+    fn confirm_turn_end(&self) -> bool {
+        false
+    }
 
+    fn center_map(&mut self, _map_loc: Location) {
+        // do nothing
+    }
+
+    fn viewport_rect(&self) -> Rect {
+        Rect::new(0, 0, 0, 0)
+    }
+
+    fn term_dims(&self) -> Dims {
+        Dims::new(0, 0)
+    }
+
+    fn unicode(&self) -> bool {
+        false
+    }
+
+    fn clear_sidebar(&mut self) {
+        // do nothing
+    }
+
+    fn cursor_map_loc(&self, _mode: &Mode, _game: &PlayerTurnControl) -> Option<Location> {
+        None
+    }
+    
+    fn cursor_viewport_loc(&self, _mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+        None
+    }
+    
+    fn current_player_map_tile<'a>(&self, _ctrl: &'a PlayerTurnControl, _viewport_loc: Location) -> Option<&'a Tile> {
+        None
+    }
+
+    fn draw(&mut self, _game: &PlayerTurnControl) {
+        // do nothing
+    }
+
+    fn draw_no_flush(&mut self, _game: &PlayerTurnControl) {
+        // do nothing
+    }
+
+    fn draw_current_player(&mut self, _ctrl: &PlayerTurnControl) {
+        // do nothing
+    }
+
+    fn draw_log(&mut self, _ctrl: &PlayerTurnControl) {
+        // do nothing
+    }
+
+    fn draw_map(&mut self, _ctrl: &PlayerTurnControl) {
+        // do nothing
+    }
+
+    /// Renders a particular location in the map viewport
+    ///
+    /// Flushes stdout for convenience
+    fn draw_map_tile_and_flush(&mut self,
+        _game: &PlayerTurnControl,
+        _viewport_loc: Location,
+        _highlight: bool,// Highlighting as for a cursor
+        _unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+
+        // Pretend the given city is actually at this location (instead of what might really be there)
+        _city_override: Option<Option<&City>>,
+
+        // Pretend the given unit is actually at this location (instead of what might really be there)
+        _unit_override: Option<Option<&Unit>>,
+        
+        // A symbol to display instead of what's really here
+        _symbol_override: Option<&'static str>,
+    
+        // Override the entire observation that would be at this location, instead of using the current player's
+        // observations.
+        _obs_override: Option<&Obs>,
+    ) {
+        // do nothing
+    }
+    
+    /// Renders a particular location in the map viewport
+    fn draw_map_tile_no_flush(&mut self,
+        _game: &PlayerTurnControl,
+        _viewport_loc: Location,
+        _highlight: bool,// Highlighting as for a cursor
+        _unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+
+        // Pretend the given city is actually at this location (instead of what might really be there)
+        _city_override: Option<Option<&City>>,
+
+        // Pretend the given unit is actually at this location (instead of what might really be there)
+        _unit_override: Option<Option<&Unit>>,
+        
+        // A symbol to display instead of what's really here
+        _symbol_override: Option<&'static str>,
+    
+        // Override the entire observation that would be at this location, instead of using the current player's
+        // observations.
+        _obs_override: Option<&Obs>,
+    ) {
+        // do nothing
+    }
+
+    /// Block until a key is pressed; return that key
+    fn get_key(&self) -> KeyEvent {
+        KeyEvent::from(KeyCode::Null)
+    }
+
+    fn map_to_viewport_coords(&self, _map_loc: Location) -> Option<Location> {
+        None
+    }
+
+    fn play_sound(&self, _sound: Sounds) {
+        // do nothing
+    }
+
+    fn pop_log_message(&mut self) -> Option<Message> {
+        None
+    }
+
+    fn rotate_viewport_size(&mut self, _game: &PlayerTurnControl) {
+        // do nothing
+    }
+
+    fn set_sidebar_row(&mut self, _row_idx: usize, _row: String) {
+        // do nothing
+    }
+
+    fn scroll_map_relative<V:Into<Vec2d<i32>>>(&mut self, _direction: V) {
+        // do nothing
+    }
+
+    fn shift_map_viewport<V:Into<Vec2d<i32>>>(&mut self, _direction: V) {
+        // do nothing
+    }
+
+    fn viewport_to_map_coords(&self, _game: &PlayerTurnControl, _viewport_loc: Location) -> Option<Location> {
+        None
+    }
 }
 
 trait Draw {
@@ -577,55 +665,7 @@ impl TermUI {
         self.draw(game);
     }
 
-    pub fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) {
-        let new_size = match self.viewport_size {
-            ViewportSize::REGULAR => ViewportSize::THEATER,
-            ViewportSize::THEATER => ViewportSize::FULLSCREEN,
-            ViewportSize::FULLSCREEN => ViewportSize::REGULAR
-        };
 
-        self.set_viewport_size(game, new_size);
-        self.draw(game);
-    }
-
-    fn draw(&mut self, game: &PlayerTurnControl) {
-        self.draw_no_flush(game);
-        self.stdout.flush().unwrap();
-    }
-
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl) {
-        if self.first_draw {
-            // write!(self.stdout, "{}{}{}{}",
-            //     // termion::clear::All,
-            //     goto(0,0),
-            //     termion::style::Underline,
-            //     conf::APP_NAME,
-            //     StrongReset::new(&self.palette)
-            // ).unwrap();
-            queue!(self.stdout,
-                MoveTo(0, 0),
-                SetAttribute(Attribute::Underlined),
-                Print(conf::APP_NAME.to_string()),
-                SetAttribute(Attribute::Reset),
-                SetBackgroundColor(self.palette.get_single(Colors::Background))
-            ).unwrap();
-
-            self.first_draw = false;
-        }
-
-        self.log.draw_no_flush(game, &mut self.stdout, &self.palette);
-        self.current_player.draw_no_flush(game, &mut self.stdout, &self.palette);
-        self.map_scroller.draw_no_flush(game, &mut self.stdout, &self.palette);
-        self.turn.draw_no_flush(game, &mut self.stdout, &self.palette);
-        self.sidebar_buf.draw_no_flush(game, &mut self.stdout, &self.palette);
-
-        // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
-        queue!(self.stdout,
-            SetAttribute(Attribute::Reset),
-            SetBackgroundColor(self.palette.get_single(Colors::Background)),
-            Hide
-        ).unwrap();
-    }
 
     fn draw_located_observations(&mut self, game: &PlayerTurnControl, located_obs: &[LocatedObs]) {
         for located_obs in located_obs {
@@ -676,60 +716,12 @@ impl TermUI {
         }
     }
 
-    fn viewport_rect(&self) -> Rect {
-        self.viewport_size.rect(self.term_dims)
-    }
-
-    fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
-        let map = &self.map_scroller.scrollable;
-
-        match *mode {
-            Mode::SetProduction{city_loc} => map.map_to_viewport_coords(city_loc),
-            Mode::GetUnitOrders{unit_id,..} => {
-                let unit_loc = game.current_player_unit_loc(unit_id).unwrap();
-                map.map_to_viewport_coords(unit_loc)
-            },
-            _ => None
-        }
-    }
-
     fn ensure_map_loc_visible(&mut self, map_loc: Location) {
         self.map_scroller.scrollable.center_viewport_if_not_visible(map_loc);
     }
 
-    fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
-        match *mode {
-            Mode::SetProduction{city_loc} => Some(city_loc),
-            Mode::GetUnitOrders{unit_id,..} => {
-                let unit_loc = game.current_player_unit_loc(unit_id).unwrap();
-                Some(unit_loc)
-            },
-            _ => None
-        }
-    }
-
-    fn play_sound(&self, sound: Sounds) {
-        if let Some(tx) = self.audio_thread_tx.as_ref() {
-            tx.send(sound).unwrap();
-        }
-    }
-
-    /// Block until a key is pressed; return that key
-    fn get_key(&self) -> KeyEvent {
-        self.input_thread_rx.recv().unwrap()
-    }
-
-    // /// Return Some(key) if a key from the input thread is waiting for us, otherwise return None
-    // fn try_get_key(&self) -> Option<KeyEvent> {
-    //     self.input_thread_rx.try_recv().ok()
-    // }
-
     fn confirm_turn_end(&self) -> bool {
         self.confirm_turn_end
-    }
-
-    fn sidebar_buf_mut(&mut self) -> &mut RectBuffer {
-        &mut self.sidebar_buf
     }
 
     fn map(&self) -> &Map {
@@ -866,6 +858,212 @@ impl MoveAnimator for TermUI {
         if proposed_move.0.unit.moves_remaining() == 0 {
             sleep_millis(250);
         }
+    }
+}
+
+impl UI for TermUI {
+    fn viewport_rect(&self) -> Rect {
+        self.viewport_size.rect(self.term_dims)
+    }
+
+    fn term_dims(&self) -> Dims {
+        self.term_dims
+    }
+
+    fn unicode(&self) -> bool {
+        self.unicode
+    }
+
+    fn center_map(&mut self, map_loc: Location) {
+        self.map_scroller.scrollable.center_viewport(map_loc);
+    }
+
+    fn clear_sidebar(&mut self) {
+        self.sidebar_buf.clear();
+    }
+
+    fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+        match *mode {
+            Mode::SetProduction{city_loc} => Some(city_loc),
+            Mode::GetUnitOrders{unit_id,..} => {
+                let unit_loc = game.current_player_unit_loc(unit_id).unwrap();
+                Some(unit_loc)
+            },
+            _ => None
+        }
+    }
+    
+    fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+        let map = &self.map_scroller.scrollable;
+
+        match *mode {
+            Mode::SetProduction{city_loc} => map.map_to_viewport_coords(city_loc),
+            Mode::GetUnitOrders{unit_id,..} => {
+                let unit_loc = game.current_player_unit_loc(unit_id).unwrap();
+                map.map_to_viewport_coords(unit_loc)
+            },
+            _ => None
+        }
+    }
+
+    fn current_player_map_tile<'a>(&self, ctrl: &'a PlayerTurnControl, viewport_loc: Location) -> Option<&'a Tile> {
+        self.map_scroller.scrollable.current_player_tile(ctrl, viewport_loc)
+    }
+
+    fn draw_current_player(&mut self, ctrl: &PlayerTurnControl) {
+        self.current_player.draw(ctrl, &mut self.stdout, &self.palette);
+    }
+
+    fn draw_log(&mut self, ctrl: &PlayerTurnControl) {
+        self.log.draw(ctrl, &mut self.stdout, &self.palette);// this will flush
+    }
+
+    fn draw_map(&mut self, ctrl: &PlayerTurnControl) {
+        self.map_scroller.draw(ctrl, &mut self.stdout, &self.palette);
+    }
+
+    fn confirm_turn_end(&self) -> bool {
+        self.confirm_turn_end
+    }
+
+    fn draw(&mut self, game: &PlayerTurnControl) {
+        self.draw_no_flush(game);
+        self.stdout.flush().unwrap();
+    }
+
+    fn draw_map_tile_and_flush(&mut self,
+        game: &PlayerTurnControl,
+        viewport_loc: Location,
+        highlight: bool,// Highlighting as for a cursor
+        unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+
+        // Pretend the given city is actually at this location (instead of what might really be there)
+        city_override: Option<Option<&City>>,
+
+        // Pretend the given unit is actually at this location (instead of what might really be there)
+        unit_override: Option<Option<&Unit>>,
+        
+        // A symbol to display instead of what's really here
+        symbol_override: Option<&'static str>,
+    
+        // Override the entire observation that would be at this location, instead of using the current player's
+        // observations.
+        obs_override: Option<&Obs>,
+    ) {
+        self.map_scroller.scrollable.draw_tile_and_flush(
+            game, &mut self.stdout, viewport_loc, highlight, unit_active, city_override, unit_override, symbol_override,
+            obs_override
+        )
+    }
+    
+    fn draw_map_tile_no_flush(&mut self,
+        game: &PlayerTurnControl,
+        viewport_loc: Location,
+        highlight: bool,// Highlighting as for a cursor
+        unit_active: bool,// Indicate that the unit (if present) is active, i.e. ready to respond to orders
+
+        // Pretend the given city is actually at this location (instead of what might really be there)
+        city_override: Option<Option<&City>>,
+
+        // Pretend the given unit is actually at this location (instead of what might really be there)
+        unit_override: Option<Option<&Unit>>,
+        
+        // A symbol to display instead of what's really here
+        symbol_override: Option<&'static str>,
+    
+        // Override the entire observation that would be at this location, instead of using the current player's
+        // observations.
+        obs_override: Option<&Obs>,
+    ) {
+        self.map_scroller.scrollable.draw_tile_no_flush(
+            game, &mut self.stdout, viewport_loc, highlight, unit_active, city_override, unit_override, symbol_override,
+            obs_override
+        )
+    }
+
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl) {
+        if self.first_draw {
+            // write!(self.stdout, "{}{}{}{}",
+            //     // termion::clear::All,
+            //     goto(0,0),
+            //     termion::style::Underline,
+            //     conf::APP_NAME,
+            //     StrongReset::new(&self.palette)
+            // ).unwrap();
+            queue!(self.stdout,
+                MoveTo(0, 0),
+                SetAttribute(Attribute::Underlined),
+                Print(conf::APP_NAME.to_string()),
+                SetAttribute(Attribute::Reset),
+                SetBackgroundColor(self.palette.get_single(Colors::Background))
+            ).unwrap();
+
+            self.first_draw = false;
+        }
+
+        self.log.draw_no_flush(game, &mut self.stdout, &self.palette);
+        self.current_player.draw_no_flush(game, &mut self.stdout, &self.palette);
+        self.map_scroller.draw_no_flush(game, &mut self.stdout, &self.palette);
+        self.turn.draw_no_flush(game, &mut self.stdout, &self.palette);
+        self.sidebar_buf.draw_no_flush(game, &mut self.stdout, &self.palette);
+
+        // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
+        queue!(self.stdout,
+            SetAttribute(Attribute::Reset),
+            SetBackgroundColor(self.palette.get_single(Colors::Background)),
+            Hide
+        ).unwrap();
+    }
+
+    /// Block until a key is pressed; return that key
+    fn get_key(&self) -> KeyEvent {
+        self.input_thread_rx.recv().unwrap()
+    }
+
+    fn map_to_viewport_coords(&self, map_loc: Location) -> Option<Location> {
+        self.map_scroller.scrollable.map_to_viewport_coords(map_loc)
+    }
+
+    // /// Return Some(key) if a key from the input thread is waiting for us, otherwise return None
+    // fn try_get_key(&self) -> Option<KeyEvent> {
+    //     self.input_thread_rx.try_recv().ok()
+    // }
+
+    fn play_sound(&self, sound: Sounds) {
+        if let Some(tx) = self.audio_thread_tx.as_ref() {
+            tx.send(sound).unwrap();
+        }
+    }
+
+    fn pop_log_message(&mut self) -> Option<Message> {
+        self.log.pop_message()
+    }
+
+    fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) {
+        let new_size = match self.viewport_size {
+            ViewportSize::REGULAR => ViewportSize::THEATER,
+            ViewportSize::THEATER => ViewportSize::FULLSCREEN,
+            ViewportSize::FULLSCREEN => ViewportSize::REGULAR
+        };
+
+        self.set_viewport_size(game, new_size);
+        self.draw(game);
+    }
+
+    fn scroll_map_relative<V:Into<Vec2d<i32>>>(&mut self, direction: V)  {
+        self.map_scroller.scrollable.scroll_relative(direction.into());
+    }
+
+    fn set_sidebar_row(&mut self, row_idx: usize, row: String) {
+        self.sidebar_buf.set_row(row_idx, row)
+    }
+
+    fn shift_map_viewport<V:Into<Vec2d<i32>>>(&mut self, direction: V) {
+        self.map_scroller.scrollable.shift_viewport(direction);
+    }
+
+    fn viewport_to_map_coords(&self, game: &PlayerTurnControl, viewport_loc: Location) -> Option<Location> {
+        self.map().viewport_to_map_coords(game, viewport_loc)
     }
 }
 

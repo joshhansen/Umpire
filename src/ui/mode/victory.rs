@@ -4,14 +4,8 @@ use crate::{
         PlayerNum,
         player::PlayerTurnControl,
     },
-    log::{
-        LogTarget,
-        Message,
-    },
-    ui::{
-        Draw,
-        TermUI,
-    },
+    log::Message,
+    ui::UI,
 };
 
 use super::{
@@ -24,7 +18,7 @@ pub(in crate::ui) struct VictoryMode {
     pub(in crate::ui) victor: PlayerNum,
 }
 impl IMode for VictoryMode {
-    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+    fn run<U:UI>(&self, ctrl: &mut PlayerTurnControl, ui: &mut U, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
         ui.log_message(Message {
             text: format!("Player {} has vanquished all foes. Press any key to quit.", self.victor),
             mark: Some('!'),
@@ -32,10 +26,10 @@ impl IMode for VictoryMode {
             bg_color: None,
             source: None
         });
-        ui.log.draw(game, &mut ui.stdout, &ui.palette);// this will flush
+        ui.draw_log(ctrl);// this will flush
 
         // Wait for a keypress
-        self.get_key(game, ui, mode);
+        self.get_key(ctrl, ui, mode);
         
         ModeStatus::Quit 
     }

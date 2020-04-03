@@ -11,11 +11,9 @@ use crate::{
         unit::UnitID,
     },
     ui::{
-        buf::RectBuffer,
-        Draw,
         TermUI,
+        UI,
         sidebar_rect,
-        scroll::ScrollableComponent,
     },
     util::{Direction,Location,Rect},
 };
@@ -55,7 +53,7 @@ pub(in crate::ui) enum Mode {
 
 impl Mode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    pub fn run(&mut self, game: &mut PlayerTurnControl, ui: &mut TermUI, prev_mode: &mut Option<Mode>) -> ModeStatus {
+    pub fn run<U:UI>(&mut self, game: &mut PlayerTurnControl, ui: &mut U, prev_mode: &mut Option<Mode>) -> ModeStatus {
 
         if let Mode::Victory{..} = self {
             // nothing
@@ -72,13 +70,13 @@ impl Mode {
             Mode::SetProductions =>     SetProductionsMode{}.run(game, ui, self, prev_mode),
             Mode::SetProduction{city_loc} => {
                 let viewport_rect = ui.viewport_rect();
-                let rect = sidebar_rect(viewport_rect, ui.term_dims);
-                SetProductionMode{rect, loc:city_loc, unicode: ui.unicode}.run(game, ui, self, prev_mode)
+                let rect = sidebar_rect(viewport_rect, ui.term_dims());
+                SetProductionMode{rect, loc:city_loc, unicode: ui.unicode()}.run(game, ui, self, prev_mode)
             },
             Mode::GetOrders =>          GetOrdersMode{}.run(game, ui, self, prev_mode),
             Mode::GetUnitOrders{unit_id,first_move} =>      {
                 let viewport_rect = ui.viewport_rect();
-                let rect = sidebar_rect(viewport_rect, ui.term_dims);
+                let rect = sidebar_rect(viewport_rect, ui.term_dims());
                 GetUnitOrdersMode{rect, unit_id, first_move}.run(game, ui, self, prev_mode)
             },
             Mode::Quit =>               QuitMode{}.run(game, ui, self, prev_mode),
@@ -127,14 +125,14 @@ enum KeyStatus {
 
 trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, prev_mode: &Option<Mode>) -> ModeStatus;
+    fn run<U:UI>(&self, game: &mut PlayerTurnControl, ui: &mut U, mode: &mut Mode, prev_mode: &Option<Mode>) -> ModeStatus;
 
-    fn get_key(&self, game: &PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode) -> KeyStatus {
+    fn get_key<U:UI>(&self, game: &PlayerTurnControl, ui: &mut U, mode: &mut Mode) -> KeyStatus {
         let key = ui.get_key();
         if let KeyCode::Char(c) = key.code {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
-                ui.map_scroller.scrollable.scroll_relative(dir.into());
-                ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
+                ui.scroll_map_relative(dir);
+                ui.draw_map(game);
                 return KeyStatus::Handled(StateDisposition::Stay);
             }
 
@@ -185,7 +183,7 @@ trait IMode {
 trait IVisibleMode: IMode {
     fn rect(&self) -> Rect;
 
-    fn buf_mut(ui: &mut TermUI) -> &mut RectBuffer;
+    // fn buf_mut<U:UI>(ui: &mut U) -> &mut RectBuffer;
 
     fn height(&self) -> u16 {
         self.rect().height
@@ -195,9 +193,7 @@ trait IVisibleMode: IMode {
         self.rect().width
     }
 
-    fn clear_buf(ui: &mut TermUI) {
-        Self::buf_mut(ui).clear();
-    }
+    fn clear_buf<U:UI>(ui: &mut U);
 }
 
 const COL_WIDTH: usize = 21;

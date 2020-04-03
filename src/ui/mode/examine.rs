@@ -18,15 +18,10 @@ use crate::{
         unit::UnitID,
     },
     log::{
-        LogTarget,
         Message,
         MessageSource,
     },
-    ui::{
-        Draw,
-        MoveAnimator,
-        TermUI,
-    },
+    ui::UI,
     util::{Direction,Location,Wrap2d},
 };
 
@@ -52,21 +47,18 @@ impl ExamineMode {
             first,
         }
     }
-    fn clean_up(&self, game: &PlayerTurnControl, ui: &mut TermUI) {
-        let map = &mut ui.map_scroller.scrollable;
-        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, false, false, 
+    fn clean_up<U:UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
+        ui.draw_map_tile_and_flush(game,self.cursor_viewport_loc, false, false, 
             None, None, None, None);
     }
 
     /// The tile visible to the current player under the examine cursor, if any
-    fn current_player_tile<'a>(&'a self, game: &'a PlayerTurnControl, ui: &TermUI) -> Option<&'a Tile> {
-        let map = &ui.map_scroller.scrollable;
-        map.current_player_tile(game, self.cursor_viewport_loc)
+    fn current_player_tile<'a, U:UI>(&'a self, game: &'a PlayerTurnControl, ui: &U) -> Option<&'a Tile> {
+        ui.current_player_map_tile(game, self.cursor_viewport_loc)
     }
 
-    fn draw_tile<'a>(&'a self, game: &'a PlayerTurnControl, ui: &mut TermUI) {
-        let map = &mut ui.map_scroller.scrollable;
-        map.draw_tile_and_flush(game, &mut ui.stdout, self.cursor_viewport_loc, true, false, 
+    fn draw_tile<'a, U:UI>(&'a self, game: &'a PlayerTurnControl, ui: &mut U) {
+        ui.draw_map_tile_and_flush(game, self.cursor_viewport_loc, true, false,
             None, None, None, None);
     }
 
@@ -79,7 +71,7 @@ impl ExamineMode {
     }
 }
 impl IMode for ExamineMode {
-    fn run(&self, game: &mut PlayerTurnControl, ui: &mut TermUI, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+    fn run<U:UI>(&self, game: &mut PlayerTurnControl, ui: &mut U, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
 
         self.draw_tile(game, ui);
 
@@ -97,17 +89,17 @@ impl IMode for ExamineMode {
         } else {
             ui.replace_message(message);
         }
-        ui.log.draw(game, &mut ui.stdout, &ui.palette);// this will flush
+        ui.draw_log(game);// this will flush
 
         match self.get_key(game, ui, mode) {
             KeyStatus::Unhandled(key) => {
                 if key.code==KeyCode::Esc {
                     // Don't leave the examine-mode log message hanging around. They accumulate and get really ugly.
-                    ui.log.pop_message();
+                    ui.pop_log_message();
 
                     // Also pop the last message prior to the examine-mode message since we're going to end up back in the prior state
                     // and it will re-print the relevant message anyway
-                    ui.log.pop_message();
+                    ui.pop_log_message();
 
                     // Don't flush here because the mode we resume should do so---we want to avoid flickers
 
@@ -149,7 +141,7 @@ impl IMode for ExamineMode {
                     // If there was a recently active unit, see if we can give it orders to move to the current location
                     if let Some(most_recently_active_unit_id) = self.most_recently_active_unit_id {
 
-                        let dest = ui.map().viewport_to_map_coords(game, self.cursor_viewport_loc).unwrap();
+                        let dest = ui.viewport_to_map_coords(game, self.cursor_viewport_loc).unwrap();
 
                         let proposed_outcome: ProposedActionWrapper<ProposedSetAndFollowOrders> = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
 
@@ -199,8 +191,10 @@ impl IMode for ExamineMode {
                             // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport
                             // such that the cursor will still be at its edge
 
-                            ui.map_scroller.scrollable.shift_viewport(dir.into());
-                            ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
+                            // ui.map_scroller.scrollable.shift_viewport(dir.into());
+                            ui.shift_map_viewport(dir);
+                            // ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
+                            ui.draw_map(game);
                             // Don't change `mode` since we'll basically pick up where we left off
                         }
                     }

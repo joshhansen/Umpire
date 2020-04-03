@@ -24,6 +24,9 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn new(left: u16, top: u16, width: u16, height: u16) -> Self {
+        Self { left, top, width, height }
+    }
     pub fn right(self) -> u16 { self.left + self.width }
     pub fn bottom(self) -> u16 { self.top + self.height }
 

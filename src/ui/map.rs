@@ -196,7 +196,10 @@ impl Map {
         self.rect.dims()
     }
 
-    pub fn shift_viewport(&mut self, shift: Vec2d<i32>) {
+    #[deprecated = "Replace with ScrollableComponent::scroll_relative"]
+    pub fn shift_viewport<V:Into<Vec2d<i32>>>(&mut self, shift: V) {
+        let shift: Vec2d<i32> = shift.into();
+        
         let mut new_x_offset:i32 = ( i32::from(self.viewport_offset.x) ) + shift.x;
         let mut new_y_offset:i32 = ( i32::from(self.viewport_offset.y) ) + shift.y;
 
@@ -428,7 +431,7 @@ impl Map {
 }
 
 impl ScrollableComponent for Map {
-    fn scroll_relative(&mut self, offset: Vec2d<i32>) {
+    fn scroll_relative<V:Into<Vec2d<i32>>>(&mut self, offset: V) {
         self.shift_viewport(offset);
     }
 
