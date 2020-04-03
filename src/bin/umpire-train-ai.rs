@@ -323,15 +323,6 @@ impl UmpireDomain {
     }
 }
 
-// impl Default for UmpireDomain {
-//     fn default() -> Self {
-//         // let game = game_two_cities_two_infantry_big();
-//         let game = game_two_cities_two_infantry_dims(Dims::new(20, 20));
-
-//         Self { game, random_ai: RandomAI::new(true) }
-//     }
-// }
-
 impl Domain for UmpireDomain {
     /// State space representation type class.
     type StateSpace = UmpireStateSpace;
@@ -376,12 +367,10 @@ impl Domain for UmpireDomain {
     /// Returns an instance of the state space type class.
     fn state_space(&self) -> Self::StateSpace {
         UmpireStateSpace::from_game_state(&self.game)
-        // UmpireStateSpace::interval_product_space_from_game_state(&self.game)
     }
 
     /// Returns an instance of the action space type class.
     fn action_space(&self) -> Self::ActionSpace {
-        // UmpireActionSpace::from_game_state(&self.game)
         UmpireActionSpace::from_game_state(&self.game)
     }
 }
