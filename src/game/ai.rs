@@ -116,7 +116,7 @@ mod test {
         let mut game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
         let mut ctrl = game.player_turn_control(0);
 
-        let mut ai = RandomAI::new();
+        let mut ai = RandomAI::new(false);
 
         for _ in 0..1000 {
             ai.take_turn(&mut ctrl);
