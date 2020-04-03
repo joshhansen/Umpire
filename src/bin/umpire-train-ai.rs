@@ -534,6 +534,50 @@ impl<V: Clone> StateFunction<Game> for UmpireConstant<V> {
     fn update(&mut self, _: &Game, _: Self::Output) {}
 }
 
+struct UmpireAgent<Q,P> {
+    q: QLearning<Q,P>,
+}
+impl<Q: EnumerableStateActionFunction<Game>,P> UmpireAgent<Q,P> {
+    fn find_legal_max(&self, state: &Game) -> (usize, f64) {
+        let legal = UmpireAction::legal_actions(state);
+        let possible = UmpireAction::possible_actions();
+
+        let mut iter = self.q.q_func.evaluate_all(state).into_iter().enumerate()
+            .filter(|(i,x)| legal.contains(possible.get(*i).unwrap()))
+        ;
+        let first = iter.next().unwrap();
+
+        iter.fold(first, |acc, (i, x)| if acc.1 > x { acc } else { (i, x) })
+    }
+}
+
+impl<Q, P> OnlineLearner<Game, P::Action> for UmpireAgent<Q, P>
+where
+    Q: EnumerableStateActionFunction<Game>,
+    P: EnumerablePolicy<Game>,
+{
+    fn handle_transition(&mut self, t: &Transition<Game, P::Action>) {
+        self.q.handle_transition(t)
+    }
+}
+
+impl<Q, P> Controller<Game, P::Action> for UmpireAgent<Q, P>
+where
+    Q: EnumerableStateActionFunction<Game>,
+    P: EnumerablePolicy<Game>,
+{
+    fn sample_target(&self, _: &mut impl Rng, s: &Game) -> P::Action {
+        // self.q.q_func.find_max(s).0
+        self.find_legal_max(s).0
+    }
+
+    fn sample_behaviour(&self, rng: &mut impl Rng, s: &Game) -> P::Action {
+        self.q.sample_behaviour(rng, s)
+    }
+}
+
+
+
 fn get_bounds(d: &Interval) -> (f64, f64) {
     match (d.inf(), d.sup()) {
         (Some(lb), Some(ub)) => (lb, ub),
@@ -619,7 +663,8 @@ fn main() {
             0.2
         );
 
-        QLearning::new(q_func, policy, 0.01, 1.0)
+        UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0)}
+        // QLearning::new(q_func, policy, 0.01, 1.0)
     };
 
     let logger = logging::root(logging::stdout());
