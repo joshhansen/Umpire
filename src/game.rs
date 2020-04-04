@@ -2206,6 +2206,31 @@ mod test {
                 }// up_right
             }// up
         }// up_left
+
+
+        {
+            // 1x1 no wrapping
+            let mut map = MapData::new(Dims::new(1,1), |_loc| Terrain::Land);
+            let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
+            let unit_namer = IntNamer::new("unit");
+            let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+            let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
+            assert!(dests.is_empty());
+        }
+
+        {
+            // 2x1 no wrapping
+            let mut map = MapData::new(Dims::new(2, 1), |_loc| Terrain::Land);
+            let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
+            let unit_namer = IntNamer::new("unit");
+            let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+            let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
+            assert_eq!(dests.len(), 1);
+            assert!(dests.contains(&Location::new(1, 0)));
+        }
+
     }
 
     #[test]
