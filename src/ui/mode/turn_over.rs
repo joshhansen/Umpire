@@ -292,7 +292,7 @@ mod test {
             IntNamer,
         },
         ui::DefaultUI,
-        util::{Dims,Direction,Location,Wrap2d},
+        util::{Dims,Location,Wrap2d},
     };
 
     use super::Mode;
@@ -327,12 +327,5 @@ mod test {
         
             mode.run(&mut ctrl, &mut DefaultUI, &mut prev_mode);
         }
-
-        // game.end_turn().unwrap();
-
-        // assert_eq!(game.unit_orders_requests().next(), Some(unit_id));
-
-        // game.current_player_unit_by_id(unit_id).unwrap();
-
     }
 }
