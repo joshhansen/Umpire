@@ -52,6 +52,16 @@ enum TransportMode {
     Sea,
     Air,
 }
+impl TransportMode {
+    /// Determine whether a unit with this transport mode can operate on terrain of the given type
+    pub fn can_traverse(&self, terrain: Terrain) -> bool {
+        match self {
+            TransportMode::Land => terrain==Terrain::Land,
+            TransportMode::Sea  => terrain==Terrain::Water,
+            TransportMode::Air  => terrain==Terrain::Land || terrain==Terrain::Water,
+        }
+    }
+}
 
 #[derive(Clone)]
 struct CarryingSpaceEssentials {
@@ -201,10 +211,15 @@ impl UnitType {
     /// If a city is present, this will always be true. Otherwise, it will be determined by the match between
     /// the unit's capabilities and the terrain (e.g. planes over water, but not tanks over water).
     pub fn can_move_on_tile(self, tile: &Tile) -> bool {
-        tile.city.is_some() || match self.transport_mode() {
-            TransportMode::Land => tile.terrain==Terrain::Land,
-            TransportMode::Sea  => tile.terrain==Terrain::Water,
-            TransportMode::Air  => tile.terrain==Terrain::Land || tile.terrain==Terrain::Water,
+        tile.city.is_some() || self.transport_mode().can_traverse(tile.terrain)
+    }
+
+    /// Determine whether a unit of this type could actually occupy a particular tile (maybe requiring combat to do so).
+    pub fn can_occupy_tile(self, tile: &Tile) -> bool {
+        if tile.city.is_some() {
+            self.can_occupy_cities()
+        } else {
+            self.transport_mode().can_traverse(tile.terrain)
         }
     }
 

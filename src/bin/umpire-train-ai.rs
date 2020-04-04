@@ -23,17 +23,28 @@ use rand::{
 
 use rsrl::{
     Evaluation,
+    OnlineLearner,
     SerialExperiment,
     run,
     make_shared,
     control::{
+        Controller,
         td::QLearning,
     },
     domains::{Domain, MountainCar},
     fa::{
         EnumerableStateActionFunction,
         StateFunction,
-        linear::{basis::{Constant}, optim::SGD, LFA}
+        linear::{
+            basis::{
+                Constant,
+                Fourier,
+                Polynomial,
+                Projector,
+            },
+            optim::SGD,
+            LFA
+        },
     },
     logging,
     policies::{EnumerablePolicy, Policy},
@@ -65,6 +76,7 @@ use umpire::{
             game_two_cities_two_infantry,
             game_two_cities_two_infantry_big,
             game_two_cities_two_infantry_dims,
+            game_tunnel,
         },
         unit::{
             UnitType,
@@ -139,11 +151,11 @@ impl Space for UmpireStateSpace {
     }
 }
 
-#[derive(Clone,Copy,Eq,Hash,Ord,PartialEq,PartialOrd)]
+#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub enum UmpireAction {
     SetNextCityProduction{unit_type: UnitType},
     MoveNextUnit{direction: Direction},
-
+    SkipNextUnit,
 }
 
 impl UmpireAction {
@@ -152,7 +164,7 @@ impl UmpireAction {
 
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
         if let Some(city_loc) = game.production_set_requests().next() {
-            for unit_type in game.valid_productions(city_loc) {
+            for unit_type in game.valid_productions_conservative(city_loc) {
                 a.insert(UmpireAction::SetNextCityProduction{unit_type});
             }
         }
@@ -162,6 +174,7 @@ impl UmpireAction {
             for direction in game.current_player_unit_legal_directions(unit_id).unwrap() {
                 a.insert(UmpireAction::MoveNextUnit{direction});
             }
+            a.insert(UmpireAction::SkipNextUnit);
         }
 
         a
@@ -175,36 +188,10 @@ impl UmpireAction {
         for direction in Direction::values().iter().cloned() {
             a.push(UmpireAction::MoveNextUnit{direction});
         }
+        a.push(UmpireAction::SkipNextUnit);
+
         a
     }
-
-    // /// The number of possible actions in the abstract
-    // fn n_possible_actions() -> usize {
-    //     UnitType::values().len() + Direction::values().len()
-    // }
-
-    // fn to_idx(&self) -> usize {
-    //     match self {
-    //         UmpireAction::SetNextCityProduction{unit_type} => {
-    //             let types = UnitType::values();
-    //             for i in 0..types.len() {
-    //                 if types[i] == *unit_type {
-    //                     return i;
-    //                 }
-    //             }
-    //             unreachable!()
-    //         },
-    //         UmpireAction::MoveNextUnit{direction} => {
-    //             let dirs = Direction::values();
-    //             for i in 0..dirs.len() {
-    //                 if dirs[i] == *direction {
-    //                     return UnitType::values().len() + i;
-    //                 }
-    //             }
-    //             unreachable!()
-    //         }
-    //     }
-    // }
 
     fn from_idx(mut idx: usize) -> Result<Self,()> {
         let unit_types = UnitType::values();
@@ -217,6 +204,12 @@ impl UmpireAction {
         let dirs = Direction::values();
         if dirs.len() > idx {
             return Ok(UmpireAction::MoveNextUnit{direction: dirs[idx]});
+        }
+        
+        idx -= dirs.len();
+
+        if idx == 0 {
+            return Ok(UmpireAction::SkipNextUnit);
         }
 
         Err(())
@@ -255,6 +248,8 @@ struct UmpireDomain {
 
     /// Our formidable foe
     random_ai: RandomAI,
+
+    verbose: bool,
 }
 
 impl UmpireDomain {
@@ -262,7 +257,8 @@ impl UmpireDomain {
         Self {
             // game: game_two_cities_two_infantry_dims(dims),
             game: game_tunnel(dims),
-            random_ai: RandomAI::new(verbose)
+            random_ai: RandomAI::new(verbose),
+            verbose,
         }
     }
 }
@@ -283,11 +279,36 @@ impl UmpireDomain {
                 debug_assert!({
                     let legal: HashSet<Direction> = self.game.current_player_unit_legal_directions(unit_id).unwrap()
                                                              .collect();
+
+                    // println!("legal moves: {}", legal.len());
+                    
                     legal.contains(&direction)
                 });
 
                 self.game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
             },
+            UmpireAction::SkipNextUnit => {
+                let unit_id = self.game.unit_orders_requests().next().unwrap();
+                self.game.order_unit_skip(unit_id).unwrap();
+            }
+        }
+
+        if self.verbose {
+            println!("{:?}", action);
+            let loc = if let Some(unit_id) = self.game.unit_orders_requests().next() {
+                self.game.current_player_unit_loc(unit_id)
+            } else {
+                self.game.production_set_requests().next()
+            };
+
+            println!("AI:\n{:?}", self.game.current_player_observations());
+            if let Some(loc) = loc {
+                println!("Loc: {:?}", loc);
+            }
+            
+            println!("AI Cities: {}", self.game.current_player_cities().count());
+            println!("AI Units: {}", self.game.current_player_units().count());
+            println!("AI Score: {}", self.current_player_score());
         }
 
         // Run AI turns until the human player has something to do
@@ -335,6 +356,7 @@ impl Domain for UmpireDomain {
         // let v = self.game.to_feature_vec();
         let v = self.game.clone();
         if self.game.victor().is_some() {
+            // println!("TERMINAL");
             Observation::Terminal(v)
         } else {
             // Partial unless we happen to be observing every tile in the current turn, which we'll assume doesn't happen
@@ -352,6 +374,10 @@ impl Domain for UmpireDomain {
 
         let action = UmpireAction::from_idx(action_idx).unwrap();
 
+        // println!("Action: {:?}", action);
+
+        
+
         self.update_state(action);
 
         debug_assert_eq!(self.game.current_player(), 0);
@@ -360,6 +386,10 @@ impl Domain for UmpireDomain {
         let to = self.emit();
 
         let reward = end_score - start_score;
+
+        if self.verbose {
+            println!("AI Reward: {}", reward);
+        }
 
         Transition {
             from,
@@ -478,8 +508,6 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGr
     }
 }
 
-
-
 struct UmpireEpsilonGreedy<Q> {
     greedy: UmpireGreedy<Q>,
     random: UmpireRandom,
@@ -502,8 +530,10 @@ impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireEpsilonGreed
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> Self::Action {
         if rng.gen_bool(self.epsilon) {
+            // println!("RANDOM");
             self.random.sample(rng, state)
         } else {
+            // println!("GREEDY");
             self.greedy.sample(rng, state)
         }
     }
@@ -524,9 +554,6 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireEp
     }
 }
 
-
-// Constant:
-// #[derive(Clone, Debug, Serialize, Deserialize)]
 struct UmpireConstant<V>(pub V);
 
 impl<V: Clone> StateFunction<Game> for UmpireConstant<V> {
@@ -628,13 +655,14 @@ fn main() {
 
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
     let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
-    let verbose = matches.is_present("verbose");
+    // let verbose = matches.is_present("verbose");
+    let verbose = true;
 
     println!("Training Umpire AI.");
 
 
     // let domain_builder = Box::new(MountainCar::default);
-    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(20, 20), verbose));
+    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(2, 1), verbose));
 
     let mut agent = {
 
@@ -651,8 +679,9 @@ fn main() {
         // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
         // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
 
-        // let basis = Fourier::from_space(order, domain.state_space().space).with_constant();
-        let basis = Constant::new(5.0);
+        // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
+        // let basis = Constant::new(5.0);
+        let basis = Polynomial::new(1, 1);
         let lfa = LFA::vector(basis, SGD(1.0), n_actions);
         let q_func = make_shared(lfa);
 
@@ -682,6 +711,8 @@ fn main() {
         // Realise 1000 episodes of the experiment generator.
         run(e, episodes, Some(logger.clone()))
     };
+
+    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(2, 1), true));
 
     // Testing phase:
     let testing_result = Evaluation::new(&mut agent, domain_builder).next().unwrap();

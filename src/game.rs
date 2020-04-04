@@ -1421,6 +1421,22 @@ impl Game {
         })
     }
 
+    /// Units that could be produced by a city located at the given location, allowing only those which can actually
+    /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
+    pub fn valid_productions_conservative<'a>(&'a self, loc: Location) -> impl Iterator<Item=UnitType> + 'a {
+        UNIT_TYPES.iter()
+        .cloned()
+        .filter(move |unit_type| {
+            for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
+                let tile = self.map.tile(neighb_loc).unwrap();
+                if unit_type.can_occupy_tile( &tile ) {
+                    return true;
+                }
+            }
+            false
+        })
+    }
+
     /// If the current player controls a unit with ID `id`, order it to sentry
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Sentry;
@@ -1809,7 +1825,7 @@ pub mod test_support {
 
     pub fn game_tunnel(dims: Dims) -> Game {
         let players = 2;
-        let fog_of_war = true;
+        let fog_of_war = false;
         let map = map_tunnel(dims);
         let unit_namer = unit_namer();
         Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER)

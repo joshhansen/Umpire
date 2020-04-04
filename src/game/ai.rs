@@ -34,7 +34,9 @@ impl TurnTaker for RandomAI {
         let mut rng = rand::thread_rng();
 
         if self.verbose {
-            println!("Initial:\n{:?}", game.current_player_observations());
+            println!("Random:\n{:?}", game.current_player_observations());
+            println!("Random cities: {}", game.current_player_cities().count());
+            println!("Random units: {}", game.current_player_units().count());
         }
 
         let production_set_requests: Vec<Location> = game.production_set_requests().collect();
