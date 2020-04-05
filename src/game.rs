@@ -52,7 +52,7 @@ use crate::{
                 shortest_paths
             },
         },
-        obs::{Obs,Observer,ObsTracker,ObsTrackerI,OverlayObsTracker,UnifiedObsTracker,UnifiedObsTrackerI},
+        obs::{Obs,Observer,ObsTracker,ObsTrackerI,OverlayObsTracker,UnifiedObsTracker},
         unit::{
             UnitID,Unit,UnitType,
             orders::{
@@ -429,17 +429,6 @@ impl Game {
         self.current_player_units_deep_mutate(|unit: &mut Unit| unit.refresh_moves_remaining());
     }
 
-    // fn current_player_type(&self) -> PlayerType {
-    //     self.player_types[self.current_player]
-    // }
-
-    /// Begin a new turn
-    /// 
-    /// Returns the results of any pending orders carried out
-    // fn begin_turn(&mut self) -> TurnStart {
-    //     self.propose_begin_turn().take(self)
-    // }
-
     fn begin_turn(&mut self) -> TurnStart {
         let production_outcomes = self.produce_units();
 
@@ -456,30 +445,6 @@ impl Game {
             production_outcomes,
         }
     }
-
-    /// Begin a new turn, but only simulate the orders following. These can be made real using `ProposedAction::take`.
-    // fn propose_begin_turn(&mut self) -> ProposedTurnStart {
-    //     let production_outcomes = self.produce_units();
-
-    //     self.refresh_moves_remaining();
-
-    //     self.update_current_player_observations();
-
-    //     let proposed_orders_results = self.propose_following_pending_orders();
-
-    //     ProposedTurnStart {
-    //         turn: self.turn,
-    //         current_player: self.current_player,
-    //         proposed_orders_results,
-    //         production_outcomes,
-    //     }
-    // }
-
-    // fn propose_begin_turn(&self) -> (Self,TurnStart) {
-    //     let mut new = self.clone();
-    //     let turn_start = new.begin_turn();
-    //     (new, turn_start)
-    // }
 
     pub fn turn_is_done(&self) -> bool {
         self.production_set_requests().next().is_none() && self.unit_orders_requests().next().is_none()
@@ -516,21 +481,6 @@ impl Game {
 
         None
     }
-
-    // fn _end_turn(&mut self) -> Result<(),PlayerNum> {
-    //     if self.turn_is_done() {
-    //         self.player_observations.get_mut(&self.current_player()).unwrap().archive();
-
-    //         self.current_player = (self.current_player + 1) % self.num_players();
-    //         if self.current_player == 0 {
-    //             self.turn += 1;
-    //         }
-
-    //         Ok(())
-    //     } else {
-    //         Err(self.current_player())
-    //     }
-    // }
 
     /// End the current human player's turn and begin the next human player's turn
     ///
@@ -571,41 +521,10 @@ impl Game {
         self.begin_turn()
     }
 
-    // pub fn propose_end_turn(&mut self) -> Result<ProposedTurnStart,PlayerNum> {
-    //     if self.turn_is_done() {
-    //         self.player_observations.get_mut(&self.current_player()).unwrap().archive();
-
-    //         self.current_player = (self.current_player + 1) % self.num_players();
-    //         if self.current_player == 0 {
-    //             self.turn += 1;
-    //         }
-
-    //         Ok(self.propose_begin_turn())
-    //     } else {
-    //         Err(self.current_player)
-    //     }
-    // }
-
     pub fn propose_end_turn(&self) -> (Self,Result<TurnStart,PlayerNum>) {
         let mut new = self.clone();
         let result = new.end_turn();
         (new, result)
-
-        // let result = if new.turn_is_done() {
-        //     new.player_observations.get_mut(&new.current_player()).unwrap().archive();
-
-        //     // new.current_player = (new.current_player + 1) % new.num_players();
-        //     // if new.current_player == 0 {
-        //     //     new.turn += 1;
-        //     // }
-        //     new._inc_current_player();
-
-        //     Ok(new.begin_turn())
-        // } else {
-        //     Err(new.current_player())
-        // };
-
-        // (new,result)
     }
 
     /// Register the current observations of current player units
@@ -750,12 +669,6 @@ impl Game {
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
     }
-
-    // /// If the current player controls a city at location `loc`, return it mutably
-    // pub fn current_player_city_by_loc_mut(&mut self, loc: Location) -> Option<&mut City> {
-    //     let current_player = self.current_player();
-    //     self.map.city_by_loc_mut(loc).filter(|city| city.alignment == Alignment::Belligerent{player: current_player})
-    // }
 
     /// If the current player controls a city with ID `city_id`, return it
     pub fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City> {
@@ -1327,15 +1240,6 @@ impl Game {
         // ----- Make observations from the unit's new location -----
         move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
 
-        // if move_.moved_successfully() {
-        //     if move_complete {
-        //         self.map.mark_unit_movement_complete(unit_id).unwrap();
-        //     } else {
-        //         let distance_moved: usize = moves.iter().map(|move_| move_.distance_moved()).sum();
-        //         self.map.record_unit_movement(unit_id, distance_moved as u16).unwrap().unwrap();
-        //     }
-        // }
-
         Move::new(unit, src, moves)
     }
 
@@ -1344,9 +1248,6 @@ impl Game {
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
     pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<(),GameError> {
         self.map.set_player_city_production_by_loc(self.current_player, loc, production)
-        // let city = self.current_player_city_by_loc_mut(loc).ok_or_else(|| GameError::NoCityAtLocation{loc})?;
-        // city.set_production(production);
-        // Ok(())
     }
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
@@ -1364,15 +1265,6 @@ impl Game {
             "Attempted to clear production for city at location {} but there is no city at that location",
             loc
         ))
-        // if let Some(city) = self.map.city_by_loc_mut(loc) {
-        //     city.clear_production_without_ignoring();
-        //     Ok(())
-        // } else {
-        //     Err(format!(
-        //         "Attempted to clear production for city at location {} but there is no city at that location",
-        //         loc
-        //     ))
-        // }
     }
 
     //FIXME Restrict to current player cities
@@ -1383,15 +1275,6 @@ impl Game {
                 loc
             )
         )
-        // if let Some(city) = self.map.city_by_loc_mut(loc) {
-        //     city.clear_production_and_ignore();
-        //     Ok(())
-        // } else {
-        //     Err(format!(
-        //         "Attempted to clear production for city at location {} but there is no city at that location",
-        //         loc
-        //     ))
-        // }
     }
 
     pub fn turn(&self) -> TurnNum {
@@ -1522,14 +1405,6 @@ impl Game {
             .collect()
     }
 
-    // fn propose_following_pending_orders(&mut self) -> Vec<ProposedOrdersResult> {
-    //     let pending_orders: Vec<UnitID> = self.units_with_pending_orders().collect();
-
-    //     pending_orders.iter()
-    //         .map(|unit_id| self.propose_following_unit_orders(*unit_id))
-    //         .collect()
-    // }
-
     /// Make the unit with ID `id` under the current player's control follow its orders
     /// 
     /// # Panics
@@ -1547,11 +1422,6 @@ impl Game {
         
         result
     }
-
-    // fn propose_following_unit_orders(&mut self, id: UnitID) -> ProposedOrdersResult {
-    //     let orders = self.current_player_unit_by_id(id).unwrap().orders.as_ref().unwrap();
-    //     orders.propose(id, self)
-    // }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
     fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedSetAndFollowOrders {
@@ -1579,29 +1449,6 @@ impl Source<Obs> for Game {
         self.current_player_obs(loc)
     }
 }
-// impl Source<ResolvedObs> for Game {
-//     fn get(&self, loc: Location) -> Option<&ResolvedObs> {
-//         // self.current_player_obs(loc).map(|obs| match obs {
-//         //     &Obs::Current =>
-//         //         &ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
-//         //     &Obs::Observed{tile: tile, turn: turn} =>
-//         //         &ResolvedObs::Observation{tile: tile, turn: turn},
-//         //     &Obs::Unobserved => &ResolvedObs::Unobserved
-//         // })
-
-//         None
-//         // self.current_player_obs(loc).map(|obs| match obs {
-//         //     Obs::Current =>
-//         //         ResolvedObs::Observation{tile: self.tile(loc).unwrap().clone(), turn: self.turn()},
-//         //     Obs::Observed{tile: tile, turn: turn} =>
-//         //         ResolvedObs::Observation{tile: tile, turn: turn},
-//         //     Obs::Unobserved => ResolvedObs::Unobserved
-//         // })
-//     }
-//     fn dims(&self) -> Dims {
-//         self.map_dims()
-//     }
-// }
 
 fn obs_to_vec(obs: &Obs, num_players: PlayerNum) -> Vec<f64> {
     match obs {
@@ -1775,17 +1622,6 @@ pub mod test_support {
         map
     }
 
-    // /// 10x10 grid of land only with two cities:
-    // /// * Player 0's Machang at 0,0
-    // /// * Player 1's Zanzibar at 0,1
-    // fn map_two_cities() -> MapData {
-    //     map_two_cities_dims(Dims::new(10, 10))
-    // }
-
-    // fn map_two_cities_big() -> MapData {
-    //     map_two_cities_dims(Dims::new(100, 100))
-    // }
-
     pub(crate) fn game1() -> Game {
         let players = 2;
         let fog_of_war = true;
@@ -1867,38 +1703,6 @@ pub mod test_support {
     pub fn game_two_cities_two_infantry_big() -> Game {
         game_two_cities_two_infantry_dims(Dims::new(100, 100))
     }
-
-    // pub fn game_two_cities_four_infantry() -> Game {
-    //     let mut game = game_two_cities_two_infantry();
-
-    //     for _ in 0..5 {
-    //         let player = game.end_turn().unwrap().current_player;
-    //         assert_eq!(player, 1);
-    //         let player = game.end_turn().unwrap().current_player;
-    //         assert_eq!(player, 0);
-    //     }
-
-    //     assert_eq!(game.end_turn(), Err(0));
-    //     assert_eq!(game.end_turn(), Err(0));
-
-    //     game
-    // }
-
-    // pub fn game_two_cities_four_infantry_big() -> Game {
-    //     let mut game = game_two_cities_two_infantry_big();
-
-    //     for _ in 0..5 {
-    //         let player = game.end_turn().unwrap().current_player;
-    //         assert_eq!(player, 1);
-    //         let player = game.end_turn().unwrap().current_player;
-    //         assert_eq!(player, 0);
-    //     }
-
-    //     assert_eq!(game.end_turn(), Err(0));
-    //     assert_eq!(game.end_turn(), Err(0));
-
-    //     game
-    // }
 }
 
 #[cfg(test)]
@@ -1964,13 +1768,7 @@ mod test {
                     panic!("Error during move: {}", msg);
                 }
             }
-            // if let Ok(move_result) = game.move_unit_by_loc(loc, new_loc) {
-            //     println!("{}", move_result);
-            // } else {
-                
-            // }
-            // let move_result = game.move_unit_by_loc(loc, new_loc)
-            // assert!(game.move_unit_by_loc(loc, new_loc).is_ok());
+            
             let result = game.end_turn();
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1-player);
@@ -2088,11 +1886,6 @@ mod test {
             assert_eq!(result.unwrap().current_player, 0);
         }
     }
-
-    // #[test]
-    // fn test_unit_stops_after_conquering_city {
-    //
-    // }
 
     #[test]
     fn test_unit_moves_onto_transport() {
