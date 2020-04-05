@@ -8,11 +8,7 @@ use crate::{
         UnitProductionOutcome,
         player::PlayerTurnControl,
         unit::{
-            orders::{
-                OrdersError,
-                OrdersOutcome,
-                OrdersResult,
-            },
+            orders::OrdersOutcome,
         },
     },
     log::{Message,MessageSource},

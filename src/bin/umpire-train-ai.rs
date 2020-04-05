@@ -42,10 +42,7 @@ use rsrl::{
         StateFunction,
         linear::{
             basis::{
-                Constant,
-                Fourier,
                 Polynomial,
-                Projector,
             },
             optim::SGD,
             LFA,
@@ -284,6 +281,7 @@ impl UmpireDomain {
         }
     }
 
+    #[cfg(test)]
     fn from_game(game: Game, verbose: bool) -> Self {
         Self {
             game,

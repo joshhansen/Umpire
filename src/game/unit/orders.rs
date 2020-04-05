@@ -3,12 +3,10 @@ use failure::{Fail};
 use crate::{
     game::{
         Game,
-        ProposedAction,
         
         map::{
             dijkstra::{
                 ObservedReachableByPacifistUnit,
-                OverlaySource,
                 PacifistXenophileUnitMovementFilter,
                 nearest_adjacent_unobserved_reachable_without_attacking,
                 shortest_paths
@@ -18,11 +16,6 @@ use crate::{
             Move,
             MoveComponent,
             MoveError,
-            ProposedMove,
-        },
-        obs::{
-            OverlayObsTracker,
-            UnifiedObsTracker,
         },
         unit::UnitID,
     },

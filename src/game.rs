@@ -49,9 +49,7 @@ use crate::{
                 Filter,
                 NoCitiesButOursFilter,
                 NoUnitsFilter,
-                OverlaySource,
                 Source,
-                SourceMut,
                 UnitMovementFilter,
                 directions_unit_could_move_iter,
                 neighbors_terrain_only,
@@ -59,7 +57,7 @@ use crate::{
                 shortest_paths
             },
         },
-        obs::{Obs,Observer,ObsTracker,ObsTrackerI,OverlayObsTracker,UnifiedObsTracker},
+        obs::{Obs,Observer,ObsTracker,ObsTrackerI},
         unit::{
             UnitID,Unit,UnitType,
             orders::{
@@ -71,7 +69,7 @@ use crate::{
             },
         },
     },
-    name::{Namer,ListNamer},
+    name::Namer,
     util::{
         Dims,
         Dimensioned,
@@ -95,8 +93,6 @@ use self::move_::{
     MoveComponent,
     MoveError,
     MoveResult,
-    ProposedMove,
-    ProposedMoveResult,
 };
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
@@ -203,21 +199,6 @@ pub struct TurnStart {
     pub orders_results: Vec<OrdersResult>,
     pub production_outcomes: Vec<UnitProductionOutcome>,
 }
-
-// impl ProposedAction for ProposedTurnStart {
-//     type Outcome = TurnStart;
-
-//     fn take(mut self, game: &mut Game) -> Self::Outcome {
-//         TurnStart {
-//             turn: self.turn,
-//             current_player: self.current_player,
-//             orders_results: self.proposed_orders_results.drain(..).map(|proposed_orders_result| {
-//                 proposed_orders_result.map(|proposed_orders| proposed_orders.take(game))
-//             }).collect(),
-//             production_outcomes: self.production_outcomes,
-//         }
-//     }
-// }
 
 #[derive(Debug,Fail,PartialEq)]
 pub enum GameError {
