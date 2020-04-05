@@ -210,6 +210,9 @@ pub enum GameError {
     #[fail(display = "No city at location {} exists", loc)]
     NoCityAtLocation { loc: Location },
 
+    #[fail(display = "No tile at location {} exists", loc)]
+    NoTileAtLocation { loc: Location },
+
     #[fail(display = "Specified unit is not controlled by the current player")]
     UnitNotControlledByCurrentPlayer,
 
@@ -219,6 +222,11 @@ pub enum GameError {
     #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} due to wrong terrain type or insufficient
                       space.", carried_id)]
     CannotCarryUnit { carried_id: UnitID },
+
+    #[fail(display = "The unit with ID {:?} cannot occupy the city with ID {:?} because the unit with ID {:?} is still
+                      garrisoned there. The garrison must be destroyed prior to occupation.", occupier_unit_id,
+                    city_id, garrisoned_unit_id)]
+    CannotOccupyGarrisonedCity { occupier_unit_id: UnitID, city_id: CityID, garrisoned_unit_id: UnitID }
 }
 
 #[derive(Debug,PartialEq)]

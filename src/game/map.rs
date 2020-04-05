@@ -385,14 +385,51 @@ impl MapData {
         Ok(self.set_unit(dest, unit))
     }
 
+    /// Occupy the city at the given location using the unit with the given ID.
+    /// 
+    /// This will update the city's alignment to match the occupier unit, and mark the unit's movement complete.
+    /// 
+    /// Errors if no city exists at the location, or the location is out of bounds, or a unit is already present in the
+    /// city---garrisoned units should be defeated prior to occupying.
+    pub fn occupy_city(&mut self, occupier_unit_id: UnitID, city_loc: Location) -> Result<(),GameError> {
+
+        let alignment = self.unit_by_id(occupier_unit_id)
+                                .map(|unit| unit.alignment)
+                                .ok_or(GameError::NoSuchUnit{id: occupier_unit_id})?;
+
+        {
+            let tile = self.tile_mut(city_loc)
+                           .ok_or(GameError::NoTileAtLocation{loc: city_loc})?;
+            
+            
+
+            if tile.unit.is_some() {
+                return Err(GameError::CannotOccupyGarrisonedCity {
+                    occupier_unit_id,
+                    city_id: tile.city.as_ref().unwrap().id, 
+                    garrisoned_unit_id: tile.unit.as_ref().unwrap().id
+                });
+            }
+
+            if let Some(city) = tile.city.as_mut() {
+                city.alignment = alignment;
+            } else {
+                return Err(GameError::NoCityAtLocation{loc: city_loc});
+            }
+        }
+
+        self.mark_unit_movement_complete(occupier_unit_id)?;
+
+        self.relocate_unit_by_id(occupier_unit_id, city_loc)
+            .map(|_| ())//discard the "replaced" unit since we know there isn't one there
+    }
+
     /// Get the unit with ID `id`, if any
     /// 
     /// This covers all units, whether top-level or carried.
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
         self.unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
     }
-
-
 
     /// Get the unit with ID `id`, if any, mutably
     /// 
@@ -507,6 +544,10 @@ impl MapData {
 
     pub fn tile(&self, loc: Location) -> Option<&Tile> {
         self.tiles.get(loc)
+    }
+
+    fn tile_mut(&mut self, loc: Location) -> Option<&mut Tile> {
+        self.tiles.get_mut(loc)
     }
 
     // /// Destroy the top-level unit at `loc`
