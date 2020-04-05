@@ -287,9 +287,9 @@ impl Game {
     /// A map with the specified dimensions will be generated
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observations growing stale over time.
-    pub fn new(
+    pub fn new<N:Namer>(
             map_dims: Dims,
-            mut city_namer: ListNamer,
+            mut city_namer: N,
             num_players: PlayerNum,
             // player_types: Vec<PlayerType>,
             // players: Vec<Rc<Receiver<PlayerCommand>>>,
@@ -1527,7 +1527,15 @@ impl DerefVec for Game {
 
         // Relatively positioned
         let unit_id = self.unit_orders_requests().next();
-        let unit_loc = unit_id.map(|unit_id| self.current_player_unit_loc(unit_id).unwrap());
+        // let unit_loc = unit_id.map(|unit_id| self.current_player_unit_loc(unit_id).unwrap());
+        let unit_loc = unit_id.map(|unit_id| {
+            match self.current_player_unit_loc(unit_id) {
+                Some(loc) => loc,
+                None => {
+                    panic!("Unit was in orders requests but not in current player observations")
+                },
+            }
+        });
 
         for loc in self.dims().iter_locs() {
             let inc: Vec2d<i32> = loc.into();

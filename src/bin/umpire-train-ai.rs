@@ -12,10 +12,13 @@ use std::{
         HashMap,
         HashSet,
     },
-    rc::Rc,
+    sync::{
+        Arc,
+        RwLock,
+    },
 };
 
-use clap::{Arg, App};
+use clap::{Arg};
 
 use rand::{
     Rng,
@@ -33,7 +36,7 @@ use rsrl::{
         Controller,
         td::QLearning,
     },
-    domains::{Domain, MountainCar},
+    domains::Domain,
     fa::{
         EnumerableStateActionFunction,
         StateFunction,
@@ -86,9 +89,11 @@ use umpire::{
             UnitType,
         },
     },
+    name::IntNamer,
     util::{
         Dims,
         Direction,
+        Wrap2d,
     },
 };
 
@@ -257,10 +262,23 @@ struct UmpireDomain {
 }
 
 impl UmpireDomain {
-    fn new(dims: Dims, verbose: bool) -> Self {
+    fn new(map_dims: Dims, verbose: bool) -> Self {
+        let city_namer = IntNamer::new("city");
+        let unit_namer = IntNamer::new("unit");
+    
+        let game = Game::new(
+            map_dims,
+            city_namer,
+            2,
+            false,
+            Arc::new(RwLock::new(unit_namer)),
+            Wrap2d::BOTH,
+        );
+
         Self {
             // game: game_two_cities_two_infantry_dims(dims),
-            game: game_tunnel(dims),
+            // game: game_tunnel(dims),
+            game,
             random_ai: RandomAI::new(verbose),
             verbose,
         }
@@ -587,7 +605,7 @@ impl<Q: EnumerableStateActionFunction<Game>,P> UmpireAgent<Q,P> {
         let qs = self.q.q_func.evaluate_all(state);
 
         let mut iter = qs.into_iter().enumerate()
-            .filter(|(i,x)| legal.contains(possible.get(*i).unwrap()))
+            .filter(|(i,_x)| legal.contains(possible.get(*i).unwrap()))
         ;
         let first = iter.next().unwrap();
 
@@ -739,9 +757,6 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-
-
-
     use std::{
         collections::{
             HashMap,
@@ -786,11 +801,9 @@ mod test {
         UmpireDomain,
         trained_agent,
     };
-    
 
     #[test]
     fn test_ai_movement() {
-
         let n = 100000;
 
         let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(10, 10), false));
@@ -802,10 +815,6 @@ mod test {
             Alignment::Belligerent{player:0}, "Aragorn").unwrap();
         let unit_namer = IntNamer::new("unit");
         let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
-        
-        // let domain_builder = Box::new(move || UmpireDomain::from_game(game.clone(), false));
-
-
 
         let mut directions: HashSet<Direction> = Direction::values().iter().cloned().collect();
 
@@ -815,12 +824,6 @@ mod test {
 
         let mut rng = thread_rng();
         for _ in 0..n {
-            // let (idx,_prob) = agent.find_legal_max(&game);
-
-            
-            // let mut domain = (self.domain_factory)();
-            
-            // let idx = agent.sample_target(&mut rng, domain.emit().state());
             let idx = agent.sample_behaviour(&mut rng, domain.emit().state());
 
             domain.step(idx);
@@ -833,12 +836,7 @@ mod test {
 
             if let UmpireAction::MoveNextUnit{direction} = action {
                 directions.remove(&direction);
-                // game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
             }
-
-            // if directions.is_empty() {
-            //     return;
-            // }
         }
 
         assert!(directions.is_empty(), "AI is failing to explore in these directions over {} steps: {}\nCounts: {}",
