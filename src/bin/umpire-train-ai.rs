@@ -12,6 +12,7 @@ use std::{
         HashMap,
         HashSet,
     },
+    rc::Rc,
 };
 
 use clap::{Arg, App};
@@ -25,6 +26,7 @@ use rsrl::{
     Evaluation,
     OnlineLearner,
     SerialExperiment,
+    Shared,
     run,
     make_shared,
     control::{
@@ -43,7 +45,8 @@ use rsrl::{
                 Projector,
             },
             optim::SGD,
-            LFA
+            LFA,
+            VectorFunction,
         },
     },
     logging,
@@ -261,9 +264,15 @@ impl UmpireDomain {
             verbose,
         }
     }
-}
 
-impl UmpireDomain {
+    fn from_game(game: Game, verbose: bool) -> Self {
+        Self {
+            game,
+            random_ai: RandomAI::new(verbose),
+            verbose,
+        }
+    }
+
     fn update_state(&mut self, action: UmpireAction) {
 
         debug_assert_eq!(self.game.current_player(), 0);
@@ -574,7 +583,9 @@ impl<Q: EnumerableStateActionFunction<Game>,P> UmpireAgent<Q,P> {
         let legal = UmpireAction::legal_actions(state);
         let possible = UmpireAction::possible_actions();
 
-        let mut iter = self.q.q_func.evaluate_all(state).into_iter().enumerate()
+        let qs = self.q.q_func.evaluate_all(state);
+
+        let mut iter = qs.into_iter().enumerate()
             .filter(|(i,x)| legal.contains(possible.get(*i).unwrap()))
         ;
         let first = iter.next().unwrap();
@@ -617,6 +628,63 @@ fn get_bounds(d: &Interval) -> (f64, f64) {
         (None, Some(_)) => panic!("Dimension {} is missing a lower bound (inf).", d),
         (None, None) => panic!("Dimension {} must be bounded.", d),
     }
+}
+
+fn agent(domain_builder: &dyn Fn() -> UmpireDomain, verbose: bool) ->
+        UmpireAgent<Shared<Shared<LFA<Polynomial,SGD,VectorFunction>>>,
+            UmpireEpsilonGreedy<Shared<LFA<Polynomial, SGD, VectorFunction>>>>{
+
+    let n_actions = UmpireAction::possible_actions().len();
+    // let n_actions: usize = domain.action_space().card().into();
+
+    if verbose {
+        println!("# actions: {}", n_actions);
+
+        let limits: Vec<(f64,f64)> = domain_builder().state_space().space.iter().map(get_bounds).collect();
+        println!("Limits: {}", limits.len());
+    }
+    
+    // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
+    // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
+
+    // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
+    // let basis = Constant::new(5.0);
+    let basis = Polynomial::new(1, 1);
+    let lfa = LFA::vector(basis, SGD(1.0), n_actions);
+    let q_func = make_shared(lfa);
+
+    // let policy = EpsilonGreedy::new(
+    //     Greedy::new(q_func.clone()),
+    //     Random::new(n_actions),
+    //     0.2
+    // );
+
+    let policy = UmpireEpsilonGreedy::new(
+        UmpireGreedy::new(q_func.clone()),
+        UmpireRandom::new(),
+        0.2
+    );
+
+    UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0)}
+}
+
+fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize, steps: u64, verbose: bool) ->
+        UmpireAgent<Shared<Shared<LFA<Polynomial,SGD,VectorFunction>>>,
+            UmpireEpsilonGreedy<Shared<LFA<Polynomial, SGD, VectorFunction>>>>{
+                
+
+    let logger = logging::root(logging::stdout());
+
+    let mut agent = agent(&*domain_builder, verbose);
+
+
+    // Start a serial learning experiment up to 1000 steps per episode.
+    let e = SerialExperiment::new(&mut agent, domain_builder, steps);
+
+    // Realise 1000 episodes of the experiment generator.
+    run(e, episodes, Some(logger.clone()));
+
+    agent
 }
 
 fn main() {
@@ -663,54 +731,18 @@ fn main() {
 
     // let domain_builder = Box::new(MountainCar::default);
     let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(2, 1), verbose));
+    let mut agent = trained_agent(domain_builder, episodes, steps, verbose);
 
-    let mut agent = {
+    // let logger = logging::root(logging::stdout());
 
-        let n_actions = UmpireAction::possible_actions().len();
-        // let n_actions: usize = domain.action_space().card().into();
+    // // Training phase:
+    // let _training_result = {
+    //     // Start a serial learning experiment up to 1000 steps per episode.
+    //     let e = SerialExperiment::new(&mut agent, domain_builder.clone(), steps);
 
-        if verbose {
-            println!("# actions: {}", n_actions);
-
-            let limits: Vec<(f64,f64)> = domain_builder().state_space().space.iter().map(get_bounds).collect();
-            println!("Limits: {}", limits.len());
-        }
-        
-        // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
-        // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
-
-        // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
-        // let basis = Constant::new(5.0);
-        let basis = Polynomial::new(1, 1);
-        let lfa = LFA::vector(basis, SGD(1.0), n_actions);
-        let q_func = make_shared(lfa);
-
-        // let policy = EpsilonGreedy::new(
-        //     Greedy::new(q_func.clone()),
-        //     Random::new(n_actions),
-        //     0.2
-        // );
-
-        let policy = UmpireEpsilonGreedy::new(
-            UmpireGreedy::new(q_func.clone()),
-            UmpireRandom::new(),
-            0.2
-        );
-
-        UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0)}
-        // QLearning::new(q_func, policy, 0.01, 1.0)
-    };
-
-    let logger = logging::root(logging::stdout());
-
-    // Training phase:
-    let _training_result = {
-        // Start a serial learning experiment up to 1000 steps per episode.
-        let e = SerialExperiment::new(&mut agent, domain_builder.clone(), steps);
-
-        // Realise 1000 episodes of the experiment generator.
-        run(e, episodes, Some(logger.clone()))
-    };
+    //     // Realise 1000 episodes of the experiment generator.
+    //     run(e, episodes, Some(logger.clone()))
+    // };
 
     let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(2, 1), true));
 
@@ -718,4 +750,119 @@ fn main() {
     let testing_result = Evaluation::new(&mut agent, domain_builder).next().unwrap();
 
     println!("solution: {:?}", testing_result);
+}
+
+#[cfg(test)]
+mod test {
+
+
+
+    use std::{
+        collections::{
+            HashMap,
+            HashSet,
+        },
+        sync::{
+            Arc,
+            RwLock
+        }
+    };
+
+    use rand::{
+        thread_rng,
+    };
+
+    use rsrl::{
+        control::Controller,
+    };
+
+    use rsrl_domains::Domain;
+
+    use umpire::{
+        game::{
+            Alignment,
+            map::{
+                MapData,
+                Terrain,
+            },
+            unit::UnitType, Game,
+        },
+        name::IntNamer,
+        util::{
+            Dims,
+            Direction,
+            Location,
+            Wrap2d,
+        },
+    };
+
+    use super::{
+        UmpireAction,
+        UmpireDomain,
+        trained_agent,
+    };
+    
+
+    #[test]
+    fn test_ai_movement() {
+
+        let n = 100000;
+
+        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(10, 10), false));
+        let agent = trained_agent(domain_builder, 10, 50, false);
+
+
+        let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
+        let _unit_id = map.new_unit(Location::new(5,5), UnitType::Infantry,
+            Alignment::Belligerent{player:0}, "Aragorn").unwrap();
+        let unit_namer = IntNamer::new("unit");
+        let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        
+        // let domain_builder = Box::new(move || UmpireDomain::from_game(game.clone(), false));
+
+
+
+        let mut directions: HashSet<Direction> = Direction::values().iter().cloned().collect();
+
+        let mut counts: HashMap<UmpireAction,usize> = HashMap::new();
+
+        let mut domain = UmpireDomain::from_game(game, false);
+
+        let mut rng = thread_rng();
+        for _ in 0..n {
+            // let (idx,_prob) = agent.find_legal_max(&game);
+
+            
+            // let mut domain = (self.domain_factory)();
+            
+            // let idx = agent.sample_target(&mut rng, domain.emit().state());
+            let idx = agent.sample_behaviour(&mut rng, domain.emit().state());
+
+            domain.step(idx);
+
+            let action = UmpireAction::from_idx(idx).unwrap();
+
+            println!("Action: {:?}", action);
+
+            *counts.entry(action).or_insert(0) += 1;
+
+            if let UmpireAction::MoveNextUnit{direction} = action {
+                directions.remove(&direction);
+                // game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
+            }
+
+            // if directions.is_empty() {
+            //     return;
+            // }
+        }
+
+        assert!(directions.is_empty(), "AI is failing to explore in these directions over {} steps: {}\nCounts: {}",
+            n,
+            directions.iter().map(|dir| format!("{:?} ", dir)).collect::<String>(),
+            counts.iter().map(|(k,v)| format!("{:?}:{} ", k, v)).collect::<String>()
+        );
+
+    }
+
+
 }
