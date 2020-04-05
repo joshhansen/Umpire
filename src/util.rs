@@ -11,6 +11,11 @@ use std::{
     time::Duration,
 };
 
+use rand::{
+    Rng,
+    distributions::Distribution,
+};
+
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::conf;
@@ -79,6 +84,15 @@ impl Dims {
                 Location{x,y}
             })
         })
+    }
+}
+
+impl Distribution<Location> for Dims {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Location {
+        Location::new(
+            rng.gen_range(0, self.width),
+            rng.gen_range(0, self.height),
+        )
     }
 }
 

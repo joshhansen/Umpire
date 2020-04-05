@@ -5,7 +5,7 @@
 use rand::{
     thread_rng,
     Rng,
-    rngs::ThreadRng,
+    distributions::Distribution,
 };
 
 use crate::{
@@ -40,13 +40,6 @@ fn land_diagonal_neighbors<T:Source<Tile>>(tiles: &T, loc: Location) -> u16 {
 
 const INITIAL_TERRAIN: Terrain = Terrain::Water;
 
-fn rand_loc(rng: &mut ThreadRng, map_dims: Dims) -> Location {
-    Location{
-        x: rng.gen_range(0, map_dims.width),
-        y: rng.gen_range(0, map_dims.height)
-    }
-}
-
 pub fn generate_map<N:Namer>(city_namer: &mut N, map_dims: Dims, num_players: PlayerNum) -> MapData {
     let mut map = MapData::new(map_dims, |_loc| INITIAL_TERRAIN);
 
@@ -54,7 +47,7 @@ pub fn generate_map<N:Namer>(city_namer: &mut N, map_dims: Dims, num_players: Pl
 
     // Seed the continents/islands
     for _ in 0..conf::LANDMASSES {
-        let loc = rand_loc(&mut rng, map_dims);
+        let loc = map_dims.sample(&mut rng);
 
         // This might overwrite an already-set terrain but it doesn't matter
         map.set_terrain(loc, Terrain::Land);
@@ -92,7 +85,7 @@ pub fn generate_map<N:Namer>(city_namer: &mut N, map_dims: Dims, num_players: Pl
     // Populate player cities
     let mut player_num = 0;
     while player_num < num_players {
-        let loc = rand_loc(&mut rng, map_dims);
+        let loc = map_dims.sample(&mut rng);
 
         if *map.terrain(loc).unwrap() == Terrain::Land && map.city_by_loc(loc).is_none() {
             map.new_city(loc, Alignment::Belligerent{ player: player_num }, city_namer.name()).unwrap();
