@@ -1150,7 +1150,7 @@ impl Game {
         // The move components we will populate along the way
         let mut moves = Vec::new();
 
-        let mut move_complete = false;
+        // let mut move_complete = false;
 
         while unit.loc != dest {
             let shortest_paths = shortest_paths(obs_tracker, unit.loc, tile_filter, self.wrapping);
@@ -1235,7 +1235,10 @@ impl Game {
                         move_.unit_combat = Some(unit.fight(other_unit));
                         if move_.unit_combat.as_ref().unwrap().victorious() {
                             // We were victorious over the unit
-                            
+
+                            // Destroy the conquered unit
+                            self.map.pop_unit_by_loc_and_id(loc, other_unit.id).unwrap();
+
                             // Deal with any city
                             if let Some(city) = self.map.city_by_loc(loc) {
                                 // It must be an enemy city or there wouldn't have been an enemy unit there
@@ -1247,12 +1250,7 @@ impl Game {
 
                                     // If victorious
                                     if move_.city_combat.as_ref().unwrap().victorious() {
-                                        // Move this unit to the destination
-                                        self.map.relocate_unit_by_id(unit_id, loc).unwrap();
-
-                                        // We also mark the unit's movement complete since no movement is allowed
-                                        // after conquering a city
-                                        move_complete = true;
+                                        self.map.occupy_city(unit_id, loc).unwrap();
                                     } else {
                                         // Destroy this unit
                                         self.map.pop_unit_by_id(unit_id).unwrap();
@@ -1286,6 +1284,7 @@ impl Game {
                     if unit.is_friendly_to(city) {
                         // Move this unit to the destination
                         self.map.relocate_unit_by_id(unit.id, loc).unwrap();
+                        self.map.record_unit_movement(unit.id, 1).unwrap().unwrap();
 
                     } else {
                         if unit.can_occupy_cities() {
@@ -1293,11 +1292,7 @@ impl Game {
 
                             // If victorious
                             if move_.city_combat.as_ref().unwrap().victorious() {
-
-                                // Move this unit to the destination
-                                self.map.relocate_unit_by_id(unit.id, loc).unwrap();
-
-
+                                self.map.occupy_city(unit_id, loc).unwrap();
                             } else {
 
                                 // Destroy this unit
@@ -1316,6 +1311,7 @@ impl Game {
 
                     let prior_unit = self.map.relocate_unit_by_id(unit.id, loc).unwrap();
                     debug_assert!(prior_unit.is_none());
+                    self.map.record_unit_movement(unit.id, 1).unwrap().unwrap();
                 }
 
                 // ----- Make observations from the unit's new location -----
@@ -1330,14 +1326,14 @@ impl Game {
         // ----- Make observations from the unit's new location -----
         move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
 
-        if move_.moved_successfully() {
-            if move_complete {
-                self.map.mark_unit_movement_complete(unit_id).unwrap();
-            } else {
-                let distance_moved: usize = moves.iter().map(|move_| move_.distance_moved()).sum();
-                self.map.record_unit_movement(unit_id, distance_moved as u16).unwrap().unwrap();
-            }
-        }
+        // if move_.moved_successfully() {
+        //     if move_complete {
+        //         self.map.mark_unit_movement_complete(unit_id).unwrap();
+        //     } else {
+        //         let distance_moved: usize = moves.iter().map(|move_| move_.distance_moved()).sum();
+        //         self.map.record_unit_movement(unit_id, distance_moved as u16).unwrap().unwrap();
+        //     }
+        // }
 
         Move::new(unit, src, moves)
     }
