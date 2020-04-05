@@ -2,6 +2,7 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 
+pub mod cli;
 pub mod color;
 pub mod conf;
 pub mod game;

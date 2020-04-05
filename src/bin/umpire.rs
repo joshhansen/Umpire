@@ -16,9 +16,10 @@ use std::{
     time::{Duration,SystemTime},
 };
 
-use clap::{Arg, App};
+use clap::Arg;
 
 use umpire::{
+    cli,
     color::{palette16, palette256, palette24},
     conf,
     game::{
@@ -56,10 +57,7 @@ fn print_loading_screen() {
 }
 
 fn main() {
-    let map_width_s: &str = &conf::MAP_WIDTH.to_string();
-    let map_height_s: &str = &conf::MAP_HEIGHT.to_string();
-
-    let matches = App::new(conf::APP_NAME)
+    let matches = cli::app(conf::APP_NAME, "WH")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -145,28 +143,6 @@ fn main() {
             .short("C")
             .long("confirm")
             .help("Wait for explicit confirmation of turn end.")
-        )
-        .arg(Arg::with_name("map_height")
-            .short("H")
-            .long("height")
-            .help("Map height")
-            .takes_value(true)
-            .default_value(map_height_s)
-            .validator(|s| {
-                let width: Result<u16,_> = s.trim().parse();
-                width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
-            })
-        )
-        .arg(Arg::with_name("map_width")
-            .short("W")
-            .long("width")
-            .help("Map width")
-            .takes_value(true)
-            .default_value(map_width_s)
-            .validator(|s| {
-                let width: Result<u16,_> = s.trim().parse();
-                width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))
-            })
         )
         .arg(Arg::with_name("wrapping")
             .short("w")

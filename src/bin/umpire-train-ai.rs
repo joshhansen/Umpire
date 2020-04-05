@@ -69,6 +69,7 @@ use rsrl_domains::{
 };
 
 use umpire::{
+    cli,
     conf,
     game::{
         Game,
@@ -688,7 +689,7 @@ fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize,
 }
 
 fn main() {
-    let matches = App::new("Umpire AI Trainer")
+    let matches = cli::app("Umpire AI Trainer", "HWv")
     .version(conf::APP_VERSION)
     .author("Josh Hansen <hansen.joshuaa@gmail.com>")
     .arg(
@@ -713,38 +714,22 @@ fn main() {
             steps.map(|_n| ()).map_err(|_e| format!("Invalid steps '{}'", s))
         })
     )
-    .arg(
-        Arg::with_name("verbose")
-        .short("v")
-        .long("verbose")
-        .help("Show verbose output")
-    )
     .get_matches();
 
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
+    let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
+    let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
     let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
-    // let verbose = matches.is_present("verbose");
-    let verbose = true;
+    let verbose = matches.is_present("verbose");
 
     println!("Training Umpire AI.");
 
+    let mut agent = {
+        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), verbose));
+        trained_agent(domain_builder, episodes, steps, verbose)
+    };
 
-    // let domain_builder = Box::new(MountainCar::default);
-    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(2, 1), verbose));
-    let mut agent = trained_agent(domain_builder, episodes, steps, verbose);
-
-    // let logger = logging::root(logging::stdout());
-
-    // // Training phase:
-    // let _training_result = {
-    //     // Start a serial learning experiment up to 1000 steps per episode.
-    //     let e = SerialExperiment::new(&mut agent, domain_builder.clone(), steps);
-
-    //     // Realise 1000 episodes of the experiment generator.
-    //     run(e, episodes, Some(logger.clone()))
-    // };
-
-    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(2, 1), true));
+    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), false));
 
     // Testing phase:
     let testing_result = Evaluation::new(&mut agent, domain_builder).next().unwrap();

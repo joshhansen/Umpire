@@ -53,10 +53,10 @@ pub const APP_SUBTITLE: &str = "Combat Quest of the Millennium";
 // pub const USER_NAME: &'static str = "Jersh";
 
 /// The width of the game map
-pub const MAP_WIDTH: u16 = 180;
+pub const MAP_WIDTH: &str = "180";
 
 /// The height of the game map
-pub const MAP_HEIGHT: u16 = 90;
+pub const MAP_HEIGHT: &str = "90";
 
 /// The height of the header
 pub const HEADER_HEIGHT: u16 = 1;
