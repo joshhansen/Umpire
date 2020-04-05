@@ -109,7 +109,7 @@ pub trait ProposedAction {
 
 pub struct Proposed<T> {
     new_state: Game,
-    delta: T,
+    pub delta: T,
 }
 impl <T> Proposed<T> {
     pub fn new(new_state: Game, delta: T) -> Self {
@@ -118,7 +118,7 @@ impl <T> Proposed<T> {
         }
     }
 
-    fn take(self, state: &mut Game) -> T {
+    pub fn apply(self, state: &mut Game) -> T {
         *state = self.new_state;
         self.delta
     }
@@ -525,10 +525,10 @@ impl Game {
         self.begin_turn()
     }
 
-    pub fn propose_end_turn(&self) -> (Self,Result<TurnStart,PlayerNum>) {
+    pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart,PlayerNum>> {
         let mut new = self.clone();
         let result = new.end_turn();
-        (new, result)
+        Proposed::new(new, result)
     }
 
     /// Register the current observations of current player units
@@ -782,10 +782,10 @@ impl Game {
         self.move_unit_by_id_using_filter(unit_id, dest, filter)
     }
 
-    fn propose_move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&self, src: Location, dest: Location, filter: &F) -> MoveResult {
-        let mut new = self.clone();
-        new.move_toplevel_unit_by_loc_using_filter(src, dest, filter)
-    }
+    // fn propose_move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&self, src: Location, dest: Location, filter: &F) -> MoveResult {
+    //     let mut new = self.clone();
+    //     new.move_toplevel_unit_by_loc_using_filter(src, dest, filter)
+    // }
 
     /// Move a unit one step in a particular direction
     pub fn move_unit_by_id_in_direction(&mut self, id: UnitID, direction: Direction) -> MoveResult {
@@ -808,30 +808,28 @@ impl Game {
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> MoveResult {
-        // let unit = self.map.unit_by_id(id).unwrap();
-        // let tile_filter = UnitMovementFilter::new(unit);
-        // self.propose_move_unit_using_filter(unit, dest, &tile_filter)
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
         let mut new = self.clone();
-        new.move_unit_by_id(id, dest)
+        let result = new.move_unit_by_id(id, dest);
+        Proposed::new(new, result)
     }
 
     pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
-        // self.propose_move_unit_by_id_avoiding_combat(id, dest).map(|proposed_move| proposed_move.take(self))
-        self.propose_move_unit_by_id_avoiding_combat(id, dest).take(self)
-    }
-
-    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
-        let unit = self.map.unit_by_id(id).unwrap();
+        let unit = self.map.unit_by_id(id).unwrap().clone();
         let unit_filter = AndFilter::new(
             AndFilter::new(
                 NoUnitsFilter{},
                 NoCitiesButOursFilter{alignment: unit.alignment }
             ),
-            UnitMovementFilter{unit}
+            UnitMovementFilter{unit: &unit}
         );
-        // self.propose_move_unit_using_filter(unit, dest, &unit_filter)
-        self.propose_move_unit_by_id_using_filter(id, dest, &unit_filter)
+        self.move_unit_by_id_using_filter(id, dest, &unit_filter)
+    }
+
+    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
+        let mut new = self.clone();
+        let result = new.move_unit_by_id_avoiding_combat(id, dest);
+        Proposed::new(new, result)
     }
 
     // /// Simulate and propose moving the unit at location `loc` with ID `id` to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
@@ -1033,23 +1031,23 @@ impl Game {
     //     ProposedMove::new(unit, src, moves)
     // }
 
-    /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
-    /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
-    /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
-    /// potentially other behaviors like unit carrying and combat.
-    fn propose_move_unit_by_id_using_filter<F:Filter<Obs>>(
-        &self,
-        unit_id: UnitID,
-        dest: Location,
-        tile_filter: &F) -> Proposed<MoveResult> {
+    // /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
+    // /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
+    // /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
+    // /// potentially other behaviors like unit carrying and combat.
+    // fn propose_move_unit_by_id_using_filter<F:Filter<Obs>>(
+    //     &self,
+    //     unit_id: UnitID,
+    //     dest: Location,
+    //     tile_filter: &F) -> Proposed<MoveResult> {
         
-        let mut new = self.clone();
-        let delta = new.move_unit_by_id_using_filter(unit_id, dest, tile_filter);
+    //     let mut new = self.clone();
+    //     let delta = new.move_unit_by_id_using_filter(unit_id, dest, tile_filter);
 
-        Proposed::new(
-            new, delta,
-        )
-    }
+    //     Proposed::new(
+    //         new, delta,
+    //     )
+    // }
 
     /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
     /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
@@ -1640,7 +1638,7 @@ pub mod test_support {
             assert_eq!(unit.loc, src);
         }
 
-        let proposed_move = game.propose_move_unit_by_id(unit_id, dest).unwrap();
+        let proposed_move = game.propose_move_unit_by_id(unit_id, dest).delta.unwrap();
 
         let component = proposed_move.components.get(0).unwrap();
 
@@ -1723,13 +1721,13 @@ pub mod test_support {
         Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER)
     }
 
-    pub(crate) fn game_two_cities() -> Game {
-        game_two_cities_dims(Dims::new(10, 10))
-    }
+    // pub(crate) fn game_two_cities() -> Game {
+    //     game_two_cities_dims(Dims::new(10, 10))
+    // }
 
-    pub(crate) fn game_two_cities_big() -> Game {
-        game_two_cities_dims(Dims::new(100, 100))
-    }
+    // pub(crate) fn game_two_cities_big() -> Game {
+    //     game_two_cities_dims(Dims::new(100, 100))
+    // }
 
     pub fn game_two_cities_two_infantry_dims(dims: Dims) -> Game {
         let mut game = game_two_cities_dims(dims);

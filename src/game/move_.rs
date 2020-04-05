@@ -103,6 +103,7 @@ impl Move {
 
 
 /// A move that has been simulated and contemplated but not yet carried out
+#[deprecated]
 #[derive(Debug,PartialEq)]
 pub struct ProposedMove(pub Move);
 

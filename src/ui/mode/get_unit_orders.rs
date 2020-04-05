@@ -100,7 +100,9 @@ impl IMode for GetUnitOrdersMode {
                         if let Ok(dir) = Direction::try_from(c) {
                             if let Some(dest) = unit_loc.shift_wrapped(dir, game.dims(), game.wrapping()) {
 
-                                match game.propose_move_unit_by_id(self.unit_id, dest) {
+                                let proposed_move = game.propose_move_unit_by_id(self.unit_id, dest);
+
+                                match proposed_move.delta {
                                     Ok(proposed_move) => {
                                         ui.animate_move(game, &proposed_move);
 

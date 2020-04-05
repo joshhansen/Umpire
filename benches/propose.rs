@@ -28,7 +28,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function(
         "test_propose_move_unit_by_id",
         |b| b.iter(|| {
-            game.propose_move_unit_by_id(unit_id, dest).unwrap()
+            game.propose_move_unit_by_id(unit_id, dest).delta.unwrap()
         })
     );
 }

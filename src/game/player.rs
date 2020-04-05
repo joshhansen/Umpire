@@ -256,7 +256,7 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.move_unit_by_id(unit_id, dest)
     }
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Result<Move,MoveError> {
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Proposed<Result<Move,MoveError>> {
         self.game.propose_move_unit_by_id(id, dest)
     }
 
