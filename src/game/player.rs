@@ -3,6 +3,7 @@ use crate::{
         Game,
         GameError,
         ProposedAction,
+        Proposed,
         TurnNum,
         TurnStart,
         city::{
@@ -11,6 +12,7 @@ use crate::{
         },
         map::tile::Tile,
         move_::{
+            Move,
             MoveError,
             MoveResult,
             ProposedMove,
@@ -25,7 +27,6 @@ use crate::{
             UnitType,
             orders::{
                 OrdersResult,
-                ProposedSetAndFollowOrders,
             },
         },
     },
@@ -255,18 +256,17 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.move_unit_by_id(unit_id, dest)
     }
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Result<ProposedActionWrapper<ProposedMove>,MoveError> {
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Result<Move,MoveError> {
         self.game.propose_move_unit_by_id(id, dest)
-            .map(ProposedActionWrapper::new)
     }
 
     pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
         self.game.move_unit_by_id_avoiding_combat(id, dest)
     }
 
-    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Result<ProposedActionWrapper<ProposedMove>,MoveError> {
+    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
         self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
-            .map(ProposedActionWrapper::new)
+            // .map(ProposedActionWrapper::new)
     }
 
     /// Sets the production of the current player's city at location `loc` to `production`.
@@ -329,8 +329,8 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> ProposedActionWrapper<ProposedSetAndFollowOrders> {
-        ProposedActionWrapper::new(self.game.propose_order_unit_go_to(unit_id, dest))
+    pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
+        self.game.propose_order_unit_go_to(unit_id, dest)
     }
 
     pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
@@ -338,8 +338,8 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> ProposedActionWrapper<ProposedSetAndFollowOrders> {
-        ProposedActionWrapper::new(self.game.propose_order_unit_explore(unit_id))
+    pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
+        self.game.propose_order_unit_explore(unit_id)
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries

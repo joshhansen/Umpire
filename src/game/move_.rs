@@ -268,6 +268,8 @@ impl MoveComponent {
 
     /// How far did the unit move? Either 0 or 1---0 if it stayed in the same place,
     /// 1 otherwise.
+    /// 
+    /// NOTE: Assumes that all moves are of distance 1 or less
     pub fn distance_moved(&self) -> usize {
         if self.prev_loc == self.loc {
             0

@@ -2,6 +2,13 @@
 //! Abstract game engine.
 //!
 //! This implements the game logic without regard for user interface.
+//! 
+//! FIXME: Need to utilize a consistent, internally-managed random seed for all random operations
+//!        This is needed to allow a clone-based proposal system to produce consistent results between proposal and
+//!        implementation.
+//! OR
+//!        Have proposal methods return the modified clone, and then simply replace the game state with the modified
+//!        clone to make the changes real.
 
 pub mod ai;
 pub mod city;
@@ -61,8 +68,6 @@ use crate::{
                 OrdersStatus,
                 OrdersOutcome,
                 OrdersResult,
-                ProposedOrdersResult,
-                ProposedSetAndFollowOrders,
             },
         },
     },
@@ -104,6 +109,23 @@ pub trait ProposedAction {
 
     /// Carry out the proposed action
     fn take(self, game: &mut Game) -> Self::Outcome;
+}
+
+pub struct Proposed<T> {
+    new_state: Game,
+    delta: T,
+}
+impl <T> Proposed<T> {
+    pub fn new(new_state: Game, delta: T) -> Self {
+        Self {
+            new_state, delta,
+        }
+    }
+
+    fn take(self, state: &mut Game) -> T {
+        *state = self.new_state;
+        self.delta
+    }
 }
 
 pub type TurnNum = u32;
@@ -164,14 +186,15 @@ impl <T:Aligned> AlignedMaybe for T {
 }
 
 
-#[must_use]
-#[derive(Debug,PartialEq)]
-pub struct ProposedTurnStart {
-    pub turn: TurnNum,
-    pub current_player: PlayerNum,
-    pub proposed_orders_results: Vec<ProposedOrdersResult>,
-    pub production_outcomes: Vec<UnitProductionOutcome>,
-}
+// #[must_use]
+// #[deprecated]
+// #[derive(Debug,PartialEq)]
+// pub struct ProposedTurnStart {
+//     pub turn: TurnNum,
+//     pub current_player: PlayerNum,
+//     pub proposed_orders_results: Vec<OrdersResult>,
+//     pub production_outcomes: Vec<UnitProductionOutcome>,
+// }
 
 #[derive(Debug,PartialEq)]
 pub struct TurnStart {
@@ -181,20 +204,20 @@ pub struct TurnStart {
     pub production_outcomes: Vec<UnitProductionOutcome>,
 }
 
-impl ProposedAction for ProposedTurnStart {
-    type Outcome = TurnStart;
+// impl ProposedAction for ProposedTurnStart {
+//     type Outcome = TurnStart;
 
-    fn take(mut self, game: &mut Game) -> Self::Outcome {
-        TurnStart {
-            turn: self.turn,
-            current_player: self.current_player,
-            orders_results: self.proposed_orders_results.drain(..).map(|proposed_orders_result| {
-                proposed_orders_result.map(|proposed_orders| proposed_orders.take(game))
-            }).collect(),
-            production_outcomes: self.production_outcomes,
-        }
-    }
-}
+//     fn take(mut self, game: &mut Game) -> Self::Outcome {
+//         TurnStart {
+//             turn: self.turn,
+//             current_player: self.current_player,
+//             orders_results: self.proposed_orders_results.drain(..).map(|proposed_orders_result| {
+//                 proposed_orders_result.map(|proposed_orders| proposed_orders.take(game))
+//             }).collect(),
+//             production_outcomes: self.production_outcomes,
+//         }
+//     }
+// }
 
 #[derive(Debug,Fail,PartialEq)]
 pub enum GameError {
@@ -770,15 +793,17 @@ impl Game {
         self.move_toplevel_unit_by_loc_using_filter(src, dest, &unit_filter)
     }
 
-    //FIXME Using cloning strategy
     fn move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&mut self, src: Location, dest: Location, filter: &F) -> MoveResult {
-        self.propose_move_toplevel_unit_by_loc_using_filter(src, dest, filter)
-            .map(|proposed_move| proposed_move.take(self))
+        let unit_id = self.current_player_toplevel_unit_by_loc(src)
+                                          .map(|unit| unit.id)
+                                          .ok_or(MoveError::SourceUnitNotAtLocation{src})?;
+        
+        self.move_unit_by_id_using_filter(unit_id, dest, filter)
     }
 
-    fn propose_move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&self, src: Location, dest: Location, filter: &F) -> ProposedMoveResult {
-        let id: UnitID = self.map.toplevel_unit_id_by_loc(src).unwrap();
-        self.propose_move_unit_by_loc_and_id_using_filter(src, id, dest, filter)
+    fn propose_move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&self, src: Location, dest: Location, filter: &F) -> MoveResult {
+        let mut new = self.clone();
+        new.move_toplevel_unit_by_loc_using_filter(src, dest, filter)
     }
 
     /// Move a unit one step in a particular direction
@@ -802,17 +827,20 @@ impl Game {
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
-        let unit = self.map.unit_by_id(id).unwrap();
-        let tile_filter = UnitMovementFilter::new(unit);
-        self.propose_move_unit_using_filter(unit, dest, &tile_filter)
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> MoveResult {
+        // let unit = self.map.unit_by_id(id).unwrap();
+        // let tile_filter = UnitMovementFilter::new(unit);
+        // self.propose_move_unit_using_filter(unit, dest, &tile_filter)
+        let mut new = self.clone();
+        new.move_unit_by_id(id, dest)
     }
 
     pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
-        self.propose_move_unit_by_id_avoiding_combat(id, dest).map(|proposed_move| proposed_move.take(self))
+        // self.propose_move_unit_by_id_avoiding_combat(id, dest).map(|proposed_move| proposed_move.take(self))
+        self.propose_move_unit_by_id_avoiding_combat(id, dest).take(self)
     }
 
-    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
+    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
         let unit = self.map.unit_by_id(id).unwrap();
         let unit_filter = AndFilter::new(
             AndFilter::new(
@@ -825,202 +853,204 @@ impl Game {
         self.propose_move_unit_by_id_using_filter(id, dest, &unit_filter)
     }
 
-    /// Simulate and propose moving the unit at location `loc` with ID `id` to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
-    /// 
-    /// This does not actually carry out the move. The `ProposedMove` contained in an `Ok` result implements `ProposedAction` whose `take` method should be called
-    /// to make the change real. This two-step process is designed to ease UI implementations. The UI should animate the proposed move against the background
-    /// of the pre-move game state. After representing the move in the UI, the move should be committed to update the game state appopriately.
-    /// 
-    /// This is simpler to handle than when we would commit the move immediately. That left the UI to try to reverse-engineer the game state prior to the move,
-    /// so the move could be animated accurately.
-    fn propose_move_unit_by_loc_and_id_using_filter<F:Filter<Obs>>(&self, src: Location, id: UnitID, dest: Location, filter: &F) -> ProposedMoveResult {
-        if let Some(unit) = self.map.unit_by_loc_and_id(src, id) {
-            self.propose_move_unit_using_filter(unit, dest, filter)
-        } else {
-            Err(MoveError::SourceUnitWithIdNotAtLocation{src, id})
-        }
-    }
+    // /// Simulate and propose moving the unit at location `loc` with ID `id` to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
+    // /// 
+    // /// This does not actually carry out the move. The `ProposedMove` contained in an `Ok` result implements `ProposedAction` whose `take` method should be called
+    // /// to make the change real. This two-step process is designed to ease UI implementations. The UI should animate the proposed move against the background
+    // /// of the pre-move game state. After representing the move in the UI, the move should be committed to update the game state appopriately.
+    // /// 
+    // /// This is simpler to handle than when we would commit the move immediately. That left the UI to try to reverse-engineer the game state prior to the move,
+    // /// so the move could be animated accurately.
+    // #[deprecated]
+    // fn propose_move_unit_by_loc_and_id_using_filter<F:Filter<Obs>>(&self, src: Location, id: UnitID, dest: Location, filter: &F) -> ProposedMoveResult {
+    //     if let Some(unit) = self.map.unit_by_loc_and_id(src, id) {
+    //         self.propose_move_unit_using_filter(unit, dest, filter)
+    //     } else {
+    //         Err(MoveError::SourceUnitWithIdNotAtLocation{src, id})
+    //     }
+    // }
 
-    /// Simulate and propose moving the unit provided to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
-    /// 
-    /// `unit` is the unit we're proposing the move for. It will be cloned and then the effects of the move on the unit simulated on the clone.
-    /// 
-    /// This does not actually carry out the move. The `ProposedMove` contained in an `Ok` result implements `ProposedAction` whose `take` method should be called
-    /// to make the change real. This two-step process is designed to ease UI implementations. The UI should animate the proposed move against the background
-    /// of the pre-move game state. After representing the move in the UI, the move should be committed to update the game state appopriately.
-    /// 
-    /// This is simpler to handle than when we would commit the move immediately. That left the UI to try to reverse-engineer the game state prior to the move,
-    /// so the move could be animated accurately.
-    fn propose_move_unit_using_filter<F:Filter<Obs>>(&self, unit: &Unit, dest: Location, filter: &F) -> ProposedMoveResult {
-        let obs_tracker = self.current_player_observations();
-        let mut overlay = OverlayObsTracker::new(obs_tracker);
-        // let mut obs_tracker = UnifiedObsTracker::new(&self.map, self.current_player_observations().clone());
-        // let mut obs_tracker = self.current_player_observations();
-        self.propose_move_unit_using_filter_custom_tracker(unit, dest, filter, &self.map, &mut overlay)
-    }
+    // /// Simulate and propose moving the unit provided to destination `dest`, guided by the shortest paths matrix in `shortest_paths`.
+    // /// 
+    // /// `unit` is the unit we're proposing the move for. It will be cloned and then the effects of the move on the unit simulated on the clone.
+    // /// 
+    // /// This does not actually carry out the move. The `ProposedMove` contained in an `Ok` result implements `ProposedAction` whose `take` method should be called
+    // /// to make the change real. This two-step process is designed to ease UI implementations. The UI should animate the proposed move against the background
+    // /// of the pre-move game state. After representing the move in the UI, the move should be committed to update the game state appopriately.
+    // /// 
+    // /// This is simpler to handle than when we would commit the move immediately. That left the UI to try to reverse-engineer the game state prior to the move,
+    // /// so the move could be animated accurately.
+    // #[deprecated = "Use propose_move_unit_by_id_using_filter"]
+    // fn propose_move_unit_using_filter<F:Filter<Obs>>(&self, unit: &Unit, dest: Location, filter: &F) -> ProposedMoveResult {
+    //     let obs_tracker = self.current_player_observations();
+    //     let mut overlay = OverlayObsTracker::new(obs_tracker);
+    //     // let mut obs_tracker = UnifiedObsTracker::new(&self.map, self.current_player_observations().clone());
+    //     // let mut obs_tracker = self.current_player_observations();
+    //     self.propose_move_unit_using_filter_custom_tracker(unit, dest, filter, &self.map, &mut overlay)
+    // }
 
-    /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
-    /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
-    /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
-    /// potentially other behaviors like unit carrying and combat.
-    #[deprecated = "Use propose_move_unit_by_id_using_filter instead"]
-    fn propose_move_unit_using_filter_custom_tracker<F:Filter<Obs>,O:ObsTrackerI,S:Source<Tile>>(
-        &self,
-        unit: &Unit,
-        dest: Location,
-        tile_filter: &F,
-        tiles: &S,
-        obs_tracker: &mut O) -> ProposedMoveResult {
+    // /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
+    // /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
+    // /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
+    // /// potentially other behaviors like unit carrying and combat.
+    // #[deprecated = "Use propose_move_unit_by_id_using_filter instead"]
+    // fn propose_move_unit_using_filter_custom_tracker<F:Filter<Obs>,O:ObsTrackerI,S:Source<Tile>>(
+    //     &self,
+    //     unit: &Unit,
+    //     dest: Location,
+    //     tile_filter: &F,
+    //     tiles: &S,
+    //     obs_tracker: &mut O) -> ProposedMoveResult {
 
-        if !obs_tracker.dims().contain(dest) {
-            return Err(MoveError::DestinationOutOfBounds {});
-        }
+    //     if !obs_tracker.dims().contain(dest) {
+    //         return Err(MoveError::DestinationOutOfBounds {});
+    //     }
 
-        // An overlay on the underlying map that lets us simulate the altered reality that is the move
-        let mut overlay = OverlaySource::new(tiles);
+    //     // An overlay on the underlying map that lets us simulate the altered reality that is the move
+    //     let mut overlay = OverlaySource::new(tiles);
 
-        // We copy the unit so we can simulate what will happen to it and send that version out with the ProposedMove
-        let mut unit = unit.clone();
+    //     // We copy the unit so we can simulate what will happen to it and send that version out with the ProposedMove
+    //     let mut unit = unit.clone();
 
-        // Keep a copy of the source location around
-        let src = unit.loc;
+    //     // Keep a copy of the source location around
+    //     let src = unit.loc;
 
-        // Clear the unit out of its source location so it doesn't show up there in observations
-        let mut src_tile = overlay.get(src).clone();
-        src_tile.unit = None;
-        overlay.put(src, &src_tile);
+    //     // Clear the unit out of its source location so it doesn't show up there in observations
+    //     let mut src_tile = overlay.get(src).clone();
+    //     src_tile.unit = None;
+    //     overlay.put(src, &src_tile);
 
-        // A merged observation tracker that joins the overlay map as a backing datasource with the provided
-        // observation tracker, which will be updated directly as units observe during the move. The observations are
-        // then used to guide the path search, so the unit doesn't get information it doesn't actually have by way of
-        // the tiles source.
-        let mut obs_tracker = UnifiedObsTracker::new(&mut overlay, obs_tracker);
+    //     // A merged observation tracker that joins the overlay map as a backing datasource with the provided
+    //     // observation tracker, which will be updated directly as units observe during the move. The observations are
+    //     // then used to guide the path search, so the unit doesn't get information it doesn't actually have by way of
+    //     // the tiles source.
+    //     let mut obs_tracker = UnifiedObsTracker::new(&mut overlay, obs_tracker);
 
-        let mut moves = Vec::new();
+    //     let mut moves = Vec::new();
 
-        let mut move_complete = false;
+    //     let mut move_complete = false;
 
-        while unit.loc != dest {
-            let shortest_paths = shortest_paths(&mut obs_tracker, unit.loc, tile_filter, self.wrapping);
+    //     while unit.loc != dest {
+    //         let shortest_paths = shortest_paths(&mut obs_tracker, unit.loc, tile_filter, self.wrapping);
 
-            if let Some(distance) = shortest_paths.dist[dest] {
-                if distance == 0 {
-                    return Err(MoveError::ZeroLengthMove);
-                }
+    //         if let Some(distance) = shortest_paths.dist[dest] {
+    //             if distance == 0 {
+    //                 return Err(MoveError::ZeroLengthMove);
+    //             }
     
-                if distance > unit.moves_remaining() {
-                    return Err(MoveError::RemainingMovesExceeded {
-                        id: unit.id,
-                        src,
-                        dest,
-                        intended_distance: distance,
-                        moves_remaining: unit.moves_remaining(),
-                    });
-                }
+    //             if distance > unit.moves_remaining() {
+    //                 return Err(MoveError::RemainingMovesExceeded {
+    //                     id: unit.id,
+    //                     src,
+    //                     dest,
+    //                     intended_distance: distance,
+    //                     moves_remaining: unit.moves_remaining(),
+    //                 });
+    //             }
 
-                let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
+    //             let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
 
-                let loc = shortest_path[1];// skip the current location
+    //             let loc = shortest_path[1];// skip the current location
                 
-                let prev_loc = unit.loc;
+    //             let prev_loc = unit.loc;
 
-                // Move our simulated unit along the path
-                unit.loc = loc;
+    //             // Move our simulated unit along the path
+    //             unit.loc = loc;
 
-                moves.push(MoveComponent::new(prev_loc, loc));
-                let mut move_ = moves.last_mut().unwrap();
+    //             moves.push(MoveComponent::new(prev_loc, loc));
+    //             let mut move_ = moves.last_mut().unwrap();
                 
-                if let Obs::Observed{tile,..} = obs_tracker.get(loc) {
-                    if let Some(other_unit) = tile.unit.as_ref() {
+    //             if let Obs::Observed{tile,..} = obs_tracker.get(loc) {
+    //                 if let Some(other_unit) = tile.unit.as_ref() {
 
-                        if unit.is_friendly_to(other_unit) {
-                            // the friendly unit must have space for us in its carrying capacity or else the
-                            // path search wouldn't have included it
-                            // We won't actually insert this unit in the space yet since it might move/get destroyed later
-                            move_.carrier = Some(other_unit.id);
-                        } else {
-                            // On the other hand, we fight any unfriendly units
-                            move_.unit_combat = Some(unit.fight(other_unit));
-                        }
-                    }
-                }
+    //                     if unit.is_friendly_to(other_unit) {
+    //                         // the friendly unit must have space for us in its carrying capacity or else the
+    //                         // path search wouldn't have included it
+    //                         // We won't actually insert this unit in the space yet since it might move/get destroyed later
+    //                         move_.carrier = Some(other_unit.id);
+    //                     } else {
+    //                         // On the other hand, we fight any unfriendly units
+    //                         move_.unit_combat = Some(unit.fight(other_unit));
+    //                     }
+    //                 }
+    //             }
 
-                // ----- Make observations from the unit's new location -----
-                //   Create an overlay with the unit at its new location. Also pretend it isn't at the source anymore.
-                // let mut overlay = OverlaySource::new(&self.map);
+    //             // ----- Make observations from the unit's new location -----
+    //             //   Create an overlay with the unit at its new location. Also pretend it isn't at the source anymore.
+    //             // let mut overlay = OverlaySource::new(&self.map);
                 
-                // Fake the presence of the unit at this location and have it make observations
-                let mut tile = self.map.tile(move_.loc).unwrap().clone();
-                let prior_unit = tile.unit.take();
-                tile.unit = Some(unit.clone());//CLONE
-                obs_tracker.put_truth(move_.loc, &tile);
+    //             // Fake the presence of the unit at this location and have it make observations
+    //             let mut tile = self.map.tile(move_.loc).unwrap().clone();
+    //             let prior_unit = tile.unit.take();
+    //             tile.unit = Some(unit.clone());//CLONE
+    //             obs_tracker.put_truth(move_.loc, &tile);
 
-                move_.observations_after_move = unit.observe_unified(&mut obs_tracker, self.turn, self.wrapping);
+    //             move_.observations_after_move = unit.observe_unified(&mut obs_tracker, self.turn, self.wrapping);
 
-                tile.unit = prior_unit;
-                obs_tracker.put_truth(move_.loc, &tile);
+    //             tile.unit = prior_unit;
+    //             obs_tracker.put_truth(move_.loc, &tile);
 
-                if let Some(ref outcome) = move_.unit_combat {
-                    if outcome.destroyed() {
-                        break;
-                    }
-                }
+    //             if let Some(ref outcome) = move_.unit_combat {
+    //                 if outcome.destroyed() {
+    //                     break;
+    //                 }
+    //             }
 
-                if let Some(city) = self.map.city_by_loc(loc) {
-                    if city.alignment != unit.alignment {
+    //             if let Some(city) = self.map.city_by_loc(loc) {
+    //                 if city.alignment != unit.alignment {
 
-                        // If there's a unit present, fight it and be done
+    //                     // If there's a unit present, fight it and be done
 
-                        // Otherwise, if this unit is able to occupy the city, fight the city
+    //                     // Otherwise, if this unit is able to occupy the city, fight the city
 
 
-                        let has_moved = if let Some(other_unit) = self.map.toplevel_unit_by_loc(loc) {
-                            move_.unit_combat = Some(unit.fight(other_unit));
+    //                     let has_moved = if let Some(other_unit) = self.map.toplevel_unit_by_loc(loc) {
+    //                         move_.unit_combat = Some(unit.fight(other_unit));
 
-                            false
+    //                         false
 
-                        } else if unit.can_occupy_cities() {
-                            let outcome = unit.fight(city);
+    //                     } else if unit.can_occupy_cities() {
+    //                         let outcome = unit.fight(city);
                            
-                            let victorious = outcome.victorious();
+    //                         let victorious = outcome.victorious();
 
-                            move_.city_combat = Some(outcome);
+    //                         move_.city_combat = Some(outcome);
 
-                            if victorious {
-                                move_complete = true;
-                            }
+    //                         if victorious {
+    //                             move_complete = true;
+    //                         }
 
-                            victorious
+    //                         victorious
 
-                        } else {
-                            false
-                        };
+    //                     } else {
+    //                         false
+    //                     };
 
-                        if !has_moved {
-                            // Because the unit didn't actually move, we roll the move component's location
-                            // back to previous.
-                            move_.loc = prev_loc;
-                            unit.loc = prev_loc;
-                        }
+    //                     if !has_moved {
+    //                         // Because the unit didn't actually move, we roll the move component's location
+    //                         // back to previous.
+    //                         move_.loc = prev_loc;
+    //                         unit.loc = prev_loc;
+    //                     }
 
-                        break;// break regardless of outcome. Either conquer a city and stop, or be destroyed
-                    }
-                }
+    //                     break;// break regardless of outcome. Either conquer a city and stop, or be destroyed
+    //                 }
+    //             }
 
-            } else {
-                return Err(MoveError::NoRoute{src, dest, id: unit.id});
-            }
-        }
+    //         } else {
+    //             return Err(MoveError::NoRoute{src, dest, id: unit.id});
+    //         }
+    //     }
 
-        if move_complete {
-            unit.movement_complete();
-        } else {
-            let distance_moved: usize = moves.iter().map(|move_| move_.distance_moved()).sum();
-            unit.record_movement(distance_moved as u16).unwrap();
-        }
+    //     if move_complete {
+    //         unit.movement_complete();
+    //     } else {
+    //         let distance_moved: usize = moves.iter().map(|move_| move_.distance_moved()).sum();
+    //         unit.record_movement(distance_moved as u16).unwrap();
+    //     }
 
-        ProposedMove::new(unit, src, moves)
-    }
+    //     ProposedMove::new(unit, src, moves)
+    // }
 
     /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
     /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
@@ -1030,11 +1060,14 @@ impl Game {
         &self,
         unit_id: UnitID,
         dest: Location,
-        tile_filter: &F) -> ProposedMoveResult {
+        tile_filter: &F) -> Proposed<MoveResult> {
         
-        let mut game = self.clone();
-        game.move_unit_by_id_using_filter(unit_id, dest, tile_filter)
-            .map(ProposedMove)
+        let mut new = self.clone();
+        let delta = new.move_unit_by_id_using_filter(unit_id, dest, tile_filter);
+
+        Proposed::new(
+            new, delta,
+        )
     }
 
     /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
@@ -1063,8 +1096,10 @@ impl Game {
 
         // The move components we will populate along the way
         let mut moves = Vec::new();
-
-        // let mut move_complete = false;
+        
+        // If we occupy a city then we declare the move complete and set remaining moves to zero, so dispense with
+        // piecewise recording of movements.
+        let mut movement_complete = false;
 
         while unit.loc != dest {
             let shortest_paths = shortest_paths(obs_tracker, unit.loc, tile_filter, self.wrapping);
@@ -1141,7 +1176,8 @@ impl Game {
                         // the friendly unit must have space for us in its carrying capacity or else the
                         // path search wouldn't have included it
                         move_.carrier = Some(other_unit.id);
-                        self.map.carry_unit_by_id(other_unit.id, unit.id).unwrap();
+                        self.map.carry_unit_by_id(other_unit.id, unit_id).unwrap();
+                        unit.record_movement(1).unwrap();
 
                     } else {
                         // It is an enemy unit.
@@ -1165,6 +1201,7 @@ impl Game {
                                     // If victorious
                                     if move_.city_combat.as_ref().unwrap().victorious() {
                                         self.map.occupy_city(unit_id, loc).unwrap();
+                                        movement_complete = true;
                                     } else {
                                         // Destroy this unit
                                         self.map.pop_unit_by_id(unit_id).unwrap();
@@ -1187,7 +1224,7 @@ impl Game {
                         } else {
                             // We were not victorious against the enemy unit
                             // Destroy this unit and end the overall move
-                            self.map.pop_unit_by_id(unit.id).unwrap();
+                            self.map.pop_unit_by_id(unit_id).unwrap();
                             // return Move::new(unit, src, moves);
                             break;
                         }
@@ -1197,8 +1234,9 @@ impl Game {
                     // If it is a friendly city
                     if unit.is_friendly_to(city) {
                         // Move this unit to the destination
-                        self.map.relocate_unit_by_id(unit.id, loc).unwrap();
-                        self.map.record_unit_movement(unit.id, 1).unwrap().unwrap();
+                        self.map.relocate_unit_by_id(unit_id, loc).unwrap();
+                        // self.map.record_unit_movement(unit_id, 1).unwrap().unwrap();
+                        unit.record_movement(1).unwrap();
 
                     } else {
                         if unit.can_occupy_cities() {
@@ -1207,10 +1245,11 @@ impl Game {
                             // If victorious
                             if move_.city_combat.as_ref().unwrap().victorious() {
                                 self.map.occupy_city(unit_id, loc).unwrap();
+                                movement_complete = true;
                             } else {
 
                                 // Destroy this unit
-                                self.map.pop_unit_by_id(unit.id).unwrap();
+                                self.map.pop_unit_by_id(unit_id).unwrap();
                             }
                         }
 
@@ -1223,9 +1262,10 @@ impl Game {
                     // There is nothing at the destination
                     // Move this unit to the destination, free and easy
 
-                    let prior_unit = self.map.relocate_unit_by_id(unit.id, loc).unwrap();
+                    let prior_unit = self.map.relocate_unit_by_id(unit_id, loc).unwrap();
                     debug_assert!(prior_unit.is_none());
-                    self.map.record_unit_movement(unit.id, 1).unwrap().unwrap();
+                    // self.map.record_unit_movement(unit_id, 1).unwrap().unwrap();
+                    unit.record_movement(1).unwrap();
                 }
 
                 // ----- Make observations from the unit's new location -----
@@ -1239,6 +1279,18 @@ impl Game {
         let move_ = moves.last_mut().unwrap();
         // ----- Make observations from the unit's new location -----
         move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+
+        // If the unit wasn't destroyed, register its movement in the map rather than just this clone
+        if move_.moved_successfully() {
+            if movement_complete {
+                self.map.mark_unit_movement_complete(unit_id).unwrap();
+                unit.movement_complete();
+            } else {
+                let distance_moved = moves.iter().map(|move_| move_.distance_moved() as u16)
+                                                                .sum();
+                self.map.record_unit_movement(unit_id, distance_moved).unwrap().unwrap();
+            }
+        }
 
         Move::new(unit, src, moves)
     }
@@ -1343,20 +1395,22 @@ impl Game {
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
-        self.propose_order_unit_go_to(unit_id, dest).take(self)
+        // self.propose_order_unit_go_to(unit_id, dest).take(self)
+        self.set_and_follow_orders(unit_id, Orders::GoTo{dest})
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> ProposedSetAndFollowOrders {
+    pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
         self.propose_set_and_follow_orders(unit_id, Orders::GoTo{dest})
     }
 
     pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.propose_order_unit_explore(unit_id).take(self)
+        // self.propose_order_unit_explore(unit_id).take(self)
+        self.set_and_follow_orders(unit_id, Orders::Explore)
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> ProposedSetAndFollowOrders {
+    pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
         self.propose_set_and_follow_orders(unit_id, Orders::Explore)
     }
 
@@ -1424,12 +1478,20 @@ impl Game {
     }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
-    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedSetAndFollowOrders {
-        ProposedSetAndFollowOrders {
-            unit_id: id,
-            orders,
-            proposed_orders_result: orders.propose(id, self)
-        }
+    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> OrdersResult {
+        // ProposedSetAndFollowOrders {
+        //     unit_id: id,
+        //     orders,
+        //     proposed_orders_result: orders.propose(id, self)
+        // }
+        let mut new = self.clone();
+        new.set_and_follow_orders(id, orders)
+    }
+
+    fn set_and_follow_orders(&mut self, id: UnitID, orders: Orders) -> OrdersResult {
+        self.set_orders(id, Some(orders))?;
+
+        self.follow_unit_orders(id)
     }
 }
 
@@ -1599,7 +1661,7 @@ pub mod test_support {
 
         let proposed_move = game.propose_move_unit_by_id(unit_id, dest).unwrap();
 
-        let component = proposed_move.0.components.get(0).unwrap();
+        let component = proposed_move.components.get(0).unwrap();
 
         // Make sure the intended destination is now observed as containing this unit, and that no other observed tiles
         // are observed as containing it

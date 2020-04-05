@@ -14,8 +14,7 @@ use crate::{
             PlayerTurnControl,
             ProposedActionWrapper,
         },
-        unit::orders::ProposedSetAndFollowOrders,
-        unit::UnitID,
+        unit::{orders::OrdersResult, UnitID},
     },
     log::{
         Message,
@@ -143,13 +142,13 @@ impl IMode for ExamineMode {
 
                         let dest = ui.viewport_to_map_coords(game, self.cursor_viewport_loc).unwrap();
 
-                        let proposed_outcome: ProposedActionWrapper<ProposedSetAndFollowOrders> = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
+                        let proposed_result: OrdersResult = game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
 
-                        match proposed_outcome.item.proposed_orders_result {
+                        match proposed_result {
                             Ok(ref proposed_orders_outcome) => {
 
-                                if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
-                                    ui.animate_proposed_move(game, proposed_move);
+                                if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
+                                    ui.animate_move(game, proposed_move);
                                 }
                                 ui.log_message(format!("Ordered unit to go to {}", dest));
                             },
@@ -164,8 +163,8 @@ impl IMode for ExamineMode {
 
                         // We need to actually take the action contemplated for bookkeeping reasons
                         // Make sure the outcome of actually running it is the same as expected
-                        let error_expected = proposed_outcome.item.proposed_orders_result.is_err();
-                        match proposed_outcome.take(game) {
+                        let error_expected = proposed_result.is_err();
+                        match game.order_unit_go_to(most_recently_active_unit_id, dest) {
                             Ok(_) => {
                                 debug_assert!(!error_expected);
                             },

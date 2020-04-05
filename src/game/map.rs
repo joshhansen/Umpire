@@ -387,7 +387,7 @@ impl MapData {
 
     /// Occupy the city at the given location using the unit with the given ID.
     /// 
-    /// This will update the city's alignment to match the occupier unit, and mark the unit's movement complete.
+    /// This will update the city's alignment to match the occupier unit.
     /// 
     /// Errors if no city exists at the location, or the location is out of bounds, or a unit is already present in the
     /// city---garrisoned units should be defeated prior to occupying.
@@ -418,7 +418,7 @@ impl MapData {
             }
         }
 
-        self.mark_unit_movement_complete(occupier_unit_id)?;
+        // self.mark_unit_movement_complete(occupier_unit_id)?;
 
         self.relocate_unit_by_id(occupier_unit_id, city_loc)
             .map(|_| ())//discard the "replaced" unit since we know there isn't one there
@@ -757,6 +757,24 @@ mod test {
 
         assert_eq!(city_id, CityID::default());
         assert_eq!(unit_id, UnitID::default());
+    }
+
+    #[test]
+    pub fn test_map_data() {
+        let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
+
+        let unit_id = map.new_unit(Location::new(0, 0), UnitType::Infantry,
+            Alignment::Belligerent{player:0}, "Unit 0").unwrap();
+
         
+        assert!(map.player_units(0).any(|unit| unit.id == unit_id));
+
+        map.relocate_unit_by_id(unit_id, Location::new(5, 5)).unwrap();
+
+        assert!(map.player_units(0).any(|unit| unit.id == unit_id));
+
+        let popped_unit = map.pop_unit_by_id(unit_id).unwrap();
+        assert!(!map.player_units(0).any(|unit| unit.id == unit_id));
+
     }
 }

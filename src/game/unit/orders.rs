@@ -78,71 +78,71 @@ impl OrdersOutcome {
     }
 }
 
-/// The proposed outcome that would result if a unit carried out its orders
-#[derive(Debug,PartialEq)]
-pub struct ProposedOrdersOutcome {
-    /// The ID of the ordered unit
-    pub ordered_unit_id: UnitID,
+// /// The proposed outcome that would result if a unit carried out its orders
+// #[derive(Debug,PartialEq)]
+// pub struct ProposedOrdersOutcome {
+//     /// The ID of the ordered unit
+//     pub ordered_unit_id: UnitID,
 
-    /// The orders that were given / carried out
-    pub orders: Orders,
+//     /// The orders that were given / carried out
+//     pub orders: Orders,
 
-    /// Any movement that would be undertaken by the unit as part of its orders
-    pub proposed_move: Option<ProposedMove>,
+//     /// Any movement that would be undertaken by the unit as part of its orders
+//     pub proposed_move: Option<Move>,
 
-    /// A summary of the status of the orders, whether in progress or completed
-    pub status: OrdersStatus,
-}
+//     /// A summary of the status of the orders, whether in progress or completed
+//     pub status: OrdersStatus,
+// }
 
-// pub struct ProposedOrdersOutcome(OrdersOutcome);
-impl ProposedOrdersOutcome {
-    pub fn completed_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
-        Self { ordered_unit_id, orders, proposed_move: None, status: OrdersStatus::Completed }
-    }
+// // pub struct ProposedOrdersOutcome(OrdersOutcome);
+// impl ProposedOrdersOutcome {
+//     pub fn completed_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
+//         Self { ordered_unit_id, orders, proposed_move: None, status: OrdersStatus::Completed }
+//     }
 
-    pub fn in_progress_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
-        Self { ordered_unit_id, orders, proposed_move: None, status: OrdersStatus::InProgress }
-    }
+//     pub fn in_progress_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
+//         Self { ordered_unit_id, orders, proposed_move: None, status: OrdersStatus::InProgress }
+//     }
 
-    pub fn in_progress_with_move(ordered_unit_id: UnitID, orders: Orders, proposed_move: ProposedMove) -> Self {
-        Self { ordered_unit_id, orders, proposed_move: Some(proposed_move), status: OrdersStatus::InProgress }
-    }
+//     pub fn in_progress_with_move(ordered_unit_id: UnitID, orders: Orders, proposed_move: Move) -> Self {
+//         Self { ordered_unit_id, orders, proposed_move: Some(proposed_move), status: OrdersStatus::InProgress }
+//     }
 
-    pub fn completed_with_move(ordered_unit_id: UnitID, orders: Orders, proposed_move: ProposedMove) -> Self {
-        Self { ordered_unit_id, orders, proposed_move: Some(proposed_move), status: OrdersStatus::Completed }
-    }
+//     pub fn completed_with_move(ordered_unit_id: UnitID, orders: Orders, proposed_move: Move) -> Self {
+//         Self { ordered_unit_id, orders, proposed_move: Some(proposed_move), status: OrdersStatus::Completed }
+//     }
 
-    pub fn proposed_move(&self) -> Option<&ProposedMove> {
-        self.proposed_move.as_ref()
-    }
+//     pub fn proposed_move(&self) -> Option<&Move> {
+//         self.proposed_move.as_ref()
+//     }
 
-    pub fn status(&self) -> OrdersStatus  {
-        self.status
-    }
-}
+//     pub fn status(&self) -> OrdersStatus  {
+//         self.status
+//     }
+// }
 
-impl ProposedAction for ProposedOrdersOutcome {
-    type Outcome = OrdersOutcome;
-    fn take(self, game: &mut Game) -> Self::Outcome {
+// impl ProposedAction for ProposedOrdersOutcome {
+//     type Outcome = OrdersOutcome;
+//     fn take(self, game: &mut Game) -> Self::Outcome {
         
-        // We need to run the proposed move first so the cloned unit contained therein gets put in place inside `Game`.
-        let move_ = self.proposed_move.map(|proposed_move| {
-            proposed_move.take(game)
-        });
+//         // We need to run the proposed move first so the cloned unit contained therein gets put in place inside `Game`.
+//         let move_ = self.proposed_move.map(|proposed_move| {
+//             proposed_move.take(game)
+//         });
 
-        // Now we clear the unit's orders if approprirate
-        if self.status == OrdersStatus::Completed {
-            game.clear_orders(self.ordered_unit_id).unwrap();
-        }
+//         // Now we clear the unit's orders if approprirate
+//         if self.status == OrdersStatus::Completed {
+//             game.clear_orders(self.ordered_unit_id).unwrap();
+//         }
 
-        OrdersOutcome {
-            ordered_unit_id: self.ordered_unit_id,
-            orders: self.orders,
-            move_,
-            status: self.status,
-        }
-    }
-}
+//         OrdersOutcome {
+//             ordered_unit_id: self.ordered_unit_id,
+//             orders: self.orders,
+//             move_,
+//             status: self.status,
+//         }
+//     }
+// }
 
 #[derive(Debug,Fail,PartialEq)]
 pub enum OrdersError {
@@ -168,35 +168,35 @@ pub enum OrdersError {
 }
 
 pub type OrdersResult = Result<OrdersOutcome,OrdersError>;
-pub type ProposedOrdersResult = Result<ProposedOrdersOutcome,OrdersError>;
+// pub type ProposedOrdersResult = Result<ProposedOrdersOutcome,OrdersError>;
 
-impl ProposedAction for ProposedOrdersResult {
-    type Outcome = OrdersResult;
+// impl ProposedAction for ProposedOrdersResult {
+//     type Outcome = OrdersResult;
 
-    fn take(self, game: &mut Game) -> Self::Outcome {
-        let outcome = self.map(|proposed_orders_outcome| proposed_orders_outcome.take(game));
+//     fn take(self, game: &mut Game) -> Self::Outcome {
+//         let outcome = self.map(|proposed_orders_outcome| proposed_orders_outcome.take(game));
 
-        match outcome {
-            Ok(OrdersOutcome{ status: OrdersStatus::Completed, ordered_unit_id, .. }) => {
-                // The orders are already complete, clear them out
-                game.clear_orders(ordered_unit_id).unwrap();
-            },
-            Err(ref err) => {
-                // The orders resulted in error when carried out, clear them out
-                match err {
-                    OrdersError::OrderedUnitDoesNotExist { id , ..} | OrdersError::MoveError { id, .. } => {
-                        game.clear_orders(*id).unwrap();
-                    },
-                }
-            },
-            _ => {
-                // For all other cases, do not clear the orders
-            }
-        }
+//         match outcome {
+//             Ok(OrdersOutcome{ status: OrdersStatus::Completed, ordered_unit_id, .. }) => {
+//                 // The orders are already complete, clear them out
+//                 game.clear_orders(ordered_unit_id).unwrap();
+//             },
+//             Err(ref err) => {
+//                 // The orders resulted in error when carried out, clear them out
+//                 match err {
+//                     OrdersError::OrderedUnitDoesNotExist { id , ..} | OrdersError::MoveError { id, .. } => {
+//                         game.clear_orders(*id).unwrap();
+//                     },
+//                 }
+//             },
+//             _ => {
+//                 // For all other cases, do not clear the orders
+//             }
+//         }
 
-        outcome
-    }
-}
+//         outcome
+//     }
+// }
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum Orders {
@@ -226,23 +226,28 @@ impl Orders {
         }
     }
 
-    pub fn propose(self, unit_id: UnitID, game: &Game) -> ProposedOrdersResult {
-        match self {
-            Orders::Skip => {
-                // When the `ProposedOrdersOutcome` here is "made" into an `OrdersOutcome`, the contained `Skip` orders will be carried out correctly.
-                Ok(ProposedOrdersOutcome::completed_without_move(unit_id, self))
-            },
-            Orders::Sentry => {
-                // do nothing---sentry is implemented as a reaction to approaching enemies
-                Ok(ProposedOrdersOutcome::in_progress_without_move(unit_id, self))
-            },
-            Orders::GoTo{dest} => {
-                propose_go_to(self, game, unit_id, dest)
-            },
-            Orders::Explore => {
-                propose_exploration(self, game, unit_id)
-            }
-        }
+    // pub fn propose(self, unit_id: UnitID, game: &Game) -> ProposedOrdersResult {
+    //     match self {
+    //         Orders::Skip => {
+    //             // When the `ProposedOrdersOutcome` here is "made" into an `OrdersOutcome`, the contained `Skip` orders will be carried out correctly.
+    //             Ok(ProposedOrdersOutcome::completed_without_move(unit_id, self))
+    //         },
+    //         Orders::Sentry => {
+    //             // do nothing---sentry is implemented as a reaction to approaching enemies
+    //             Ok(ProposedOrdersOutcome::in_progress_without_move(unit_id, self))
+    //         },
+    //         Orders::GoTo{dest} => {
+    //             propose_go_to(self, game, unit_id, dest)
+    //         },
+    //         Orders::Explore => {
+    //             propose_exploration(self, game, unit_id)
+    //         }
+    //     }
+    // }
+
+    pub fn propose(self, unit_id: UnitID, game: &Game) -> OrdersResult {
+        let mut game = game.clone();
+        self.carry_out(unit_id, &mut game)
     }
 
     /// A present-tense, progressive aspect verb phrase describing the action of the unit as it carries out these orders
@@ -265,60 +270,55 @@ impl Orders {
     }
 }
 
-/// A proposal that orders be given to a unit
-pub struct ProposedSetOrders {
-    unit_id: UnitID,
-    orders: Option<Orders>,
-}
+// /// A proposal that orders be given to a unit
+// pub struct ProposedSetOrders {
+//     unit_id: UnitID,
+//     orders: Option<Orders>,
+// }
 
-impl ProposedAction for ProposedSetOrders {
-    type Outcome = Result<(),OrdersError>;
+// impl ProposedAction for ProposedSetOrders {
+//     type Outcome = Result<(),OrdersError>;
 
-    fn take(self, game: &mut Game) -> Self::Outcome {
-        game.set_orders(self.unit_id, self.orders)
-    }
-}
+//     fn take(self, game: &mut Game) -> Self::Outcome {
+//         game.set_orders(self.unit_id, self.orders)
+//     }
+// }
 
-/// A proposed action in which the specified unit's orders are set and then carried out
-/// 
-/// The result that would come about is represented by `proposed_orders_result`.
-pub struct ProposedSetAndFollowOrders {
-    pub unit_id: UnitID,
-    pub orders: Orders,
-    pub proposed_orders_result: ProposedOrdersResult,
-}
+// /// A proposed action in which the specified unit's orders are set and then carried out
+// /// 
+// /// The result that would come about is represented by `proposed_orders_result`.
+// pub struct ProposedSetAndFollowOrders {
+//     pub unit_id: UnitID,
+//     pub orders: Orders,
+//     pub proposed_orders_result: ProposedOrdersResult,
+// }
 
-impl ProposedAction for ProposedSetAndFollowOrders {
-    type Outcome = OrdersResult;
-    fn take(mut self, game: &mut Game) -> Self::Outcome {
-        // Set the orders of the unit in our simulated orders outcome so that after the simulation is made real, the
-        // orders will still be set.
-        if let Ok(ref mut proposed_orders_outcome) = self.proposed_orders_result {
-            if let Some(ref mut proposed_move) = proposed_orders_outcome.proposed_move {
-                proposed_move.0.unit.orders = Some(self.orders);
-            }
-        }
-        self.proposed_orders_result.take(game)
-    }
-}
+// impl ProposedAction for ProposedSetAndFollowOrders {
+//     type Outcome = OrdersResult;
+//     fn take(mut self, game: &mut Game) -> Self::Outcome {
+//         // Set the orders of the unit in our simulated orders outcome so that after the simulation is made real, the
+//         // orders will still be set.
+//         if let Ok(ref mut proposed_orders_outcome) = self.proposed_orders_result {
+//             if let Some(ref mut proposed_move) = proposed_orders_outcome.proposed_move {
+//                 proposed_move.0.unit.orders = Some(self.orders);
+//             }
+//         }
+//         self.proposed_orders_result.take(game)
+//     }
+// }
 
 /// Keep moving toward the nearest unobserved tile we can see a path
 /// to, until either there is no such tile or we run out of moves
 /// If there are no such tiles then set the unit's orders to None
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
-    propose_exploration(orders, game, unit_id).map(|proposed_orders_result| proposed_orders_result.take(game))
-}
-
-pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> ProposedOrdersResult {
-
-    // An overlay atop the player's observations which tracks the changes that occur during this move
+     // An overlay atop the player's observations which tracks the changes that occur during this move
     // let mut overlay = OverlayObsTracker::new(game.current_player_observations());
     // let mut overlay = UnifiedObsTracker::new(&game.map, game.current_player_observations().clone());
 
     // let observations = game.current_player_observations();
 
-    let mut overlay_map = OverlaySource::new(&game.map);
-    let mut overlay_observations = OverlayObsTracker::new(game.current_player_observations());
+    // let mut overlay_map = OverlaySource::new(&game.map);
+    // let mut overlay_observations = OverlayObsTracker::new(game.current_player_observations());
 
     // Clone the unit and simulate exploration using the clone
     let mut unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
@@ -332,16 +332,17 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
         // let unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
 
         if unit.moves_remaining() == 0 {
-            return Ok(ProposedOrdersOutcome::in_progress_with_move(unit_id, orders, ProposedMove::new(unit, starting_loc, move_components).unwrap()));
+            return Ok(OrdersOutcome::in_progress_with_move(unit_id, orders, Move::new(unit, starting_loc, move_components).unwrap()));
         }
 
-        if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(&overlay_observations, unit.loc, &unit, game.wrapping()) {
+        let observations = game.current_player_observations();
+        if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(observations, unit.loc, &unit, game.wrapping()) {
 
             //                                                     //FIXME this simplistic filter may be the source of some trouble
             // let shortest_paths = shortest_paths(game, unit.loc, &ObservedFilter{}, game.wrapping());
 
             let filter = ObservedReachableByPacifistUnit{unit: &unit};
-            let shortest_paths = shortest_paths(&overlay_observations, unit.loc, &filter, game.wrapping());
+            let shortest_paths = shortest_paths(observations, unit.loc, &filter, game.wrapping());
 
             // let shortest_paths = {
             //     let filter = ObservedReachableByPacifistUnit{unit: &unit};
@@ -358,19 +359,19 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
             // let mut move_result = game.propose_move_unit_avoiding_combat(unit, goal)
             //                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
-            let mut move_ = game.propose_move_unit_using_filter_custom_tracker(
-                &unit, goal, &filter, &overlay_map, &mut overlay_observations,
+            let mut move_ = game.move_unit_by_id_using_filter(
+                unit.id, goal, &filter
             ).map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
             // let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(&unit, goal, shortest_paths, &mut overlay)
             //                           .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
 
 
-            if move_.0.moved_successfully() {
+            if move_.moved_successfully() {
                 // unit.loc = move_result.0.ending_loc().unwrap();
-                unit = move_.0.unit;
+                unit = move_.unit;
 
-                move_components.append(&mut move_.0.components);
+                move_components.append(&mut move_.components);
 
                 // for move_component in move_.0.components {
 
@@ -385,12 +386,12 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
             }
         } else {
             return Ok(if move_components.is_empty() {
-                ProposedOrdersOutcome::completed_without_move(unit_id, orders)
+                OrdersOutcome::completed_without_move(unit_id, orders)
             } else {
-                ProposedOrdersOutcome::completed_with_move(
+                OrdersOutcome::completed_with_move(
                     unit_id,
                     orders,
-                    ProposedMove::new(unit, starting_loc, move_components).unwrap()
+                    Move::new(unit, starting_loc, move_components).unwrap()
                 )
             });
             // return game.set_orders(unit_id, None)
@@ -408,6 +409,11 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
     }
 }
 
+pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> OrdersResult {
+    let mut new = game.clone();
+    explore(orders, &mut new, unit_id)
+}
+
 /// Analysis of potential destinations:
 /// Observed? | Accessible by Known Route? | Outcome
 /// No        | No                         | Go to observed, accessible tile nearest the target
@@ -421,9 +427,6 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
 pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
-    propose_go_to(orders, game, unit_id, dest).map(|proposed_orders_outcome| proposed_orders_outcome.take(game))
-}
-pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Location) -> ProposedOrdersResult {
     if !game.dims().contain(dest) {
         return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {}});
     }
@@ -484,9 +487,9 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
         }});
     }
 
-    game.propose_move_unit_by_id(unit_id, dest2)
-        .map(|proposed_move| {
-            let status = if let Some(ending_loc) = proposed_move.0.ending_loc() {
+    game.move_unit_by_id(unit_id, dest2)
+        .map(|move_| {
+            let status = if let Some(ending_loc) = move_.ending_loc() {
                 // survived the immediate move
 
                 if ending_loc == dest {
@@ -501,10 +504,10 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
                 OrdersStatus::InProgress
             };
 
-            ProposedOrdersOutcome {
+            OrdersOutcome {
                 ordered_unit_id: unit_id,
                 orders,
-                proposed_move: Some(proposed_move),
+                move_: Some(move_),
                 status
             }
         })
@@ -513,6 +516,10 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
             orders,
             move_error: err,
         })
+}
+pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Location) -> OrdersResult {
+    let mut new = game.clone();
+    go_to(orders, &mut new, unit_id, dest)
 }
 
 pub mod test_support {
@@ -622,7 +629,7 @@ pub mod test {
                 orders::{
                     Orders,
                     OrdersError,
-                    ProposedOrdersOutcome,
+                    OrdersOutcome,
                     propose_exploration,
                     test_support,
                 },
@@ -705,7 +712,7 @@ pub mod test {
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
-        let outcome: ProposedOrdersOutcome = propose_exploration(Orders::Explore, &game, unit_id).unwrap();
+        let outcome: OrdersOutcome = propose_exploration(Orders::Explore, &game, unit_id).unwrap();
 
     //         /// The ID of the ordered unit
     // pub ordered_unit_id: UnitID,
@@ -722,10 +729,10 @@ pub mod test {
         assert_eq!(outcome.ordered_unit_id, unit_id);
         assert_eq!(outcome.orders, Orders::Explore);
         assert_eq!(outcome.status, OrdersStatus::InProgress);
-        let proposed_move = outcome.proposed_move().unwrap();
-        assert_eq!(proposed_move.0.unit.id, unit_id);
-        assert_eq!(proposed_move.0.unit.loc, Location::new(1, 0));
-        assert_eq!(proposed_move.0.starting_loc, Location::new(0, 0));
+        let proposed_move = outcome.move_().unwrap();
+        assert_eq!(proposed_move.unit.id, unit_id);
+        assert_eq!(proposed_move.unit.loc, Location::new(1, 0));
+        assert_eq!(proposed_move.starting_loc, Location::new(0, 0));
 
     // pub loc: Location,
     // /// Was the unit carried by another unit? If so, which one?
@@ -735,7 +742,7 @@ pub mod test {
     // pub observations_after_move: Vec<LocatedObs>,
 
 
-        let component = &proposed_move.0.components[0];
+        let component = &proposed_move.components[0];
         assert_eq!(component.loc, Location::new(1, 0));
         assert_eq!(component.carrier, None);
         assert_eq!(component.unit_combat, None);

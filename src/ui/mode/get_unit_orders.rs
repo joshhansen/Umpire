@@ -12,8 +12,7 @@ use crate::{
             ProposedActionWrapper,
         },
         unit::{
-            UnitID,
-            orders::ProposedSetAndFollowOrders,
+            UnitID, orders::OrdersResult,
         },
     },
     ui::{
@@ -103,9 +102,11 @@ impl IMode for GetUnitOrdersMode {
 
                                 match game.propose_move_unit_by_id(self.unit_id, dest) {
                                     Ok(proposed_move) => {
-                                        ui.animate_proposed_move(game, &proposed_move.item);
+                                        ui.animate_move(game, &proposed_move);
 
-                                        let move_ = proposed_move.take(game);
+                                        // let move_ = proposed_move.take(game);
+
+                                        let move_ = game.move_unit_by_id(self.unit_id, dest).unwrap();
 
                                         if let Some(conquered_city) = move_.conquered_city() {
                                             *mode = Mode::SetProduction {city_loc: conquered_city.loc};
@@ -136,14 +137,15 @@ impl IMode for GetUnitOrdersMode {
                             Self::clear_buf(ui);
                             return ModeStatus::Continue;
                         } else if c == conf::KEY_EXPLORE {
-                            let proposed_outcome: ProposedActionWrapper<ProposedSetAndFollowOrders> = game.propose_order_unit_explore(self.unit_id);
-                            let proposed_orders_outcome = proposed_outcome.item.proposed_orders_result.as_ref().unwrap();
-                            if let Some(ref proposed_move) = proposed_orders_outcome.proposed_move {
-                                ui.animate_proposed_move(game, &proposed_move);
+                            let proposed_orders_result: OrdersResult = game.propose_order_unit_explore(self.unit_id);
+                            let proposed_orders_outcome = proposed_orders_result.as_ref().unwrap();
+                            if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
+                                ui.animate_move(game, &proposed_move);
                                 // proposed_move.take(game);
                             }
 
-                            proposed_outcome.take(game).unwrap();
+                            // proposed_outcome.take(game).unwrap();
+                            game.order_unit_explore(self.unit_id).unwrap();
 
                             *mode = Mode::GetOrders;
                             return ModeStatus::Continue;
