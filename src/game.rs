@@ -857,6 +857,7 @@ impl Game {
         self.move_toplevel_unit_by_loc_using_filter(src, dest, &unit_filter)
     }
 
+    //FIXME Using cloning strategy
     fn move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&mut self, src: Location, dest: Location, filter: &F) -> MoveResult {
         self.propose_move_toplevel_unit_by_loc_using_filter(src, dest, filter)
             .map(|proposed_move| proposed_move.take(self))
