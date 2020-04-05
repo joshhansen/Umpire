@@ -1,8 +1,8 @@
 # Umpire Roadmap
 
 ## 0.4 Milestones
-* TODO Refresh README.md
-* TODO Deploy to crates.io
+* ~~TODO Refresh README.md~~
+* ~~TODO Deploy to crates.io~~
 
 ## 0.5 Milestones
 * TODO Fuel limits for aircraft
