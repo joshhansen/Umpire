@@ -24,6 +24,7 @@ use super::{
     dijkstra::Source,
 };
 
+// NOTE This is a dense representation and really doesn't handle large maps well, e.g. 10000x10000
 #[derive(Clone)]
 pub struct LocationGrid<T> {
     grid: Vec<Vec<T>>,//grid[col i.e. x][row i.e. y]
