@@ -6,9 +6,9 @@
 //! These initial games should have small maps and only two players.
 //! 
 //! Once we have a simple AI, incorporate it into the UI.
+#![forbid(unsafe_code)]
 use std::{
     collections::{
-        BinaryHeap,
         HashMap,
         HashSet,
     },
