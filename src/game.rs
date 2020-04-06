@@ -1967,6 +1967,77 @@ mod test {
     }
 
     #[test]
+    fn test_loaded_transport_attack() {
+        let mut victorious = false;
+        let mut defeated = false;
+        while !victorious || !defeated {
+            let mut map = MapData::try_from("itP").unwrap();
+
+            // Put the ships on water for realism
+            map.set_terrain(Location::new(1, 0), Terrain::Water).unwrap();
+            map.set_terrain(Location::new(2, 0), Terrain::Water).unwrap();
+
+            let infantry_id = map.toplevel_unit_by_loc(Location::new(0, 0)).unwrap().id;
+            let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
+            let battleship_id = map.toplevel_unit_by_loc(Location::new(2, 0)).unwrap().id;
+            
+            let unit_namer = IntNamer::new("unit");
+            let mut game = Game::new_with_map(map, 2, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+            
+            // Load the infantry onto the transport
+            let inf_move = game.move_unit_by_id_in_direction(infantry_id, Direction::Right).unwrap();
+            assert!(inf_move.moved_successfully());
+            assert_eq!(inf_move.ending_loc(), game.current_player_unit_loc(transport_id));
+            assert_eq!(inf_move.ending_carrier(), Some(transport_id));
+
+            // Attack the battleship with the transport
+            let move_ = game.move_unit_by_id_in_direction(transport_id, Direction::Right).unwrap();
+            if move_.moved_successfully() {
+                victorious = true;
+
+                assert!(game.current_player_units().any(|unit| unit.id==infantry_id));
+                assert!(game.current_player_units().any(|unit| unit.id==transport_id));
+
+                assert_eq!(game.current_player_unit_by_id(infantry_id).unwrap().loc, Location::new(2, 0));
+                assert_eq!(game.current_player_unit_by_id(transport_id).unwrap().loc, Location::new(2, 0));
+
+                assert_eq!(game.current_player_tile(Location::new(0, 0)).unwrap().unit.as_ref(), None);
+                assert_eq!(game.current_player_tile(Location::new(1, 0)).unwrap().unit.as_ref(), None);
+                {
+                    let unit = game.current_player_tile(Location::new(2, 0)).unwrap().unit.as_ref().unwrap();
+                    assert_eq!(unit.type_, UnitType::Transport);
+                    assert_eq!(unit.id, transport_id);
+                    assert!(unit.carried_units().any(|carried_unit| carried_unit.id == infantry_id));
+                }
+
+                game.force_end_turn();// ignore remaining moves
+
+                assert!(!game.current_player_units().any(|unit| unit.id==battleship_id));
+                assert!(!game.unit_orders_requests().any(|unit_id| unit_id==battleship_id));
+
+
+            } else {
+                defeated = true;
+
+                assert!(!game.current_player_units().any(|unit| unit.id==infantry_id));
+                assert!(!game.current_player_units().any(|unit| unit.id==transport_id));
+
+                assert_eq!(game.current_player_unit_by_id(infantry_id), None);
+                assert_eq!(game.current_player_unit_by_id(transport_id), None);
+
+                assert_eq!(game.current_player_tile(Location::new(0, 0)).unwrap().unit.as_ref(), None);
+                assert_eq!(game.current_player_tile(Location::new(1, 0)).unwrap().unit.as_ref(), None);
+                assert_eq!(game.current_player_tile(Location::new(2, 0)).unwrap().unit.as_ref().unwrap().id, battleship_id);
+
+                game.end_turn().unwrap();
+
+                assert!(game.current_player_units().any(|unit| unit.id==battleship_id));
+                assert!(game.unit_orders_requests().any(|unit_id| unit_id==battleship_id));
+            }
+        }
+    }
+
+    #[test]
     fn test_set_orders() {
         let unit_namer = IntNamer::new("abc");
         let map = MapData::try_from("i").unwrap();
