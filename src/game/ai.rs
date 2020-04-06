@@ -53,13 +53,20 @@ impl TurnTaker for RandomAI {
         let unit_orders_requests: Vec<UnitID> = game.unit_orders_requests().collect();
         for unit_id in unit_orders_requests {
 
+            let possible: Vec<Location> = match game.current_player_unit_legal_one_step_destinations(unit_id) {
+                Ok(it) => it.collect(),
+                Err(e) => {
+                    panic!("Error getting destinations for unit with orders request: {}", e)
+                }
+            };
             
 
-            let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
+            // let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
             if let Some(dest) = possible.choose(&mut rng) {
                 // println!("dest: {:?}", dest);
                 if self.verbose {
-                    println!("{:?} -> {:?}", unit_id, dest);
+                    let src = game.current_player_unit_loc(unit_id).unwrap();
+                    println!("{:?} {} -> {}", unit_id, src, dest);
                 }
                 let result = game.move_unit_by_id(unit_id, *dest).unwrap();
                 if self.verbose && !result.moved_successfully() {
@@ -91,10 +98,11 @@ mod test {
         game::{
             Alignment,
             Game,
+            UnitID,
             map::{
                 MapData,
+                gen::generate_map,
                 terrain::Terrain,
-
             },
             player::TurnTaker,
         },
@@ -110,18 +118,55 @@ mod test {
 
     #[test]
     pub fn test_random_ai() {
-        let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
-        // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
-        map.new_city(Location::new(0,0), Alignment::Belligerent{player:0}, "Hebevund").unwrap();
 
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
-        let mut ctrl = game.player_turn_control(0);
-
+        
         let mut ai = RandomAI::new(false);
+        
+        {
+            let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
+            // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
+            map.new_city(Location::new(0,0), Alignment::Belligerent{player:0}, "Hebevund").unwrap();
 
-        for _ in 0..1000 {
-            ai.take_turn(&mut ctrl);
+            let unit_namer = IntNamer::new("unit");
+            let mut game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+            let mut ctrl = game.player_turn_control(0);
+
+            for _ in 0..1000 {
+                ai.take_turn(&mut ctrl);
+            }
+        }
+
+        let mut ai = RandomAI::new(true);
+
+        for r in 0..100 {
+            let players = 2;
+            let mut city_namer = IntNamer::new("city");
+            let map = generate_map(&mut city_namer, Dims::new(5, 5), players);
+            let unit_namer = IntNamer::new("unit");
+            let mut game = Game::new_with_map(map, players, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+
+            for i in 0..300 {
+                for player in 0..=1 {
+                    let mut ctrl = game.player_turn_control(player);
+                    ai.take_turn(&mut ctrl);
+                
+                    let orders_requests: Vec<UnitID> = ctrl.unit_orders_requests().collect();
+
+                    for rqst_unit_id in orders_requests.iter().cloned() {
+                        // Assert that all orders requests correspond to units still present and that the IDs still
+                        // match
+                        let unit = ctrl.current_player_unit_by_id(rqst_unit_id)
+                                              .expect(format!("Unit not found in iteration {}, round {}", i, r).as_str());
+
+                        assert_eq!(unit.id, rqst_unit_id);
+                    }
+
+                }
+
+                if game.victor().is_some() {
+                    break;
+                }
+            }
         }
     }
 }

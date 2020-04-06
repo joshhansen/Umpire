@@ -68,8 +68,9 @@ impl City {
         format!("City {}", self.name)
     }
 
-    pub fn set_production(&mut self, production: UnitType) {
-        self.production = Some(production);
+    /// Set the city's production and return its previous status
+    pub fn set_production(&mut self, production: UnitType) -> Option<UnitType> {
+        self.production.replace(production)
     }
 
     /// Clear the city's production but ignore it when looking for un-set productions in the future.

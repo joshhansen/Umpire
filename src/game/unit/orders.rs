@@ -142,7 +142,6 @@ pub enum OrdersError {
     #[fail(display="Ordered unit with ID {:?} doesn't exist", id)]
     OrderedUnitDoesNotExist {
         id: UnitID,
-        orders: Orders,
     },
 
     // #[fail(display="Cannot order unit with ID {:?} to go to {} because the destination is out of the bounds {}", id, dest, map_dims)]

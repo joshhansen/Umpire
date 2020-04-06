@@ -438,6 +438,14 @@ impl Unit {
     pub fn has_orders(&self) -> bool {
         self.orders.is_some()
     }
+
+    pub fn set_orders(&mut self, orders: Orders) -> Option<Orders> {
+        self.orders.replace(orders)
+    }
+
+    pub fn clear_orders(&mut self) -> Option<Orders> {
+        self.orders.take()
+    }
 }
 
 impl Aligned for Unit {

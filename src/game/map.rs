@@ -21,7 +21,6 @@ use std::{
         Result as FmtResult,
     },
     iter::{
-        FromIterator,
         once,
     },
 };
@@ -39,6 +38,7 @@ use crate::{
 };
 
 use self::dijkstra::Source;
+use super::unit::orders::Orders;
 
 
 
@@ -200,8 +200,13 @@ impl MapData {
         self.tiles.get(loc).map(|tile| &tile.terrain)
     }
 
-    pub fn set_terrain(&mut self, loc: Location, terrain: Terrain) {
-        self.tiles.get_mut(loc).unwrap().terrain = terrain;
+    /// Set the terrain of a tile at the given location, returning the prior setting.
+    pub fn set_terrain(&mut self, loc: Location, terrain: Terrain) -> Result<Terrain,GameError> {
+        let tile = self.tiles.get_mut(loc)
+                                        .ok_or(GameError::NoTileAtLocation{loc})?;
+        let old = tile.terrain;
+        tile.terrain = terrain;
+        Ok(old)
     }
 
     /// Create a new unit properly indexed and managed
@@ -391,6 +396,8 @@ impl MapData {
     /// 
     /// Errors if no city exists at the location, or the location is out of bounds, or a unit is already present in the
     /// city---garrisoned units should be defeated prior to occupying.
+    /// 
+    /// FIXME Move into Game---probably makes more sense there
     pub fn occupy_city(&mut self, occupier_unit_id: UnitID, city_loc: Location) -> Result<(),GameError> {
 
         let alignment = self.unit_by_id(occupier_unit_id)
@@ -434,9 +441,14 @@ impl MapData {
     /// Get the unit with ID `id`, if any, mutably
     /// 
     /// This covers all units, whether top-level or carried.
-    #[deprecated]
+    #[deprecated = "This should be private"]
     pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
+    }
+
+    #[deprecated = "This should be private"]
+    pub(crate) fn player_unit_by_id_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
+        self.unit_by_id_mut(id).filter(|unit| unit.id==id)
     }
 
     pub fn mark_unit_movement_complete(&mut self, id: UnitID) -> Result<(),GameError> {
@@ -483,6 +495,18 @@ impl MapData {
         let unit = self.pop_unit_by_id(carried_unit_id)
                                      .ok_or(GameError::NoSuchUnit{id: carried_unit_id})?;
         self.carry_unit(carrier_unit_id, unit)
+    }
+
+    pub fn set_unit_orders(&mut self, unit_id: UnitID, orders: Orders) -> Result<Option<Orders>,GameError> {
+        let unit = self.unit_by_id_mut(unit_id)
+                                  .ok_or(GameError::NoSuchUnit{id:unit_id})?;
+        Ok(unit.set_orders(orders))
+    }
+
+    pub fn set_player_unit_orders(&mut self, player: PlayerNum, unit_id: UnitID, orders: Orders) -> Result<Option<Orders>,GameError> {
+        let unit = self.player_unit_by_id_mut(player, unit_id)
+                       .ok_or(GameError::NoSuchUnit{id:unit_id})?;
+        Ok(unit.set_orders(orders))
     }
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {
@@ -570,35 +594,22 @@ impl MapData {
         self.tiles.iter_mut().filter_map(|tile| tile.city.as_mut())
     }
 
-    pub(crate) fn units(&self) -> impl Iterator<Item=&Unit> {
+    pub(crate) fn toplevel_units(&self) -> impl Iterator<Item=&Unit> {
         self.tiles.iter().filter_map(|tile| tile.unit.as_ref())
     }
 
-    fn units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+    fn toplevel_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
         self.tiles.iter_mut().filter_map(|tile| tile.unit.as_mut())
     }
     
-    fn units_deep(&self) -> impl Iterator<Item=&Unit> {
+    pub(crate) fn units(&self) -> impl Iterator<Item=&Unit> {
         self.tiles.iter().filter_map(|tile| tile.unit.as_ref())
         .flat_map(|unit| once(unit).chain(unit.carried_units()))
     }
 
-    pub fn player_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
-        self.units().filter(move |unit| unit.belongs_to_player(player))
-    }
-
-    #[deprecated]
-    pub fn player_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
-        self.units_mut().filter(move |unit| unit.belongs_to_player(player))
-    }
-
-    pub fn player_units_deep(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
-        self.units_deep().filter(move |unit| unit.belongs_to_player(player))
-    }
-
-    #[deprecated]
-    pub fn player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
-        for unit in self.player_units_mut(player) {
+    #[deprecated = "This should be private"]
+    pub(crate) fn units_mut<F:FnMut(&mut Unit)>(&mut self, mut callback: F) {
+        for unit in self.toplevel_units_mut() {
             callback(unit);
 
             for carried_unit in unit.carried_units_mut() {
@@ -606,6 +617,46 @@ impl MapData {
             }
         }
     }
+
+    pub fn player_toplevel_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
+        self.toplevel_units().filter(move |unit| unit.belongs_to_player(player))
+    }
+
+    #[deprecated]
+    pub fn player_toplevel_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
+        self.toplevel_units_mut().filter(move |unit| unit.belongs_to_player(player))
+    }
+
+    /// An iterator over all units (toplevel and carried) belonging to the given player
+    pub fn player_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
+        self.units().filter(move |unit| unit.belongs_to_player(player))
+    }
+
+    // pub fn player_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
+    //     self.units_mut().filter(move |unit| unit.belongs_to_player(player))
+    // }
+
+    #[deprecated = "This should be private"]
+    pub(crate) fn player_units_mut<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
+        for unit in self.player_toplevel_units_mut(player) {
+            callback(unit);
+
+            for carried_unit in unit.carried_units_mut() {
+                callback(carried_unit);
+            }
+        }
+    }
+
+    // #[deprecated]
+    // pub fn player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
+    //     for unit in self.player_toplevel_units_mut(player) {
+    //         callback(unit);
+
+    //         for carried_unit in unit.carried_units_mut() {
+    //             callback(carried_unit);
+    //         }
+    //     }
+    // }
 
     /// All cities belonging to the player `player`
     pub fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
@@ -660,7 +711,13 @@ impl MapData {
         self.city_by_loc_mut(loc).map(|city| city.alignment = alignment).ok_or(())
     }
 
-    pub fn set_player_city_production_by_loc(&mut self, player: PlayerNum, loc: Location, production: UnitType) -> Result<(),GameError> {
+    pub fn set_city_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<Option<UnitType>,GameError> {
+        let city = self.city_by_loc_mut(loc)
+                                                     .ok_or(GameError::NoCityAtLocation{loc})?;
+        Ok(city.set_production(production))
+    }
+
+    pub fn set_player_city_production_by_loc(&mut self, player: PlayerNum, loc: Location, production: UnitType) -> Result<Option<UnitType>,GameError> {
         self.player_city_by_loc_mut(player, loc).map(|city| city.set_production(production))
                                                 .ok_or(GameError::NoCityAtLocation{loc})
     }
@@ -727,11 +784,15 @@ impl TryFrom<String> for MapData {
 
 #[cfg(test)]
 mod test {
+    use rand::{thread_rng, distributions::Distribution};
+
     use crate::{
         game::{
             Alignment,
+            GameError,
             map::{
                 CityID,
+                gen::generate_map,
                 terrain::Terrain,
             },
             unit::{
@@ -739,8 +800,12 @@ mod test {
                 UnitType,
             },
         },
+        name::{
+            IntNamer,
+        },
         util::{
             Dims,
+            Dimensioned,
             Location,
         }
     };
@@ -773,8 +838,133 @@ mod test {
 
         assert!(map.player_units(0).any(|unit| unit.id == unit_id));
 
-        let popped_unit = map.pop_unit_by_id(unit_id).unwrap();
+        let _popped_unit = map.pop_unit_by_id(unit_id).unwrap();
         assert!(!map.player_units(0).any(|unit| unit.id == unit_id));
 
+    }
+
+    #[test]
+    pub fn test_new_and_pop() {
+        let mut rand = thread_rng();
+
+        for _ in 0..100 {
+            let mut city_namer = IntNamer::new("city");
+            let mut map = generate_map(&mut city_namer, Dims::new(180, 90), 1);
+
+            for i in 0.. 100 {
+                let loc = map.dims().sample(&mut rand);
+
+                let name = format!("Unit {}", i);
+
+                // New
+
+                let unit_id = map.new_unit(loc, UnitType::Infantry,
+                                        Alignment::Belligerent{player:0}, name.clone()).unwrap();
+
+                assert!(map.player_units(0).any(|unit| unit.id == unit_id));
+
+                assert_eq!(map.unit_loc(unit_id), Some(loc));
+
+                let unit = map.unit_by_id(unit_id).unwrap().clone();
+
+                assert_eq!(map.tile(loc).unwrap().unit.as_ref(), Some(&unit));
+
+                // Pop
+
+                let popped_unit = map.pop_unit_by_id(unit_id).unwrap();
+
+                assert_eq!(unit, popped_unit);
+
+                assert!(!map.player_units(0).any(|unit| unit.id == unit_id));
+
+                assert_eq!(map.tile(loc).unwrap().unit, None);
+            }
+        }
+    }
+
+    // #[test]
+    // pub fn test_carry() {
+    //     let mut rand = thread_rng();
+
+    //     for _ in 0..100 {
+    //         let mut city_namer = IntNamer::new("city");
+    //         let mut map = generate_map(&mut city_namer, Dims::new(180, 90), 1);
+
+    //         for i in 0.. 100 {
+    //             let loc = map.dims().sample(&mut rand);
+
+    //             let name = format!("Unit {}", i);
+
+    //             // New
+
+    //             let unit_id = map.new_unit(loc, UnitType::Infantry,
+    //                                     Alignment::Belligerent{player:0}, name.clone()).unwrap();
+
+    //             assert!(map.player_units(0).any(|unit| unit.id == unit_id));
+
+    //             assert_eq!(map.unit_loc(unit_id), Some(loc));
+
+    //             let unit = map.unit_by_id(unit_id).unwrap().clone();
+
+    //             assert_eq!(map.tile(loc).unwrap().unit.as_ref(), Some(&unit));
+
+    //             // Pop
+
+    //             let popped_unit = map.pop_unit_by_id(unit_id).unwrap();
+
+    //             assert_eq!(unit, popped_unit);
+
+    //             assert!(!map.player_units(0).any(|unit| unit.id == unit_id));
+
+    //             assert_eq!(map.tile(loc).unwrap().unit, None);
+    //         }
+    //     }
+    // }
+
+    #[test]
+    pub fn test_relocate() {
+        let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
+
+        let unit_id = map.new_unit(Location::new(0, 0), UnitType::Transport,
+            Alignment::Belligerent{player:0}, "Unit 0").unwrap();
+
+        let unit_id2 = map.new_unit(Location::new(0, 1), UnitType::Infantry,
+            Alignment::Belligerent{player:0}, "Passenger").unwrap();
+
+        map.carry_unit_by_id(unit_id, unit_id2).unwrap();
+
+        assert!(map.player_units(0).any(|unit| unit.id == unit_id));
+
+        let mut rand = thread_rng();
+
+        for _ in 0.. 1000 {
+            let dest = map.dims().sample(&mut rand);
+            map.relocate_unit_by_id(unit_id, dest).unwrap();
+
+            assert!(map.player_units(0).any(|unit| unit.id == unit_id));
+            assert!(map.player_units(0).any(|unit| unit.id == unit_id2));
+
+            assert_eq!(map.unit_loc(unit_id), Some(dest));
+            assert_eq!(map.unit_loc(unit_id2), Some(dest));
+        }
+    }
+
+    #[test]
+    pub fn test_set_terrain() {
+        let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
+        for loc in map.dims().iter_locs() {
+            let result = map.set_terrain(loc, Terrain::Water);
+            assert_eq!(result.unwrap(), Terrain::Land);
+        }
+
+        for loc in vec![
+            Location::new(0, 10),
+            Location::new(10, 0),
+            Location::new(10, 10),
+            Location::new(593, 9000),
+        ].iter().cloned() {
+            assert_eq!(map.set_terrain(loc, Terrain::Water), Err(GameError::NoTileAtLocation{loc}));
+        }
+        
     }
 }

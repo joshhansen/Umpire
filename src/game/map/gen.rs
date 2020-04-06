@@ -50,7 +50,7 @@ pub fn generate_map<N:Namer>(city_namer: &mut N, map_dims: Dims, num_players: Pl
         let loc = map_dims.sample(&mut rng);
 
         // This might overwrite an already-set terrain but it doesn't matter
-        map.set_terrain(loc, Terrain::Land);
+        map.set_terrain(loc, Terrain::Land).unwrap();
     }
 
     // Grow landmasses
@@ -75,7 +75,7 @@ pub fn generate_map<N:Namer>(city_namer: &mut N, map_dims: Dims, num_players: Pl
 
                     if rng.gen::<f32>() <= cardinal_growth_prob || rng.gen::<f32>() <= diagonal_growth_prob {
                         // Might overwrite something here
-                        map.set_terrain(loc, Terrain::Land);
+                        map.set_terrain(loc, Terrain::Land).unwrap();
                     }
                 }
             }

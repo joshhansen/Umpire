@@ -430,7 +430,7 @@ impl Game {
     }
 
     fn refresh_moves_remaining(&mut self) {
-        self.current_player_units_deep_mutate(|unit: &mut Unit| unit.refresh_moves_remaining());
+        self.current_player_units_mut(|unit: &mut Unit| unit.refresh_moves_remaining());
     }
 
     fn begin_turn(&mut self) -> TurnStart {
@@ -623,8 +623,8 @@ impl Game {
     }
 
     /// Mutate all units controlled by the current player according to the callback `callback`
-    fn current_player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, callback: F) {
-        self.map.player_units_deep_mutate(self.current_player(), callback);
+    fn current_player_units_mut<F:FnMut(&mut Unit)>(&mut self, callback: F) {
+        self.map.player_units_mut(self.current_player(), callback);
     }
 
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
@@ -665,9 +665,9 @@ impl Game {
     }
 
     /// Every unit controlled by the current player, mutably
-    fn current_player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
-        self.map.player_units_mut(self.current_player())
-    }
+    // fn current_player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+    //     self.map.player_units_mut(self.current_player())
+    // }
 
     /// If the current player controls a city at location `loc`, return it
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
@@ -691,7 +691,7 @@ impl Game {
 
     /// If the current player controls a unit with ID `id`, return it mutably
     fn current_player_unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
-        self.current_player_units_mut().find(|unit| unit.id==id)
+        self.map.player_unit_by_id_mut(self.current_player(), id)
     }
 
     /// If the current player controls a unit with ID `id`, return its location
@@ -722,7 +722,7 @@ impl Game {
     /// 
     /// In other words, which of the current player's units have no orders and have moves remaining?
     pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
-        self.map.player_units_deep(self.current_player())
+        self.map.player_units(self.current_player())
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
             .map(|unit| unit.id)
     }
@@ -1274,10 +1274,10 @@ impl Game {
         Move::new(unit, src, moves)
     }
 
-    /// Sets the production of the current player's city at location `loc` to `production`.
+    /// Sets the production of the current player's city at location `loc` to `production`, returning the prior setting.
     /// 
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
-    pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<(),GameError> {
+    pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<Option<UnitType>,GameError> {
         self.map.set_player_city_production_by_loc(self.current_player, loc, production)
     }
 
@@ -1365,12 +1365,12 @@ impl Game {
                 unit.orders = Some(orders);
                 OrdersOutcome::completed_without_move(unit_id, orders)
             })
-            .ok_or(OrdersError::OrderedUnitDoesNotExist{id: unit_id, orders})
+            .ok_or(OrdersError::OrderedUnitDoesNotExist{id: unit_id})
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Skip;
-        self.set_orders(unit_id, Some(orders)).map(|_| OrdersOutcome::in_progress_without_move(unit_id, orders))
+        self.set_orders(unit_id, orders).map(|_| OrdersOutcome::in_progress_without_move(unit_id, orders))
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
@@ -1415,19 +1415,19 @@ impl Game {
     /// 
     /// # Errors
     /// `OrdersError::OrderedUnitDoesNotExist` if the order is not present under the control of the current player
-    fn set_orders(&mut self, id: UnitID, orders: Option<Orders>) -> Result<(),OrdersError> {
+    fn set_orders(&mut self, id: UnitID, orders: Orders) -> Result<Option<Orders>,OrdersError> {
         if let Some(ref mut unit) = self.current_player_unit_by_id_mut(id) {
-            unit.orders = orders;
-            Ok(())
+            Ok(unit.set_orders(orders))
         } else {
-            Err(OrdersError::OrderedUnitDoesNotExist{id, orders: orders.unwrap()})
-            // Err(format!("Attempted to give orders to a unit {:?} but no such unit exists", unit_id))
+            Err(OrdersError::OrderedUnitDoesNotExist{id})
         }
     }
 
     /// Clear the orders of the unit controlled by the current player with ID `id`.
-    fn clear_orders(&mut self, id: UnitID) -> Result<(),OrdersError> {
-        self.set_orders(id, None)
+    fn clear_orders(&mut self, id: UnitID) -> Result<Option<Orders>,OrdersError> {
+        let unit = self.current_player_unit_by_id_mut(id)
+                       .ok_or(OrdersError::OrderedUnitDoesNotExist{id})?;
+        Ok(unit.clear_orders())
     }
 
     fn follow_pending_orders(&mut self) -> Vec<OrdersResult> {
@@ -1450,7 +1450,7 @@ impl Game {
 
         // If the orders are already complete, clear them out
         if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
-            self.current_player_unit_by_id_mut(id).unwrap().orders = None;
+            self.current_player_unit_by_id_mut(id).unwrap().clear_orders();
         }
         
         result
@@ -1468,7 +1468,7 @@ impl Game {
     }
 
     fn set_and_follow_orders(&mut self, id: UnitID, orders: Orders) -> OrdersResult {
-        self.set_orders(id, Some(orders))?;
+        self.set_orders(id, orders)?;
 
         self.follow_unit_orders(id)
     }
@@ -1768,6 +1768,11 @@ mod test {
         },
     };
 
+    use rand::{
+        thread_rng,
+        distributions::Distribution,
+    };
+
     use crate::{
         game::{
             Alignment,
@@ -1775,8 +1780,6 @@ mod test {
             map::{
                 MapData,
                 Terrain,
-                grid::LocationGrid,
-                tile::Tile,
             },
             test_support::{game_two_cities_two_infantry},
             unit::{
@@ -1852,7 +1855,7 @@ mod test {
 
         for i in 0..2 {
             let loc: Location = game.production_set_requests().next().unwrap();
-            assert_eq!(game.set_production_by_loc(loc, productions[i]), Ok(()));
+            assert_eq!(game.set_production_by_loc(loc, productions[i]), Ok(None));
 
             let result = game.end_turn();
             assert!(result.is_ok());
@@ -1918,7 +1921,7 @@ mod test {
                     // Since the armor defeated the city, set its production so we can end the turn
                     let conquered_city = move_result.conquered_city().unwrap();
                     let production_set_result = game.set_production_by_loc(conquered_city.loc, UnitType::Fighter);
-                    assert_eq!(production_set_result, Ok(()));
+                    assert_eq!(production_set_result, Ok(productions.get(1).cloned()));
                 }
 
             } else {
@@ -1962,7 +1965,7 @@ mod test {
         assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, None);
         assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().name(), &String::from("Unit_0_0"));
 
-        game.set_orders(unit_id, Some(Orders::Sentry)).unwrap();
+        game.set_orders(unit_id, Orders::Sentry).unwrap();
 
         assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, Some(Orders::Sentry));
     }
@@ -2104,13 +2107,18 @@ mod test {
         let unit_namer = IntNamer::new("unit");
         let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
 
-        for (i, src) in game.dims().iter_locs().enumerate() {
-            if i > 0 {
-                // If we're not at the start we need to recenter the unit on `src`
-                game.move_unit_by_id(unit_id, src).unwrap();
-                game.order_unit_skip(unit_id).unwrap();
-                game.end_turn().unwrap();
-            }
+        let mut rand = thread_rng();
+
+        for _ in 0..1000 {
+            let src = game.dims().sample(&mut rand);
+
+            // Recenter the unit on `src`
+            game.map.relocate_unit_by_id(unit_id, src).unwrap();
+
+            // // Recenter the unit on `src`
+            // game.move_unit_by_id(unit_id, src).unwrap();
+            // game.order_unit_skip(unit_id).unwrap();
+            // game.end_turn().unwrap();
 
             for dir in Direction::values().iter().cloned() {
                 let src = game.current_player_unit_loc(unit_id).unwrap();
