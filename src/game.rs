@@ -59,7 +59,10 @@ use crate::{
         },
         obs::{Obs,Observer,ObsTracker,ObsTrackerI},
         unit::{
-            UnitID,Unit,UnitType,
+            TransportMode,
+            Unit,
+            UnitID,
+            UnitType,
             orders::{
                 Orders,
                 OrdersError,
@@ -223,9 +226,17 @@ pub enum GameError {
     #[fail(display = "The unit with ID {:?} has no carrying space", id)]
     UnitHasNoCarryingSpace { id: UnitID },
 
-    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} due to wrong terrain type or insufficient
-                      space.", carried_id)]
-    CannotCarryUnit { carried_id: UnitID },
+    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} because its transport mode {:?} is
+                      incompatible with the carrier's accepted transport mode {:?}", carried_id, carried_transport_mode,
+                      carrier_transport_mode)]
+    WrongTransportMode { carried_id: UnitID, carrier_transport_mode: TransportMode, carried_transport_mode: TransportMode },
+
+    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} due insufficient space.", carried_id)]
+    InsufficientCarryingSpace { carried_id: UnitID },
+
+    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} because its alignment {:?} differs
+                      from the space owner's alignment {:?}.", carried_id, carried_alignment, carrier_alignment)]
+    OnlyAlliesCarry { carried_id: UnitID, carrier_alignment: Alignment, carried_alignment: Alignment },
 
     #[fail(display = "The unit with ID {:?} cannot occupy the city with ID {:?} because the unit with ID {:?} is still
                       garrisoned there. The garrison must be destroyed prior to occupation.", occupier_unit_id,

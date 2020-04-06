@@ -46,8 +46,8 @@ impl Default for UnitID {
     }
 }
 
-#[derive(Clone,Debug,PartialEq)]
-enum TransportMode {
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub enum TransportMode {
     Land,
     Sea,
     Air,
@@ -86,16 +86,37 @@ impl CarryingSpace {
         }
     }
 
+    /// Check for any problems that would prohibit us from carrying the unit
+    fn unit_carry_status(&self, unit: &Unit) -> Result<(),GameError> {
+        if self.owner != unit.alignment {
+            return Err(GameError::OnlyAlliesCarry{
+                carried_id: unit.id,
+                carrier_alignment: self.owner,
+                carried_alignment: unit.alignment
+            });
+        }
+
+        if unit.type_.transport_mode() != self.accepted_transport_mode {
+            return Err(GameError::WrongTransportMode {
+                carried_id: unit.id,
+                carrier_transport_mode: self.accepted_transport_mode,
+                carried_transport_mode: unit.type_.transport_mode()
+            });
+        }
+
+        if self.space.len() == self.capacity {
+            return Err(GameError::InsufficientCarryingSpace{carried_id: unit.id});
+        }
+
+        Ok(())
+    }
+
     fn can_carry_unit(&self, unit: &Unit) -> bool {
-        self.owner == unit.alignment                                &&
-        unit.type_.transport_mode() == self.accepted_transport_mode &&
-        self.space.len() < self.capacity
+        self.unit_carry_status(unit).is_ok()
     }
 
     fn carry(&mut self, unit: Unit) -> Result<usize,GameError> {
-        if !self.can_carry_unit(&unit) {
-            return Err(GameError::CannotCarryUnit{carried_id: unit.id});
-        }
+        self.unit_carry_status(&unit)?;
 
         self.space.push(unit);
         Ok(self.space.len()-1)
