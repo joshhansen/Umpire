@@ -1213,13 +1213,17 @@ impl Game {
                                 // We either occupied an enemy city (thus ending movement), or were destroyed fighting
                                 // a city, or had to stop because this unit cannot occupy cities
                                 break;
+                            } else {
+                                // There was no city, we just defeated an enemy, move to the destination
+                                let prior_unit = self.map.relocate_unit_by_id(unit_id, loc).unwrap();
+                                debug_assert!(prior_unit.is_none());
+                                unit.record_movement(1).unwrap();
                             }
 
                         } else {
                             // We were not victorious against the enemy unit
                             // Destroy this unit and end the overall move
                             self.map.pop_unit_by_id(unit_id).unwrap();
-                            // return Move::new(unit, src, moves);
                             break;
                         }
                     }
@@ -1233,18 +1237,20 @@ impl Game {
                         unit.record_movement(1).unwrap();
 
                     } else {
-                        if unit.can_occupy_cities() {
-                            move_.city_combat = Some(unit.fight(city));
+                        // If the unit couldn't occupy cities then this location wouldn't be in the path, but let's
+                        // check the assumption
+                        debug_assert!(unit.can_occupy_cities());
 
-                            // If victorious
-                            if move_.city_combat.as_ref().unwrap().victorious() {
-                                self.map.occupy_city(unit_id, loc).unwrap();
-                                movement_complete = true;
-                            } else {
+                        move_.city_combat = Some(unit.fight(city));
 
-                                // Destroy this unit
-                                self.map.pop_unit_by_id(unit_id).unwrap();
-                            }
+                        // If victorious
+                        if move_.city_combat.as_ref().unwrap().victorious() {
+                            self.map.occupy_city(unit_id, loc).unwrap();
+                            movement_complete = true;
+                        } else {
+
+                            // Destroy this unit
+                            self.map.pop_unit_by_id(unit_id).unwrap();
                         }
 
                         // END THE OVERALL MOVE
@@ -1258,7 +1264,6 @@ impl Game {
 
                     let prior_unit = self.map.relocate_unit_by_id(unit_id, loc).unwrap();
                     debug_assert!(prior_unit.is_none());
-                    // self.map.record_unit_movement(unit_id, 1).unwrap().unwrap();
                     unit.record_movement(1).unwrap();
                 }
 
@@ -2187,33 +2192,36 @@ mod test {
 
     #[test]
     pub fn test_one_step_routes() {
-        let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
+        let mut map = MapData::new(Dims::new(10, 10), |_loc| Terrain::Land);
         let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
 
         let unit_namer = IntNamer::new("unit");
         let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
 
-        let mut rand = thread_rng();
+        // let mut rand = thread_rng();
 
-        for _ in 0..1000 {
-            let src = game.dims().sample(&mut rand);
-
-            // Recenter the unit on `src`
-            game.map.relocate_unit_by_id(unit_id, src).unwrap();
+        for (i, src) in game.dims().iter_locs().enumerate() {
+        // for _ in 0..1000 {
+        //     let src = game.dims().sample(&mut rand);
 
             // // Recenter the unit on `src`
-            // game.move_unit_by_id(unit_id, src).unwrap();
-            // game.order_unit_skip(unit_id).unwrap();
-            // game.end_turn().unwrap();
+            // game.map.relocate_unit_by_id(unit_id, src).unwrap();
+
+            // Recenter the unit on `src`
+            if i > 0 {
+                game.move_unit_by_id(unit_id, src).unwrap();
+                game.order_unit_skip(unit_id).unwrap();
+                game.end_turn().unwrap();
+            }
 
             for dir in Direction::values().iter().cloned() {
                 let src = game.current_player_unit_loc(unit_id).unwrap();
                 let dest = game.wrapping.wrapped_add(game.dims(), src, dir.into()).unwrap();
 
-                game.move_unit_by_id(unit_id, dest).unwrap();
+                game.move_unit_by_id(unit_id, dest).expect(format!("Error moving unit with ID {:?} from {} to {}", unit_id, src, dest).as_str());
                 assert_eq!(game.current_player_unit_loc(unit_id), Some(dest), "Wrong location after moving {:?} from {:?} to {:?}", dir, src, dest);
 
-                game.move_unit_by_id(unit_id, src).unwrap();
+                game.move_unit_by_id(unit_id, src).expect(format!("Error moving unit with ID {:?} from {} to {}", unit_id, dest, src).as_str());
                 game.end_turn().unwrap();
 
                 game.move_unit_by_id_in_direction(unit_id, dir).unwrap();

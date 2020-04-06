@@ -281,6 +281,10 @@ impl UnitType {
             UnitType::Fighter | UnitType::Bomber => 5,
         }
     }
+
+    pub fn can_travese(&self, terrain: Terrain) -> bool {
+        self.transport_mode().can_traverse(terrain)
+    }
 }
 
 impl fmt::Display for UnitType {
@@ -362,13 +366,21 @@ impl Unit {
     ///        if the unit has appropriate carrying space for this unit, then we can move on the tile
     ///        otherwise, we cannot move on the tile
     /// otherwise, defer to terrain features / city presence
+    /// 
+    /// NOTE: This method (and related) duplicate funcionality of the move methods themselves, but more efficiently.
+    ///       Take care with the repetition to ensure consistency
     pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
-
         if let Some(ref unit) = tile.unit {
             if self.alignment != unit.alignment {
                 self.type_.can_move_on_tile(tile)
             } else {
                 unit.can_carry_unit(self)
+            }
+        } else if let Some(ref city) = tile.city {
+            if city.is_friendly_to(self) {
+                self.type_.can_move_on_tile(tile)
+            } else {
+                self.can_occupy_cities()
             }
         } else {
             self.type_.can_move_on_tile(tile)
@@ -522,6 +534,10 @@ mod test {
 
     use crate::{
         game::{
+            city::{
+                City,
+                CityID,
+            },
             map::{
                 LocationGrid,
                 Terrain,
@@ -644,6 +660,7 @@ x   o    x";
         let loc = Location{x:5, y:5};
 
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
+        let transport = Unit::new(UnitID::new(0), loc, UnitType::Transport, Alignment::Belligerent{player:0}, "Blah blah");
         let friendly_unit = Unit::new(UnitID::new(1), loc, UnitType::Armor, Alignment::Belligerent{player:0}, "Lynn Stone");
         let enemy_unit = Unit::new(UnitID::new(2), loc, UnitType::Armor, Alignment::Belligerent{player:1}, "James Lindsey");
 
@@ -658,7 +675,19 @@ x   o    x";
         assert!(!infantry.can_move_on_tile(&tile3));
 
         let mut tile4 = Tile::new(Terrain::Land, loc);
-        tile4.unit = Some(enemy_unit);
+        tile4.unit = Some(enemy_unit.clone());
         assert!(infantry.can_move_on_tile(&tile4));
+
+        {
+            let mut tile = Tile::new(Terrain::Land, loc);
+            tile.city = Some(City::new(CityID::new(0), Alignment::Belligerent{player: 1}, loc, "Urbania"));
+            assert!(infantry.can_move_on_tile(&tile));
+
+            assert!(!transport.can_move_on_tile(&tile));
+
+            tile.unit = Some(enemy_unit.clone());
+
+            assert!(transport.can_move_on_tile(&tile));
+        }
     }
 }
