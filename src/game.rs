@@ -1078,6 +1078,10 @@ impl Game {
         let mut unit = self.current_player_unit_by_id(unit_id)
             .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
 
+        if unit.loc == dest {
+            return Err(MoveError::ZeroLengthMove);
+        }
+
         // let obs_tracker = self.current_player_observations_mut();
         let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
 
@@ -1095,7 +1099,7 @@ impl Game {
             let shortest_paths = shortest_paths(obs_tracker, unit.loc, tile_filter, self.wrapping);
 
             if let Some(distance) = shortest_paths.dist[dest] {
-                if distance == 0 {
+                if distance == 0 {// We might be able to just assert this
                     return Err(MoveError::ZeroLengthMove);
                 }
     
