@@ -1803,6 +1803,8 @@ mod test {
             },
             test_support::{game_two_cities_two_infantry},
             unit::{
+                TransportMode,
+                Unit,
                 UnitID,
                 UnitType,
                 orders::{
@@ -2250,5 +2252,49 @@ mod test {
 
         game.current_player_unit_by_id(unit_id).unwrap();
 
+
+    #[test]
+    pub fn test_movement_matches_carry_status() {
+        let l1 = Location::new(0, 0);
+        let l2 = Location::new(1,0);
+        let a = Alignment::Belligerent{player:0};
+
+        for type1 in UnitType::values().iter().cloned() {
+            
+            let u1 = Unit::new(UnitID::new(0), l2, type1, a, "u1");
+
+            for type2 in UnitType::values().iter().cloned() {
+
+                let u2 = Unit::new(UnitID::new(1), l2, type2, a, "u2");
+
+                let mut map = MapData::new(Dims::new(2,1), |loc| {
+                    let mode = if loc == l1 {
+                        u1.transport_mode()
+                    } else {
+                        u2.transport_mode()
+                    };
+
+                    match mode {
+                        TransportMode::Sea => Terrain::Water,
+                        TransportMode::Land => Terrain::Land,
+                        TransportMode::Air => Terrain::Land,
+                    }
+                });
+
+                map.set_unit(l1, u1.clone());
+                map.set_unit(l2, u2.clone());
+
+                let unit_namer = IntNamer::new("unit");
+                let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+                let result = game.move_unit_by_id_in_direction(u1.id, Direction::Right);
+                
+                if u2.can_carry_unit(&u1) {
+                    assert!(result.is_ok());
+                } else {
+                    assert!(result.is_err());
+                }
+
+            }
+        }
     }
 }

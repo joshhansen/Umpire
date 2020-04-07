@@ -659,6 +659,7 @@ mod test {
 
     use super::{
         All,
+        Filter,
         Source,
         UnitMovementFilter,
         Xenophile,
@@ -960,5 +961,24 @@ mod test {
             let naurwa = nearest_adjacent_unobserved_reachable_without_attacking(&grid, src, &unit, *wrapping);
             assert!(acceptable.contains(naurwa.as_ref().unwrap()));
         }
+    }
+
+    #[test]
+    pub fn test_unit_movement_filter() {
+        let l1 = Location::new(0,0);
+        let l2 = Location::new(1,0);
+        let a = Alignment::Belligerent{player:0};
+        let u1 = Unit::new(UnitID::new(0), l1, UnitType::Infantry,
+            a, "u1");
+
+        let u2 = Unit::new(UnitID::new(1), l2, UnitType::Infantry,
+            a, "u2");
+
+        let filter = UnitMovementFilter::new(&u1);
+
+        let mut tile = Tile::new(Terrain::Land, l2);
+        tile.unit = Some(u2);
+
+        assert!(!filter.include(&tile));
     }
 }

@@ -104,6 +104,8 @@ impl CarryingSpace {
             });
         }
 
+        debug_assert!(self.space.len() <= self.capacity);
+
         if self.space.len() == self.capacity {
             return Err(GameError::InsufficientCarryingSpace{carried_id: unit.id});
         }
@@ -371,7 +373,7 @@ impl Unit {
     ///       Take care with the repetition to ensure consistency
     pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
         if let Some(ref unit) = tile.unit {
-            if self.alignment != unit.alignment {
+            if !unit.is_friendly_to(self) {
                 self.type_.can_move_on_tile(tile)
             } else {
                 unit.can_carry_unit(self)
@@ -417,7 +419,7 @@ impl Unit {
         }
     }
 
-    fn can_carry_unit(&self, unit: &Unit) -> bool {
+    pub(in crate::game) fn can_carry_unit(&self, unit: &Unit) -> bool {
         if let Some(ref carrying_space) = self.carrying_space {
             carrying_space.can_carry_unit(unit)
         } else {
@@ -478,6 +480,10 @@ impl Unit {
 
     pub fn clear_orders(&mut self) -> Option<Orders> {
         self.orders.take()
+    }
+
+    pub fn transport_mode(&self) -> TransportMode {
+        self.type_.transport_mode()
     }
 }
 
@@ -658,6 +664,7 @@ x   o    x";
     #[test]
     fn test_mobility() {
         let loc = Location{x:5, y:5};
+        let loc2 = Location::new(5, 6);
 
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
         let transport = Unit::new(UnitID::new(0), loc, UnitType::Transport, Alignment::Belligerent{player:0}, "Blah blah");
@@ -679,8 +686,8 @@ x   o    x";
         assert!(infantry.can_move_on_tile(&tile4));
 
         {
-            let mut tile = Tile::new(Terrain::Land, loc);
-            tile.city = Some(City::new(CityID::new(0), Alignment::Belligerent{player: 1}, loc, "Urbania"));
+            let mut tile = Tile::new(Terrain::Land, loc2);
+            tile.city = Some(City::new(CityID::new(0), Alignment::Belligerent{player: 1}, loc2, "Urbania"));
             assert!(infantry.can_move_on_tile(&tile));
 
             assert!(!transport.can_move_on_tile(&tile));
@@ -689,5 +696,32 @@ x   o    x";
 
             assert!(transport.can_move_on_tile(&tile));
         }
+
+        {
+            let mut tile = Tile::new(Terrain::Water, loc2);
+            let transport2 = Unit::new(UnitID::new(0), loc2, UnitType::Transport, Alignment::Belligerent{player:0}, "Blah blah");
+            tile.unit = Some(transport2);
+
+            assert!(!transport.can_move_on_tile(&tile));
+        }
+
+        {
+            let mut tile = Tile::new(Terrain::Water, loc2);
+            tile.city = Some(City::new(CityID::new(0), Alignment::Belligerent{player: 0}, loc2, "Urbania"));
+            let transport2 = Unit::new(UnitID::new(0), loc2, UnitType::Transport, Alignment::Belligerent{player:0}, "Blah blah");
+            tile.unit = Some(transport2);
+
+            assert!(!transport.can_move_on_tile(&tile));
+        }
+    }
+
+    #[test]
+    pub fn test_can_carry_unit() {
+        let l1 = Location::new(0,0);
+        let l2 = Location::new(1, 0);
+        let t1 = Unit::new(UnitID::new(0), l1, UnitType::Transport, Alignment::Belligerent{player:0}, "0");
+        let t2 = Unit::new(UnitID::new(0), l2, UnitType::Transport, Alignment::Belligerent{player:0}, "1");
+
+        assert!(!t1.can_carry_unit(&t2));
     }
 }
