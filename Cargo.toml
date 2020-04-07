@@ -24,6 +24,7 @@ homepage = "https://github.com/joshhansen/Umpire"
 travis-ci = { repository = "joshhansen/Umpire" }
 
 [dependencies]
+bincode = "1.2.1"
 clap = "2.33.0"
 cpal = "0.10.0"
 crossterm = "0.16.0"
@@ -33,10 +34,11 @@ flate2 = "1.0.13"
 pastel = "0.7.0"
 pitch_calc = "0.11.1"
 #rsrl = "0.7.0"
-rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl" }
+rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
 #rsrl_domains = "0.1.0"
 rsrl_domains = { path = "/home/josh/Projects/External/rsrl/rsrl_domains" }
 sample = "0.10.0"
+serde = { version = "1.0.106", features = ["derive"] }
 spaces = "5.0.0"
 synth = "0.11.0" 
 rand = "0.7.3"

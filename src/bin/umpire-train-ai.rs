@@ -8,14 +8,17 @@
 //! Once we have a simple AI, incorporate it into the UI.
 #![forbid(unsafe_code)]
 use std::{
+    cell::RefCell,
     collections::{
         HashMap,
         HashSet,
     },
+    io::Write,
+    rc::Rc,
     sync::{
         Arc,
         RwLock,
-    },
+    }, path::Path, fs::File,
 };
 
 use clap::{Arg};
@@ -68,14 +71,21 @@ use rsrl_domains::{
     Transition,
 };
 
+use serde::{Serialize, Deserialize};
+
 use umpire::{
     cli,
     conf,
     game::{
         Game,
-        ai::RandomAI,
+        ai::{
+            RandomAI,
+            rl::{
+                UmpireAction, find_legal_max,
+            }, RL_AI,
+        },
         combat::CombatCapable,
-        player::TurnTaker,
+        player::{OmniscientTurnTaker, TurnTaker},
         test_support::{
             game_two_cities_two_infantry,
             game_two_cities_two_infantry_big,
@@ -84,7 +94,7 @@ use umpire::{
         },
         unit::{
             UnitType,
-        },
+        }, PlayerTurnControl,
     },
     name::IntNamer,
     util::{
@@ -157,70 +167,7 @@ impl Space for UmpireStateSpace {
     }
 }
 
-#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
-pub enum UmpireAction {
-    SetNextCityProduction{unit_type: UnitType},
-    MoveNextUnit{direction: Direction},
-    SkipNextUnit,
-}
 
-impl UmpireAction {
-    fn legal_actions(game: &Game) -> HashSet<Self> {
-        let mut a = HashSet::new();
-
-        //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
-        if let Some(city_loc) = game.production_set_requests().next() {
-            for unit_type in game.valid_productions_conservative(city_loc) {
-                a.insert(UmpireAction::SetNextCityProduction{unit_type});
-            }
-        }
-
-        //TODO Possibly consider actions for all units instead of just the next one that needs orders
-        if let Some(unit_id) = game.unit_orders_requests().next() {
-            for direction in game.current_player_unit_legal_directions(unit_id).unwrap() {
-                a.insert(UmpireAction::MoveNextUnit{direction});
-            }
-            a.insert(UmpireAction::SkipNextUnit);
-        }
-
-        a
-    }
-
-    fn possible_actions() -> Vec<Self> {
-        let mut a = Vec::new();
-        for unit_type in UnitType::values().iter().cloned() {
-            a.push(UmpireAction::SetNextCityProduction{unit_type});
-        }
-        for direction in Direction::values().iter().cloned() {
-            a.push(UmpireAction::MoveNextUnit{direction});
-        }
-        a.push(UmpireAction::SkipNextUnit);
-
-        a
-    }
-
-    fn from_idx(mut idx: usize) -> Result<Self,()> {
-        let unit_types = UnitType::values();
-        if unit_types.len() > idx {
-            return Ok(UmpireAction::SetNextCityProduction{unit_type: unit_types[idx]});
-        }
-
-        idx -= unit_types.len();
-
-        let dirs = Direction::values();
-        if dirs.len() > idx {
-            return Ok(UmpireAction::MoveNextUnit{direction: dirs[idx]});
-        }
-        
-        idx -= dirs.len();
-
-        if idx == 0 {
-            return Ok(UmpireAction::SkipNextUnit);
-        }
-
-        Err(())
-    }
-}
 
 struct UmpireActionSpace {
     legal_actions: HashSet<UmpireAction>,
@@ -295,29 +242,7 @@ impl UmpireDomain {
         debug_assert_eq!(self.game.current_player(), 0);
         debug_assert!(!self.game.turn_is_done());
 
-        match action {
-            UmpireAction::SetNextCityProduction{unit_type} => {
-                let city_loc = self.game.production_set_requests().next().unwrap();
-                self.game.set_production_by_loc(city_loc, unit_type).unwrap();
-            },
-            UmpireAction::MoveNextUnit{direction} => {
-                let unit_id = self.game.unit_orders_requests().next().unwrap();
-                debug_assert!({
-                    let legal: HashSet<Direction> = self.game.current_player_unit_legal_directions(unit_id).unwrap()
-                                                             .collect();
-
-                    // println!("legal moves: {}", legal.len());
-                    
-                    legal.contains(&direction)
-                });
-
-                self.game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
-            },
-            UmpireAction::SkipNextUnit => {
-                let unit_id = self.game.unit_orders_requests().next().unwrap();
-                self.game.order_unit_skip(unit_id).unwrap();
-            }
-        }
+        action.take(&mut self.game);
 
         if self.verbose {
             println!("{:?}", action);
@@ -342,7 +267,8 @@ impl UmpireDomain {
             self.game.end_turn().unwrap();
 
             let mut ctrl = self.game.player_turn_control(1);
-            self.random_ai.take_turn(&mut ctrl);
+            TurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
+            // self.random_ai.take_turn(&mut ctrl);
             // Turn gets ended when ctrl goes out of scope
         }
     }
@@ -592,24 +518,31 @@ impl<V: Clone> StateFunction<Game> for UmpireConstant<V> {
     fn update(&mut self, _: &Game, _: Self::Output) {}
 }
 
+
+
+
 struct UmpireAgent<Q,P> {
     q: QLearning<Q,P>,
 }
-impl<Q: EnumerableStateActionFunction<Game>,P> UmpireAgent<Q,P> {
-    fn find_legal_max(&self, state: &Game) -> (usize, f64) {
-        let legal = UmpireAction::legal_actions(state);
-        let possible = UmpireAction::possible_actions();
+// impl<Q: EnumerableStateActionFunction<Game>,P> UmpireAgent<Q,P> {
+//     // fn find_legal_max(&self, state: &Game) -> (usize, f64) {
+//     //     let legal = UmpireAction::legal_actions(state);
+//     //     let possible = UmpireAction::possible_actions();
 
-        let qs = self.q.q_func.evaluate_all(state);
+//     //     let qs = self.q.q_func.evaluate_all(state);
 
-        let mut iter = qs.into_iter().enumerate()
-            .filter(|(i,_x)| legal.contains(possible.get(*i).unwrap()))
-        ;
-        let first = iter.next().unwrap();
+//     //     let mut iter = qs.into_iter().enumerate()
+//     //         .filter(|(i,_x)| legal.contains(possible.get(*i).unwrap()))
+//     //     ;
+//     //     let first = iter.next().unwrap();
 
-        iter.fold(first, |acc, (i, x)| if acc.1 > x { acc } else { (i, x) })
-    }
-}
+//     //     iter.fold(first, |acc, (i, x)| if acc.1 > x { acc } else { (i, x) })
+//     // }
+
+//     fn to_minimal(self) -> RL_AI<Q> {
+//         RL_AI::new(*(self.q.q_func))
+//     }
+// }
 
 impl<Q, P> OnlineLearner<Game, P::Action> for UmpireAgent<Q, P>
 where
@@ -628,7 +561,8 @@ where
 {
     fn sample_target(&self, _: &mut impl Rng, s: &Game) -> P::Action {
         // self.q.q_func.find_max(s).0
-        self.find_legal_max(s).0
+        // self.find_legal_max(s).0
+        find_legal_max(&self.q.q_func, s).0
     }
 
     fn sample_behaviour(&self, rng: &mut impl Rng, s: &Game) -> P::Action {
@@ -704,6 +638,8 @@ fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize,
     agent
 }
 
+
+
 fn main() {
     let matches = cli::app("Umpire AI Trainer", "HWv")
     .version(conf::APP_VERSION)
@@ -719,6 +655,30 @@ fn main() {
             episodes.map(|_n| ()).map_err(|_e| format!("Invalid episodes '{}'", s))
         })
     )
+    // .arg(
+    //     Arg::with_name("rel_height")
+    //     .short("h")
+    //     .long("rel_height")
+    //     .help("Height of relative feature window")
+    //     .takes_value(true)
+    //     .default_value("10")
+    //     .validator(|s| {
+    //         let width: Result<usize,_> = s.trim().parse();
+    //         width.map(|_n| ()).map_err(|_e| format!("Invalid feature window height '{}'", s))
+    //     })
+    // )
+    // .arg(
+    //     Arg::with_name("rel_width")
+    //     .short("w")
+    //     .long("rel_width")
+    //     .help("Width of relative feature window")
+    //     .takes_value(true)
+    //     .default_value("10")
+    //     .validator(|s| {
+    //         let width: Result<usize,_> = s.trim().parse();
+    //         width.map(|_n| ()).map_err(|_e| format!("Invalid feature window width '{}'", s))
+    //     })
+    // )
     .arg(
         Arg::with_name("steps")
         .short("s")
@@ -730,27 +690,66 @@ fn main() {
             steps.map(|_n| ()).map_err(|_e| format!("Invalid steps '{}'", s))
         })
     )
+    .arg(
+        Arg::with_name("evaluate")
+        .short("E")
+        .long("evaluate")
+        .help("Evaluate the trained policy")
+    )
     .get_matches();
 
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
+    let evaluate = matches.is_present("evaluate");
     let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
     let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
+    // let rel_height: usize = matches.value_of("rel_height").unwrap().parse().unwrap();
+    // let rel_width: usize = matches.value_of("rel_width").unwrap().parse().unwrap();
     let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
     let verbose = matches.is_present("verbose");
 
     println!("Training Umpire AI.");
 
-    let mut agent = {
-        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), verbose));
-        trained_agent(domain_builder, episodes, steps, verbose)
+    let qf = {
+        let mut agent = {
+            let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), verbose));
+            trained_agent(domain_builder, episodes, steps, verbose)
+        };
+
+        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), false));
+
+        if evaluate {
+        
+            let testing_result = Evaluation::new(&mut agent, domain_builder).next().unwrap();
+
+            println!("solution: {:?}", testing_result);
+        }
+
+        agent.q.q_func.0
     };
 
-    let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), false));
+    // Pry the q function loose
+    // let qf = agent.q.q_func;
+    let qfd = Rc::try_unwrap(qf).unwrap().into_inner();
+    let qfdd = Rc::try_unwrap(qfd.0).unwrap().into_inner();
+    // let qfd = *(q_func).clone().into_inner();
+    // let qfdd = *(qfd);
 
-    // Testing phase:
-    let testing_result = Evaluation::new(&mut agent, domain_builder).next().unwrap();
+    let rl_ai = RL_AI::new(qfdd);
 
-    println!("solution: {:?}", testing_result);
+    let data = bincode::serialize(&rl_ai).unwrap();
+
+    let path = Path::new("ai/ai1.model");
+    let display = path.display();
+
+    let mut file = match File::create(&path) {
+        Err(why) => panic!("couldn't create {}: {}", display, why),
+        Ok(file) => file,
+    };
+
+    match file.write_all(&data) {
+        Err(why) => panic!("couldn't write to {}: {}", display, why),
+        Ok(_) => println!("successfully wrote to {}", display),
+    }
 }
 
 #[cfg(test)]

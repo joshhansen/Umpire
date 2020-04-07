@@ -18,6 +18,19 @@ use std::{
 
 use clap::Arg;
 
+use rsrl::{
+    fa::{
+        linear::{
+            basis::{
+                Polynomial,
+            },
+            optim::SGD,
+            LFA,
+            VectorFunction,
+        },
+    },
+};
+
 use umpire::{
     cli,
     color::{palette16, palette256, palette24},
@@ -26,9 +39,9 @@ use umpire::{
         Game,
         PlayerNum,
         PlayerType,
-        ai::RandomAI,
+        ai::{RL_AI, RandomAI},
         player::{
-            TurnTaker,
+            OmniscientTurnTaker,
         },
     },
     name::{city_namer,unit_namer},
@@ -37,7 +50,7 @@ use umpire::{
         Dims,
         Wrap,
         Wrap2d,
-    },
+    }, log::LogTarget,
 };
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
@@ -111,13 +124,13 @@ fn main() {
             .long("players")
             .takes_value(true)
             .required(true)
-            .default_value("hhrr")
+            .default_value("hraa")
             .help(
-                format!("Player type specification string e.g. 'hhrr', {}", 
+                format!("Player type specification string, {}", 
                     PlayerType::values().iter()
                     .map(|player_type| format!("'{}' for {}", player_type.spec_char(), player_type.desc()))
                     .collect::<Vec<String>>()
-                    .join("")
+                    .join(", ")
                 ).as_str()
             )
             .validator(|s| {
@@ -162,7 +175,10 @@ fn main() {
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
     let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
         .chars()
-        .map(|spec_char| PlayerType::from_spec_char(spec_char).expect(format!("'{}' is not a valid player type", spec_char).as_str()))
+        .map(|spec_char| {
+            PlayerType::from_spec_char(spec_char)
+                        .expect(format!("'{}' is not a valid player type", spec_char).as_str())
+        })
         .collect()
     ;
     let num_players: PlayerNum = player_types.len();
@@ -249,29 +265,23 @@ fn main() {
 
         // We can share one instance of RandomAI across players since it's stateless
         let mut random_ai = RandomAI::new(false);
+        let mut rl_ai: RL_AI<LFA<Polynomial,SGD,VectorFunction>> = 
+                                                    bincode::deserialize(include_bytes!("../../ai/ai.model")).unwrap();
 
         let mut game = game;
 
         'outer: loop {
-            for (pnum, ptype) in player_types.iter().enumerate() {
+            for ptype in player_types.iter() {
+                ui.log_message(format!("Player of type {:?}", ptype));
+
                 if game.victor().is_some() {
                     break 'outer;
                 }
 
-                let mut ctrl = game.player_turn_control(pnum);
-                loop {// Loop until the turn is actually done, otherwise PlayerTurnControl will panic on drop
-                    match ptype {
-                        PlayerType::Human => {
-                            ui.take_turn(&mut ctrl);
-                        },
-                        PlayerType::Random => {
-                            random_ai.take_turn(&mut ctrl);
-                        },
-                    }
-
-                    if ctrl.turn_is_done() {
-                        break;
-                    }
+                match ptype {
+                    PlayerType::Human => OmniscientTurnTaker::take_turn(&mut ui, &mut game),
+                    PlayerType::Random => OmniscientTurnTaker::take_turn(&mut random_ai, &mut game),
+                    PlayerType::AI => rl_ai.take_turn(&mut game),
                 }
             }
         }

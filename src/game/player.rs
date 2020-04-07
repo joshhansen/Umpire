@@ -15,7 +15,6 @@ use crate::{
             Move,
             MoveError,
             MoveResult,
-            ProposedMove,
         },
         obs::{
             Obs,
@@ -41,21 +40,23 @@ use crate::{
 
 pub type PlayerNum = usize;
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub enum PlayerType {
     Human,
     Random,
+    AI,
 }
 
 impl PlayerType {
-    pub fn values() -> [Self; 2] {
-        [Self::Human, Self::Random]
+    pub fn values() -> [Self; 3] {
+        [Self::Human, Self::Random, Self::AI]
     }
 
     pub fn desc(&self) -> &str {
         match self {
             Self::Human => "human",
             Self::Random => "random",
+            Self::AI => "ai",
         }
     }
 
@@ -64,6 +65,7 @@ impl PlayerType {
         match self {
             Self::Human => 'h',
             Self::Random => 'r',
+            Self::AI => 'a',
         }
     }
 
@@ -71,6 +73,7 @@ impl PlayerType {
         match c {
             'h' => Ok(Self::Human),
             'r' => Ok(Self::Random),
+            'a' => Ok(Self::AI),
             _ => Err(format!("'{}' does not correspond to a player type", c))
         }
     }
@@ -225,6 +228,13 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.unit_orders_requests()
     }
 
+    /// Which if the current player's units need orders?
+    /// 
+    /// In other words, which of the current player's units have no orders and have moves remaining?
+    pub fn units_with_orders_requests(&'a self) -> impl Iterator<Item=&Unit> + 'a {
+        self.game.units_with_orders_requests()
+    }
+
     pub fn units_with_pending_orders(&'a self) -> impl Iterator<Item=UnitID> + 'a {
         self.game.units_with_pending_orders()
     }
@@ -368,61 +378,30 @@ impl <'a> Drop for PlayerTurnControl<'a> {
     }
 }
 
+/// Take a turn with only the knowledge of game state an individual player should have
+/// This is the main thing to use
 pub trait TurnTaker {
     fn take_turn(&mut self, ctrl: &mut PlayerTurnControl);
 }
 
-pub trait Player: Send {
-    fn play(&mut self, game: PlayerTurnControl);
-}
-
-/// A player whose action is specified turn by turn.
+/// Take a turn with full knowledge of the game state
 /// 
-/// A shim over game is given which allows appropriate read-only actions and a limited number of mutations to enable
-/// gameplay.
-pub trait TurnPlayer: Send {
-    fn take_turn(&mut self, game: &mut PlayerTurnControl);
+/// This is a kludgey escape hatch for an issue in AI training where we need the whole state. It is crucial for
+/// implementors to guarantee that the player's turn is ended (and only the player's turn---no further turns) by the
+/// end of the `take_turn` function call.
+pub trait OmniscientTurnTaker {
+    fn take_turn(&mut self, game: &mut Game);
 }
 
-impl <P:TurnPlayer> Player for P {
-    fn play(&mut self, mut game: PlayerTurnControl) {
-
+impl <T:TurnTaker> OmniscientTurnTaker for T {
+    fn take_turn(&mut self, game: &mut Game) {
+        let mut ctrl = game.player_turn_control(game.current_player());
         loop {
-            self.take_turn(&mut game);
+            <Self as TurnTaker>::take_turn(self, &mut ctrl);
 
-            if let (_,Ok(_)) = game.propose_end_turn() {
+            if ctrl.turn_is_done() {
                 break;
             }
         }
-        game.end_turn().unwrap();
     }
-}
-
-/// A few reified commands a player can use to take their turn
-///
-/// Meant to be passed over a channel to the game engine.
-#[derive(Clone)]
-pub enum PlayerCommand {
-    SetProduction {
-        city_id: CityID,
-        production: UnitType,
-    },
-    OrderUnitMoveInDirection {
-        unit_id: UnitID,
-        direction: Direction,
-    },
-    OrderUnitGoTo {
-        unit_id: UnitID,
-        dest: Location,
-    },
-    OrderUnitExplore {
-        unit_id: UnitID,
-    },
-    OrderUnitSentry {
-        unit_id: UnitID,
-    },
-    OrderUnitMove {
-        unit_id: UnitID,
-        dest: Location,
-    },
 }
