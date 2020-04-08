@@ -6,7 +6,7 @@ use criterion::Criterion;
 use umpire::{
     game::{
         ai::RandomAI,
-        player::TurnTaker,
+        player::LimitedTurnTaker,
         test_support::game_two_cities_two_infantry_big,
     },
 };
