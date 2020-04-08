@@ -17,7 +17,7 @@ use crate::{
             MoveComponent,
             MoveError,
         },
-        unit::UnitID,
+        unit::UnitID, GameError,
     },
     util::{
         Location,
@@ -137,29 +137,7 @@ impl OrdersOutcome {
 //     }
 // }
 
-#[derive(Debug,Fail,PartialEq)]
-pub enum OrdersError {
-    #[fail(display="Ordered unit with ID {:?} doesn't exist", id)]
-    OrderedUnitDoesNotExist {
-        id: UnitID,
-    },
-
-    // #[fail(display="Cannot order unit with ID {:?} to go to {} because the destination is out of the bounds {}", id, dest, map_dims)]
-    // CannotGoToOutOfBounds {
-    //     id: UnitID,
-    //     dest: Location,
-    //     map_dims: Dims,
-    // },
-
-    #[fail(display="Orders to unit with ID {:?} failed due to problem moving the unit: {}", id, move_error)]
-    MoveError {
-        id: UnitID,
-        orders: Orders,
-        move_error: MoveError,
-    }
-}
-
-pub type OrdersResult = Result<OrdersOutcome,OrdersError>;
+pub type OrdersResult = Result<OrdersOutcome,GameError>;
 // pub type ProposedOrdersResult = Result<ProposedOrdersOutcome,OrdersError>;
 
 // impl ProposedAction for ProposedOrdersResult {
@@ -353,7 +331,7 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 
             let mut move_ = game.move_unit_by_id_using_filter(
                 unit.id, goal, &filter
-            ).map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
+            ).map_err(|err| GameError::MoveError{id: unit_id, orders, move_error: err})?;
 
             // let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(&unit, goal, shortest_paths, &mut overlay)
             //                           .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
@@ -420,7 +398,7 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Orde
 /// orders.
 pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
     if !game.dims().contain(dest) {
-        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {}});
+        return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {}});
     }
 
     let (moves_remaining, shortest_paths, src) = {
@@ -440,7 +418,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
     };
 
     if src==dest {
-        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::ZeroLengthMove});
+        return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::ZeroLengthMove});
     }
 
     // Find the observed tile on the path from source to destination that is nearest to the
@@ -458,7 +436,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         if let Some(prev_dest) = shortest_paths.prev[dest2] {
             dest2 = prev_dest;
         } else {
-            return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
+            return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
                 id: unit_id,
                 src,
                 dest,
@@ -472,7 +450,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         //FIXME I'm not sure why this situation arises---why does following the shortest path
         //     not actually lead us to the destination sometimes?
 
-        return Err(OrdersError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
+        return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
             id: unit_id,
             src,
             dest,
@@ -503,7 +481,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
                 status
             }
         })
-        .map_err(|err| OrdersError::MoveError {
+        .map_err(|err| GameError::MoveError {
             id: unit_id,
             orders,
             move_error: err,
@@ -613,6 +591,7 @@ pub mod test {
         game::{
             AlignedMaybe,
             Game,
+            GameError,
             MoveError,
             map::{
                 MapData,
@@ -620,7 +599,6 @@ pub mod test {
             unit::{
                 orders::{
                     Orders,
-                    OrdersError,
                     OrdersOutcome,
                     propose_exploration,
                     test_support,
@@ -650,11 +628,11 @@ pub mod test {
 
         let dest = Location{x: 0, y: 0};
         let result1 = game.order_unit_go_to(id, dest);
-        assert_eq!(result1, Err(OrdersError::MoveError{id, orders: Orders::GoTo{dest}, move_error: MoveError::ZeroLengthMove}));
+        assert_eq!(result1, Err(GameError::MoveError{id, orders: Orders::GoTo{dest}, move_error: MoveError::ZeroLengthMove}));
 
         let dest2 = Location{x: 255, y: 255};
         let result2 = game.order_unit_go_to(id, dest2);
-        assert_eq!(result2, Err(OrdersError::MoveError{id, orders: Orders::GoTo{dest:dest2}, move_error: MoveError::DestinationOutOfBounds{}}));
+        assert_eq!(result2, Err(GameError::MoveError{id, orders: Orders::GoTo{dest:dest2}, move_error: MoveError::DestinationOutOfBounds{}}));
 
         let dest3 = Location{x:5, y:0};
         let result3 = game.order_unit_go_to(id, dest3);

@@ -65,7 +65,6 @@ use crate::{
             UnitType,
             orders::{
                 Orders,
-                OrdersError,
                 OrdersStatus,
                 OrdersOutcome,
                 OrdersResult,
@@ -239,7 +238,14 @@ pub enum GameError {
     #[fail(display = "The unit with ID {:?} cannot occupy the city with ID {:?} because the unit with ID {:?} is still
                       garrisoned there. The garrison must be destroyed prior to occupation.", occupier_unit_id,
                     city_id, garrisoned_unit_id)]
-    CannotOccupyGarrisonedCity { occupier_unit_id: UnitID, city_id: CityID, garrisoned_unit_id: UnitID }
+    CannotOccupyGarrisonedCity { occupier_unit_id: UnitID, city_id: CityID, garrisoned_unit_id: UnitID },
+
+    #[fail(display="There was a problem moving the unit with ID {:?}: {}", id, move_error)]
+    MoveError {
+        id: UnitID,
+        orders: Orders,
+        move_error: MoveError,
+    }
 }
 
 #[derive(Debug,PartialEq)]
@@ -1431,12 +1437,9 @@ impl Game {
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Sentry;
 
-        self.current_player_unit_by_id_mut(unit_id)
-            .map(|unit| {        
-                unit.orders = Some(orders);
-                OrdersOutcome::completed_without_move(unit_id, orders)
-            })
-            .ok_or(OrdersError::OrderedUnitDoesNotExist{id: unit_id})
+        self.map.set_player_unit_orders(self.current_player(), unit_id, orders)?;
+
+        Ok(OrdersOutcome::completed_without_move(unit_id, orders))
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
@@ -1486,19 +1489,13 @@ impl Game {
     /// 
     /// # Errors
     /// `OrdersError::OrderedUnitDoesNotExist` if the order is not present under the control of the current player
-    fn set_orders(&mut self, id: UnitID, orders: Orders) -> Result<Option<Orders>,OrdersError> {
-        if let Some(ref mut unit) = self.current_player_unit_by_id_mut(id) {
-            Ok(unit.set_orders(orders))
-        } else {
-            Err(OrdersError::OrderedUnitDoesNotExist{id})
-        }
+    fn set_orders(&mut self, id: UnitID, orders: Orders) -> Result<Option<Orders>,GameError> {
+        self.map.set_player_unit_orders(self.current_player(), id, orders)
     }
 
     /// Clear the orders of the unit controlled by the current player with ID `id`.
-    fn clear_orders(&mut self, id: UnitID) -> Result<Option<Orders>,OrdersError> {
-        let unit = self.current_player_unit_by_id_mut(id)
-                       .ok_or(OrdersError::OrderedUnitDoesNotExist{id})?;
-        Ok(unit.clear_orders())
+    fn clear_orders(&mut self, id: UnitID) -> Result<Option<Orders>,GameError> {
+        self.map.clear_player_unit_orders(self.current_player(), id)
     }
 
     fn follow_pending_orders(&mut self) -> Vec<OrdersResult> {
@@ -1521,7 +1518,7 @@ impl Game {
 
         // If the orders are already complete, clear them out
         if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
-            self.current_player_unit_by_id_mut(id).unwrap().clear_orders();
+            self.map.clear_player_unit_orders(self.current_player(), id)?;
         }
         
         result

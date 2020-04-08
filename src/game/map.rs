@@ -446,10 +446,9 @@ impl MapData {
         self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
     }
 
-    #[deprecated = "This should be private"]
-    pub(crate) fn player_unit_by_id_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
+    fn player_unit_by_id_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_id_mut(id)
-            .filter(|unit| unit.alignment==Alignment::Belligerent{player} && unit.id==id)
+            .filter(|unit| unit.belongs_to_player(player) && unit.id==id)
     }
 
     pub fn mark_unit_movement_complete(&mut self, id: UnitID) -> Result<(),GameError> {
@@ -543,6 +542,12 @@ impl MapData {
         let unit = self.player_unit_by_id_mut(player, unit_id)
                        .ok_or(GameError::NoSuchUnit{id:unit_id})?;
         Ok(unit.set_orders(orders))
+    }
+
+    pub fn clear_player_unit_orders(&mut self, player: PlayerNum, unit_id: UnitID) -> Result<Option<Orders>,GameError> {
+        let unit = self.player_unit_by_id_mut(player, unit_id)
+        .ok_or(GameError::NoSuchUnit{id:unit_id})?;
+        Ok(unit.clear_orders())
     }
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {
