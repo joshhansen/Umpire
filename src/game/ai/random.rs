@@ -5,7 +5,7 @@ use crate::{
     game::{
         player::{
             PlayerTurnControl,
-            TurnTaker,
+            LimitedTurnTaker,
         },
         unit::{
             Unit,
@@ -29,7 +29,7 @@ impl RandomAI {
         }
     }
 }
-impl TurnTaker for RandomAI {
+impl LimitedTurnTaker for RandomAI {
     fn take_turn(&mut self, game: &mut PlayerTurnControl) {
         let mut rng = rand::thread_rng();
 
@@ -107,7 +107,7 @@ mod test {
                 gen::generate_map,
                 terrain::Terrain,
             },
-            player::TurnTaker,
+            player::LimitedTurnTaker,
         },
         name::IntNamer,
         util::{

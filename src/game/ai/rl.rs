@@ -11,7 +11,7 @@ use rsrl::{
 use crate::{
     game::{
         Game,
-        player::OmniscientTurnTaker, unit::UnitType,
+        player::TurnTaker, unit::UnitType,
     }, util::Direction,
 };
 
@@ -129,7 +129,7 @@ impl <Q> RL_AI<Q> {
         Self { q_func }
     }
 }
-impl <Q: EnumerableStateActionFunction<Game>> OmniscientTurnTaker for RL_AI<Q> {
+impl <Q: EnumerableStateActionFunction<Game>> TurnTaker for RL_AI<Q> {
     fn take_turn(&mut self, game: &mut Game) {
 
         while !game.turn_is_done() {

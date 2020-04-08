@@ -380,7 +380,7 @@ impl <'a> Drop for PlayerTurnControl<'a> {
 
 /// Take a turn with only the knowledge of game state an individual player should have
 /// This is the main thing to use
-pub trait TurnTaker {
+pub trait LimitedTurnTaker {
     fn take_turn(&mut self, ctrl: &mut PlayerTurnControl);
 }
 
@@ -389,15 +389,15 @@ pub trait TurnTaker {
 /// This is a kludgey escape hatch for an issue in AI training where we need the whole state. It is crucial for
 /// implementors to guarantee that the player's turn is ended (and only the player's turn---no further turns) by the
 /// end of the `take_turn` function call.
-pub trait OmniscientTurnTaker {
+pub trait TurnTaker {
     fn take_turn(&mut self, game: &mut Game);
 }
 
-impl <T:TurnTaker> OmniscientTurnTaker for T {
+impl <T:LimitedTurnTaker> TurnTaker for T {
     fn take_turn(&mut self, game: &mut Game) {
         let mut ctrl = game.player_turn_control(game.current_player());
         loop {
-            <Self as TurnTaker>::take_turn(self, &mut ctrl);
+            <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl);
 
             if ctrl.turn_is_done() {
                 break;

@@ -41,7 +41,7 @@ use umpire::{
         PlayerType,
         ai::{RL_AI, RandomAI},
         player::{
-            OmniscientTurnTaker,
+            TurnTaker,
         },
     },
     name::{city_namer,unit_namer},
@@ -279,8 +279,8 @@ fn main() {
                 }
 
                 match ptype {
-                    PlayerType::Human => OmniscientTurnTaker::take_turn(&mut ui, &mut game),
-                    PlayerType::Random => OmniscientTurnTaker::take_turn(&mut random_ai, &mut game),
+                    PlayerType::Human => TurnTaker::take_turn(&mut ui, &mut game),
+                    PlayerType::Random => TurnTaker::take_turn(&mut random_ai, &mut game),
                     PlayerType::AI => rl_ai.take_turn(&mut game),
                 }
             }
