@@ -8,7 +8,6 @@
 //! Once we have a simple AI, incorporate it into the UI.
 #![forbid(unsafe_code)]
 use std::{
-    cell::RefCell,
     collections::{
         HashMap,
         HashSet,
@@ -71,8 +70,6 @@ use rsrl_domains::{
     Transition,
 };
 
-use serde::{Serialize, Deserialize};
-
 use umpire::{
     cli,
     conf,
@@ -85,21 +82,20 @@ use umpire::{
             }, RL_AI,
         },
         combat::CombatCapable,
-        player::{OmniscientTurnTaker, TurnTaker},
-        test_support::{
-            game_two_cities_two_infantry,
-            game_two_cities_two_infantry_big,
-            game_two_cities_two_infantry_dims,
-            game_tunnel,
-        },
+        player::{LimitedTurnTaker},
+        // test_support::{
+        //     game_two_cities_two_infantry,
+        //     game_two_cities_two_infantry_big,
+        //     game_two_cities_two_infantry_dims,
+        //     game_tunnel,
+        // },
         unit::{
             UnitType,
-        }, PlayerTurnControl,
+        },
     },
     name::IntNamer,
     util::{
         Dims,
-        Direction,
         Wrap2d,
     },
 };
@@ -305,10 +301,8 @@ impl Domain for UmpireDomain {
 
     /// Emit an observation of the current state of the environment.
     fn emit(&self) -> Observation<State<Self>> {
-        // let v = self.game.to_feature_vec();
         let v = self.game.clone();
         if self.game.victor().is_some() {
-            // println!("TERMINAL");
             Observation::Terminal(v)
         } else {
             // Partial unless we happen to be observing every tile in the current turn, which we'll assume doesn't happen
@@ -524,25 +518,6 @@ impl<V: Clone> StateFunction<Game> for UmpireConstant<V> {
 struct UmpireAgent<Q,P> {
     q: QLearning<Q,P>,
 }
-// impl<Q: EnumerableStateActionFunction<Game>,P> UmpireAgent<Q,P> {
-//     // fn find_legal_max(&self, state: &Game) -> (usize, f64) {
-//     //     let legal = UmpireAction::legal_actions(state);
-//     //     let possible = UmpireAction::possible_actions();
-
-//     //     let qs = self.q.q_func.evaluate_all(state);
-
-//     //     let mut iter = qs.into_iter().enumerate()
-//     //         .filter(|(i,_x)| legal.contains(possible.get(*i).unwrap()))
-//     //     ;
-//     //     let first = iter.next().unwrap();
-
-//     //     iter.fold(first, |acc, (i, x)| if acc.1 > x { acc } else { (i, x) })
-//     // }
-
-//     fn to_minimal(self) -> RL_AI<Q> {
-//         RL_AI::new(*(self.q.q_func))
-//     }
-// }
 
 impl<Q, P> OnlineLearner<Game, P::Action> for UmpireAgent<Q, P>
 where
@@ -728,11 +703,8 @@ fn main() {
     };
 
     // Pry the q function loose
-    // let qf = agent.q.q_func;
     let qfd = Rc::try_unwrap(qf).unwrap().into_inner();
     let qfdd = Rc::try_unwrap(qfd.0).unwrap().into_inner();
-    // let qfd = *(q_func).clone().into_inner();
-    // let qfdd = *(qfd);
 
     let rl_ai = RL_AI::new(qfdd);
 

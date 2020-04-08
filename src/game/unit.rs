@@ -61,12 +61,7 @@ impl TransportMode {
             TransportMode::Air  => terrain==Terrain::Land || terrain==Terrain::Water,
         }
     }
-}
 
-#[derive(Clone)]
-struct CarryingSpaceEssentials {
-    capacity: usize,
-    space: Vec<UnitEssentials>,
 }
 
 #[derive(Clone,Debug,PartialEq)]
@@ -310,17 +305,6 @@ impl Ord for UnitType {
             cmp
         }
     }
-}
-
-#[derive(Clone)]
-pub struct UnitEssentials {
-    pub type_: UnitType,
-    pub alignment: Alignment,
-    hp: u16,
-    max_hp: u16,
-    moves_remaining: u16,
-    // pub orders: Option<Orders>,
-    carrying_space: Option<CarryingSpaceEssentials>,
 }
 
 #[derive(Clone,Debug,PartialEq)]

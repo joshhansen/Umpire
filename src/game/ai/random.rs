@@ -9,7 +9,6 @@ use crate::{
         },
         unit::{
             Unit,
-            UnitID,
             UnitType,
         },
     },
