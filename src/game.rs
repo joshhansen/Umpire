@@ -1855,6 +1855,7 @@ mod test {
                 MapData,
                 Terrain,
             },
+            move_::MoveError,
             test_support::{game_two_cities_two_infantry},
             unit::{
                 TransportMode,
@@ -2013,6 +2014,26 @@ mod test {
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 0);
         }
+    }
+
+    #[test]
+    fn test_terrainwise_movement() {
+        let mut map = MapData::try_from(" t-").unwrap();
+        map.set_terrain(Location::new(1, 0), Terrain::Water).unwrap();
+
+        let transport_id = map.toplevel_unit_by_loc(Location::new(1,0)).unwrap().id;
+
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+
+        game.move_unit_by_id_in_direction(transport_id, Direction::Left).unwrap();
+        game.move_unit_by_id_in_direction(transport_id, Direction::Right).unwrap();
+
+        assert_eq!(game.move_unit_by_id_in_direction(transport_id, Direction::Right), Err(MoveError::NoRoute {
+            id: transport_id,
+            src: Location::new(1, 0),
+            dest: Location::new(2, 0),
+        }));
     }
 
     #[test]
@@ -2305,7 +2326,7 @@ mod test {
         assert_eq!(game.unit_orders_requests().next(), Some(unit_id));
 
         game.current_player_unit_by_id(unit_id).unwrap();
-
+    }
 
     #[test]
     pub fn test_movement_matches_carry_status() {
@@ -2348,6 +2369,106 @@ mod test {
                     assert!(result.is_err());
                 }
 
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_id_consistency() {
+        let mut loc = Location::new(0, 0);
+
+        let mut map = MapData::new(Dims::new(10, 1), |_| Terrain::Water);
+        let unit_id = map.new_unit(loc, UnitType::Submarine,
+            Alignment::Belligerent{player:0}, "K-19").unwrap();
+
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        
+        
+
+        for _ in 0..9 {
+            game.move_unit_by_id_in_direction(unit_id, Direction::Right).unwrap();
+            loc = loc.shift_wrapped(Direction::Right, game.dims(), game.wrapping()).unwrap();
+
+            let unit = game.current_player_toplevel_unit_by_loc(loc).unwrap();
+            assert_eq!(unit.id, unit_id);
+
+            game.force_end_turn();
+        }
+
+    }
+
+    #[test]
+    fn test_transport_moves_on_transport() {
+        
+        let l1 = Location::new(0,0);
+        let l2 = Location::new(1,0);
+
+        let mut map = MapData::try_from("tt").unwrap();
+
+        map.set_terrain(l1, Terrain::Water).unwrap();
+        map.set_terrain(l2, Terrain::Water).unwrap();
+
+        let t1_id = map.toplevel_unit_id_by_loc(l1).unwrap();
+
+        {
+            let unit_namer = IntNamer::new("unit");
+            let mut game = Game::new_with_map(map.clone(), 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+            game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+                .expect_err("Transport should not be able to move onto transport");
+        }
+
+
+        let mut map2 = map.clone();
+        map2.new_city(l2, Alignment::Belligerent{player:0}, "city").unwrap();
+
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map2, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+        game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+            .expect_err("Transport should not be able to move onto transport");
+
+
+    }
+
+    #[test]
+    fn test_shortest_paths_carrying() {
+        let map = MapData::try_from("t t  ").unwrap();
+
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+        game.move_toplevel_unit_by_loc(Location::new(0,0), Location::new(4, 0))
+            .expect_err("Transports shouldn't traverse transports on their way somewhere");
+    }
+
+    #[test]
+    fn test_valid_productions_conservative() {
+        let map = MapData::try_from("...\n.0.\n...").unwrap();
+        let unit_namer = IntNamer::new("unit");
+        let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+        let city_loc = game.production_set_requests().next().unwrap();
+
+        let prods: HashSet<UnitType> = game.valid_productions_conservative(city_loc).collect();
+
+        for t in UnitType::values().iter().cloned() {
+            if match t {
+                UnitType::Armor => true,
+                UnitType::Battleship => false,
+                UnitType::Bomber => true,
+                UnitType::Carrier => false,
+                UnitType::Cruiser => false,
+                UnitType::Destroyer => false,
+                UnitType::Fighter => true,
+                UnitType::Infantry => true,
+                UnitType::Submarine => false,
+                UnitType::Transport => false,
+            } {
+                assert!(prods.contains(&t));
+            } else {
+                assert!(!prods.contains(&t));
             }
         }
     }
