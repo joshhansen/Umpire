@@ -685,6 +685,17 @@ impl Game {
         self.map.player_units(self.current_player())
     }
 
+    /// The counts of unit types controlled by the current player
+    pub fn current_player_unit_type_counts(&self) -> HashMap<UnitType,usize> {
+        let mut map = HashMap::new();
+
+        for unit in self.current_player_units() {
+            *(map.entry(unit.type_).or_insert(0)) += 1;
+        }
+
+        map
+    }
+
     /// Every enemy unit known to the current player (as of most recent observations)
     pub fn observed_enemy_units<'a>(&'a self) -> impl Iterator<Item=&Unit> + 'a {
         let current_player = self.current_player();
@@ -1610,6 +1621,15 @@ impl DerefVec for Game {
 
         // We also add a context around the currently active unit (if any)
         let mut x = Vec::new();
+
+        // General statistics
+
+        let type_counts = self.current_player_unit_type_counts();
+        let counts_vec: Vec<f64> = UnitType::values().iter()
+                                    .map(|type_| *type_counts.get(type_).unwrap_or(&0) as f64)
+                                    .collect();
+
+        x.extend(counts_vec);
 
         let observations = self.player_observations.get(&0).unwrap();
 
