@@ -92,9 +92,12 @@ impl LimitedTurnTaker for RandomAI {
 
 #[cfg(test)]
 mod test {
-    use std::sync::{
-        Arc,
-        RwLock,
+    use std::{
+        convert::TryFrom,
+            sync::{
+            Arc,
+            RwLock,
+        }
     };
 
     use crate::{
@@ -170,6 +173,33 @@ mod test {
                     break;
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_random_ai_carried_unit_destruction() {
+        // Load an infantry unit into a transport, then try to get the transport destroyed by the random AI. This was
+        // causing issues because RandomAI cached the list of unit orders requests, but it could go stale when a
+        // carried unit was destroyed
+
+        let mut map = MapData::try_from("Kti").unwrap();
+
+        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1,0)).unwrap();
+        let infantry_id = map.toplevel_unit_id_by_loc(Location::new(2,0)).unwrap();
+
+        map.carry_unit_by_id(transport_id, infantry_id).unwrap();
+
+        let unit_namer = IntNamer::new("unit");
+        let game = Game::new_with_map(map, 2, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+
+        let mut ai = RandomAI::new(false);
+
+        for _ in 0..1000 {
+            let mut game = game.clone();
+
+            let mut ctrl = game.player_turn_control(0);
+
+            ai.take_turn(&mut ctrl);
         }
     }
 }
