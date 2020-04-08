@@ -475,27 +475,62 @@ impl MapData {
         self.toplevel_unit_by_loc(loc).map(|unit| unit.id)
     }
 
+    /// Check for any errors we would encounter were we to try having the carrier carry the given unit
+    fn carry_status(&self, carrier_unit_id: UnitID, carried_unit: &Unit) -> Result<(),GameError> {
+        self.unit_by_id(carrier_unit_id)
+            .ok_or(GameError::NoSuchUnit{id: carrier_unit_id})?
+            .carry_status(carried_unit)
+    }
+
+    /// Check for any errors we would encounter were we to try having the carrier carry the specified unit
+    fn carry_status_by_id(&self, carrier_unit_id: UnitID, carried_unit_id: UnitID) -> Result<(),GameError> {
+        let unit = self.unit_by_id(carried_unit_id)
+                              .ok_or(GameError::NoSuchUnit{id: carried_unit_id})?;
+
+        debug_assert_eq!(carried_unit_id, unit.id);
+
+        self.carry_status(carrier_unit_id, unit)?;
+
+        Ok(())
+    }
+
     /// Make top-level carrier unit with ID `carrier_unit_id` carry `carried_unit`.
-    pub fn carry_unit(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> Result<usize,GameError> {
+    /// 
+    /// Returns the number of units now carried
+    fn _carry_unit_no_checks(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> usize {
         let carried_unit_id = carried_unit.id;
 
         let (carry_result, carrier_unit_loc) = {
-                let carrier_unit = self.unit_by_id_mut(carrier_unit_id)
-                                                  .ok_or(GameError::NoSuchUnit{id: carrier_unit_id})?;
+            let carrier_unit = self.unit_by_id_mut(carrier_unit_id).unwrap();
 
-                (carrier_unit.carry(carried_unit), carrier_unit.loc)
+            (carrier_unit.carry(carried_unit), carrier_unit.loc)
         };
 
         self.index_carried_unit_piecemeal(carried_unit_id, carrier_unit_id, carrier_unit_loc);
 
-        carry_result
+        carry_result.unwrap()
+    }
+
+    /// Make top-level carrier unit with ID `carrier_unit_id` carry `carried_unit`.
+    pub fn carry_unit(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> Result<usize,GameError> {
+        self.carry_status(carrier_unit_id, &carried_unit)?;
+
+        Ok(self._carry_unit_no_checks(carrier_unit_id, carried_unit))
     }
 
     /// Move a unit on the map to the carrying space of another unit on the map
     pub fn carry_unit_by_id(&mut self, carrier_unit_id: UnitID, carried_unit_id: UnitID) -> Result<usize,GameError> {
+        // Check that everything's groovy before we go popping any units out of place
+        self.carry_status_by_id(carrier_unit_id, carried_unit_id)?;
+
+        // Now pop away
         let unit = self.pop_unit_by_id(carried_unit_id)
                                      .ok_or(GameError::NoSuchUnit{id: carried_unit_id})?;
-        self.carry_unit(carrier_unit_id, unit)
+
+        // And do the carry without re-checking since we know it will succeed
+        Ok(
+            self._carry_unit_no_checks(carrier_unit_id, unit)
+        )
     }
 
     pub fn set_unit_orders(&mut self, unit_id: UnitID, orders: Orders) -> Result<Option<Orders>,GameError> {
@@ -785,6 +820,8 @@ impl TryFrom<String> for MapData {
 
 #[cfg(test)]
 mod test {
+    use std::convert::TryFrom;
+
     use rand::{thread_rng, distributions::Distribution};
 
     use crate::{
@@ -797,6 +834,7 @@ mod test {
                 terrain::Terrain,
             },
             unit::{
+                TransportMode,
                 UnitID,
                 UnitType,
             },
@@ -966,7 +1004,88 @@ mod test {
         ].iter().cloned() {
             assert_eq!(map.set_terrain(loc, Terrain::Water), Err(GameError::NoTileAtLocation{loc}));
         }
-        
+    }
+
+    #[test]
+    fn test_carry_unit_by_id() {
+        let mut map = MapData::try_from("ffffffktaaaaa").unwrap();
+
+        let ids: Vec<UnitID> = map.tiles.iter_locs().map(|loc| map.tiles.get(loc).unwrap().unit.as_ref().unwrap().id).collect();
+
+        let fighter_ids = &ids[..=5];
+        let carrier_id = ids[6];
+        let transport_id = ids[7];
+        let armor_ids = &ids[8..];
+
+        // First try carrying an armor on a fighter (not gonna work)
+        assert_eq!(
+            map.carry_unit_by_id(fighter_ids[0], armor_ids[0]),
+            Err(GameError::UnitHasNoCarryingSpace{carrier_id: fighter_ids[0]})
+        );
+
+        // Then try the reverse, carrying a fighter on an armor (should fail)
+        assert_eq!(
+            map.carry_unit_by_id(armor_ids[0], fighter_ids[0]),
+            Err(GameError::UnitHasNoCarryingSpace{carrier_id: armor_ids[0]})
+        );
+
+        // Now for the first five fighters, carry them on the carrier
+        for i in 0..UnitType::Carrier.carrying_capacity() {
+            assert_eq!(
+                map.carry_unit_by_id(carrier_id, fighter_ids[i]),
+                Ok(i+1)
+            );
+
+            // Try carrying on the transport too
+            assert_eq!(
+                map.carry_unit_by_id(transport_id, fighter_ids[i]),
+                Err(GameError::WrongTransportMode{
+                    carried_id: fighter_ids[i],
+                    carried_transport_mode: TransportMode::Air,
+                    carrier_transport_mode: TransportMode::Land,
+                })
+            );
+
+            // Make sure everything's still in place after the failed move
+            assert!(map.unit_by_id(fighter_ids[i]).is_some());
+
+            assert!(map.unit_by_id(transport_id).is_some());
+        }
+
+        // Now carry the sixth, which won't fit
+        assert_eq!(
+            map.carry_unit_by_id(carrier_id, fighter_ids[5]),
+            Err(GameError::InsufficientCarryingSpace{carried_id: fighter_ids[5]})
+        );
+
+        // Carry the first five armor on the transport
+        for i in 0..UnitType::Transport.carrying_capacity() {
+            assert_eq!(
+                map.carry_unit_by_id(transport_id, armor_ids[i]),
+                Ok(i+1),
+            );
+
+            assert_eq!(
+                map.carry_unit_by_id(carrier_id, armor_ids[i]),
+                Err(GameError::WrongTransportMode{
+                    carried_id: armor_ids[i],
+                    carried_transport_mode: TransportMode::Land,
+                    carrier_transport_mode: TransportMode::Air,
+                })
+            );
+
+            // Make sure everything's still in place after the failed move
+            assert!(map.unit_by_id(armor_ids[i]).is_some());
+
+            assert!(map.unit_by_id(carrier_id).is_some());
+        }
+
+        // The straw that breaks the transport's back: the sixth armor
+        assert_eq!(
+            map.carry_unit_by_id(transport_id, armor_ids[4]),
+            Err(GameError::InsufficientCarryingSpace{carried_id: armor_ids[4]})
+        );
+    }
 
     #[test]
     fn test_player_unit_by_id_mut() {

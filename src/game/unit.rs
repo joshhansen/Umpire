@@ -89,7 +89,7 @@ impl CarryingSpace {
     }
 
     /// Check for any problems that would prohibit us from carrying the unit
-    fn unit_carry_status(&self, unit: &Unit) -> Result<(),GameError> {
+    fn carry_status(&self, unit: &Unit) -> Result<(),GameError> {
         if self.owner != unit.alignment {
             return Err(GameError::OnlyAlliesCarry{
                 carried_id: unit.id,
@@ -116,14 +116,19 @@ impl CarryingSpace {
     }
 
     fn can_carry_unit(&self, unit: &Unit) -> bool {
-        self.unit_carry_status(unit).is_ok()
+        self.carry_status(unit).is_ok()
     }
 
+    /// Carry the given unit
+    /// 
+    /// Returns the number of carried units (including this new one) on success. A number of errors issue if there is
+    /// a mismatch of unit alignment with carrier alignment, if the accepted transport mode doesn't match, and if the
+    /// carrying space is already full.
     fn carry(&mut self, unit: Unit) -> Result<usize,GameError> {
-        self.unit_carry_status(&unit)?;
+        self.carry_status(&unit)?;
 
         self.space.push(unit);
-        Ok(self.space.len()-1)
+        Ok(self.space.len())
     }
 
     fn release_by_id(&mut self, id: UnitID) -> Option<Unit> {
@@ -421,18 +426,27 @@ impl Unit {
         }
     }
 
+    /// Check for any error conditions we would encounter if we did try to carry the given unit
+    pub(in crate::game) fn carry_status(&self, unit: &Unit) -> Result<(),GameError> {
+        if let Some(ref carrying_space) = self.carrying_space {
+            carrying_space.carry_status(unit)
+        } else {
+            Err(GameError::UnitHasNoCarryingSpace{carrier_id: self.id})
+        }
+    }
+
     /// Carry a unit in this unit's carrying space.
     /// 
     /// For example, make a Transport carry an Armor.
     /// 
     /// This method call should only be called by MapData's carry_unit method.
     pub(in crate::game) fn carry(&mut self, mut unit: Unit) -> Result<usize,GameError> {
-        if let Some(ref mut carrying_space) = self.carrying_space {
-            unit.loc = self.loc;
-            carrying_space.carry(unit)
-        } else {
-            Err(GameError::UnitHasNoCarryingSpace{id: self.id})
-        }
+        self.carry_status(&unit)?;
+
+        // We can set this before we've actually don the carry because we checked for any possible errors above
+        unit.loc = self.loc;
+
+        self.carrying_space.as_mut().unwrap().carry(unit)
     }
 
     pub(in crate::game) fn release_by_id(&mut self, carried_unit_id: UnitID) -> Option<Unit> {
