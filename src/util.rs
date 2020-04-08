@@ -602,4 +602,56 @@ mod test {
         assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-10}), None);
         assert_eq!(Wrap2d::NEITHER.wrapped_add(Dims{width:1, height:5}, Location{x:0, y:0}, Vec2d{x:0, y:-8}), None);
     }
+
+    #[test]
+    fn test_wrapped_add_1x1() {
+        let dims = Dims{width: 1, height: 1};
+        let loc = Location::new(0,0);
+
+        let results_horiz: [Option<Location>; 8] = [
+        // Vec2d { x: -1, y: -1 },
+            None,
+        // Vec2d { x: -1, y:  0 },
+            Some(Location{x:0, y:0}),
+        // Vec2d { x: -1, y:  1 },
+            None,
+        // Vec2d { x:  0, y: -1 },
+            None,
+        // Vec2d { x:  0, y:  1 },
+            None,
+        // Vec2d { x:  1, y: -1 },
+            None,
+        // Vec2d { x:  1, y:  0 },
+            Some(Location{x:0, y:0}),
+        // Vec2d { x:  1, y:  1}
+            None
+        ];
+
+        let results_vert: [Option<Location>; 8] = [
+        // Vec2d { x: -1, y: -1 },
+            None,
+        // Vec2d { x: -1, y:  0 },
+            None,
+        // Vec2d { x: -1, y:  1 },
+            None,
+        // Vec2d { x:  0, y: -1 },
+            Some(Location{x:0, y:0}),
+        // Vec2d { x:  0, y:  1 },
+            Some(Location{x:0, y:0}),
+        // Vec2d { x:  1, y: -1 },
+            None,
+        // Vec2d { x:  1, y:  0 },
+            None,
+        // Vec2d { x:  1, y:  1}
+            None
+        ];
+
+        for (i, rel_neighb) in RELATIVE_NEIGHBORS.iter().enumerate() {
+            assert_eq!( Wrap2d::BOTH.wrapped_add(dims, loc, *rel_neighb),    Some(Location{x:0, y:0}) );
+            assert_eq!( Wrap2d::HORIZ.wrapped_add(dims, loc, *rel_neighb),   results_horiz  [i] );
+            assert_eq!( Wrap2d::VERT.wrapped_add(dims, loc, *rel_neighb),    results_vert   [i] );
+            assert_eq!( Wrap2d::NEITHER.wrapped_add(dims, loc, *rel_neighb), None );
+        }
+
+    }
 }
