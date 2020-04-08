@@ -282,6 +282,14 @@ impl UnitType {
     pub fn can_travese(&self, terrain: Terrain) -> bool {
         self.transport_mode().can_traverse(terrain)
     }
+
+    fn new_carrying_space_for(self, alignment: Alignment) -> Option<CarryingSpace> {
+        match self {
+            UnitType::Transport => Some(CarryingSpace::new(alignment, TransportMode::Land, self.carrying_capacity())),
+            UnitType::Carrier => Some(CarryingSpace::new(alignment, TransportMode::Air, self.carrying_capacity())),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for UnitType {
@@ -334,7 +342,7 @@ impl Unit {
             moves_remaining: 0,
             name: name.into(),
             orders: None,
-            carrying_space: Self::new_carrying_space_for(type_, alignment),
+            carrying_space: type_.new_carrying_space_for(alignment),
         }
     }
 
@@ -392,15 +400,6 @@ impl Unit {
 
     pub(in crate::game) fn refresh_moves_remaining(&mut self) {
         self.moves_remaining = self.movement_per_turn();
-    }
-    
-    fn new_carrying_space_for(type_: UnitType, alignment: Alignment) -> Option<CarryingSpace> {
-        match type_ {
-            UnitType::Infantry | UnitType::Armor | UnitType::Fighter | UnitType::Bomber | UnitType::Destroyer |
-            UnitType::Submarine | UnitType::Cruiser | UnitType::Battleship => None,
-            UnitType::Transport => Some(CarryingSpace::new(alignment, TransportMode::Land, 4)),
-            UnitType::Carrier => Some(CarryingSpace::new(alignment, TransportMode::Air, 5)),
-        }
     }
 
     pub(in crate::game) fn can_carry_unit(&self, unit: &Unit) -> bool {
