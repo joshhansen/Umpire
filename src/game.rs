@@ -365,7 +365,12 @@ impl Game {
         debug_assert_eq!(player, self.current_player);
 
         PlayerTurnControl::new(self)
-        
+    }
+
+    pub fn player_turn_control_clearing(&mut self, player: PlayerNum) -> PlayerTurnControl {
+        debug_assert_eq!(player, self.current_player);
+
+        PlayerTurnControl::new_clearing(self)
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
@@ -459,6 +464,18 @@ impl Game {
         }
     }
 
+    fn begin_turn_clearing(&mut self) -> TurnStart {
+        let result = self.begin_turn();
+
+        for prod in result.production_outcomes.iter() {
+            if let UnitProductionOutcome::UnitProduced{city, ..} = prod {
+                self.clear_production_without_ignoring(city.loc).unwrap();
+            }
+        }
+
+        result
+    }
+
     pub fn turn_is_done(&self) -> bool {
         self.production_set_requests().next().is_none() && self.unit_orders_requests().next().is_none()
     }
@@ -518,6 +535,14 @@ impl Game {
         }
     }
 
+    pub fn end_turn_clearing(&mut self) -> Result<TurnStart,PlayerNum> {
+        if self.turn_is_done() {
+            Ok(self.force_end_turn_clearing())
+        } else {
+            Err(self.current_player())
+        }
+    }
+
     fn _inc_current_player(&mut self) {
         self.current_player = (self.current_player + 1) % self.num_players();
         if self.current_player == 0 {
@@ -532,6 +557,15 @@ impl Game {
         self._inc_current_player();
 
         self.begin_turn()
+    }
+
+    /// End the turn without checking that the player has filled all production and orders requests.
+    fn force_end_turn_clearing(&mut self) -> TurnStart {
+        self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+
+        self._inc_current_player();
+
+        self.begin_turn_clearing()
     }
 
     pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart,PlayerNum>> {

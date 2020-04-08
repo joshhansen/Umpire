@@ -126,11 +126,18 @@ pub struct PlayerTurnControl<'a> {
     /// Which player is this control shim representing? A copy of `Game::current_player`'s result. Shouldn't get stale
     /// since we lock down anything that would change who the current player is. We do this for convenience.
     pub player: PlayerNum,
+
+    clear_completed_productions: bool,
 }
 impl <'a> PlayerTurnControl<'a> {
     pub fn new(game: &'a mut Game) -> Self {
         let player = game.current_player();
-        Self { game, player }
+        Self { game, player, clear_completed_productions: false }
+    }
+
+    pub fn new_clearing(game: &'a mut Game) -> Self {
+        let player = game.current_player();
+        Self { game, player, clear_completed_productions: true }
     }
 
     pub fn num_players(&self) -> PlayerNum {
@@ -374,7 +381,11 @@ impl <'a> PlayerTurnControl<'a> {
 /// This forces the turn to end regardless of the state of production and orders requests.
 impl <'a> Drop for PlayerTurnControl<'a> {
     fn drop(&mut self) {
-        self.game.force_end_turn();
+        if self.clear_completed_productions {
+            self.game.force_end_turn_clearing();
+        } else {
+            self.game.force_end_turn();
+        }
     }
 }
 
