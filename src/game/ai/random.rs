@@ -16,6 +16,7 @@ use crate::{
         Location,
     },
 };
+use std::collections::HashSet;
 
 pub struct RandomAI {
     unit_type_vec: Vec<UnitType>,
@@ -51,18 +52,33 @@ impl LimitedTurnTaker for RandomAI {
         }
 
         // let unit_orders_requests: Vec<UnitID> = game.unit_orders_requests().collect();
-        let units_with_orders_requests: Vec<Unit> = game.units_with_orders_requests().cloned().collect();
+        // let units_with_orders_requests: Vec<Unit> = game.units_with_orders_requests().cloned().collect();
         // for unit_id in unit_orders_requests {
-        for unit in units_with_orders_requests {
-            let unit_id = unit.id;
+        // for unit in units_with_orders_requests {
+        
+        while game.unit_orders_requests().next().is_some() {
+            let unit_id = game.unit_orders_requests().next().unwrap();
+            let unit = game.current_player_unit_by_id(unit_id).unwrap();
+            // let unit_id = unit.id;
 
             let possible: Vec<Location> = match game.current_player_unit_legal_one_step_destinations(unit_id) {
-                Ok(it) => it.collect(),
+                Ok(it) => it,
                 Err(e) => {
                     let tile = game.current_player_tile(unit.loc);
-                    panic!("Error getting destinations for unit with orders request: {}\nunit: {:?}\ntile: {:?}", e, unit, tile)
+                    panic!("Error getting destinations for unit with orders request: {}\nunit: {:?}\ntile: {:?}\ntile unit: {:?}\ntile city: {:?}",
+                           e, unit, tile, tile.as_ref().map(|t| t.unit.as_ref()), tile.as_ref().map(|t| t.city.as_ref()))
                 }
-            };
+            }.drain().collect();
+
+            // Check to be sure the source location isn't appearing in the list of destinations
+            debug_assert!(!possible.contains(
+                    game.current_player_unit_loc(unit_id).as_ref().unwrap()
+                ),
+                "The current location {} of unit with ID {:?} appeared in list of one step destinations {:?}",
+                game.current_player_unit_loc(unit_id).as_ref().unwrap(),
+                unit_id,
+                possible
+            );
 
             // let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
             if let Some(dest) = possible.choose(&mut rng) {
@@ -73,7 +89,7 @@ impl LimitedTurnTaker for RandomAI {
                 }
                 let result = game.move_unit_by_id(unit_id, *dest).unwrap();
                 if self.verbose && !result.moved_successfully() {
-                    println!("**DESTROYED");
+                    println!("**DESTROYED: {:?}", result);
                 }
 
                 if self.verbose {
@@ -124,11 +140,9 @@ mod test {
 
     #[test]
     pub fn test_random_ai() {
-
-        
-        let mut ai = RandomAI::new(false);
-        
         {
+            let mut ai = RandomAI::new(false);
+
             let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
             // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
             map.new_city(Location::new(0,0), Alignment::Belligerent{player:0}, "Hebevund").unwrap();

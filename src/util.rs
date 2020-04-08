@@ -321,13 +321,21 @@ impl Wrap {
     }
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Debug)]
 pub struct Wrap2d {
     pub horiz: Wrap,
     pub vert: Wrap
 }
 
 impl Wrap2d {
+    pub fn values() -> [Self; 4] {
+        [
+            Self::NEITHER,
+            Self::HORIZ,
+            Self::VERT,
+            Self::BOTH,
+        ]
+    }
     pub const BOTH: Self = Self {
         horiz: Wrap::Wrapping,
         vert: Wrap::Wrapping

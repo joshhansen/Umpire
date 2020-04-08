@@ -597,12 +597,20 @@ impl Game {
         }
     }
 
-    pub fn current_player_unit_legal_one_step_destinations<'a>(&'a self, unit_id: UnitID) -> Result<impl Iterator<Item=Location>+'a,GameError> {
+    /// The set of destinations that the specified unit could actually attempt a move onto in exactly one movement step.
+    /// This excludes the unit's original location
+    pub fn current_player_unit_legal_one_step_destinations(&self, unit_id: UnitID) -> Result<HashSet<Location>,GameError> {
         let unit = self.current_player_unit_by_id(unit_id).ok_or_else(||
             GameError::NoSuchUnit { id: unit_id }
         )?;
 
-        Ok(neighbors_unit_could_move_to_iter(&self.map, &unit, self.wrapping))
+        Ok(
+            neighbors_unit_could_move_to_iter(&self.map, &unit, self.wrapping)
+            .filter(|loc| *loc != unit.loc)// exclude the source location; needed because UnitMovementFilter inside of
+            .collect()                     // neighbors_unit_could_move_to_iter would allow a carried unit to "move"
+                                           // onto the carrier unit over again if it additional carrying space, thus
+                                           // resulting in zero-length moves
+        )
     }
 
     pub fn current_player_unit_legal_directions<'a>(&'a self, unit_id: UnitID) -> Result<impl Iterator<Item=Direction>+'a,GameError> {
@@ -1954,7 +1962,7 @@ mod test {
                                         assert_eq!(cs.len(), dirs.len());
 
                                         let src = Location::new(1, 1);
-                                        let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(id).unwrap().collect();
+                                        let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(id).unwrap();
 
                                         for (i, loc) in dirs.iter().map(|dir| {
                                             let v: Vec2d<i32> = (*dir).into();
@@ -1977,31 +1985,65 @@ mod test {
                 }// up_right
             }// up
         }// up_left
+    }
 
+    #[test]
+    fn test_current_player_unit_legal_one_step_destinations_wrapping() {
+        // Make sure the same destinations are found in these cases regardless of wrapping
+        for wrapping in Wrap2d::values().iter().cloned() {
+            {
+                // 1x1
+                let mut map = MapData::new(Dims::new(1,1), |_loc| Terrain::Land);
+                let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
+                let unit_namer = IntNamer::new("unit");
+                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
 
-        {
-            // 1x1 no wrapping
-            let mut map = MapData::new(Dims::new(1,1), |_loc| Terrain::Land);
-            let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
-            let unit_namer = IntNamer::new("unit");
-            let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+                assert!(
+                    game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().is_empty()
+                );
+            }
 
-            let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
-            assert!(dests.is_empty());
+            {
+                // 2x1
+                let mut map = MapData::new(Dims::new(2, 1), |_loc| Terrain::Land);
+                let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
+                let unit_namer = IntNamer::new("unit");
+                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
+
+                let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
+                assert_eq!(dests.len(), 1, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
+                assert!(dests.contains(&Location::new(1, 0)));
+            }
+
+            {
+                // 3x1
+                let mut map = MapData::new(Dims::new(3, 1), |_loc| Terrain::Land);
+                let unit_id = map.new_unit(Location::new(1,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
+                let unit_namer = IntNamer::new("unit");
+                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
+
+                let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
+                assert_eq!(dests.len(), 2, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
+                assert!(dests.contains(&Location::new(0, 0)));
+                assert!(dests.contains(&Location::new(2, 0)));
+            }
+
+            {
+                // 3x1 with infantry in transport
+                let mut map = MapData::try_from(".ti").unwrap();
+                let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
+                let inf_id = map.toplevel_unit_id_by_loc(Location::new(2, 0)).unwrap();
+                map.carry_unit_by_id(transport_id, inf_id).unwrap();
+
+                let unit_namer = IntNamer::new("unit");
+                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
+
+                let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(inf_id).unwrap();
+                assert_eq!(dests.len(), 2, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
+                assert!(dests.contains(&Location::new(0, 0)));
+                assert!(dests.contains(&Location::new(2, 0)));
+            }
         }
-
-        {
-            // 2x1 no wrapping
-            let mut map = MapData::new(Dims::new(2, 1), |_loc| Terrain::Land);
-            let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
-            let unit_namer = IntNamer::new("unit");
-            let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
-
-            let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
-            assert_eq!(dests.len(), 1);
-            assert!(dests.contains(&Location::new(1, 0)));
-        }
-
     }
 
     #[test]
