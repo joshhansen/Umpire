@@ -26,6 +26,9 @@ impl UmpireAction {
     pub fn legal_actions(game: &Game) -> HashSet<Self> {
         let mut a = HashSet::new();
 
+        debug_assert!(!game.turn_is_done());
+
+
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
         if let Some(city_loc) = game.production_set_requests().next() {
             for unit_type in game.valid_productions_conservative(city_loc) {
@@ -40,6 +43,8 @@ impl UmpireAction {
             }
             a.insert(UmpireAction::SkipNextUnit);
         }
+
+        debug_assert!(!a.is_empty());
 
         a
     }
