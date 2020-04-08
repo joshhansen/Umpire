@@ -70,8 +70,8 @@ use crate::{
             Obs,
         },
         player::{
+            LimitedTurnTaker,
             PlayerTurnControl,
-            TurnTaker,
         },
         unit::Unit,
     },
@@ -1067,7 +1067,7 @@ impl UI for TermUI {
     }
 }
 
-impl TurnTaker for TermUI {
+impl LimitedTurnTaker for TermUI {
     fn take_turn(&mut self, ctrl: &mut PlayerTurnControl) {
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;

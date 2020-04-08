@@ -221,8 +221,8 @@ pub enum GameError {
     #[fail(display = "Specified unit is not controlled by the current player")]
     UnitNotControlledByCurrentPlayer,
 
-    #[fail(display = "The unit with ID {:?} has no carrying space", id)]
-    UnitHasNoCarryingSpace { id: UnitID },
+    #[fail(display = "The unit with ID {:?} has no carrying space", carrier_id)]
+    UnitHasNoCarryingSpace { carrier_id: UnitID },
 
     #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} because its transport mode {:?} is
                       incompatible with the carrier's accepted transport mode {:?}", carried_id, carried_transport_mode,
