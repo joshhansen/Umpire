@@ -215,6 +215,10 @@ impl TryFrom<String> for LocationGrid<Tile> {
                                 format!("Unit_{}_{}", loc.x, loc.y)
                             )
                         );
+
+                        // Override the terrain to match the unit
+                        tile.terrain = unit_type.default_terrain();
+
                     } else if let Some(c_lower) = c.to_lowercase().next() {
                         if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
                             tile.unit = Some(
@@ -226,6 +230,9 @@ impl TryFrom<String> for LocationGrid<Tile> {
                                     format!("Unit_{}_{}", loc.x, loc.y)
                                 )
                             );
+
+                            // Override the terrain to match the unit
+                            tile.terrain = unit_type.default_terrain();
                         }
                     }
 
@@ -322,6 +329,10 @@ impl TryFrom<String> for LocationGrid<Obs> {
                                     format!("Unit_{}_{}", loc.x, loc.y)
                                 )
                             );
+
+                            // Override the terrain to match the unit
+                            tile.terrain = unit_type.default_terrain();
+
                         } else if let Some(c_lower) = c.to_lowercase().next() {
                             if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
                                 tile.unit = Some(
@@ -333,6 +344,10 @@ impl TryFrom<String> for LocationGrid<Obs> {
                                         format!("Unit_{}_{}", loc.x, loc.y)
                                     )
                                 );
+
+                                // Override the terrain to match the unit
+                                tile.terrain = unit_type.default_terrain();
+                                
                             }
                         }
 

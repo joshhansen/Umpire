@@ -62,6 +62,13 @@ impl TransportMode {
         }
     }
 
+    pub fn default_terrain(&self) -> Terrain {
+        match self {
+            TransportMode::Land => Terrain::Land,
+            TransportMode::Sea  => Terrain::Water,
+            TransportMode::Air  => Terrain::Land,
+        }
+    }
 }
 
 #[derive(Clone,Debug,PartialEq)]
@@ -281,6 +288,10 @@ impl UnitType {
 
     pub fn can_travese(&self, terrain: Terrain) -> bool {
         self.transport_mode().can_traverse(terrain)
+    }
+
+    pub fn default_terrain(&self) -> Terrain {
+        self.transport_mode().default_terrain()
     }
 
     fn new_carrying_space_for(self, alignment: Alignment) -> Option<CarryingSpace> {
