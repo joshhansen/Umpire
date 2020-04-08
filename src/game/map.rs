@@ -448,7 +448,8 @@ impl MapData {
 
     #[deprecated = "This should be private"]
     pub(crate) fn player_unit_by_id_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
-        self.unit_by_id_mut(id).filter(|unit| unit.id==id)
+        self.unit_by_id_mut(id)
+            .filter(|unit| unit.alignment==Alignment::Belligerent{player} && unit.id==id)
     }
 
     pub fn mark_unit_movement_complete(&mut self, id: UnitID) -> Result<(),GameError> {
@@ -966,5 +967,16 @@ mod test {
             assert_eq!(map.set_terrain(loc, Terrain::Water), Err(GameError::NoTileAtLocation{loc}));
         }
         
+
+    #[test]
+    fn test_player_unit_by_id_mut() {
+        let mut map = MapData::try_from("iI").unwrap();
+        let id1 = map.toplevel_unit_by_loc(Location::new(0,0)).unwrap().id;
+        let id2 = map.toplevel_unit_by_loc(Location::new(1,0)).unwrap().id;
+
+        assert_eq!(map.player_unit_by_id_mut(0, id1).unwrap().id, id1);
+        assert_eq!(map.player_unit_by_id_mut(1, id1), None);
+        assert_eq!(map.player_unit_by_id_mut(0, id2), None);
+        assert_eq!(map.player_unit_by_id_mut(1, id2).unwrap().id, id2);
     }
 }
