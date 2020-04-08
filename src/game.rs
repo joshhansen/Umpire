@@ -781,6 +781,14 @@ impl Game {
             .map(|unit| unit.id)
     }
 
+    /// Which if the current player's units need orders?
+    /// 
+    /// In other words, which of the current player's units have no orders and have moves remaining?
+    pub fn units_with_orders_requests<'a>(&'a self) -> impl Iterator<Item=&Unit> + 'a {
+        self.map.player_units(self.current_player())
+            .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
+    }
+
     pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
         self.current_player_units()
             .filter(|unit| unit.moves_remaining() > 0 && unit.orders.is_some() && *unit.orders.as_ref().unwrap() != Orders::Sentry)
