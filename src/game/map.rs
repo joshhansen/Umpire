@@ -493,6 +493,8 @@ impl MapData {
     /// 
     /// Returns the number of units now carried
     fn _carry_unit_no_checks(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> usize {
+        debug_assert!(self.carry_status(carrier_unit_id, &carried_unit).is_ok());
+
         let carried_unit_id = carried_unit.id;
 
         let (carry_result, carrier_unit_loc) = {
@@ -521,7 +523,7 @@ impl MapData {
         // Now pop away
         let unit = self.pop_unit_by_id(carried_unit_id)
                                      .ok_or(GameError::NoSuchUnit{id: carried_unit_id})?;
-
+        
         // And do the carry without re-checking since we know it will succeed
         Ok(
             self._carry_unit_no_checks(carrier_unit_id, unit)
