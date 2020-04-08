@@ -296,7 +296,7 @@ impl <'a> PlayerTurnControl<'a> {
     /// Sets the production of the current player's city with ID `city_id` to `production`.
     /// 
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
-    pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<(),GameError> {
+    pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<Option<UnitType>,GameError> {
         self.game.set_production_by_id(city_id, production)
     }
 

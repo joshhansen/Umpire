@@ -243,8 +243,7 @@ impl MapData {
     }
 
     /// Get the top-level unit at the given location, if any exists; mutably
-    #[deprecated]
-    pub fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
+    fn toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.unit.as_mut()
         } else {
@@ -266,8 +265,7 @@ impl MapData {
     }
 
     /// Get the top-level unit or carried unit at `loc` which has ID `id`, if any; mutably
-    #[deprecated]
-    pub fn unit_by_loc_and_id_mut(&mut self, loc: Location, id: UnitID) -> Option<&mut Unit> {
+    fn unit_by_loc_and_id_mut(&mut self, loc: Location, id: UnitID) -> Option<&mut Unit> {
         if let Some(toplevel_unit) = self.toplevel_unit_by_loc_mut(loc) {
             if toplevel_unit.id==id {
                 return Some(toplevel_unit);
@@ -289,8 +287,7 @@ impl MapData {
     }
 
     /// Get a mutable reference to the top-level unit at the given location, if any exists
-    #[deprecated]
-    pub fn unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
+    fn unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             tile.unit.as_mut()
         } else {
@@ -441,8 +438,7 @@ impl MapData {
     /// Get the unit with ID `id`, if any, mutably
     /// 
     /// This covers all units, whether top-level or carried.
-    #[deprecated = "This should be private"]
-    pub fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
+    fn unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
     }
 
@@ -546,8 +542,14 @@ impl MapData {
 
     pub fn clear_player_unit_orders(&mut self, player: PlayerNum, unit_id: UnitID) -> Result<Option<Orders>,GameError> {
         let unit = self.player_unit_by_id_mut(player, unit_id)
-        .ok_or(GameError::NoSuchUnit{id:unit_id})?;
+                                  .ok_or(GameError::NoSuchUnit{id:unit_id})?;
         Ok(unit.clear_orders())
+    }
+
+    pub fn activate_player_unit(&mut self, player: PlayerNum, unit_id: UnitID) -> Result<(),GameError> {
+        let unit = self.player_unit_by_id_mut(player, unit_id)
+                                  .ok_or(GameError::NoSuchUnit{id:unit_id})?;
+        Ok(unit.activate())
     }
 
     pub fn new_city<S:Into<String>>(&mut self, loc: Location, alignment: Alignment, name: S) -> Result<&City,String> {
@@ -648,23 +650,11 @@ impl MapData {
         .flat_map(|unit| once(unit).chain(unit.carried_units()))
     }
 
-    #[deprecated = "This should be private"]
-    pub(crate) fn units_mut<F:FnMut(&mut Unit)>(&mut self, mut callback: F) {
-        for unit in self.toplevel_units_mut() {
-            callback(unit);
-
-            for carried_unit in unit.carried_units_mut() {
-                callback(carried_unit);
-            }
-        }
-    }
-
     pub fn player_toplevel_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
         self.toplevel_units().filter(move |unit| unit.belongs_to_player(player))
     }
 
-    #[deprecated]
-    pub fn player_toplevel_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
+    fn player_toplevel_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
         self.toplevel_units_mut().filter(move |unit| unit.belongs_to_player(player))
     }
 
@@ -673,12 +663,7 @@ impl MapData {
         self.units().filter(move |unit| unit.belongs_to_player(player))
     }
 
-    // pub fn player_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut Unit> {
-    //     self.units_mut().filter(move |unit| unit.belongs_to_player(player))
-    // }
-
-    #[deprecated = "This should be private"]
-    pub(crate) fn player_units_mut<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
+    fn player_units_mut<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
         for unit in self.player_toplevel_units_mut(player) {
             callback(unit);
 
@@ -688,24 +673,16 @@ impl MapData {
         }
     }
 
-    // #[deprecated]
-    // pub fn player_units_deep_mutate<F:FnMut(&mut Unit)>(&mut self, player: PlayerNum, mut callback: F) {
-    //     for unit in self.player_toplevel_units_mut(player) {
-    //         callback(unit);
-
-    //         for carried_unit in unit.carried_units_mut() {
-    //             callback(carried_unit);
-    //         }
-    //     }
-    // }
+    pub fn refresh_player_unit_moves_remaining(&mut self, player: PlayerNum) {
+        self.player_units_mut(player, |unit| unit.refresh_moves_remaining());
+    }
 
     /// All cities belonging to the player `player`
     pub fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
         self.cities().filter(move |city| city.belongs_to_player(player))
     }
 
-    #[deprecated]
-    pub fn player_cities_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut City> {
+    fn player_cities_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut City> {
         self.cities_mut().filter(move |city| city.belongs_to_player(player))
     }
 
@@ -713,13 +690,27 @@ impl MapData {
         self.city_by_loc_mut(loc).filter(|city| city.belongs_to_player(player))
     }
 
+    fn player_city_by_id_mut(&mut self, player: PlayerNum, city_id: CityID) -> Option<&mut City> {
+        self.city_by_id_mut(city_id).filter(|city| city.belongs_to_player(player))
+    }
+
     pub fn player_cities_with_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
         self.player_cities(player).filter(|city| city.production().is_some())
     }
 
-    #[deprecated]
-    pub fn player_cities_with_production_target_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut City> {
+    fn player_cities_with_production_target_mut(&mut self, player: PlayerNum) -> impl Iterator<Item=&mut City> {
         self.player_cities_mut(player).filter(|city| city.production().is_some())
+    }
+
+    pub fn increment_player_city_production_targets(&mut self, player: PlayerNum) {
+        let max_unit_cost: u16 = UnitType::values().iter().map(|ut| ut.cost()).max().unwrap();
+        for city in self.player_cities_with_production_target_mut(player) {
+            // We cap the production progress since, in weird circumstances such as a city having a unit blocking its
+            // production for a very long time, the production progress adds can overflow
+            if city.production_progress < max_unit_cost {
+                city.production_progress += 1;
+            }
+        }
     }
 
     pub fn player_cities_lacking_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
@@ -761,6 +752,11 @@ impl MapData {
     pub fn set_player_city_production_by_loc(&mut self, player: PlayerNum, loc: Location, production: UnitType) -> Result<Option<UnitType>,GameError> {
         self.player_city_by_loc_mut(player, loc).map(|city| city.set_production(production))
                                                 .ok_or(GameError::NoCityAtLocation{loc})
+    }
+
+    pub fn set_player_city_production_by_id(&mut self, player: PlayerNum, city_id: CityID, production: UnitType) -> Result<Option<UnitType>,GameError> {
+        self.player_city_by_id_mut(player, city_id).map(|city| city.set_production(production))
+                                                .ok_or(GameError::NoSuchCity{id: city_id})
     }
 }
 

@@ -356,15 +356,17 @@ impl Game {
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
-        let max_unit_cost: u16 = UnitType::values().iter().map(|ut| ut.cost()).max().unwrap();
+        // let max_unit_cost: u16 = UnitType::values().iter().map(|ut| ut.cost()).max().unwrap();
 
-        for city in self.current_player_cities_with_production_target_mut() {
-            // We cap the production progress since, in weird circumstances such as a city having a unit blocking its
-            // production for a very long time, the production progress adds can overflow
-            if city.production_progress < max_unit_cost {
-                city.production_progress += 1;
-            }
-        }
+        // for city in self.current_player_cities_with_production_target_mut() {
+        //     // We cap the production progress since, in weird circumstances such as a city having a unit blocking its
+        //     // production for a very long time, the production progress adds can overflow
+        //     if city.production_progress < max_unit_cost {
+        //         city.production_progress += 1;
+        //     }
+        // }
+
+        self.map.increment_player_city_production_targets(self.current_player());
 
         let producing_city_locs: Vec<Location> = self.current_player_cities_with_production_target()
             .filter(|city| {
@@ -426,7 +428,8 @@ impl Game {
     }
 
     fn refresh_moves_remaining(&mut self) {
-        self.current_player_units_mut(|unit: &mut Unit| unit.refresh_moves_remaining());
+        // self.current_player_units_mut(|unit: &mut Unit| unit.refresh_moves_remaining());
+        self.map.refresh_player_unit_moves_remaining(self.current_player());
     }
 
     fn begin_turn(&mut self) -> TurnStart {
@@ -642,15 +645,15 @@ impl Game {
         self.map.player_cities_with_production_target(self.current_player())
     }
 
-    /// All cities controlled by the current player which have a production target set, mutably
-    fn current_player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
-        self.map.player_cities_with_production_target_mut(self.current_player())
-    }
+    // /// All cities controlled by the current player which have a production target set, mutably
+    // fn current_player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
+    //     self.map.player_cities_with_production_target_mut(self.current_player())
+    // }
 
-    /// Mutate all units controlled by the current player according to the callback `callback`
-    fn current_player_units_mut<F:FnMut(&mut Unit)>(&mut self, callback: F) {
-        self.map.player_units_mut(self.current_player(), callback);
-    }
+    // /// Mutate all units controlled by the current player according to the callback `callback`
+    // fn current_player_units_mut<F:FnMut(&mut Unit)>(&mut self, callback: F) {
+    //     self.map.player_units_mut(self.current_player(), callback);
+    // }
 
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
     /// 
@@ -700,11 +703,6 @@ impl Game {
         // self.map.units().filter(move |unit| unit.alignment != Alignment::Belligerent{player:current_player})
     }
 
-    /// Every unit controlled by the current player, mutably
-    // fn current_player_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
-    //     self.map.player_units_mut(self.current_player())
-    // }
-
     /// If the current player controls a city at location `loc`, return it
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
@@ -715,19 +713,14 @@ impl Game {
         self.current_player_cities().find(|city| city.id==city_id)
     }
 
-    /// If the current player controls a city with ID `city_id`, return it mutably
-    pub fn current_player_city_by_id_mut(&mut self, city_id: CityID) -> Option<&mut City> {
-        self.map.player_cities_mut(self.current_player()).find(|city| city.id==city_id)
-    }
+    // /// If the current player controls a city with ID `city_id`, return it mutably
+    // pub fn current_player_city_by_id_mut(&mut self, city_id: CityID) -> Option<&mut City> {
+    //     self.map.player_cities_mut(self.current_player()).find(|city| city.id==city_id)
+    // }
 
     /// If the current player controls a unit with ID `id`, return it
     pub fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
         self.current_player_units().find(|unit| unit.id==id)
-    }
-
-    /// If the current player controls a unit with ID `id`, return it mutably
-    fn current_player_unit_by_id_mut(&mut self, id: UnitID) -> Option<&mut Unit> {
-        self.map.player_unit_by_id_mut(self.current_player(), id)
     }
 
     /// If the current player controls a unit with ID `id`, return its location
@@ -738,16 +731,6 @@ impl Game {
     /// If the current player controls the top-level unit at location `loc`, return it
     pub fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
         self.current_player_tile(loc).and_then(|tile| tile.unit.as_ref())
-    }
-
-    /// If the current player controls the top-level unit at location `loc`, return it mutably
-    fn current_player_toplevel_unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
-        if self.current_player_toplevel_unit_by_loc(loc).is_some() {
-            self.map.toplevel_unit_by_loc_mut(loc)
-        } else {
-            None
-        }
-        // self.current_player_tile_mut(loc).and_then(|tile| tile.unit.as_ref())
     }
 
     pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
@@ -986,7 +969,6 @@ impl Game {
                         // the friendly unit must have space for us in its carrying capacity or else the
                         // path search wouldn't have included it
                         move_.carrier = Some(other_unit.id);
-                        self.map.carry_unit_by_id(other_unit.id, unit_id).unwrap();
                         unit.record_movement(1).unwrap();
 
                     } else {
@@ -1120,10 +1102,8 @@ impl Game {
     /// Sets the production of the current player's city with ID `city_id` to `production`.
     /// 
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
-    pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<(),GameError> {
-        let city = self.current_player_city_by_id_mut(city_id).ok_or_else(|| GameError::NoSuchCity{id: city_id})?;
-        city.set_production(production);
-        Ok(())
+    pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<Option<UnitType>,GameError> {
+        self.map.set_player_city_production_by_id(self.current_player(), city_id, production)
     }
 
     //FIXME Restrict to current player cities
@@ -1228,20 +1208,18 @@ impl Game {
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
     pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
-        let current_player = self.current_player();
-        if let Some(unit) = self.current_player_toplevel_unit_by_loc_mut(loc) {
-            if unit.belongs_to_player(current_player) {
-                unit.orders = None;
-                for carried_unit in unit.carried_units_mut() {
-                    carried_unit.orders = None;
-                }
-                Ok(())
-            } else {
-                Err(GameError::UnitNotControlledByCurrentPlayer{})
+        let unit_id = {
+            let unit = self.map.toplevel_unit_by_loc(loc)
+                                    .ok_or(GameError::NoUnitAtLocation{loc})?;
+
+            if !unit.belongs_to_player(self.current_player()) {
+                return Err(GameError::UnitNotControlledByCurrentPlayer{});
             }
-        } else {
-            Err(GameError::NoUnitAtLocation{ loc })
-        }
+
+            unit.id
+        };
+
+        self.map.activate_player_unit(self.current_player(), unit_id)
     }
 
     /// If the current player controls a unit with ID `id`, set its orders to `orders`
@@ -1285,11 +1263,6 @@ impl Game {
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
     fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> OrdersResult {
-        // ProposedSetAndFollowOrders {
-        //     unit_id: id,
-        //     orders,
-        //     proposed_orders_result: orders.propose(id, self)
-        // }
         let mut new = self.clone();
         new.set_and_follow_orders(id, orders)
     }

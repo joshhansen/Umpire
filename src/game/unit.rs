@@ -498,6 +498,13 @@ impl Unit {
         self.orders.take()
     }
 
+    pub fn activate(&mut self) {
+        self.orders = None;
+        for carried_unit in self.carried_units_mut() {
+            carried_unit.orders = None;
+        }
+    }
+
     pub fn transport_mode(&self) -> TransportMode {
         self.type_.transport_mode()
     }
