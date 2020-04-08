@@ -381,6 +381,9 @@ impl Policy<Game> for UmpireRandom {
     
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> usize {
+        debug_assert!(!state.turn_is_done(), "It makes no sense to sample actions for a game whose current turn is
+                                              already done");
+
         self.canonical_legal_indices(state).choose(rng).cloned().unwrap()
     }
 
@@ -418,6 +421,9 @@ impl<Q> UmpireGreedy<Q> {
     pub fn new(q_func: Q) -> Self { Self(q_func) }
 
     pub fn legal_argmax_qs(qs: &[f64], state: &Game) -> usize {
+        debug_assert!(!state.turn_is_done(), "It makes no sense to sample actions for a game whose current turn is
+                                              already done");
+
         let legal = UmpireRandom::new().canonical_legal_indices(state);
         legal_argmaxima(qs, &legal).1[0]
     }
