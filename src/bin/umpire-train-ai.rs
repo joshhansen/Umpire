@@ -263,7 +263,7 @@ impl UmpireDomain {
             self.game.end_turn().unwrap();
 
             let mut ctrl = self.game.player_turn_control(1);
-            TurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
+            LimitedTurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
             // self.random_ai.take_turn(&mut ctrl);
             // Turn gets ended when ctrl goes out of scope
         }
