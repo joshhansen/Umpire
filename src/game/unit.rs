@@ -277,6 +277,14 @@ impl UnitType {
         }
     }
 
+    pub fn carrying_capacity(self) -> usize {
+        match self {
+            UnitType::Carrier => 5,
+            UnitType::Transport => 4,
+            _ => 0,
+        }
+    }
+
     /// Can this type of unit occupy cities?
     pub fn can_occupy_cities(self) -> bool {
         self.transport_mode() == TransportMode::Land
