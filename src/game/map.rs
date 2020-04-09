@@ -163,7 +163,14 @@ impl MapData {
     /// Add a top-level unit (and all carried units) to the relevant indices
     fn index_toplevel_unit(&mut self, unit: &Unit) {
         let overwritten_loc: Option<Location> = self.unit_loc_by_id.insert(unit.id, unit.loc);
-        debug_assert!(overwritten_loc.is_none());
+        debug_assert_eq!(
+            overwritten_loc,
+            None,
+            "Tried to index a unit {:?} but an entry already exists for its ID in unit_loc_by_id; points to tile {:?}",
+            unit,
+            overwritten_loc.map(|loc| self.tile(loc).unwrap())
+        );
+
 
         for carried_unit in unit.carried_units() {
             self.index_carried_unit(&carried_unit, &unit);
