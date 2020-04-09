@@ -246,7 +246,7 @@ impl UI for DefaultUI {
         None
     }
     
-    fn cursor_viewport_loc(&self, _mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+    fn cursor_viewport_loc(&self, _mode: &Mode, _game: &PlayerTurnControl) -> Option<Location> {
         None
     }
     
@@ -718,10 +718,6 @@ impl TermUI {
 
     fn ensure_map_loc_visible(&mut self, map_loc: Location) {
         self.map_scroller.scrollable.center_viewport_if_not_visible(map_loc);
-    }
-
-    fn confirm_turn_end(&self) -> bool {
-        self.confirm_turn_end
     }
 
     fn map(&self) -> &Map {
