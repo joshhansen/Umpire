@@ -82,7 +82,16 @@ impl fmt::Debug for Tile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref _city) = self.city {
             if let Some(ref unit) = self.unit {
-                write!(f, "{}", unit.type_.key())
+
+                // Capitalize if it belongs to player 1
+                let key: char = if let Alignment::Belligerent{player:1} = unit.alignment() {
+                    unit.type_.key().to_uppercase().next().unwrap()
+                } else {
+                    unit.type_.key()
+                };
+
+                write!(f, "{}", key)
+
             } else {
                 write!(f, "#")
             }
@@ -110,7 +119,6 @@ mod test {
         },
         util::Location
     };
-
 
     #[test]
     fn test_tile() {
