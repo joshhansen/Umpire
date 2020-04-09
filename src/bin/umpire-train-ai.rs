@@ -654,6 +654,14 @@ fn main() {
             episodes.map(|_n| ()).map_err(|_e| format!("Invalid episodes '{}'", s))
         })
     )
+    .arg(
+        Arg::with_name("out")
+        // .short("o")
+        // .long("out")
+        .help("Output path")
+        // .takes_value(true)
+        .required(true)
+    )
     // .arg(
     //     Arg::with_name("rel_height")
     //     .short("h")
@@ -703,6 +711,7 @@ fn main() {
     let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
     // let rel_height: usize = matches.value_of("rel_height").unwrap().parse().unwrap();
     // let rel_width: usize = matches.value_of("rel_width").unwrap().parse().unwrap();
+    let output_path = matches.value_of("out").unwrap();
     let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
     let verbose = matches.is_present("verbose");
 
@@ -734,7 +743,7 @@ fn main() {
 
     let data = bincode::serialize(&rl_ai).unwrap();
 
-    let path = Path::new("ai/ai1.model");
+    let path = Path::new(output_path);
     let display = path.display();
 
     let mut file = match File::create(&path) {
