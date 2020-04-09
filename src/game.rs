@@ -2203,9 +2203,6 @@ mod test {
 
         let mut map = MapData::try_from("tt").unwrap();
 
-        map.set_terrain(l1, Terrain::Water).unwrap();
-        map.set_terrain(l2, Terrain::Water).unwrap();
-
         let t1_id = map.toplevel_unit_id_by_loc(l1).unwrap();
 
         {
