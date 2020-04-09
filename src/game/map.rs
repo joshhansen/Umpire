@@ -13,7 +13,10 @@ pub use self::tile::Tile;
 pub use self::grid::LocationGrid;
 
 use std::{
-    collections::HashMap,
+    collections::{
+        BinaryHeap,
+        HashMap,
+    },
     convert::TryFrom,
     fmt::{
         Debug,
@@ -101,13 +104,26 @@ impl MapData {
     }
 
     pub fn new_from_grid(tiles: LocationGrid<Tile>) -> Self {
+
+        let next_city_id: CityID = tiles.iter().filter_map(|tile| tile.city.as_ref())
+                                               .map(|city| city.id)
+                                               .max()
+                                               .map(|id| id.next())
+                                               .unwrap_or(CityID::default());
+
+        let next_unit_id: UnitID = tiles.iter().filter_map(|tile| tile.unit.as_ref())
+                                                       .map(|unit| unit.id)
+                                                       .max()
+                                                       .map(|id| id.next())
+                                                       .unwrap_or(UnitID::default());
+        
         let mut map_data = Self {
             tiles,
             unit_loc_by_id: HashMap::new(),
             unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
-            next_unit_id: UnitID::default(),
-            next_city_id: CityID::default(),
+            next_city_id,
+            next_unit_id,
         };
 
         map_data.index();
@@ -874,6 +890,9 @@ mod test {
 
         assert_eq!(city_id, CityID::default());
         assert_eq!(unit_id, UnitID::default());
+
+
+
 
         let map = MapData::try_from("iiiiii000000").unwrap();
         assert_eq!(map.next_city_id, CityID::new(6));

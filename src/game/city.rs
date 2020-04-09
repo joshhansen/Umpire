@@ -13,7 +13,7 @@ use crate::{
     util::{Location,Located},
 };
 
-#[derive(Clone,Copy,Debug,Eq,Hash,PartialEq)]
+#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub struct CityID {
     id: u64
 }
