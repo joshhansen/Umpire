@@ -335,7 +335,7 @@ impl MapData {
     /// Remove the top-level unit with ID `id` (if any exists) and return it
     pub fn pop_toplevel_unit_by_id(&mut self, id: UnitID) -> Option<Unit> {
         if let Some(loc) = self.unit_loc_by_id.get(&id).cloned() {
-            self.pop_toplevel_unit_by_loc(loc)
+            self.pop_toplevel_unit_by_loc_and_id(loc, id)
         } else {
             None
         }
@@ -1135,4 +1135,36 @@ mod test {
         assert_eq!(map.player_unit_by_id_mut(0, id2), None);
         assert_eq!(map.player_unit_by_id_mut(1, id2).unwrap().id, id2);
     }
+
+    /// Make sure we pop the right unit when popping a carried unit by ID
+    #[test]
+    fn test_pop_carried_unit_by_id() {
+        let mut map = MapData::try_from("it").unwrap();
+        let infantry_id = map.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
+        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1,0)).unwrap();
+        
+        // Carry the unit
+        map.carry_unit_by_id(transport_id, infantry_id).unwrap();
+
+        // Now pop it
+        let unit = map.pop_unit_by_id(infantry_id).unwrap();
+        assert_eq!(unit.id, infantry_id, "Popped the wrong unit");
+    }
+
+    /// Make sure pop_toplevel_unit_by_id only pops toplevel units with the right ID, not carrier units which occupy the
+    /// same location but don't have the specified ID
+    #[test]
+    fn test_pop_toplevel_unit_by_id() {
+        let mut map = MapData::try_from("it").unwrap();
+        let infantry_id = map.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
+        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1,0)).unwrap();
+        
+        // Carry the unit
+        map.carry_unit_by_id(transport_id, infantry_id).unwrap();
+
+        // Now pop it
+        assert_eq!(map.pop_toplevel_unit_by_id(infantry_id), None);
+    }
+
+
 }
