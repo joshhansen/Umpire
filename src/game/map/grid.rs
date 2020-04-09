@@ -160,12 +160,10 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
 /// * whitespace characters correspond to water
 ///
 /// Error if there are no lines or if the lines aren't of equal length
-/// 
-/// FIXME Eliminate the duplication with TryFrom<String> for LocationGrid<Obs>
 impl TryFrom<String> for LocationGrid<Tile> {
     type Error = String;
     fn try_from(s: String) -> Result<LocationGrid<Tile>,String> {
-        let lines = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
+        let lines: Vec<Vec<char>> = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
         if lines.is_empty() {
             return Err(String::from("String contained no lines"));
         }
@@ -183,63 +181,142 @@ impl TryFrom<String> for LocationGrid<Tile> {
 
         let height = lines.len() as u16;
 
-        Ok(
-            LocationGrid::new(
-                Dims{width: width as u16, height: height as u16 },
-                |loc| {
-                    let c = lines[loc.y as usize][loc.x as usize];
-                    let mut tile = Tile::new(
-                        if c==' ' {
-                            Terrain::Water
-                        } else {
-                            Terrain::Land
-                        },
-                        loc
-                    );
-                    let id: u64 = u64::from(loc.x * height + loc.y);
-                    if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
-                        tile.city = Some(City::new(
-                            CityID::new(id),
-                            Alignment::Belligerent{player: player_num},
+        let mut grid = LocationGrid::new(Dims::new(width as u16, height as u16), |loc| {
+            let c = lines[loc.y as usize][loc.x as usize];
+            Tile::new(
+                if c==' ' {
+                    Terrain::Water
+                } else {
+                    Terrain::Land
+                },
+                loc
+            )
+        });
+
+        let mut next_city_id = CityID::default();
+        let mut next_unit_id = UnitID::default();
+
+        for (y,line) in lines.iter().enumerate() {
+            for (x, c) in line.iter().enumerate() {
+                let loc = Location::new(x as u16, y as u16);
+                let tile = grid.get_mut(loc).unwrap();
+
+                if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
+                    tile.city = Some(City::new(
+                        // CityID::new(id),
+                        next_city_id,
+                        Alignment::Belligerent{player: player_num},
+                        loc,
+                        format!("City_{}_{}", loc.x, loc.y)
+                    ));
+                    next_city_id = next_city_id.next();
+                }
+                if let Ok(unit_type) = UnitType::try_from_key(*c) {
+                    tile.unit = Some({
+                        let unit = Unit::new(
+                            // UnitID::new(id),
+                            next_unit_id,
                             loc,
-                            format!("City_{}_{}", loc.x, loc.y)
-                        ));
-                    }
-                    if let Ok(unit_type) = UnitType::try_from_key(c) {
-                        tile.unit = Some(
-                            Unit::new(
-                                UnitID::new(id),
+                            unit_type,
+                            Alignment::Belligerent{player: 0},
+                            format!("Unit_{}_{}", loc.x, loc.y)
+                        );
+                        next_unit_id = next_unit_id.next();
+                        unit
+                    });
+
+                    // Override the terrain to match the unit
+                    tile.terrain = unit_type.default_terrain();
+
+                } else if let Some(c_lower) = c.to_lowercase().next() {
+                    if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
+                        tile.unit = Some({
+                            let unit = Unit::new(
+                                // UnitID::new(id),
+                                next_unit_id,
                                 loc,
                                 unit_type,
-                                Alignment::Belligerent{player: 0},
+                                Alignment::Belligerent{player: 1},
                                 format!("Unit_{}_{}", loc.x, loc.y)
-                            )
-                        );
+                            );
+                            next_unit_id = next_unit_id.next();
+                            unit
+                        });
 
                         // Override the terrain to match the unit
                         tile.terrain = unit_type.default_terrain();
-
-                    } else if let Some(c_lower) = c.to_lowercase().next() {
-                        if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
-                            tile.unit = Some(
-                                Unit::new(
-                                    UnitID::new(id),
-                                    loc,
-                                    unit_type,
-                                    Alignment::Belligerent{player: 1},
-                                    format!("Unit_{}_{}", loc.x, loc.y)
-                                )
-                            );
-
-                            // Override the terrain to match the unit
-                            tile.terrain = unit_type.default_terrain();
-                        }
                     }
-
-                    tile
                 }
-            )
-        )
+            }
+        }
+
+        Ok(grid)
+
+        // Ok(
+        //     LocationGrid::new(
+        //         Dims{width: width as u16, height: height as u16 },
+        //         |loc| {
+        //             let c = lines[loc.y as usize][loc.x as usize];
+        //             let mut tile = Tile::new(
+        //                 if c==' ' {
+        //                     Terrain::Water
+        //                 } else {
+        //                     Terrain::Land
+        //                 },
+        //                 loc
+        //             );
+        //             // let id: u64 = u64::from(loc.x * height + loc.y);
+        //             if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
+        //                 tile.city = Some(City::new(
+        //                     // CityID::new(id),
+        //                     next_city_id,
+        //                     Alignment::Belligerent{player: player_num},
+        //                     loc,
+        //                     format!("City_{}_{}", loc.x, loc.y)
+        //                 ));
+        //                 next_city_id = next_city_id.next();
+        //             }
+        //             if let Ok(unit_type) = UnitType::try_from_key(c) {
+        //                 tile.unit = Some({
+        //                     let unit = Unit::new(
+        //                         // UnitID::new(id),
+        //                         next_unit_id,
+        //                         loc,
+        //                         unit_type,
+        //                         Alignment::Belligerent{player: 0},
+        //                         format!("Unit_{}_{}", loc.x, loc.y)
+        //                     );
+        //                     next_unit_id = next_unit_id.next();
+        //                     unit
+        //                 });
+
+        //                 // Override the terrain to match the unit
+        //                 tile.terrain = unit_type.default_terrain();
+
+        //             } else if let Some(c_lower) = c.to_lowercase().next() {
+        //                 if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
+        //                     tile.unit = Some({
+        //                         let unit = Unit::new(
+        //                             // UnitID::new(id),
+        //                             next_unit_id,
+        //                             loc,
+        //                             unit_type,
+        //                             Alignment::Belligerent{player: 1},
+        //                             format!("Unit_{}_{}", loc.x, loc.y)
+        //                         );
+        //                         next_unit_id = next_unit_id.next();
+        //                         unit
+        //                     });
+
+        //                     // Override the terrain to match the unit
+        //                     tile.terrain = unit_type.default_terrain();
+        //                 }
+        //             }
+
+        //             tile
+        //         }
+        //     )
+        // )
     }
 }
 
@@ -269,94 +346,110 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
 ///  - whitespace characters correspond to water
 ///
 /// Error if there are no lines or if the lines aren't of equal length
-/// 
-/// FIXME Eliminate the duplication with TryFrom<String> for LocationGrid<Tile>
 impl TryFrom<String> for LocationGrid<Obs> {
     type Error = String;
     fn try_from(s: String) -> Result<LocationGrid<Obs>,String> {
         let lines = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
-        if lines.is_empty() {
-            return Err(String::from("String contained no lines"));
-        }
 
-        let width = lines[0].len();
-        if lines.len() == 1 && width == 0 {
-            return Err(String::from("No map was provided (the string was empty)"));
-        }
+        let tile_grid: LocationGrid<Tile> = LocationGrid::try_from(s).unwrap();
 
-        for line in &lines {
-            if line.len() != width {
-                return Err(format!("Lines aren't all the same width. Expected {}, found {}", width, line.len()));
-            }
-        }
-
-        let height = lines.len() as u16;
-
-        Ok(
-            LocationGrid::new(
-                Dims{width: width as u16, height },
-                |loc| {
-                    let c = lines[loc.y as usize][loc.x as usize];
-                    if c == '?' {
-                        Obs::Unobserved
-                        // None
-                    } else {
-                        let mut tile = Tile::new(
-                            if c==' ' {
-                                Terrain::Water
-                            } else {
-                                Terrain::Land
-                            },
-                            loc
-                        );
-
-                        let id: u64 = u64::from(loc.x * height + loc.y);
-                        if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
-                            tile.city = Some(City::new(
-                                CityID::new(id),
-                                Alignment::Belligerent{player: player_num},
-                                loc,
-                                format!("City_{}_{}", loc.x, loc.y)
-                            ));
-                        }
-                        if let Ok(unit_type) = UnitType::try_from_key(c) {
-                            tile.unit = Some(
-                                Unit::new(
-                                    UnitID::new(id),
-                                    loc,
-                                    unit_type,
-                                    Alignment::Belligerent{player: 0},
-                                    format!("Unit_{}_{}", loc.x, loc.y)
-                                )
-                            );
-
-                            // Override the terrain to match the unit
-                            tile.terrain = unit_type.default_terrain();
-
-                        } else if let Some(c_lower) = c.to_lowercase().next() {
-                            if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
-                                tile.unit = Some(
-                                    Unit::new(
-                                        UnitID::new(id),
-                                        loc,
-                                        unit_type,
-                                        Alignment::Belligerent{player: 1},
-                                        format!("Unit_{}_{}", loc.x, loc.y)
-                                    )
-                                );
-
-                                // Override the terrain to match the unit
-                                tile.terrain = unit_type.default_terrain();
-                                
-                            }
-                        }
-
-                        // Obs::Observed{tile, turn: 0}
-                        Obs::Observed{ tile, turn: 0, current: false }
-                    }
+        let obs_vecs: Vec<Vec<Obs>> = tile_grid.grid.iter()
+                                                               .map(|col: &Vec<Tile>| {
+            col.iter().cloned().map(|tile| {
+                let loc = tile.loc;
+                let c = lines[loc.y as usize][loc.x as usize];
+                if c == '?' {
+                    Obs::Unobserved
+                } else {
+                    Obs::Observed{tile, turn: 0, current: false}
                 }
-            )
-        )
+            }).collect()
+        }).collect();
+
+        Ok(LocationGrid::new_from_vec(tile_grid.dims(), obs_vecs))
+
+        // if lines.is_empty() {
+        //     return Err(String::from("String contained no lines"));
+        // }
+
+        // let width = lines[0].len();
+        // if lines.len() == 1 && width == 0 {
+        //     return Err(String::from("No map was provided (the string was empty)"));
+        // }
+
+        // for line in &lines {
+        //     if line.len() != width {
+        //         return Err(format!("Lines aren't all the same width. Expected {}, found {}", width, line.len()));
+        //     }
+        // }
+
+        // let height = lines.len() as u16;
+
+        // Ok(
+        //     LocationGrid::new(
+        //         Dims{width: width as u16, height },
+        //         |loc| {
+        //             let c = lines[loc.y as usize][loc.x as usize];
+        //             if c == '?' {
+        //                 Obs::Unobserved
+        //                 // None
+        //             } else {
+        //                 let mut tile = Tile::new(
+        //                     if c==' ' {
+        //                         Terrain::Water
+        //                     } else {
+        //                         Terrain::Land
+        //                     },
+        //                     loc
+        //                 );
+
+        //                 let id: u64 = u64::from(loc.x * height + loc.y);
+        //                 if let Ok(player_num) = format!("{}", c).parse::<PlayerNum>() {
+        //                     tile.city = Some(City::new(
+        //                         CityID::new(id),
+        //                         Alignment::Belligerent{player: player_num},
+        //                         loc,
+        //                         format!("City_{}_{}", loc.x, loc.y)
+        //                     ));
+        //                 }
+        //                 if let Ok(unit_type) = UnitType::try_from_key(c) {
+        //                     tile.unit = Some(
+        //                         Unit::new(
+        //                             UnitID::new(id),
+        //                             loc,
+        //                             unit_type,
+        //                             Alignment::Belligerent{player: 0},
+        //                             format!("Unit_{}_{}", loc.x, loc.y)
+        //                         )
+        //                     );
+
+        //                     // Override the terrain to match the unit
+        //                     tile.terrain = unit_type.default_terrain();
+
+        //                 } else if let Some(c_lower) = c.to_lowercase().next() {
+        //                     if let Ok(unit_type) = UnitType::try_from_key(c_lower) {
+        //                         tile.unit = Some(
+        //                             Unit::new(
+        //                                 UnitID::new(id),
+        //                                 loc,
+        //                                 unit_type,
+        //                                 Alignment::Belligerent{player: 1},
+        //                                 format!("Unit_{}_{}", loc.x, loc.y)
+        //                             )
+        //                         );
+
+        //                         // Override the terrain to match the unit
+        //                         tile.terrain = unit_type.default_terrain();
+                                
+        //                     }
+        //                 }
+
+        //                 // Obs::Observed{tile, turn: 0}
+        //                 Obs::Observed{ tile, turn: 0, current: false }
+        //             }
+        //         }
+        //     )
+        // )
     }
 }
 

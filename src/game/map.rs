@@ -867,6 +867,11 @@ mod test {
 
         assert_eq!(city_id, CityID::default());
         assert_eq!(unit_id, UnitID::default());
+
+        let map = MapData::try_from("iiiiii000000").unwrap();
+        assert_eq!(map.next_city_id, CityID::new(6));
+        assert_eq!(map.next_unit_id, UnitID::new(6));
+
     }
 
     #[test]
