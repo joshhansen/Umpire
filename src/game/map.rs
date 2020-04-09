@@ -493,7 +493,10 @@ impl MapData {
     /// 
     /// Returns the number of units now carried
     fn _carry_unit_no_checks(&mut self, carrier_unit_id: UnitID, carried_unit: Unit) -> usize {
-        debug_assert!(self.carry_status(carrier_unit_id, &carried_unit).is_ok());
+        debug_assert_eq!(self.carry_status(carrier_unit_id, &carried_unit), Ok(()),
+            "Error carrying unit {:?} on unit {:?}",
+            carried_unit, self.unit_by_id(carrier_unit_id),
+        );
 
         let carried_unit_id = carried_unit.id;
 
