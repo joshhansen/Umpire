@@ -8,7 +8,6 @@ use crate::{
             LimitedTurnTaker,
         },
         unit::{
-            Unit,
             UnitType,
         },
     },
@@ -16,7 +15,6 @@ use crate::{
         Location,
     },
 };
-use std::collections::HashSet;
 
 pub struct RandomAI {
     unit_type_vec: Vec<UnitType>,
