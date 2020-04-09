@@ -17,7 +17,7 @@ use crate::{
 
 
 /// What a particular player knows about a tile
-#[derive(Clone,PartialEq)]
+#[derive(Clone,Debug,PartialEq)]
 pub enum Obs {
     Observed{tile: Tile, turn: TurnNum, current: bool},
     Unobserved
@@ -33,7 +33,7 @@ impl Obs {
     }
 }
 
-impl fmt::Debug for Obs {
+impl fmt::Display for Obs {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Obs::Observed{tile, ..} => tile.fmt(f),
