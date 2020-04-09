@@ -979,6 +979,22 @@ impl Game {
                         // the friendly unit must have space for us in its carrying capacity or else the
                         // path search wouldn't have included it
                         move_.carrier = Some(other_unit.id);
+                        if let Err(e) = self.map.carry_unit_by_id(other_unit.id, unit_id) {
+                            let src_tile = self.map.tile(prev_loc).unwrap();
+                            let tile = self.map.tile(loc).unwrap();
+
+                            panic!("Could not carry unit for some weird reason: {:?}
+                                    tile: {:?}
+                                    tile city: {:?}
+                                    tile unit: {:?}
+                                    unit: {:?}
+                                    src_tile: {:?}
+                                    src_tile city: {:?}
+                                    src_tile unit: {:?}",
+                                    e, tile, tile.city, tile.unit, unit,
+                                       src_tile, src_tile.city, src_tile.unit
+                            );
+                        }
                         unit.record_movement(1).unwrap();
 
                     } else {
