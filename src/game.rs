@@ -2196,7 +2196,7 @@ mod test {
     }
 
     #[test]
-    fn test_transport_moves_on_transport() {
+    fn test_transport_moves_on_transport_unloaded() {
         
         let l1 = Location::new(0,0);
         let l2 = Location::new(1,0);
@@ -2222,8 +2222,57 @@ mod test {
 
         game.move_unit_by_id_in_direction(t1_id, Direction::Right)
             .expect_err("Transport should not be able to move onto transport");
+    }
+
+    #[test]
+    fn test_transport_moves_on_transport_loaded() {
+        
+        let l1 = Location::new(1,0);
+        let l2 = Location::new(2,0);
+
+        
+
+        let mut map = MapData::try_from(".tt.").unwrap();
+
+        let t1_id = map.toplevel_unit_id_by_loc(l1).unwrap();
+        let t2_id = map.toplevel_unit_id_by_loc(l2).unwrap();
+
+        for i in 0..3 {
+            println!("{}", i);
+            let id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0},
+            format!("inf{}", i)).unwrap();
+            map.carry_unit_by_id(t1_id, id).unwrap();
+        }
+
+        for i in 0..3 {
+            let id = map.new_unit(Location::new(3,0), UnitType::Infantry, Alignment::Belligerent{player:0},
+            format!("inf{}", i+100)).unwrap();
+            map.carry_unit_by_id(t2_id, id).unwrap();
+        }
+
+        
+
+        {
+            let unit_namer = IntNamer::new("unit");
+            let mut game = Game::new_with_map(map.clone(), 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+            game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+                .expect_err("Transport should not be able to move onto transport");
+
+            game.move_unit_by_id_in_direction(t2_id, Direction::Left)
+                .expect_err("Transport should not be able to move onto transport");
+
+        }
 
 
+        let mut map2 = map.clone();
+        map2.new_city(l2, Alignment::Belligerent{player:0}, "city").unwrap();
+
+        let unit_namer = IntNamer::new("unit");
+        let mut game = Game::new_with_map(map2, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+
+        game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+            .expect_err("Transport should not be able to move onto transport");
     }
 
     #[test]
@@ -2266,4 +2315,31 @@ mod test {
             }
         }
     }
+
+
+    // skip
+    // UnitID { id: 27 } (4,1) -> (3,0)
+    // ··tt#
+    // i···#
+    // ····i
+    // ·#···
+    // ·····
+    
+    // UnitID { id: 28 } (3,0) -> (2,0)
+    // thread 'game::ai::random::test::test_random_ai' panicked at 'assertion failed: `(left == right)`
+    //   left: `Err(WrongTransportMode { carried_id: UnitID { id: 26 }, carrier_transport_mode: Land, carried_transport_mode: Sea })`,
+    //  right: `Ok(())`: Error carrying unit Unit { id: UnitID { id: 26 }, loc: (3, 0), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 1, name: "unit79", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [Unit { id: UnitID { id: 27 }, loc: (3, 0), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 0, name: "unit83", orders: None, carrying_space: None }, Unit { id: UnitID { id: 28 }, loc: (3, 0), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 1, name: "unit92", orders: None, carrying_space: None }] }) } on unit Some(Unit { id: UnitID { id: 33 }, loc: (2, 0), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 2, name: "unit118", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [] }) })', src/game/map.rs:496:9
+
+    // UnitID { id: 22 } (1,4) -> (2,4)
+    // #··t·
+    // ·····
+    // ·····
+    // ····#
+    // ··t··
+
+    // UnitID { id: 21 } (2,4) -> (3,0)
+    // thread 'game::ai::random::test::test_random_ai' panicked at 'assertion failed: `(left == right)`
+    // left: `Err(WrongTransportMode { carried_id: UnitID { id: 18 }, carrier_transport_mode: Land, carried_transport_mode: Sea })`,
+    // right: `Ok(())`: Error carrying unit Unit { id: UnitID { id: 18 }, loc: (2, 4), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 1, name: "unit53", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [Unit { id: UnitID { id: 16 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 0, name: "unit41", orders: None, carrying_space: None }, Unit { id: UnitID { id: 22 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 0, name: "unit77", orders: None, carrying_space: None }, Unit { id: UnitID { id: 21 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 1, name: "unit70", orders: None, carrying_space: None }, Unit { id: UnitID { id: 24 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 1, name: "unit82", orders: None, carrying_space: None }] }) } on unit Some(Unit { id: UnitID { id: 25 }, loc: (3, 0), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 2, name: "unit83", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [] }) })', src/game/map.rs:496:9
+
 }
