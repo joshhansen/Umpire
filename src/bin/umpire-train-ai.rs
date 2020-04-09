@@ -370,7 +370,11 @@ impl UmpireRandom {
     /// The indices of all legal actions for a given game state, given in a consistent manner regardless of which (if
     /// any) are actually present.
     fn canonical_legal_indices(&self, state: &Game) -> Vec<usize> {
-        UmpireAction::legal_actions(state).iter().map(|action| {
+        let legal = UmpireAction::legal_actions(state);
+
+        debug_assert!(!legal.is_empty());
+
+        legal.iter().map(|action| {
             self.possible_indices.get(action).cloned().unwrap()
         }).collect()
     }
@@ -398,6 +402,9 @@ impl Policy<Game> for UmpireRandom {
 }
 
 fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
+    debug_assert!(!vals.is_empty());
+    debug_assert!(!legal_indices.is_empty());
+
     let mut max = std::f64::MIN;
     let mut ixs = vec![];
 
@@ -412,6 +419,8 @@ fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
         }
     }
 
+    debug_assert!(!ixs.is_empty(), "Found no legal argmaxima. vals: {:?}, legal_indices: {:?}, max: {}, ixs: {:?}", vals, legal_indices, max, ixs);
+
     (max, ixs)
 }
 
@@ -424,8 +433,17 @@ impl<Q> UmpireGreedy<Q> {
         debug_assert!(!state.turn_is_done(), "It makes no sense to sample actions for a game whose current turn is
                                               already done");
 
+        debug_assert!(!qs.is_empty());
+
         let legal = UmpireRandom::new().canonical_legal_indices(state);
-        legal_argmaxima(qs, &legal).1[0]
+
+        debug_assert!(!legal.is_empty());
+
+        let argmaxima = legal_argmaxima(qs, &legal).1;
+
+        debug_assert!(!argmaxima.is_empty());
+
+        argmaxima[0]
     }
 }
 

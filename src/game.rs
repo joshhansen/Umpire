@@ -974,6 +974,8 @@ impl Game {
                     // If it is a friendly unit:
                     if unit.is_friendly_to(other_unit) {
 
+                        debug_assert!(other_unit.can_carry_unit(&unit));
+
                         // the friendly unit must have space for us in its carrying capacity or else the
                         // path search wouldn't have included it
                         move_.carrier = Some(other_unit.id);
