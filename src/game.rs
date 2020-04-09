@@ -294,8 +294,10 @@ pub struct Game {
 impl Game {
     /// Creates a new game instance
     ///
-    /// The Game that is returned will already have begun with the first player's turn
-    /// A map with the specified dimensions will be generated
+    /// The Game that is returned will already have begun with the first player's turn.
+    /// 
+    /// A map with the specified dimensions will be generated. City names are taken from `city_namer`
+    /// 
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observations growing stale over time.
     pub fn new<N:Namer>(
@@ -310,11 +312,9 @@ impl Game {
         Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 
-    // pub fn new_with_map_and_players(
+    /// Creates a new game instance from a pre-generated map
     pub fn new_with_map(
             map: MapData,
-            // player_types: Vec<PlayerType>,
-            // players: Vec<Rc<Receiver<PlayerCommand>>>,
             num_players: PlayerNum,
             fog_of_war: bool,
             unit_namer: Option<Rc<RwLock<dyn Namer>>>,
