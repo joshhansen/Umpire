@@ -8,8 +8,8 @@
 
 use std::{
     io::{BufRead,BufReader,Write,stdout},
+    rc::Rc,
     sync::{
-        Arc,
         RwLock,
     },
     thread,
@@ -219,7 +219,7 @@ fn main() {
         city_namer,
         player_types.len(),
         fog_of_war,
-        Arc::new(RwLock::new(unit_namer)),
+        Some(Rc::new(RwLock::new(unit_namer))),
         wrapping,
     );
 

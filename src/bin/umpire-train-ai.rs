@@ -12,12 +12,10 @@ use std::{
         HashMap,
         HashSet,
     },
+    fs::File,
     io::Write,
     rc::Rc,
-    sync::{
-        Arc,
-        RwLock,
-    }, path::Path, fs::File,
+    path::Path,
 };
 
 use clap::{Arg};
@@ -204,14 +202,13 @@ struct UmpireDomain {
 impl UmpireDomain {
     fn new(map_dims: Dims, verbose: bool) -> Self {
         let city_namer = IntNamer::new("city");
-        let unit_namer = IntNamer::new("unit");
     
         let game = Game::new(
             map_dims,
             city_namer,
             2,
             false,
-            Arc::new(RwLock::new(unit_namer)),
+            None,
             Wrap2d::BOTH,
         );
 
@@ -764,10 +761,6 @@ mod test {
             HashMap,
             HashSet,
         },
-        sync::{
-            Arc,
-            RwLock
-        }
     };
 
     use rand::{
@@ -789,7 +782,6 @@ mod test {
             },
             unit::UnitType, Game,
         },
-        name::IntNamer,
         util::{
             Dims,
             Direction,
@@ -815,8 +807,7 @@ mod test {
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
         let _unit_id = map.new_unit(Location::new(5,5), UnitType::Infantry,
             Alignment::Belligerent{player:0}, "Aragorn").unwrap();
-        let unit_namer = IntNamer::new("unit");
-        let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         let mut directions: HashSet<Direction> = Direction::values().iter().cloned().collect();
 

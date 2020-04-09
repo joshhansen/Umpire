@@ -108,10 +108,6 @@ impl LimitedTurnTaker for RandomAI {
 mod test {
     use std::{
         convert::TryFrom,
-            sync::{
-            Arc,
-            RwLock,
-        }
     };
 
     use crate::{
@@ -145,8 +141,7 @@ mod test {
             // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
             map.new_city(Location::new(0,0), Alignment::Belligerent{player:0}, "Hebevund").unwrap();
 
-            let unit_namer = IntNamer::new("unit");
-            let mut game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+            let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
             let mut ctrl = game.player_turn_control(0);
 
             for _ in 0..1000 {
@@ -160,8 +155,7 @@ mod test {
             let players = 2;
             let mut city_namer = IntNamer::new("city");
             let map = generate_map(&mut city_namer, Dims::new(5, 5), players);
-            let unit_namer = IntNamer::new("unit");
-            let mut game = Game::new_with_map(map, players, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+            let mut game = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
             for i in 0..300 {
                 for player in 0..=1 {
@@ -201,8 +195,7 @@ mod test {
 
         map.carry_unit_by_id(transport_id, infantry_id).unwrap();
 
-        let unit_namer = IntNamer::new("unit");
-        let game = Game::new_with_map(map, 2, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let game = Game::new_with_map(map, 2, true, None, Wrap2d::BOTH);
 
         let mut ai = RandomAI::new(false);
 

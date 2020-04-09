@@ -22,8 +22,8 @@ pub mod unit;
 use std::{
     collections::{HashMap,HashSet},
     fmt,
+    rc::Rc,
     sync::{
-        Arc,
         RwLock,
     },
 };
@@ -71,7 +71,10 @@ use crate::{
             },
         },
     },
-    name::Namer,
+    name::{
+        IntNamer,
+        Namer,
+    },
     util::{
         Dims,
         Dimensioned,
@@ -283,7 +286,7 @@ pub struct Game {
     wrapping: Wrap2d,
 
     /// A name generator to give names to units
-    unit_namer: Arc<RwLock<dyn Namer>>,
+    unit_namer: Rc<RwLock<dyn Namer>>,
 
     /// Whether players have full information about the map, or have their knowledge obscured by the "fog of war".
     fog_of_war: bool,
@@ -299,10 +302,8 @@ impl Game {
             map_dims: Dims,
             mut city_namer: N,
             num_players: PlayerNum,
-            // player_types: Vec<PlayerType>,
-            // players: Vec<Rc<Receiver<PlayerCommand>>>,
             fog_of_war: bool,
-            unit_namer: Arc<RwLock<dyn Namer>>,
+            unit_namer: Option<Rc<RwLock<dyn Namer>>>,
             wrapping: Wrap2d) -> Self {
 
         let map = generate_map(&mut city_namer, map_dims, num_players);
@@ -316,7 +317,7 @@ impl Game {
             // players: Vec<Rc<Receiver<PlayerCommand>>>,
             num_players: PlayerNum,
             fog_of_war: bool,
-            unit_namer: Arc<RwLock<dyn Namer>>,
+            unit_namer: Option<Rc<RwLock<dyn Namer>>>,
             wrapping: Wrap2d) -> Self {
 
         let mut player_observations = HashMap::new();
@@ -331,7 +332,7 @@ impl Game {
             num_players,
             current_player: 0,
             wrapping,
-            unit_namer,
+            unit_namer: unit_namer.unwrap_or(Rc::new(RwLock::new(IntNamer::new("unit")))),
             fog_of_war,
         };
 
@@ -1435,9 +1436,11 @@ impl DerefVec for Game {
 /// Test support functions
 pub mod test_support {
 
-    use std::sync::{
-        Arc,
-        RwLock,
+    use std::{
+        rc::Rc,
+        sync::{
+            RwLock,
+        }
     };
 
     use crate::{
@@ -1514,7 +1517,7 @@ pub mod test_support {
  
         let map = map_two_cities(Dims::new(10, 10));
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH)
+        Game::new_with_map(map, players, fog_of_war, Some(Rc::new(RwLock::new(unit_namer))), Wrap2d::BOTH)
     }
 
     pub(crate) fn game_two_cities_dims(dims: Dims) -> Game {
@@ -1523,7 +1526,7 @@ pub mod test_support {
  
         let map = map_two_cities(dims);
         let unit_namer = unit_namer();
-        let mut game = Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, players, fog_of_war, Some(Rc::new(RwLock::new(unit_namer))), Wrap2d::BOTH);
 
         let loc: Location = game.production_set_requests().next().unwrap();
 
@@ -1555,7 +1558,7 @@ pub mod test_support {
         let fog_of_war = false;
         let map = map_tunnel(dims);
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER)
+        Game::new_with_map(map, players, fog_of_war, Some(Rc::new(RwLock::new(unit_namer))), Wrap2d::NEITHER)
     }
 
     // pub(crate) fn game_two_cities() -> Game {
@@ -1599,15 +1602,10 @@ mod test {
             HashSet,
         },
         convert::TryFrom,
+        rc::Rc,
         sync::{
-            Arc,
             RwLock,
         },
-    };
-
-    use rand::{
-        thread_rng,
-        distributions::Distribution,
     };
 
     use crate::{
@@ -1687,7 +1685,7 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(map, 2, false, Arc::new(RwLock::new(unit_namer())), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 2, false, Some(Rc::new(RwLock::new(unit_namer()))), Wrap2d::BOTH);
         assert_eq!(game.current_player(), 0);
 
         let productions = vec![UnitType::Armor, UnitType::Carrier];
@@ -1786,8 +1784,7 @@ mod test {
 
         let transport_id = map.toplevel_unit_by_loc(Location::new(1,0)).unwrap().id;
 
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         game.move_unit_by_id_in_direction(transport_id, Direction::Left).unwrap();
         game.move_unit_by_id_in_direction(transport_id, Direction::Right).unwrap();
@@ -1807,7 +1804,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer())), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
         let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
         assert_eq!(move_result.starting_loc, infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
@@ -1830,8 +1827,7 @@ mod test {
             let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
             let battleship_id = map.toplevel_unit_by_loc(Location::new(2, 0)).unwrap().id;
             
-            let unit_namer = IntNamer::new("unit");
-            let mut game = Game::new_with_map(map, 2, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+            let mut game = Game::new_with_map(map, 2, false, None, Wrap2d::NEITHER);
             
             // Load the infantry onto the transport
             let inf_move = game.move_unit_by_id_in_direction(infantry_id, Direction::Right).unwrap();
@@ -1888,9 +1884,8 @@ mod test {
 
     #[test]
     fn test_set_orders() {
-        let unit_namer = IntNamer::new("abc");
         let map = MapData::try_from("i").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
         assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, None);
@@ -1903,9 +1898,8 @@ mod test {
 
      #[test]
     pub fn test_order_unit_explore() {
-        let unit_namer = IntNamer::new("unit");
         let map = MapData::try_from("i--------------------").unwrap();
-        let mut game = Game::new_with_map(map, 1, true, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
         
@@ -1969,8 +1963,7 @@ mod test {
                                         let map = MapData::try_from(s.clone()).unwrap();
                                         assert_eq!(map.dims(), Dims::new(3, 3));
 
-                                        let unit_namer = IntNamer::new("unit");
-                                        let game = Game::new_with_map(map, 2, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+                                        let game = Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
 
                                         let id = game.current_player_toplevel_unit_by_loc(Location{x:1,y:1}).unwrap().id;
 
@@ -2013,8 +2006,7 @@ mod test {
                 // 1x1
                 let mut map = MapData::new(Dims::new(1,1), |_loc| Terrain::Land);
                 let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
-                let unit_namer = IntNamer::new("unit");
-                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
+                let game = Game::new_with_map(map, 1, false, None, wrapping);
 
                 assert!(
                     game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().is_empty()
@@ -2025,8 +2017,7 @@ mod test {
                 // 2x1
                 let mut map = MapData::new(Dims::new(2, 1), |_loc| Terrain::Land);
                 let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
-                let unit_namer = IntNamer::new("unit");
-                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
+                                let game = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
                 assert_eq!(dests.len(), 1, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
@@ -2037,8 +2028,7 @@ mod test {
                 // 3x1
                 let mut map = MapData::new(Dims::new(3, 1), |_loc| Terrain::Land);
                 let unit_id = map.new_unit(Location::new(1,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
-                let unit_namer = IntNamer::new("unit");
-                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
+                                let game = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
                 assert_eq!(dests.len(), 2, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
@@ -2053,8 +2043,7 @@ mod test {
                 let inf_id = map.toplevel_unit_id_by_loc(Location::new(2, 0)).unwrap();
                 map.carry_unit_by_id(transport_id, inf_id).unwrap();
 
-                let unit_namer = IntNamer::new("unit");
-                let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), wrapping);
+                let game = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(inf_id).unwrap();
                 assert_eq!(dests.len(), 2, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
@@ -2069,8 +2058,7 @@ mod test {
         let mut map = MapData::new(Dims::new(10, 10), |_loc| Terrain::Land);
         let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
 
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         // let mut rand = thread_rng();
 
@@ -2111,8 +2099,7 @@ mod test {
     pub fn test_order_unit_skip() {
         let mut map = MapData::new(Dims::new(10, 10), |_loc| Terrain::Land);
         let unit_id = map.new_unit(Location::new(0, 0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Skipper").unwrap();
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         game.move_unit_by_id_in_direction(unit_id, Direction::Right).unwrap();
         game.end_turn().unwrap();
@@ -2156,8 +2143,7 @@ mod test {
                 map.set_unit(l1, u1.clone());
                 map.set_unit(l2, u2.clone());
 
-                let unit_namer = IntNamer::new("unit");
-                let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+                let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
                 let result = game.move_unit_by_id_in_direction(u1.id, Direction::Right);
                 
                 if u2.can_carry_unit(&u1) {
@@ -2178,8 +2164,7 @@ mod test {
         let unit_id = map.new_unit(loc, UnitType::Submarine,
             Alignment::Belligerent{player:0}, "K-19").unwrap();
 
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
         
         
 
@@ -2201,13 +2186,12 @@ mod test {
         let l1 = Location::new(0,0);
         let l2 = Location::new(1,0);
 
-        let mut map = MapData::try_from("tt").unwrap();
+        let map = MapData::try_from("tt").unwrap();
 
         let t1_id = map.toplevel_unit_id_by_loc(l1).unwrap();
 
         {
-            let unit_namer = IntNamer::new("unit");
-            let mut game = Game::new_with_map(map.clone(), 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+            let mut game = Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
 
             game.move_unit_by_id_in_direction(t1_id, Direction::Right)
                 .expect_err("Transport should not be able to move onto transport");
@@ -2217,8 +2201,7 @@ mod test {
         let mut map2 = map.clone();
         map2.new_city(l2, Alignment::Belligerent{player:0}, "city").unwrap();
 
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map2, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
         game.move_unit_by_id_in_direction(t1_id, Direction::Right)
             .expect_err("Transport should not be able to move onto transport");
@@ -2253,8 +2236,7 @@ mod test {
         
 
         {
-            let unit_namer = IntNamer::new("unit");
-            let mut game = Game::new_with_map(map.clone(), 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+            let mut game = Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
 
             game.move_unit_by_id_in_direction(t1_id, Direction::Right)
                 .expect_err("Transport should not be able to move onto transport");
@@ -2268,8 +2250,7 @@ mod test {
         let mut map2 = map.clone();
         map2.new_city(l2, Alignment::Belligerent{player:0}, "city").unwrap();
 
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map2, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
         game.move_unit_by_id_in_direction(t1_id, Direction::Right)
             .expect_err("Transport should not be able to move onto transport");
@@ -2279,8 +2260,7 @@ mod test {
     fn test_shortest_paths_carrying() {
         let map = MapData::try_from("t t  ").unwrap();
 
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         game.move_toplevel_unit_by_loc(Location::new(0,0), Location::new(4, 0))
             .expect_err("Transports shouldn't traverse transports on their way somewhere");
@@ -2289,8 +2269,7 @@ mod test {
     #[test]
     fn test_valid_productions_conservative() {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
-        let unit_namer = IntNamer::new("unit");
-        let game = Game::new_with_map(map, 1, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::NEITHER);
+        let game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         let city_loc = game.production_set_requests().next().unwrap();
 

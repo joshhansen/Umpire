@@ -265,13 +265,6 @@ impl IMode for TurnOverMode {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        sync::{
-            Arc,
-            RwLock,
-        },
-    };
-
     use crate::{
         game::{
             Alignment,
@@ -283,9 +276,6 @@ mod test {
             unit::{
                 UnitType,
             },
-        },
-        name::{
-            IntNamer,
         },
         ui::DefaultUI,
         util::{Dims,Location,Wrap2d},
@@ -304,9 +294,7 @@ mod test {
         let other_unit_id = map.new_unit(Location::new(9, 0), UnitType::Infantry,
             Alignment::Belligerent{player:1}, "Non-Skipper").unwrap();
 
-
-        let unit_namer = IntNamer::new("unit");
-        let mut game = Game::new_with_map(map, 2, false, Arc::new(RwLock::new(unit_namer)), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
 
         {
             let mut ctrl = game.player_turn_control(0);
