@@ -1438,6 +1438,25 @@ impl DerefVec for Game {
 
         // General statistics
 
+        // - current turn
+        x.push(self.turn as f64);
+
+        // - number of cities player controls
+
+        x.push(self.current_player_cities().count() as f64);
+
+        // - number of tiles observed
+        let num_observed = self.current_player_observations()
+                                    .iter()
+                                    .filter(|obs| **obs != Obs::Unobserved)
+                                    .count() as f64;
+        
+        x.push(num_observed);
+
+        // - percentage of tiles observed
+        x.push(num_observed / self.dims().area() as f64);
+
+        // - number of each type of unit controlled by player
         let type_counts = self.current_player_unit_type_counts();
         let counts_vec: Vec<f64> = UnitType::values().iter()
                                     .map(|type_| *type_counts.get(type_).unwrap_or(&0) as f64)
@@ -1447,14 +1466,8 @@ impl DerefVec for Game {
 
         let observations = self.player_observations.get(&0).unwrap();
 
-        // // Absolutely positioned
-        // for obs in observations.iter() {
-        //     x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
-        // }
-
-        // Relatively positioned
+        // Relatively positioned around next unit (if any)
         let unit_id = self.unit_orders_requests().next();
-        // let unit_loc = unit_id.map(|unit_id| self.current_player_unit_loc(unit_id).unwrap());
         let unit_loc = unit_id.map(|unit_id| {
             match self.current_player_unit_loc(unit_id) {
                 Some(loc) => loc,
@@ -1465,8 +1478,6 @@ impl DerefVec for Game {
         });
 
         for loc in Dims::new(10, 10).iter_locs() {
-
-        // for loc in self.dims().iter_locs() {
             let inc: Vec2d<i32> = loc.into();
 
             let obs = if let Some(unit_loc) = unit_loc {
