@@ -103,6 +103,10 @@ impl UmpireAction {
         Err(())
     }
 
+    pub fn to_idx(&self) -> usize {
+        Self::possible_actions().into_iter().position(|a| *self == a).unwrap()
+    }
+
     pub fn take(&self, game: &mut Game) {
         match *self {
             UmpireAction::SetNextCityProduction{unit_type} => {
@@ -130,11 +134,18 @@ impl UmpireAction {
     }
 }
 
-pub fn find_legal_max<Q:EnumerableStateActionFunction<Game>>(q_func: &Q, state: &Game) -> (usize, f64) {
-    let legal = UmpireAction::legal_actions(state);
+pub fn find_legal_max<Q:EnumerableStateActionFunction<Game>>(q_func: &Q, state: &Game, avoid_skip: bool) -> (usize, f64) {
+
+    let mut legal = UmpireAction::legal_actions(state);
+
     let possible = UmpireAction::possible_actions();
 
-    let qs = q_func.evaluate_all(state);
+    let mut qs = q_func.evaluate_all(state);
+
+    if legal.contains(&UmpireAction::SkipNextUnit) && legal.len() > 1 && avoid_skip {
+        legal.remove(&UmpireAction::SkipNextUnit);
+        qs.remove(UmpireAction::SkipNextUnit.to_idx());
+    }
 
     qs.into_iter().enumerate()
         .filter(|(i,_x)| legal.contains(possible.get(*i).unwrap()))
@@ -144,17 +155,17 @@ pub fn find_legal_max<Q:EnumerableStateActionFunction<Game>>(q_func: &Q, state: 
 
 #[derive(Deserialize, Serialize)]
 pub struct RL_AI<Q> {
-    q_func: Q
+    q_func: Q,
+    avoid_skip: bool,
 }
 impl <Q: EnumerableStateActionFunction<Game>> RL_AI<Q> {
-    pub fn new(q_func: Q) -> Self {
-        Self { q_func }
+    pub fn new(q_func: Q, avoid_skip: bool) -> Self {
+        Self { q_func, avoid_skip }
     }
 
     fn _take_turn_unended(&mut self, game: &mut Game) {
         while !game.turn_is_done() {
-            let action_idx = find_legal_max(&self.q_func, game).0;
-
+            let action_idx = find_legal_max(&self.q_func, game, self.avoid_skip).0;
             let action = UmpireAction::from_idx(action_idx).unwrap();
             action.take(game);
         }

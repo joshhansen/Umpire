@@ -641,6 +641,7 @@ impl<V: Clone> StateFunction<Game> for UmpireConstant<V> {
 
 struct UmpireAgent<Q,P> {
     q: QLearning<Q,P>,
+    avoid_skip: bool,
 }
 
 impl<Q, P> OnlineLearner<Game, P::Action> for UmpireAgent<Q, P>
@@ -661,7 +662,7 @@ where
     fn sample_target(&self, _: &mut impl Rng, s: &Game) -> P::Action {
         // self.q.q_func.find_max(s).0
         // self.find_legal_max(s).0
-        find_legal_max(&self.q.q_func, s).0
+        find_legal_max(&self.q.q_func, s, self.avoid_skip).0
     }
 
     fn sample_behaviour(&self, rng: &mut impl Rng, s: &Game) -> P::Action {
@@ -680,7 +681,7 @@ fn get_bounds(d: &Interval) -> (f64, f64) {
     }
 }
 
-fn agent(domain_builder: &dyn Fn() -> UmpireDomain, verbose: bool) ->
+fn agent(domain_builder: &dyn Fn() -> UmpireDomain, avoid_skip: bool, verbose: bool) ->
         UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
             UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
 
@@ -715,17 +716,16 @@ fn agent(domain_builder: &dyn Fn() -> UmpireDomain, verbose: bool) ->
         0.2
     );
 
-    UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0)}
+    UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0), avoid_skip}
 }
 
-fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize, steps: u64, verbose: bool) ->
+fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize, steps: u64, avoid_skip: bool, verbose: bool) ->
         UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
             UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
-                
 
     let logger = logging::root(logging::stdout());
 
-    let mut agent = agent(&*domain_builder, verbose);
+    let mut agent = agent(&*domain_builder, avoid_skip, verbose);
 
 
     // Start a serial learning experiment up to 1000 steps per episode.
@@ -743,6 +743,12 @@ fn main() {
     let matches = cli::app("Umpire AI Trainer", "mvHW")
     .version(conf::APP_VERSION)
     .author("Josh Hansen <hansen.joshuaa@gmail.com>")
+    .arg(
+        Arg::with_name("avoid_skip")
+        .short("a")
+        .long("avoid_skip")
+        .help("Execute policies in a way that avoids the SkipNextUnit action when possible")
+    )
     .arg(
         Arg::with_name("episodes")
         .short("e")
@@ -806,6 +812,7 @@ fn main() {
     .get_matches();
 
     let ai_model_path = matches.value_of("ai_model").map(String::from);
+    let avoid_skip = matches.is_present("avoid_skip");
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
     let evaluate = matches.is_present("evaluate");
     let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
@@ -837,7 +844,7 @@ fn main() {
     let qf = {
         let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
 
-        let mut agent = trained_agent(domain_builder.clone(), episodes, steps, verbose);
+        let mut agent = trained_agent(domain_builder.clone(), episodes, steps, avoid_skip, verbose);
 
         if evaluate {
         
@@ -853,7 +860,7 @@ fn main() {
     let qfd = Rc::try_unwrap(qf).unwrap().into_inner();
     let qfdd = Rc::try_unwrap(qfd.0).unwrap().into_inner();
 
-    let rl_ai = RL_AI::new(qfdd);
+    let rl_ai = RL_AI::new(qfdd, avoid_skip);
 
     let data = bincode::serialize(&rl_ai).unwrap();
 
@@ -918,7 +925,7 @@ mod test {
         let n = 100000;
 
         let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(10, 10), None, false));
-        let agent = trained_agent(domain_builder, 10, 50, false);
+        let agent = trained_agent(domain_builder, 10, 50, false, false);
 
 
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
