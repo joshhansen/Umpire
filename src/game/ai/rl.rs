@@ -49,6 +49,25 @@ impl UmpireAction {
         a
     }
 
+    // UnitType::Infantry,    0
+    // UnitType::Armor,       1
+    // UnitType::Fighter,     2
+    // UnitType::Bomber,      3
+    // UnitType::Transport,   4
+    // UnitType::Destroyer,   5
+    // UnitType::Submarine,   6
+    // UnitType::Cruiser,     7
+    // UnitType::Battleship,  8
+    // UnitType::Carrier      9
+    // Direction::Up,         10
+    // Direction::Down,       11
+    // Direction::Left,       12
+    // Direction::Right,      13
+    // Direction::UpLeft,     14
+    // Direction::UpRight,    15
+    // Direction::DownLeft,   16
+    // Direction::DownRight,  17
+    // SkipNextTurn           18
     pub fn possible_actions() -> Vec<Self> {
         let mut a = Vec::new();
         for unit_type in UnitType::values().iter().cloned() {
@@ -117,33 +136,40 @@ pub fn find_legal_max<Q:EnumerableStateActionFunction<Game>>(q_func: &Q, state: 
 
     let qs = q_func.evaluate_all(state);
 
-    let mut iter = qs.into_iter().enumerate()
+    qs.into_iter().enumerate()
         .filter(|(i,_x)| legal.contains(possible.get(*i).unwrap()))
-    ;
-    let first = iter.next().unwrap();
-
-    iter.fold(first, |acc, (i, x)| if acc.1 > x { acc } else { (i, x) })
+        .max_by(|a,b| a.1.partial_cmp(&b.1).unwrap())
+        .unwrap()
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct RL_AI<Q> {
     q_func: Q
 }
-impl <Q> RL_AI<Q> {
+impl <Q: EnumerableStateActionFunction<Game>> RL_AI<Q> {
     pub fn new(q_func: Q) -> Self {
         Self { q_func }
     }
-}
-impl <Q: EnumerableStateActionFunction<Game>> TurnTaker for RL_AI<Q> {
-    fn take_turn(&mut self, game: &mut Game) {
 
+    fn _take_turn_unended(&mut self, game: &mut Game) {
         while !game.turn_is_done() {
             let action_idx = find_legal_max(&self.q_func, game).0;
 
             let action = UmpireAction::from_idx(action_idx).unwrap();
             action.take(game);
         }
+    }
+}
+impl <Q: EnumerableStateActionFunction<Game>> TurnTaker for RL_AI<Q> {
+    fn take_turn(&mut self, game: &mut Game) {
+        self._take_turn_unended(game);
 
         game.end_turn().unwrap();
+    }
+
+    fn take_turn_clearing(&mut self, game: &mut Game) {
+        self._take_turn_unended(game);
+
+        game.end_turn_clearing().unwrap();
     }
 }

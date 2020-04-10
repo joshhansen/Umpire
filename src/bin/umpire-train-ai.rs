@@ -12,6 +12,7 @@ use std::{
         HashMap,
         HashSet,
     },
+    fmt,
     fs::File,
     io::Write,
     rc::Rc,
@@ -22,7 +23,7 @@ use clap::{Arg};
 
 use rand::{
     Rng,
-    seq::SliceRandom,
+    seq::SliceRandom, thread_rng,
 };
 
 use rsrl::{
@@ -42,6 +43,7 @@ use rsrl::{
         StateFunction,
         linear::{
             basis::{
+                Constant,
                 Polynomial,
             },
             optim::SGD,
@@ -79,8 +81,10 @@ use umpire::{
                 UmpireAction, find_legal_max,
             }, RL_AI,
         },
-        combat::CombatCapable,
-        player::{LimitedTurnTaker},
+        player::{
+            LimitedTurnTaker,
+            TurnTaker,
+        },
         // test_support::{
         //     game_two_cities_two_infantry,
         //     game_two_cities_two_infantry_big,
@@ -98,12 +102,17 @@ use umpire::{
     },
 };
 
+// /// How valuable is it to have observed a tile at all?
+// const TILE_OBSERVED_BASE_SCORE: f64 = 10.0;
 
-/// How important is a city in and of itself?
-const CITY_INTRINSIC_SCORE: f64 = 1000.0;
-const VICTORY_SCORE: f64 = 999999.0;
+// /// How much is each point of controlled unit production cost (downweighted for reduced HP) worth?
+// const UNIT_MULTIPLIER: f64 = 10.0;
 
+// /// How important is a city in and of itself?
+// const CITY_INTRINSIC_SCORE: f64 = 1000.0;
+// const VICTORY_SCORE: f64 = 999999.0;
 
+type Basis = Constant;
 
 
 pub struct UmpireStateSpace {
@@ -188,44 +197,87 @@ impl Space for UmpireActionSpace {
     }
 }
 
+// fn current_player_score(game: &Game) -> f64 {
+//     let mut score = 0.0;
+
+//     // Observations
+//     let observed_tiles = game.current_player_observations().iter()
+//                              .filter(|obs| **obs != Obs::Unobserved)
+//                              .count();
+//     score += observed_tiles as f64 * TILE_OBSERVED_BASE_SCORE;
+
+//     // Controlled units
+//     for unit in game.current_player_units() {
+//         // The cost of the unit scaled by the unit's current hitpoints relative to maximum
+//         score += UNIT_MULTIPLIER * (unit.type_.cost() as f64) * (unit.hp() as f64) / (unit.max_hp() as f64);
+//     }
+
+//     // Controlled cities
+//     for city in game.current_player_cities() {
+//         // The city's intrinsic value plus any progress it's made toward producing its unit
+//         score += CITY_INTRINSIC_SCORE + city.production_progress as f64 * UNIT_MULTIPLIER;
+//     }
+
+//     // Victory
+//     if let Some(victor) = game.victor() {
+//         if victor == game.current_player() {
+//             score += VICTORY_SCORE;
+//         }
+//     }
+
+//     score
+// }
+
 /// The domain of the game of Umpire being played by player 0 against an AI opponent
 struct UmpireDomain {
     /// The game state
     game: Game,
 
     /// Our formidable foe
-    random_ai: RandomAI,
+    opponent: Box<dyn TurnTaker>,
 
     verbose: bool,
 }
 
 impl UmpireDomain {
-    fn new(map_dims: Dims, verbose: bool) -> Self {
+    fn _instantiate_opponent(ai_model_path: Option<&String>, verbose: bool) -> Box<dyn TurnTaker> {
+        let opponent: Box<dyn TurnTaker> = if let Some(ai_model_path) = ai_model_path {
+            let f = File::open(Path::new(ai_model_path.as_str())).unwrap();
+            let rl_ai: RL_AI<LFA<Basis,SGD,VectorFunction>> = bincode::deserialize_from(f).unwrap();
+            Box::new(rl_ai)
+        } else {
+            Box::new(RandomAI::new(verbose))
+        };
+        opponent
+    }
+
+    fn new(map_dims: Dims, ai_model_path: Option<&String>, verbose: bool) -> Self {
         let city_namer = IntNamer::new("city");
     
         let game = Game::new(
             map_dims,
             city_namer,
             2,
-            false,
+            true,
             None,
             Wrap2d::BOTH,
         );
 
+        let opponent = Self::_instantiate_opponent(ai_model_path, verbose);
+
         Self {
-            // game: game_two_cities_two_infantry_dims(dims),
-            // game: game_tunnel(dims),
             game,
-            random_ai: RandomAI::new(verbose),
+            opponent,
             verbose,
         }
     }
 
     #[cfg(test)]
-    fn from_game(game: Game, verbose: bool) -> Self {
+    fn from_game(game: Game, ai_model_path: Option<&String>, verbose: bool) -> Self {
+        let opponent = Self::_instantiate_opponent(ai_model_path, verbose);
         Self {
             game,
-            random_ai: RandomAI::new(verbose),
+            opponent,
             verbose,
         }
     }
@@ -255,37 +307,83 @@ impl UmpireDomain {
             println!("AI Score: {}", self.current_player_score());
         }
 
-        // Run AI turns until the human player has something to do
+        // If the user's turn is done, end it and take a complete turn for the other player until there's something
+        // for this user to do or the game is over
         while self.game.victor().is_none() && self.game.turn_is_done() {
-            self.game.end_turn().unwrap();
+            // End this user's turn
+            self.game.end_turn_clearing().unwrap();
 
-            let mut ctrl = self.game.player_turn_control(1);
-            LimitedTurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
-            // self.random_ai.take_turn(&mut ctrl);
-            // Turn gets ended when ctrl goes out of scope
+            // Play the other player's turn to completion
+            // let mut ctrl = self.game.player_turn_control_clearing(1);
+            // while ctrl.victor().is_none() && !ctrl.turn_is_done() {
+            //     // LimitedTurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
+            //     TurnTaker::take_turn_clearing(self.opponent.as_mut(), &mut ctrl);
+            // }
+
+            TurnTaker::take_turn_clearing(self.opponent.as_mut(), &mut self.game);
+
+            debug_assert_eq!(self.game.current_player(), 0);
+
+            // while self.game.victor().is_none() && !self.game.turn_is_done() {
+            //     TurnTaker::take_turn_clearing(self.opponent.as_mut(), &mut self.game);
+            // }
         }
+
+        
+
+        
+
+        // // Run AI turns until the human player has something to do
+        // while self.game.victor().is_none() && self.game.turn_is_done() {
+
+        //     // Clear productions for cities that complete units so the AI can update---keeps it from getting stuck
+        //     // in a state where it could never win the game (e.g. producing only fighters)
+        //     let result = self.game.end_turn().unwrap().unwrap();
+
+        //     for prod in result.production_outcomes {
+        //         if let UnitProductionOutcome::UnitProduced{city, ..} = prod {
+        //             self.game.clear_production_without_ignoring(city.loc).unrwap();
+        //         }
+        //     }
+
+        //     let mut ctrl = self.game.player_turn_control(1);
+        //     LimitedTurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
+
+        //     if ctrl.turn_is_done() {
+        //         let result = ctrl.end_turn().unwrap().unwrap();
+
+        //         for prod in result.production_outcomes {
+        //             if let UnitProductionOutcome::UnitProduced{city, ..} = prod {
+        //                 productions_to_clear.push(city.loc);
+        //             }
+        //         }
+        //     }
+        //     // Turn gets ended when ctrl goes out of scope
+        // }
     }
 
+    /// For our purposes, the player's score is their own inherent score minus all other players' scores.
     fn current_player_score(&self) -> f64 {
-        let mut score = 0.0;
+        let scores = self.game.player_scores();
+        scores[self.game.current_player()]
 
-        for unit in self.game.current_player_units() {
-            // The cost of the unit scaled by the unit's current hitpoints relative to maximum
-            score += (unit.type_.cost() as f64) * (unit.hp() as f64) / (unit.max_hp() as f64);
-        }
+        // let mut score = 0.0;
 
-        for city in self.game.current_player_cities() {
-            // The city's intrinsic value plus any progress it's made toward producing its unit
-            score += CITY_INTRINSIC_SCORE + city.production_progress as f64;
-        }
+        // for player in 0..self.game.num_players() {
+        //     if player == self.game.current_player() {
+        //         score += scores[player];
+        //     } else {
+        //         score -= scores[player];
+        //     }
+        // }
 
-        if let Some(victor) = self.game.victor() {
-            if victor == self.game.current_player() {
-                score += VICTORY_SCORE;
-            }
-        }
+        // score
+    }
+}
 
-        score
+impl fmt::Debug for UmpireDomain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.game.fmt(f)
     }
 }
 
@@ -416,7 +514,7 @@ fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
         }
     }
 
-    debug_assert!(!ixs.is_empty(), "Found no legal argmaxima. vals: {:?}, legal_indices: {:?}, max: {}, ixs: {:?}", vals, legal_indices, max, ixs);
+    // debug_assert!(!ixs.is_empty(), "Found no legal argmaxima. vals: {:?}, legal_indices: {:?}, max: {}, ixs: {:?}", vals, legal_indices, max, ixs);
 
     (max, ixs)
 }
@@ -438,9 +536,14 @@ impl<Q> UmpireGreedy<Q> {
 
         let argmaxima = legal_argmaxima(qs, &legal).1;
 
-        debug_assert!(!argmaxima.is_empty());
-
-        argmaxima[0]
+        // debug_assert!(!argmaxima.is_empty());
+        if argmaxima.is_empty() {
+            println!("No argmaximum in qs {:?} legal {:?}; choosing randomly", qs, legal);
+            let mut rand = thread_rng();
+            *legal.choose(&mut rand).unwrap()
+        } else {
+            argmaxima[0]
+        }
     }
 }
 
@@ -578,8 +681,8 @@ fn get_bounds(d: &Interval) -> (f64, f64) {
 }
 
 fn agent(domain_builder: &dyn Fn() -> UmpireDomain, verbose: bool) ->
-        UmpireAgent<Shared<Shared<LFA<Polynomial,SGD,VectorFunction>>>,
-            UmpireEpsilonGreedy<Shared<LFA<Polynomial, SGD, VectorFunction>>>>{
+        UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
+            UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
 
     let n_actions = UmpireAction::possible_actions().len();
     // let n_actions: usize = domain.action_space().card().into();
@@ -595,9 +698,9 @@ fn agent(domain_builder: &dyn Fn() -> UmpireDomain, verbose: bool) ->
     // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
 
     // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
-    // let basis = Constant::new(5.0);
-    let basis = Polynomial::new(1, 1);
-    let lfa = LFA::vector(basis, SGD(1.0), n_actions);
+    let basis = Constant::new(5.0);
+    // let basis = Polynomial::new(1, 1);
+    let lfa = LFA::vector(basis, SGD(0.05), n_actions);
     let q_func = make_shared(lfa);
 
     // let policy = EpsilonGreedy::new(
@@ -616,8 +719,8 @@ fn agent(domain_builder: &dyn Fn() -> UmpireDomain, verbose: bool) ->
 }
 
 fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize, steps: u64, verbose: bool) ->
-        UmpireAgent<Shared<Shared<LFA<Polynomial,SGD,VectorFunction>>>,
-            UmpireEpsilonGreedy<Shared<LFA<Polynomial, SGD, VectorFunction>>>>{
+        UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
+            UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
                 
 
     let logger = logging::root(logging::stdout());
@@ -637,7 +740,7 @@ fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize,
 
 
 fn main() {
-    let matches = cli::app("Umpire AI Trainer", "HWv")
+    let matches = cli::app("Umpire AI Trainer", "mvHW")
     .version(conf::APP_VERSION)
     .author("Josh Hansen <hansen.joshuaa@gmail.com>")
     .arg(
@@ -702,6 +805,7 @@ fn main() {
     )
     .get_matches();
 
+    let ai_model_path = matches.value_of("ai_model").map(String::from);
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
     let evaluate = matches.is_present("evaluate");
     let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
@@ -714,13 +818,26 @@ fn main() {
 
     println!("Training Umpire AI.");
 
-    let qf = {
-        let mut agent = {
-            let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), verbose));
-            trained_agent(domain_builder, episodes, steps, verbose)
-        };
+    println!("Opponent: {}", ai_model_path.as_ref().unwrap_or(&String::from("Random")));
 
-        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), false));
+    println!("Map width: {}", map_width);
+
+    println!("Map height: {}", map_height);
+
+    println!("Episodes: {}", episodes);
+
+    println!("Steps: {}", steps);
+
+    println!("Evaluation: {:?}", evaluate);
+
+    println!("Verbose: {:?}", verbose);
+
+    println!("Output path: {}", output_path);
+
+    let qf = {
+        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
+
+        let mut agent = trained_agent(domain_builder.clone(), episodes, steps, verbose);
 
         if evaluate {
         
@@ -800,7 +917,7 @@ mod test {
     fn test_ai_movement() {
         let n = 100000;
 
-        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(10, 10), false));
+        let domain_builder = Box::new(move || UmpireDomain::new(Dims::new(10, 10), None, false));
         let agent = trained_agent(domain_builder, 10, 50, false);
 
 
@@ -813,7 +930,7 @@ mod test {
 
         let mut counts: HashMap<UmpireAction,usize> = HashMap::new();
 
-        let mut domain = UmpireDomain::from_game(game, false);
+        let mut domain = UmpireDomain::from_game(game, None, false);
 
         let mut rng = thread_rng();
         for _ in 0..n {

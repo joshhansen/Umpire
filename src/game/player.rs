@@ -403,11 +403,24 @@ pub trait LimitedTurnTaker {
 /// end of the `take_turn` function call.
 pub trait TurnTaker {
     fn take_turn(&mut self, game: &mut Game);
+
+    fn take_turn_clearing(&mut self, game: &mut Game);
 }
 
 impl <T:LimitedTurnTaker> TurnTaker for T {
     fn take_turn(&mut self, game: &mut Game) {
         let mut ctrl = game.player_turn_control(game.current_player());
+        loop {
+            <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl);
+
+            if ctrl.turn_is_done() {
+                break;
+            }
+        }
+    }
+
+    fn take_turn_clearing(&mut self, game: &mut Game) {
+        let mut ctrl = game.player_turn_control_clearing(game.current_player());
         loop {
             <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl);
 

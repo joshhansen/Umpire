@@ -31,6 +31,6 @@ impl IMode for VictoryMode {
         // Wait for a keypress
         self.get_key(ctrl, ui, mode);
         
-        ModeStatus::Quit 
+        ModeStatus::Quit
     }
 }

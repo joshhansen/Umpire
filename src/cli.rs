@@ -35,6 +35,11 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
                 .short("v")
                 .long("verbose")
                 .help("Show verbose output"),
+            'm' => Arg::with_name("ai_model")
+                .short("m")
+                .long("model")
+                .help("AI model file path")
+                .takes_value(true),
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
         });
     }

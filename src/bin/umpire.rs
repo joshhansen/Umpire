@@ -13,7 +13,7 @@ use std::{
         RwLock,
     },
     thread,
-    time::{Duration,SystemTime},
+    time::{Duration,SystemTime}, fs::File, path::Path,
 };
 
 use clap::Arg;
@@ -22,7 +22,8 @@ use rsrl::{
     fa::{
         linear::{
             basis::{
-                Polynomial,
+                Constant,
+                // Polynomial,
             },
             optim::SGD,
             LFA,
@@ -55,6 +56,8 @@ use umpire::{
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 
+type Basis = Constant;
+
 fn print_loading_screen() {
     let bytes: &[u8] = include_bytes!("../../images/1945_Baseball_Umpire.txt");
     let r = BufReader::new(bytes);
@@ -70,7 +73,7 @@ fn print_loading_screen() {
 }
 
 fn main() {
-    let matches = cli::app(conf::APP_NAME, "WH")
+    let matches = cli::app(conf::APP_NAME, "mWH")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -172,6 +175,7 @@ fn main() {
         )
     .get_matches();
 
+    let ai_model_path = matches.value_of("ai_model");
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
     let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
         .chars()
@@ -265,8 +269,13 @@ fn main() {
 
         // We can share one instance of RandomAI across players since it's stateless
         let mut random_ai = RandomAI::new(false);
-        let mut rl_ai: RL_AI<LFA<Polynomial,SGD,VectorFunction>> = 
-                                                    bincode::deserialize(include_bytes!("../../ai/ai.model")).unwrap();
+
+        let mut rl_ai: RL_AI<LFA<Basis,SGD,VectorFunction>> = if let Some(ai_model_path) = ai_model_path {
+            let f = File::open(Path::new(ai_model_path)).unwrap();
+            bincode::deserialize_from(f).unwrap()
+        } else {
+            bincode::deserialize(include_bytes!("../../ai/10x10_100eps_1000000steps__opponent.ai")).unwrap()
+        };
 
         let mut game = game;
 

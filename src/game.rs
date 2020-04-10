@@ -100,6 +100,16 @@ use self::move_::{
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
+/// How valuable is it to have observed a tile at all?
+const TILE_OBSERVED_BASE_SCORE: f64 = 10.0;
+
+/// How much is each point of controlled unit production cost (downweighted for reduced HP) worth?
+const UNIT_MULTIPLIER: f64 = 10.0;
+
+/// How important is a city in and of itself?
+const CITY_INTRINSIC_SCORE: f64 = 1000.0;
+const VICTORY_SCORE: f64 = 999999.0;
+
 /// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
 #[must_use = "All proposed actions issued by the game engine must be taken using `take`"]
 pub trait ProposedAction {
@@ -1299,6 +1309,46 @@ impl Game {
 
         self.follow_unit_orders(id)
     }
+
+    fn player_score(&self, player: PlayerNum) -> Result<f64,String> {
+        let mut score = 0.0;
+
+        // Observations
+        let observed_tiles = self.player_observations.get(&player)
+                                 .ok_or(format!("No player {} found", player))?
+                                 .iter()
+                                 .filter(|obs| **obs != Obs::Unobserved)
+                                 .count();
+        score += observed_tiles as f64 * TILE_OBSERVED_BASE_SCORE;
+    
+        // Controlled units
+        for unit in self.current_player_units() {
+            // The cost of the unit scaled by the unit's current hitpoints relative to maximum
+            score += UNIT_MULTIPLIER * (unit.type_.cost() as f64) * (unit.hp() as f64) / (unit.max_hp() as f64);
+        }
+    
+        // Controlled cities
+        for city in self.current_player_cities() {
+            // The city's intrinsic value plus any progress it's made toward producing its unit
+            score += CITY_INTRINSIC_SCORE + city.production_progress as f64 * UNIT_MULTIPLIER;
+        }
+    
+        // Victory
+        if let Some(victor) = self.victor() {
+            if victor == self.current_player() {
+                score += VICTORY_SCORE;
+            }
+        }
+    
+        Ok(score)
+    }
+
+    /// Each player's current score, indexed by player number
+    pub fn player_scores(&self) -> Vec<f64> {
+        (0..self.num_players)
+        .map(|player| self.player_score(player).unwrap())
+        .collect()
+    }
 }
 
 impl Dimensioned for Game {
@@ -1430,6 +1480,12 @@ impl DerefVec for Game {
         }
 
         x
+    }
+}
+
+impl fmt::Debug for Game {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.map.fmt(f)
     }
 }
 
