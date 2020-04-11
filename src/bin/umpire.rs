@@ -22,10 +22,6 @@ use clap::Arg;
 use rsrl::{
     fa::{
         linear::{
-            basis::{
-                Constant,
-                // Polynomial,
-            },
             optim::SGD,
             LFA,
             VectorFunction,
@@ -41,7 +37,11 @@ use umpire::{
         Game,
         PlayerNum,
         PlayerType,
-        ai::{RL_AI, RandomAI},
+        ai::{
+            RL_AI,
+            RandomAI,
+            rl::Basis,
+        },
         player::{
             TurnTaker,
         },
@@ -55,8 +55,6 @@ use umpire::{
 };
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
-
-type Basis = Constant;
 
 fn print_loading_screen() {
     let bytes: &[u8] = include_bytes!("../../images/1945_Baseball_Umpire.txt");

@@ -52,6 +52,16 @@ openblas-src = { version = "0.6.0", default-features = false, features = ["cblas
 criterion = "0.3.1"
 
 [[bench]]
+name = "ai_train"
+harness = false
+path = "benches/ai_train.rs"
+
+[[bench]]
+name = "deref_vec"
+harness = false
+path = "benches/deref_vec.rs"
+
+[[bench]]
 name = "explore"
 harness = false
 path = "benches/explore.rs"
