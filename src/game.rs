@@ -100,15 +100,20 @@ use self::move_::{
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
+/// How important is a city in and of itself?
+const CITY_INTRINSIC_SCORE: f64 = 1000.0;
+
 /// How valuable is it to have observed a tile at all?
 const TILE_OBSERVED_BASE_SCORE: f64 = 10.0;
+
+/// How much is each turn taken penalized?
+const TURN_PENALTY: f64 = 1000.0;
 
 /// How much is each point of controlled unit production cost (downweighted for reduced HP) worth?
 const UNIT_MULTIPLIER: f64 = 10.0;
 
-/// How important is a city in and of itself?
-const CITY_INTRINSIC_SCORE: f64 = 1000.0;
-const VICTORY_SCORE: f64 = 999999.0;
+/// How much is victory worth?
+const VICTORY_SCORE: f64 = 1000000.0;
 
 /// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
 #[must_use = "All proposed actions issued by the game engine must be taken using `take`"]
@@ -654,9 +659,13 @@ impl Game {
     //     self.player_observations.get_mut(&self.current_player).unwrap()
     // }
 
+    fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
+        self.map.player_cities(player)
+    }
+
     /// Every city controlled by the current player
     pub fn current_player_cities(&self) -> impl Iterator<Item=&City> {
-        self.map.player_cities(self.current_player())
+        self.player_cities(self.current_player())
     }
 
     /// All cities controlled by the current player which have a production target set
@@ -684,9 +693,13 @@ impl Game {
         self.current_player_cities().filter(|city| city.production().is_some() || !city.ignore_cleared_production()).count()
     }
 
+    fn player_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
+        self.map.player_units(player)
+    }
+
     /// Every unit controlled by the current player
     pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
-        self.map.player_units(self.current_player())
+        self.player_units(self.current_player())
     }
 
     /// The counts of unit types controlled by the current player
@@ -1322,20 +1335,23 @@ impl Game {
         score += observed_tiles as f64 * TILE_OBSERVED_BASE_SCORE;
     
         // Controlled units
-        for unit in self.current_player_units() {
+        for unit in self.player_units(player) {
             // The cost of the unit scaled by the unit's current hitpoints relative to maximum
             score += UNIT_MULTIPLIER * (unit.type_.cost() as f64) * (unit.hp() as f64) / (unit.max_hp() as f64);
         }
     
         // Controlled cities
-        for city in self.current_player_cities() {
+        for city in self.player_cities(player) {
             // The city's intrinsic value plus any progress it's made toward producing its unit
             score += CITY_INTRINSIC_SCORE + city.production_progress as f64 * UNIT_MULTIPLIER;
         }
+
+        // Turn penalty to discourage sitting around
+        score -= TURN_PENALTY * self.turn as f64;
     
         // Victory
         if let Some(victor) = self.victor() {
-            if victor == self.current_player() {
+            if victor == player {
                 score += VICTORY_SCORE;
             }
         }
