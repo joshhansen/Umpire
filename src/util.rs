@@ -371,6 +371,22 @@ impl Wrap2d {
     }
 }
 
+impl TryFrom<&str> for Wrap2d {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(
+            match value {
+                "h" => Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::NonWrapping},
+                "v" => Wrap2d{horiz: Wrap::NonWrapping, vert: Wrap::Wrapping},
+                "b" => Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
+                "n" => Wrap2d{horiz: Wrap::NonWrapping, vert: Wrap::NonWrapping},
+                w => return Err(format!("Unrecognized wrapping specification '{}'", w))
+            }
+        )
+    }
+}
+
 // ///
 // /// Add `inc` to `loc` respecting the specified wrapping rules in a space defined by `dims`
 // /// If the result is out of bounds, return None

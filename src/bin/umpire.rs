@@ -7,6 +7,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use std::{
+    convert::TryFrom,
     io::{BufRead,BufReader,Write,stdout},
     rc::Rc,
     sync::{
@@ -49,7 +50,6 @@ use umpire::{
     ui::TermUI,
     util::{
         Dims,
-        Wrap,
         Wrap2d,
     }, log::LogTarget,
 };
@@ -73,7 +73,7 @@ fn print_loading_screen() {
 }
 
 fn main() {
-    let matches = cli::app(conf::APP_NAME, "mWH")
+    let matches = cli::app(conf::APP_NAME, "fmwWH")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -108,14 +108,6 @@ fn main() {
                 let width: Result<f64,_> = s.trim().parse();
                 width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
             })
-        )
-        .arg(Arg::with_name("fog")
-            .short("f")
-            .long("fog")
-            .help("Enable or disable fog of war")
-            .takes_value(true)
-            .default_value(conf::FOG_OF_WAR)
-            .possible_values(&["on","off"])
         )
         .arg(Arg::with_name("nosplash")
             .short("n")
@@ -160,19 +152,7 @@ fn main() {
             .long("confirm")
             .help("Wait for explicit confirmation of turn end.")
         )
-        .arg(Arg::with_name("wrapping")
-            .short("w")
-            .long("wrapping")
-            .help("Whether to wrap horizontally ('h'), vertically ('v'), both ('b'), or neither ('n')")
-            .takes_value(true)
-            .default_value("b")
-            .validator(|s| {
-                match s.as_ref() {
-                    "h" | "v" | "b" | "n" => Ok(()),
-                    x => Err(format!("{} is not a supported wrapping type", x))
-                }
-            })
-        )
+
     .get_matches();
 
     let ai_model_path = matches.value_of("ai_model");
@@ -195,13 +175,7 @@ fn main() {
     let quiet: bool = matches.is_present("quiet");
     let nosplash: bool = matches.is_present("nosplash");
     let confirm_turn_end: bool = matches.is_present("confirm_turn_end");
-    let wrapping: Wrap2d = match matches.value_of("wrapping").unwrap().as_ref() {
-        "h" => Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::NonWrapping},
-        "v" => Wrap2d{horiz: Wrap::NonWrapping, vert: Wrap::Wrapping},
-        "b" => Wrap2d{horiz: Wrap::Wrapping, vert: Wrap::Wrapping},
-        "n" => Wrap2d{horiz: Wrap::NonWrapping, vert: Wrap::NonWrapping},
-        _ => unreachable!(),
-    };
+    let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if (map_dims.area() as PlayerNum) < num_players {

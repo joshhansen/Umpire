@@ -1,6 +1,7 @@
 use clap::{Arg, App};
 
 use crate::conf::{
+    FOG_OF_WAR,
     MAP_HEIGHT,
     MAP_WIDTH,
 };
@@ -11,6 +12,38 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
 
     for c in included_flags.chars() {
         app = app.arg(match c {
+            'f' => Arg::with_name("fog")
+                .short("f")
+                .long("fog")
+                .help("Enable or disable fog of war")
+                .takes_value(true)
+                .default_value(FOG_OF_WAR)
+                .possible_values(&["on","off"]),
+
+            'm' => Arg::with_name("ai_model")
+                .short("m")
+                .long("model")
+                .help("AI model file path")
+                .takes_value(true),
+
+            'v' => Arg::with_name("verbose")
+                .short("v")
+                .long("verbose")
+                .help("Show verbose output"),
+
+            'w' => Arg::with_name("wrapping")
+                .short("w")
+                .long("wrapping")
+                .help("Whether to wrap horizontally ('h'), vertically ('v'), both ('b'), or neither ('n')")
+                .takes_value(true)
+                .default_value("b")
+                .validator(|s| {
+                    match s.as_ref() {
+                        "h" | "v" | "b" | "n" => Ok(()),
+                        x => Err(format!("{} is not a supported wrapping type", x))
+                    }
+                }),
+
             'H' => Arg::with_name("map_height")
                 .short("H")
                 .long("height")
@@ -21,6 +54,7 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
                     let width: Result<u16,_> = s.trim().parse();
                     width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
                 }),
+
             'W' => Arg::with_name("map_width")
                 .short("W")
                 .long("width")
@@ -31,15 +65,7 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
                     let width: Result<u16,_> = s.trim().parse();
                     width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))
                 }),
-            'v' => Arg::with_name("verbose")
-                .short("v")
-                .long("verbose")
-                .help("Show verbose output"),
-            'm' => Arg::with_name("ai_model")
-                .short("m")
-                .long("model")
-                .help("AI model file path")
-                .takes_value(true),
+
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
         });
     }
