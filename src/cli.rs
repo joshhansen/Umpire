@@ -50,6 +50,7 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
                 .help("Map height")
                 .takes_value(true)
                 .default_value(MAP_HEIGHT)
+                .multiple(true)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
                 .validator(|s| {
                     let width: Result<u16,_> = s.trim().parse();
                     width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
@@ -61,6 +62,7 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
                 .help("Map width")
                 .takes_value(true)
                 .default_value(MAP_WIDTH)
+                .multiple(true)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
                 .validator(|s| {
                     let width: Result<u16,_> = s.trim().parse();
                     width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))

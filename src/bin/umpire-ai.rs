@@ -690,19 +690,11 @@ fn get_bounds(d: &Interval) -> (f64, f64) {
     }
 }
 
-fn agent(domain_builder: &dyn Fn() -> UmpireDomain, avoid_skip: bool, verbose: bool) ->
+fn agent(avoid_skip: bool, verbose: bool) ->
         UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
             UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
 
     let n_actions = UmpireAction::possible_actions().len();
-    // let n_actions: usize = domain.action_space().card().into();
-
-    if verbose {
-        println!("# actions: {}", n_actions);
-
-        let limits: Vec<(f64,f64)> = domain_builder().state_space().space.iter().map(get_bounds).collect();
-        println!("Limits: {}", limits.len());
-    }
     
     // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
     // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
@@ -728,20 +720,30 @@ fn agent(domain_builder: &dyn Fn() -> UmpireDomain, avoid_skip: bool, verbose: b
     UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0), avoid_skip}
 }
 
-fn trained_agent(domain_builder: Box<dyn Fn() -> UmpireDomain>, episodes: usize, steps: u64, avoid_skip: bool, verbose: bool) ->
+fn trained_agent(opponent_model_path: Option<String>, dims: Vec<Dims>, episodes: usize, steps: u64, avoid_skip: bool, verbose: bool) ->
         UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
             UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
 
     let logger = logging::root(logging::stdout());
 
-    let mut agent = agent(&*domain_builder, avoid_skip, verbose);
+    let mut agent = agent(avoid_skip, verbose);
 
 
-    // Start a serial learning experiment up to 1000 steps per episode.
-    let e = SerialExperiment::new(&mut agent, domain_builder, steps);
+    for dims in dims {
 
-    // Realise 1000 episodes of the experiment generator.
-    run(e, episodes, Some(logger.clone()));
+        let opponent_model_path = opponent_model_path.clone();
+
+        println!("Training {}", dims);
+
+        let domain_builder = Box::new(move || UmpireDomain::new_from_path(dims, opponent_model_path.as_ref(), verbose));
+
+        // Start a serial learning experiment up to 1000 steps per episode.
+        let e = SerialExperiment::new(&mut agent, domain_builder, steps);
+
+        // Realise 1000 episodes of the experiment generator.
+        run(e, episodes, Some(logger.clone()));
+
+    }
 
     agent
 }
@@ -802,12 +804,16 @@ fn main() {
             .long("avoid_skip")
             .help("Execute policies in a way that avoids the SkipNextUnit action when possible")
         )
+        // .arg(
+        //     Arg::with_name("initial_model_path")
+        //         .short("i")
+        //         .long("initial")
+        //         .help("Serialized AI model file path for the initial model to use as a starting point for training")
+        //         .takes_value(true)
+        // )
         .arg(
             Arg::with_name("out")
-            // .short("o")
-            // .long("out")
-            .help("Output path")
-            // .takes_value(true)
+            .help("Output path to serialize the resultin AI model to")
             .required(true)
         )
     )
@@ -818,8 +824,19 @@ fn main() {
     // Arguments common across subcommands:
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
-    let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
-    let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
+    // let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
+    // let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
+
+    let map_heights: Vec<u16> = matches.values_of("map_height").unwrap().map(|h| h.parse().unwrap()).collect();
+    let map_widths: Vec<u16> = matches.values_of("map_width").unwrap().map(|w| w.parse().unwrap()).collect();
+
+    if map_heights.len() != map_widths.len() {
+        eprintln!("The same number of widths and heights must be specified");
+        return;
+    }
+    
+    let dims: Vec<Dims> = map_heights.into_iter().enumerate().map(|(i,h)| Dims::new(map_widths[i], h)).collect();
+
     let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
     let verbose = matches.is_present("verbose");
     let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
@@ -834,9 +851,7 @@ fn main() {
 
     let sub_matches = sub_matches.unwrap();
 
-    println!("Map width: {}", map_width);
-
-    println!("Map height: {}", map_height);
+    println!("Dimensions: {}", dims.iter().map(|dims| format!("{}", dims)).collect::<Vec<String>>().join(", "));
 
     println!("Episodes: {}", episodes);
 
@@ -845,6 +860,14 @@ fn main() {
     println!("Verbose: {:?}", verbose);
 
     if subcommand == "eval" {
+
+        if dims.len() > 1 {
+            eprintln!("Only one set of dimensions can be given for evaluation");
+            return;
+        }
+
+        let map_width = dims[0].width;
+        let map_height = dims[0].height;
 
         let ai_specs: Vec<&str> = sub_matches.values_of("ai_models").unwrap().collect();
 
@@ -960,16 +983,19 @@ fn main() {
 
         let ai_model_path = sub_matches.value_of("ai_model").map(String::from);
         let avoid_skip = sub_matches.is_present("avoid_skip");
+        // let initial_model_path = sub_matches.value_of("initial_model_path").map(String::from);
         let output_path = sub_matches.value_of("out").unwrap();
     
+        // println!("Initial AI: {}", initial_model_path.as_ref().unwrap_or(&String::from("none")));
+        
         println!("Opponent: {}", ai_model_path.as_ref().unwrap_or(&String::from("Random")));
     
         println!("Output path: {}", output_path);
     
         let qf = {
-            let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
+            // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
     
-            let agent = trained_agent(domain_builder.clone(), episodes, steps, avoid_skip, verbose);
+            let agent = trained_agent(ai_model_path, dims, episodes, steps, avoid_skip, verbose);
     
             agent.q.q_func.0
         };
@@ -1048,8 +1074,8 @@ mod test {
     fn test_ai_movement() {
         let n = 100000;
 
-        let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
-        let agent = trained_agent(domain_builder, 10, 50, false, false);
+        // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
+        let agent = trained_agent(None, vec![Dims::new(10,10)], 10, 50, false, false);
 
 
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
