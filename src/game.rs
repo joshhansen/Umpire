@@ -1394,7 +1394,7 @@ impl Source<Obs> for Game {
     }
 }
 
-fn obs_to_vec(obs: &Obs, num_players: PlayerNum) -> Vec<f64> {
+fn push_obs_to_vec(x: &mut Vec<f64>, obs: &Obs, num_players: PlayerNum) {
     match obs {
         Obs::Unobserved => {
             let n_zeros = 1// unobserved
@@ -1403,11 +1403,15 @@ fn obs_to_vec(obs: &Obs, num_players: PlayerNum) -> Vec<f64> {
                 + 6 * UnitType::values().len()// what is the unit type? (one hot encoded), for this unit and any
                                               // carried units. Could be none (all zeros)
             ;
-            vec![0.0; n_zeros]
+            x.extend(vec![0.0; n_zeros]);
+            // for _ in 0..n_zeros {
+            //     x.push(0.0);
+            // }
         },
         Obs::Observed{tile,..} => {
 
-            let mut x = vec![1.0];// observed
+            // let mut x = vec![1.0];// observed
+            x.push(1.0);// observed
 
             for p in 0..num_players {// which player controls the tile (one hot encoded)
                 x.push(if let Some(Alignment::Belligerent{player}) = tile.alignment_maybe() {
@@ -1442,7 +1446,7 @@ fn obs_to_vec(obs: &Obs, num_players: PlayerNum) -> Vec<f64> {
             // fill in zeros for any missing units
             x.extend_from_slice(&vec![0.0; UnitType::values().len() * units_unaccounted_for]);
 
-            x
+            // x
         }
     }
 }
@@ -1460,7 +1464,7 @@ impl DerefVec for Game {
         // 
 
         // We also add a context around the currently active unit (if any)
-        let mut x = Vec::new();
+        let mut x = Vec::with_capacity(6414);
 
         // General statistics
 
@@ -1513,7 +1517,8 @@ impl DerefVec for Game {
                 &Obs::Unobserved
             };
 
-            x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
+            // x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
+            push_obs_to_vec(&mut x, &obs, self.num_players);
         }
 
         x
