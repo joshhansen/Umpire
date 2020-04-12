@@ -138,12 +138,14 @@ impl <'a, O:ObsTrackerI, S:Source<Tile>> UnifiedObsTrackerI for UnifiedObsTracke
 
 #[derive(Clone)]
 pub struct ObsTracker {
-    observations: LocationGrid<Obs>
+    observations: LocationGrid<Obs>,
+    num_observed: usize,
 }
 impl ObsTracker {
     pub fn new(dims: Dims) -> Self {
         Self {
-            observations: LocationGrid::new(dims, |_loc: Location| Obs::Unobserved)
+            observations: LocationGrid::new(dims, |_loc: Location| Obs::Unobserved),
+            num_observed: 0,
         }
     }
 
@@ -159,6 +161,10 @@ impl ObsTracker {
     pub fn iter(&self) -> impl Iterator<Item=&Obs> {
         self.observations.iter()
     }
+
+    pub fn num_observed(&self) -> usize {
+        self.num_observed
+    }
 }
 
 impl Dimensioned for ObsTracker {
@@ -170,7 +176,16 @@ impl Dimensioned for ObsTracker {
 impl ObsTrackerI for ObsTracker {
     fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         let obs = Obs::Observed{ tile: tile.clone(), turn, current: true };
-        self.observations[loc] = obs.clone();//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
+
+        //CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
+        let old = self.observations.replace(loc, obs.clone());
+
+        // Since we are always replacing with an Obs::Observed, the number observed will go up as long as there was
+        // nothing or unobserved there previously
+        if old.is_none() || old==Some(Obs::Unobserved) {
+            self.num_observed += 1;
+        }
+
         LocatedObs{ loc, item: obs }
     }
 }

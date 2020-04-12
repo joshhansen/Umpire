@@ -14,7 +14,6 @@ pub use self::grid::LocationGrid;
 
 use std::{
     collections::{
-        BinaryHeap,
         HashMap,
     },
     convert::TryFrom,
@@ -95,6 +94,12 @@ pub struct MapData {
 
     /// The next CityID, to be used upon the next city's creation.
     next_city_id: CityID,
+
+    /// The number of cities controlled by each alignment
+    alignment_city_counts: HashMap<Alignment,usize>,
+
+    /// The number of each type of unit controlled by each alignment
+    alignment_unit_type_counts: HashMap<Alignment,HashMap<UnitType,usize>>,
 }
 
 impl MapData {
@@ -124,6 +129,8 @@ impl MapData {
             city_loc_by_id: HashMap::new(),
             next_city_id,
             next_unit_id,
+            alignment_city_counts: HashMap::new(),
+            alignment_unit_type_counts: HashMap::new(),
         };
 
         map_data.index();
@@ -155,16 +162,29 @@ impl MapData {
 
     /// Add a carried unit to the relevant indices
     fn index_carried_unit(&mut self, carried: &Unit, carrier: &Unit) {
-        self.index_carried_unit_piecemeal(carried.id, carrier.id, carrier.loc);
+        self.index_carried_unit_piecemeal(
+            carried.id,
+            carried.alignment,
+            carried.type_,
+            carrier.id,
+            carrier.loc
+        )
     }
 
     /// Add a carried unit to the relevant indices, specified piecemeal
-    fn index_carried_unit_piecemeal(&mut self, carried_id: UnitID, carrier_id: UnitID, carrier_loc: Location) {
+    fn index_carried_unit_piecemeal(&mut self, carried_id: UnitID, carried_alignment: Alignment, carried_type: UnitType, carrier_id: UnitID, carrier_loc: Location) {
         let overwritten_loc: Option<Location> = self.unit_loc_by_id.insert(carried_id, carrier_loc);
         let overwritten_carrier_id: Option<UnitID> = self.unit_carrier_by_id.insert(carried_id, carrier_id);
 
         debug_assert!(overwritten_loc.is_none());
         debug_assert!(overwritten_carrier_id.is_none());
+
+        * self.alignment_unit_type_counts
+            .entry(carried_alignment)
+            .or_insert_with(HashMap::new)
+            .entry(carried_type)
+            .or_insert(0)
+            += 1;
     }
 
     /// Remove a carried unit from relevant indices
@@ -174,6 +194,13 @@ impl MapData {
 
         debug_assert!(removed_loc.is_some());
         debug_assert!(removed_carrier_id.is_some());
+
+        * self.alignment_unit_type_counts
+                                       .entry(unit.alignment)
+                                       .or_insert_with(HashMap::new)
+                                       .entry(unit.type_)
+                                       .or_insert(0)
+                                        -= 1;
     }
 
     /// Add a top-level unit (and all carried units) to the relevant indices
@@ -187,6 +214,12 @@ impl MapData {
             overwritten_loc.map(|loc| self.tile(loc).unwrap())
         );
 
+        * self.alignment_unit_type_counts
+                                        .entry(unit.alignment)
+                                        .or_insert_with(HashMap::new)
+                                        .entry(unit.type_)
+                                        .or_insert(0)
+                                        += 1;
 
         for carried_unit in unit.carried_units() {
             self.index_carried_unit(&carried_unit, &unit);
@@ -198,6 +231,13 @@ impl MapData {
         let removed_loc: Option<Location> = self.unit_loc_by_id.remove(&unit.id);
         debug_assert_eq!(removed_loc.unwrap(), unit.loc);
 
+        * self.alignment_unit_type_counts
+                                        .entry(unit.alignment)
+                                        .or_insert_with(HashMap::new)
+                                        .entry(unit.type_)
+                                        .or_insert(0)
+                                        -= 1;
+
         for carried_unit in unit.carried_units() {
             self.unindex_carried_unit(&carried_unit);
         }
@@ -207,12 +247,16 @@ impl MapData {
     fn index_city(&mut self, city: &City) {
         let insertion_result = self.city_loc_by_id.insert(city.id, city.loc);
         debug_assert!(insertion_result.is_none());
+
+        * self.alignment_city_counts.entry(city.alignment).or_insert(0) += 1;
     }
 
     /// Remove a city from the relevant indices
     fn unindex_city(&mut self, city: &City) {
         let removed_loc = self.city_loc_by_id.remove(&city.id);
         debug_assert_eq!(removed_loc.unwrap(), city.loc);
+
+        * self.alignment_city_counts.entry(city.alignment).or_insert(0) -= 1;
     }
 
     fn in_bounds(&self, loc: Location) -> bool {
@@ -523,13 +567,27 @@ impl MapData {
 
         let carried_unit_id = carried_unit.id;
 
-        let (carry_result, carrier_unit_loc) = {
+        // let carrier_unit = self.unit_by_id(carrier_unit_id).unwrap();
+
+        // self.index_carried_unit(&carried_unit, carrier_unit);
+
+        let carried_alignment = carried_unit.alignment;
+        let carried_type = carried_unit.type_;
+
+        let (carry_result, carrier_loc) = {
             let carrier_unit = self.unit_by_id_mut(carrier_unit_id).unwrap();
 
-            (carrier_unit.carry(carried_unit), carrier_unit.loc)
+            let carry_result = carrier_unit.carry(carried_unit);
+            (carry_result, carrier_unit.loc)
         };
 
-        self.index_carried_unit_piecemeal(carried_unit_id, carrier_unit_id, carrier_unit_loc);
+        self.index_carried_unit_piecemeal(
+            carried_unit_id,
+            carried_alignment,
+            carried_type,
+            carrier_unit_id,
+            carrier_loc
+        );
 
         carry_result.unwrap()
     }
@@ -701,6 +759,12 @@ impl MapData {
         }
     }
 
+    // How many of each type of unit does the given player control?
+    pub fn player_unit_type_counts(&self, player: PlayerNum) -> Result<&HashMap<UnitType,usize>,GameError> {
+        self.alignment_unit_type_counts.get(&Alignment::Belligerent{player})
+                                       .ok_or(GameError::NoSuchPlayer{player})
+    }
+
     pub fn refresh_player_unit_moves_remaining(&mut self, player: PlayerNum) {
         self.player_units_mut(player, |unit| unit.refresh_moves_remaining());
     }
@@ -743,6 +807,13 @@ impl MapData {
 
     pub fn player_cities_lacking_production_target(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
         self.player_cities(player).filter(|city| city.production().is_none() && !city.ignore_cleared_production())
+    }
+
+    /// How many cities does the given player control?
+    pub fn player_city_count(&self, player: PlayerNum) -> Result<usize,GameError> {
+        self.alignment_city_counts.get(&Alignment::Belligerent{player})
+            .cloned()
+            .ok_or(GameError::NoSuchPlayer{player})
     }
 
     pub fn iter_locs(&self) -> impl Iterator<Item=Location> {

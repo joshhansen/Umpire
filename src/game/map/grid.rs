@@ -66,6 +66,13 @@ impl<T> LocationGrid<T> {
         self.grid.get_mut(loc.x as usize).and_then(|col| col.get_mut(loc.y as usize))
     }
 
+    pub fn replace(&mut self, loc: Location, value: T) -> Option<T> {
+        self.grid.get_mut(loc.x as usize)
+                .and_then(|col| col.get_mut(loc.y as usize)
+                                                   .map(|v| std::mem::replace(v, value))
+                )
+    }
+
     pub fn dims(&self) -> Dims {
         self.dims
     }

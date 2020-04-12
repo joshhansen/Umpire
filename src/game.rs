@@ -209,6 +209,9 @@ pub struct TurnStart {
 
 #[derive(Debug,Fail,PartialEq)]
 pub enum GameError {
+    #[fail(display = "There is no player {}", player)]
+    NoSuchPlayer { player: PlayerNum },
+
     #[fail(display = "No unit with ID {:?} exists", id)]
     NoSuchUnit { id: UnitID },
 
@@ -673,6 +676,11 @@ impl Game {
         self.map.player_cities_with_production_target(self.current_player())
     }
 
+    /// How many cities does the current player control?
+    pub fn current_player_city_count(&self) -> usize {
+        self.map.player_city_count(self.current_player()).unwrap()
+    }
+
     // /// All cities controlled by the current player which have a production target set, mutably
     // fn current_player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
     //     self.map.player_cities_with_production_target_mut(self.current_player())
@@ -703,14 +711,15 @@ impl Game {
     }
 
     /// The counts of unit types controlled by the current player
-    pub fn current_player_unit_type_counts(&self) -> HashMap<UnitType,usize> {
-        let mut map = HashMap::new();
+    pub fn current_player_unit_type_counts(&self) -> Result<&HashMap<UnitType,usize>,GameError> {
+        // let mut map = HashMap::new();
 
-        for unit in self.current_player_units() {
-            *(map.entry(unit.type_).or_insert(0)) += 1;
-        }
+        // for unit in self.current_player_units() {
+        //     *(map.entry(unit.type_).or_insert(0)) += 1;
+        // }
 
-        map
+        // map
+        self.map.player_unit_type_counts(self.current_player())
     }
 
     /// Every enemy unit known to the current player (as of most recent observations)
@@ -1332,6 +1341,7 @@ impl Game {
                                  .iter()
                                  .filter(|obs| **obs != Obs::Unobserved)
                                  .count();
+
         score += observed_tiles as f64 * TILE_OBSERVED_BASE_SCORE;
     
         // Controlled units
@@ -1459,21 +1469,21 @@ impl DerefVec for Game {
 
         // - number of cities player controls
 
-        x.push(self.current_player_cities().count() as f64);
+        x.push(self.current_player_city_count() as f64);
 
         // - number of tiles observed
-        let num_observed = self.current_player_observations()
-                                    .iter()
-                                    .filter(|obs| **obs != Obs::Unobserved)
-                                    .count() as f64;
+
+        let num_observed: f64 = self.current_player_observations().num_observed() as f64;
         
         x.push(num_observed);
+        
 
         // - percentage of tiles observed
         x.push(num_observed / self.dims().area() as f64);
 
         // - number of each type of unit controlled by player
-        let type_counts = self.current_player_unit_type_counts();
+        let empty_map = HashMap::new();
+        let type_counts = self.current_player_unit_type_counts().unwrap_or_else(|_| &empty_map);
         let counts_vec: Vec<f64> = UnitType::values().iter()
                                     .map(|type_| *type_counts.get(type_).unwrap_or(&0) as f64)
                                     .collect();
