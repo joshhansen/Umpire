@@ -13,21 +13,15 @@ use umpire::{
 };
 
 fn criterion_benchmark(c: &mut Criterion) {
-
-    c
-    .bench_function(
-        "ai_train",
-        |b| b.iter(|| {
-        
-        //     fn trained_agent(opponent_model_path: Option<String>, dims: Vec<Dims>, episodes: usize, steps: u64, avoid_skip: bool, verbose: bool) ->
-        // UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
-        //     UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
-
-            let _agent = trained_agent(None, vec![Dims::new(10, 10)], 1, 100, true, false);
-            
-
-        })
-    );
+    for dims in vec![Dims::new(10, 10), Dims::new(20, 20), Dims::new(30, 30)] {
+        c
+        .bench_function(
+            format!("ai_train_{}", dims).as_str(),
+            |b| b.iter(|| {
+                let _agent = trained_agent(None, vec![dims], 1, 100, true, false);
+            })
+        );
+    }
 }
 
 
