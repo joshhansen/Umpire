@@ -795,7 +795,7 @@ impl <Q: EnumerableStateActionFunction<Game>> RL_AI<Q> {
     }
 }
 impl <Q: EnumerableStateActionFunction<Game>> TurnTaker for RL_AI<Q> {
-    fn take_turn(&mut self, game: &mut Game) {
+    fn take_turn_not_clearing(&mut self, game: &mut Game) {
         self._take_turn_unended(game);
 
         game.end_turn().unwrap();

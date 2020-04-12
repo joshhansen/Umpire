@@ -587,7 +587,7 @@ mod test {
 
     #[test]
     fn test_viewport_to_map_coords_by_offset() {
-        let palette = Rc::new(palette16());
+        let palette = Rc::new(palette16(2).unwrap());
         _test_viewport_to_map_coords(Dims::new(20, 20), palette.clone());
 
     }

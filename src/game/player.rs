@@ -41,23 +41,23 @@ use std::collections::HashSet;
 
 pub type PlayerNum = usize;
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Copy,Debug,Eq,Hash,PartialEq)]
 pub enum PlayerType {
     Human,
     Random,
-    AI,
+    AI(usize),
 }
 
 impl PlayerType {
-    pub fn values() -> [Self; 3] {
-        [Self::Human, Self::Random, Self::AI]
+    pub fn values() -> [Self; 5] {
+        [Self::Human, Self::Random, Self::AI(1), Self::AI(2), Self::AI(3)]
     }
 
-    pub fn desc(&self) -> &str {
+    pub fn desc(&self) -> String {
         match self {
-            Self::Human => "human",
-            Self::Random => "random",
-            Self::AI => "ai",
+            Self::Human => String::from("human"),
+            Self::Random => String::from("random"),
+            Self::AI(level) => format!("level {} AI", level),
         }
     }
 
@@ -66,7 +66,7 @@ impl PlayerType {
         match self {
             Self::Human => 'h',
             Self::Random => 'r',
-            Self::AI => 'a',
+            Self::AI(level) => std::char::from_digit(*level as u32, 10).unwrap(),
         }
     }
 
@@ -74,8 +74,8 @@ impl PlayerType {
         match c {
             'h' => Ok(Self::Human),
             'r' => Ok(Self::Random),
-            'a' => Ok(Self::AI),
-            _ => Err(format!("'{}' does not correspond to a player type", c))
+            '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => Ok(Self::AI(c.to_digit(10).unwrap() as usize)),
+            c => Err(format!("Unrecognized player specification '{}'", c))
         }
     }
 }
@@ -402,13 +402,21 @@ pub trait LimitedTurnTaker {
 /// implementors to guarantee that the player's turn is ended (and only the player's turn---no further turns) by the
 /// end of the `take_turn` function call.
 pub trait TurnTaker {
-    fn take_turn(&mut self, game: &mut Game);
+    fn take_turn_not_clearing(&mut self, game: &mut Game);
 
     fn take_turn_clearing(&mut self, game: &mut Game);
+
+    fn take_turn(&mut self, game: &mut Game, clear_at_end_of_turn: bool) {
+        if clear_at_end_of_turn {
+            self.take_turn_clearing(game);
+        } else {
+            self.take_turn_not_clearing(game);
+        }
+    }
 }
 
 impl <T:LimitedTurnTaker> TurnTaker for T {
-    fn take_turn(&mut self, game: &mut Game) {
+    fn take_turn_not_clearing(&mut self, game: &mut Game) {
         let mut ctrl = game.player_turn_control(game.current_player());
         loop {
             <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl);

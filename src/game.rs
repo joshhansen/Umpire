@@ -1609,6 +1609,7 @@ pub mod test_support {
         map
     }
 
+    #[cfg(test)]
     pub(crate) fn game1() -> Game {
         let players = 2;
         let fog_of_war = true;

@@ -7,6 +7,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use std::{
+    collections::HashMap,
     convert::TryFrom,
     io::{BufRead,BufReader,Write,stdout},
     rc::Rc,
@@ -71,7 +72,7 @@ fn print_loading_screen() {
 }
 
 fn main() {
-    let matches = cli::app(conf::APP_NAME, "fmwWH")
+    let matches = cli::app(conf::APP_NAME, "fwWH")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -117,7 +118,7 @@ fn main() {
             .long("players")
             .takes_value(true)
             .required(true)
-            .default_value("hraa")
+            .default_value("h1233")
             .help(
                 format!("Player type specification string, {}", 
                     PlayerType::values().iter()
@@ -153,7 +154,7 @@ fn main() {
 
     .get_matches();
 
-    let ai_model_path = matches.value_of("ai_model");
+    // let ai_model_path = matches.value_of("ai_model");
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
     let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
         .chars()
@@ -210,13 +211,13 @@ fn main() {
     let palette = match color_depth {
         16 | 256 => {
             match color_depth {
-                16 => palette16(),
-                256 => palette256(),
+                16 => palette16(num_players).expect(format!("Error loading 16-color palette").as_str()),
+                256 => palette256(num_players).expect(format!("Error loading 256-color palette").as_str()),
                 x => panic!("Unsupported color depth {}", x)
             }
         },
         24 => {
-            palette24(num_players, fog_darkness).expect(format!("Error loading truecolor palette").as_str())
+            palette24(num_players, fog_darkness)
             // match palette24(num_players, fog_darkness) {
             //     Ok(palette) => run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
             //     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
@@ -242,27 +243,39 @@ fn main() {
         // We can share one instance of RandomAI across players since it's stateless
         let mut random_ai = RandomAI::new(false);
 
-        let mut rl_ai: RL_AI<LFA<Basis,SGD,VectorFunction>> = if let Some(ai_model_path) = ai_model_path {
-            let f = File::open(Path::new(ai_model_path)).unwrap();
-            bincode::deserialize_from(f).unwrap()
-        } else {
-            bincode::deserialize(include_bytes!("../../ai/10x10_100eps_1000000steps__opponent.ai")).unwrap()
-        };
+        let mut ais: HashMap<usize,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
+
+        for ptype in player_types.iter() {
+            if let PlayerType::AI(level) = ptype {
+                ais.insert(*level, match level {
+                    1 => bincode::deserialize(include_bytes!("../../ai/10x10_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
+                    2 => bincode::deserialize(include_bytes!("../../ai/20x20_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
+                    3 => bincode::deserialize(include_bytes!("../../ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
+                    level => unreachable!("Unsupported AI level: {}", level)
+                });
+            }
+        }
 
         let mut game = game;
 
         'outer: loop {
-            for ptype in player_types.iter() {
+            for (i, ptype) in player_types.iter().enumerate() {
                 ui.log_message(format!("Player of type {:?}", ptype));
 
                 if game.victor().is_some() {
                     break 'outer;
                 }
 
+                let next_player = player_types[(i+1) % player_types.len()];
+                let clear_at_end_of_turn = match next_player {
+                    PlayerType::Human => false,
+                    _ => true,
+                };
+
                 match ptype {
-                    PlayerType::Human => TurnTaker::take_turn(&mut ui, &mut game),
-                    PlayerType::Random => TurnTaker::take_turn(&mut random_ai, &mut game),
-                    PlayerType::AI => rl_ai.take_turn(&mut game),
+                    PlayerType::Human => ui.take_turn(&mut game, clear_at_end_of_turn),
+                    PlayerType::Random => random_ai.take_turn(&mut game, clear_at_end_of_turn),
+                    PlayerType::AI(level) => ais.get_mut(level).unwrap().take_turn(&mut game, clear_at_end_of_turn),
                 }
             }
         }

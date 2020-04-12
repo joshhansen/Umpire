@@ -28,10 +28,6 @@ use pastel::{
         IterationStatistics,
         distinct_colors,
     },
-    random::{
-        RandomizationStrategy,
-        strategies::Vivid,
-    },
 };
 
 use crate::game::PlayerNum;
@@ -144,29 +140,33 @@ impl Palette {
     }
 }
 
-pub fn palette16() -> Palette {
-    Palette {
-        background: Color::Reset,// Color::Black,
-        land: ColorPair::new(Color::Green, Color::DarkGreen),
-        ocean: ColorPair::new(Color::Blue, Color::DarkBlue),
-        players: vec![
-            ColorPair::new(Color::Red, Color::DarkRed),
-            ColorPair::new(Color::White, Color::Grey),
-            ColorPair::new(Color::Magenta, Color::DarkMagenta),
-            ColorPair::new(Color::Yellow, Color::DarkYellow),
-            ColorPair::new(Color::Cyan, Color::DarkCyan),
-        ],
-        neutral: ColorPair::new(Color::DarkGrey, Color::DarkGrey),
-        text: Color::White,
-        notice: Color::Cyan,
-        cursor: Color::White,
-        combat: Color::Red,
-        scroll_marks: Color::Yellow,
+pub fn palette16(num_players: PlayerNum) -> Result<Palette,String> {
+    if num_players > 5 {
+        Err(format!("Chosen color palette only supports 5 players, but {} were specified", num_players))
+    } else {
+        Ok(Palette {
+            background: Color::Reset,// Color::Black,
+            land: ColorPair::new(Color::Green, Color::DarkGreen),
+            ocean: ColorPair::new(Color::Blue, Color::DarkBlue),
+            players: vec![
+                ColorPair::new(Color::Red, Color::DarkRed),
+                ColorPair::new(Color::White, Color::Grey),
+                ColorPair::new(Color::Magenta, Color::DarkMagenta),
+                ColorPair::new(Color::Yellow, Color::DarkYellow),
+                ColorPair::new(Color::Cyan, Color::DarkCyan),
+            ],
+            neutral: ColorPair::new(Color::DarkGrey, Color::DarkGrey),
+            text: Color::White,
+            notice: Color::Cyan,
+            cursor: Color::White,
+            combat: Color::Red,
+            scroll_marks: Color::Yellow,
+        })
     }
 }
 
-pub fn palette256() -> Palette {
-    palette16()//These are the same for now
+pub fn palette256(num_players: PlayerNum) -> Result<Palette,String> {
+    palette16(num_players)//These are the same for now
     // Palette {
     //     background: AnsiValue(0),
     //     land: ColorPair::new_ansi(10, 2),
@@ -216,48 +216,47 @@ fn color_to_pastel_color(color: Color) -> PastelColor {
     }
 }
 
-pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Result<Palette,String> {
-    let land_color_pair = color_to_rgb_pair(Color::Rgb{r:24, g:216, b:67}, darken_percent);
-    let ocean_color_pair = color_to_rgb_pair(Color::Rgb{r:60, g:27, b:225}, darken_percent);
+pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Palette {
+    let land = color_to_rgb_pair(Color::Rgb{r:24, g:216, b:67}, darken_percent);
+    let ocean = color_to_rgb_pair(Color::Rgb{r:60, g:27, b:225}, darken_percent);
+    let neutral = color_to_rgb_pair(Color::Rgb{r:255,g:255,b:255}, darken_percent);
 
+    let preexisting = vec![
+        color_to_pastel_color(land.active),
+        color_to_pastel_color(ocean.active),
+        color_to_pastel_color(neutral.active)
+    ];
 
-    let player_colors: Vec<ColorPair> = if num_players == 0 {
-        Vec::new()
-    } else if num_players == 1 {
-        vec![
-            pastel_color_to_rgb_pair(&Vivid.generate(), darken_percent)
-        ]
-    } else {
-        let land_color: PastelColor = color_to_pastel_color(land_color_pair.active);
-        let ocean_color: PastelColor = color_to_pastel_color(ocean_color_pair.active);
-        let preexisting_colors = vec![land_color, ocean_color];
-        
-        let mut callback = |_stats: &IterationStatistics| {};
+    let num_preexisting = preexisting.len();
+    
+    let mut callback = |_stats: &IterationStatistics| {};
 
-        let pastel_colors: Vec<PastelColor> = distinct_colors(
-            usize::from(num_players) + 2,
-            // DistanceMetric::CIE76,
-            DistanceMetric::CIEDE2000,
-            preexisting_colors,
-            &mut callback,
-        ).0.iter().skip(2).cloned().collect();
-        
-        let rgb_pairs: Vec<ColorPair> = pastel_colors.iter().map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent)).collect();
-        rgb_pairs
-    };
+    let distinct: Vec<PastelColor> = distinct_colors(
+        usize::from(num_players) + num_preexisting,
+        // DistanceMetric::CIE76,
+        DistanceMetric::CIEDE2000,
+        preexisting,
+        &mut callback,
+    ).0.iter().skip(num_preexisting).cloned().collect();
+    
+    let players: Vec<ColorPair> = distinct.iter()
+                    .map(|pastel_color| pastel_color_to_rgb_pair(pastel_color, darken_percent))
+                    .collect();
 
-    Ok(Palette {
+    debug_assert_eq!(players.len(), num_players);
+
+    Palette {
         background: Color::Rgb{r:0,g:0,b:0},
-        land: land_color_pair,//ColorPair::new_rgb(24,216,67, 141,185,138),
-        ocean: ocean_color_pair,//ColorPair::new_rgb(60,27,225, 78,50,171),
-        players: player_colors,
-        neutral: color_to_rgb_pair(Color::Rgb{r:202,g:202,b:202}, darken_percent),//ColorPair::new_rgb(202,202,202, 102,102,102),
+        land,
+        ocean,
+        players,
+        neutral,
         text: Color::Rgb{r:255,g:255,b:255},
         notice: Color::Rgb{r:232,g:128,b:56},
         combat: Color::Rgb{r:237,g:89,b:66},
         cursor: Color::Rgb{r:255,g:154,b:71},
         scroll_marks: Color::Rgb{r:248,g:202,b:0},
-    })
+    }
 }
 
 

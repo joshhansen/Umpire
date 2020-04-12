@@ -13,6 +13,7 @@ pub mod ui;
 pub mod util;
 
 
+#[cfg(test)]
 pub(crate) mod test_support {
     pub(crate) use crate::game::test_support::{
         game1,
