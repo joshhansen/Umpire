@@ -901,9 +901,9 @@ mod test {
     fn test_shortest_paths() {
         let map: LocationGrid<Obs> = LocationGrid::try_from(
             "\
-            xxx\n\
+            *..\n\
             ???\n\
-            *xx").unwrap();
+            ...").unwrap();
 
         let loc = Location{x:0, y:0};
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
