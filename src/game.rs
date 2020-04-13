@@ -2417,6 +2417,18 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_move_fighter_over_water() {
+        let mut map = MapData::new(Dims::new(180, 90), |_| Terrain::Water);
+        let unit_id = map.new_unit(Location::new(0,0), UnitType::Fighter, Alignment::Belligerent{player:0}, "Han Solo").unwrap();
+
+        let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+
+        let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
+        let dest = game.wrapping().wrapped_add(game.dims(), unit_loc, Vec2d::new(5, 5)).unwrap();
+        game.move_unit_by_id(unit_id, dest).unwrap();
+    }
+
 
     // skip
     // UnitID { id: 27 } (4,1) -> (3,0)
