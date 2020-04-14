@@ -92,9 +92,9 @@ harness = false
 path = "benches/random_ai.rs"
 
 [[bench]]
-name = "wrapping"
+name = "wrapping_lite"
 harness = false
-path = "benches/wrapping.rs"
+path = "benches/wrapping_lite.rs"
 
 [profile.release]
 opt-level = 'z'  # Optimize for size.
