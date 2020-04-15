@@ -106,14 +106,6 @@ impl IMode for ExamineMode {
 
                 } else if key.code==KeyCode::Enter {
                     if let Some(tile) = self.current_player_tile(game, ui).cloned() {// We clone to ease mutating the unit within this block
-                        if let Some(ref city) = tile.city {
-                            if city.belongs_to_player(game.current_player()) {
-                                *mode = Mode::SetProduction{city_loc:city.loc};
-                                self.clean_up(game, ui);
-                                return ModeStatus::Continue;
-                            }
-                        }
-
                         if let Some(ref unit) = tile.unit {
                             if unit.belongs_to_player(game.current_player()) {
                                 
@@ -133,6 +125,12 @@ impl IMode for ExamineMode {
                                         panic!("Unexpected error attempting to activate unit: {:?}", err);
                                     }
                                 }
+                            }
+                        } else if let Some(ref city) = tile.city {
+                            if city.belongs_to_player(game.current_player()) {
+                                *mode = Mode::SetProduction{city_loc:city.loc};
+                                self.clean_up(game, ui);
+                                return ModeStatus::Continue;
                             }
                         }
                     }
