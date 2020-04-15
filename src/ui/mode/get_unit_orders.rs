@@ -7,6 +7,7 @@ use crossterm::event::KeyCode;
 use crate::{
     conf::{self, key_desc},
     game::{
+        Proposed,
         player::{
             PlayerTurnControl,
         },
@@ -66,8 +67,6 @@ impl GetUnitOrdersMode {
 }
 impl IMode for GetUnitOrdersMode {
     fn run<U:UI>(&self, game: &mut PlayerTurnControl, ui: &mut U, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
-        
-
         let unit_loc = {
             let unit = {
                 let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
@@ -102,12 +101,10 @@ impl IMode for GetUnitOrdersMode {
                                 let proposed_move = game.propose_move_unit_by_id(self.unit_id, dest);
 
                                 match proposed_move.delta {
-                                    Ok(proposed_move) => {
-                                        ui.animate_move(game, &proposed_move);
+                                    Ok(ref proposed_move_result) => {
+                                        ui.animate_move(game, &proposed_move_result);
 
-                                        // let move_ = proposed_move.take(game);
-
-                                        let move_ = game.move_unit_by_id(self.unit_id, dest).unwrap();
+                                        let move_ = game.apply_proposal(proposed_move).unwrap();
 
                                         if let Some(conquered_city) = move_.conquered_city() {
                                             *mode = Mode::SetProduction {city_loc: conquered_city.loc};
@@ -138,15 +135,14 @@ impl IMode for GetUnitOrdersMode {
                             Self::clear_buf(ui);
                             return ModeStatus::Continue;
                         } else if c == conf::KEY_EXPLORE {
-                            let proposed_orders_result: OrdersResult = game.propose_order_unit_explore(self.unit_id);
-                            let proposed_orders_outcome = proposed_orders_result.as_ref().unwrap();
+                            let proposed_orders_result: Proposed<OrdersResult> = game.propose_order_unit_explore(self.unit_id);
+                            let proposed_orders_outcome = proposed_orders_result.delta.as_ref().unwrap();
                             if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
                                 ui.animate_move(game, &proposed_move);
                                 // proposed_move.take(game);
                             }
 
-                            // proposed_outcome.take(game).unwrap();
-                            game.order_unit_explore(self.unit_id).unwrap();
+                            game.apply_proposal(proposed_orders_result).unwrap();
 
                             *mode = Mode::GetOrders;
                             return ModeStatus::Continue;

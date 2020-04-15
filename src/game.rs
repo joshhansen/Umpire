@@ -2,13 +2,6 @@
 //! Abstract game engine.
 //!
 //! This implements the game logic without regard for user interface.
-//! 
-//! FIXME: Need to utilize a consistent, internally-managed random seed for all random operations
-//!        This is needed to allow a clone-based proposal system to produce consistent results between proposal and
-//!        implementation.
-//! OR
-//!        Have proposal methods return the modified clone, and then simply replace the game state with the modified
-//!        clone to make the changes real.
 
 pub mod ai;
 pub mod city;
@@ -116,16 +109,9 @@ const UNIT_MULTIPLIER: f64 = 10.0;
 /// How much is victory worth?
 const VICTORY_SCORE: f64 = 1000000.0;
 
-/// A trait for types which are contemplated-but-not-carried-out actions. Associated type `Outcome` will result from carrying out the proposed action.
-#[must_use = "All proposed actions issued by the game engine must be taken using `take`"]
-pub trait ProposedAction {
-    /// The result of carrying out the proposed action
-    type Outcome;
-
-    /// Carry out the proposed action
-    fn take(self, game: &mut Game) -> Self::Outcome;
-}
-
+/// A proposed change to the game state.
+/// 
+/// `delta` encapsulates the change, and `new_state` is the state as it will be after the change is applied.
 pub struct Proposed<T> {
     new_state: Game,
     pub delta: T,
@@ -137,6 +123,7 @@ impl <T> Proposed<T> {
         }
     }
 
+    /// Apply the proposed change to the given game instance. This overwrites the game instance with `new_state`.
     pub fn apply(self, state: &mut Game) -> T {
         *state = self.new_state;
         self.delta
@@ -1257,7 +1244,7 @@ impl Game {
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
+    pub fn propose_order_unit_go_to(&self, unit_id: UnitID, dest: Location) -> Proposed<OrdersResult> {
         self.propose_set_and_follow_orders(unit_id, Orders::GoTo{dest})
     }
 
@@ -1267,7 +1254,7 @@ impl Game {
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
+    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> Proposed<OrdersResult> {
         self.propose_set_and_follow_orders(unit_id, Orders::Explore)
     }
 
@@ -1327,9 +1314,10 @@ impl Game {
     }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
-    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> OrdersResult {
+    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> Proposed<OrdersResult> {
         let mut new = self.clone();
-        new.set_and_follow_orders(id, orders)
+        let orders_result = new.set_and_follow_orders(id, orders);
+        Proposed::new(new, orders_result)
     }
 
     fn set_and_follow_orders(&mut self, id: UnitID, orders: Orders) -> OrdersResult {

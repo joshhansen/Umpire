@@ -2,7 +2,6 @@ use crate::{
     game::{
         Game,
         GameError,
-        ProposedAction,
         Proposed,
         TurnNum,
         TurnStart,
@@ -77,47 +76,6 @@ impl PlayerType {
             '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => Ok(Self::AI(c.to_digit(10).unwrap() as usize)),
             c => Err(format!("Unrecognized player specification '{}'", c))
         }
-    }
-}
-
-
-// pub struct PlayerGameControl<'a> {
-//     game: &'a mut Game,
-// }
-// impl <'a> PlayerGameControl<'a> {
-//     fn unit_orders_requests<'b>(&'b self) -> impl Iterator<Item=UnitID> + 'b {
-//         self.game.unit_orders_requests()
-//     }
-
-//     fn production_set_requests<'b>(&'b self) -> impl Iterator<Item=Location> + 'b {
-//         self.game.production_set_requests()
-//     }
-
-//     fn set_production(&mut self, loc: Location, production: UnitType) -> Result<(),String> {
-//         self.game.set_production(loc, production)
-//     }
-// }
-
-// pub trait Player {
-//     // fn move_unit(&mut self, unit_id: UnitID, game: &PlayerGameView) -> Direction;
-    
-//     // fn set_production(&mut self, city_id: CityID, game: &PlayerGameView) -> UnitType;
-
-//     // fn take_turn(&mut self, game: &mut Game);
-
-//     fn take_turn(&mut self, game: &Game, tx: &Sender<PlayerCommand>);
-// }
-
-pub struct ProposedActionWrapper<T:ProposedAction> {
-    pub item: T,
-}
-impl <T:ProposedAction> ProposedActionWrapper<T> {
-    fn new(item: T) -> Self {
-        Self { item }
-    }
-
-    pub fn take(self, ctrl: &mut PlayerTurnControl) -> T::Outcome {
-        self.item.take(ctrl.game)
     }
 }
 
@@ -284,7 +242,6 @@ impl <'a> PlayerTurnControl<'a> {
 
     pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
         self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
-            // .map(ProposedActionWrapper::new)
     }
 
     /// Sets the production of the current player's city at location `loc` to `production`.
@@ -347,7 +304,7 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    pub fn propose_order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
+    pub fn propose_order_unit_go_to(&self, unit_id: UnitID, dest: Location) -> Proposed<OrdersResult> {
         self.game.propose_order_unit_go_to(unit_id, dest)
     }
 
@@ -356,7 +313,7 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
+    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> Proposed<OrdersResult> {
         self.game.propose_order_unit_explore(unit_id)
     }
 
@@ -369,6 +326,10 @@ impl <'a> PlayerTurnControl<'a> {
         let mut game = self.game.clone();
         let result = game.end_turn();
         (game, result)
+    }
+
+    pub fn apply_proposal<T>(&mut self, proposal: Proposed<T>) -> T {
+        proposal.apply(self.game)
     }
 
     // ----- Consuming methods -----
