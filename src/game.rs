@@ -97,6 +97,7 @@ use self::move_::{
     MoveError,
     MoveResult,
 };
+use map::dijkstra::UnitMovementFilterXenophile;
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
@@ -856,14 +857,19 @@ impl Game {
     // }
 
     /// Move a unit one step in a particular direction
-    pub fn move_unit_by_id_in_direction(&mut self, id: UnitID, direction: Direction) -> MoveResult {
-        let unit_loc = self.map.unit_by_id(id)
-            .ok_or_else(|| MoveError::SourceUnitDoesNotExist {id})?.loc;
+    pub fn move_unit_by_id_in_direction(&mut self, unit_id: UnitID, direction: Direction) -> MoveResult {
+        // let unit_loc = self.map.unit_by_id(id)
+            // .ok_or_else(|| MoveError::SourceUnitDoesNotExist {id})?.loc;
+        let unit = self.current_player_unit_by_id(unit_id)
+            .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
 
-        let dest = unit_loc.shift_wrapped(direction, self.dims(), self.wrapping())
+        let filter = UnitMovementFilter::new(&unit);
+
+        let dest = unit.loc.shift_wrapped(direction, self.dims(), self.wrapping())
             .ok_or_else(|| MoveError::DestinationOutOfBounds{})?;
 
-        self.move_unit_by_id(id, dest)
+        // self.move_unit_by_id(id, dest)
+        self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 
     pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
@@ -872,7 +878,7 @@ impl Game {
         let unit = self.current_player_unit_by_id(unit_id)
             .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
 
-        let filter = UnitMovementFilter::new(&unit);
+        let filter = UnitMovementFilterXenophile::new(&unit);
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 

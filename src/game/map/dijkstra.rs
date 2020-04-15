@@ -116,6 +116,26 @@ impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
     }
 }
 
+pub struct UnitMovementFilterXenophile<'a> {
+    pub unit: &'a Unit
+}
+impl <'a> UnitMovementFilterXenophile<'a> {
+    pub fn new(unit: &'a Unit) -> Self {
+        Self {
+            unit
+        }
+    }
+}
+impl <'a> Filter<Obs> for UnitMovementFilterXenophile<'a> {
+    fn include(&self, obs: &Obs) -> bool {
+        if let Obs::Observed{tile,..} = obs {
+            self.unit.can_move_on_tile(tile)
+        } else {
+            true
+        }
+    }
+}
+
 /// A filter that accepts all locations the unit could move on without attacking; unobserved are included automatically
 /// with the assumption that by the time the unit reaches that tile, it will have become observed and will be handled
 /// differently.
