@@ -2373,6 +2373,29 @@ mod test {
     }
 
     #[test]
+    fn test_embark_disembark_via_goto() {
+        let map = MapData::try_from("at -").unwrap();
+        let armor_id = map.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
+        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1,0)).unwrap();
+        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+
+        // Embark
+        game.order_unit_go_to(armor_id, Location::new(1,0)).unwrap();
+        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(1,0)));
+        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(1,0)));
+
+        // Move transport
+        game.order_unit_go_to(transport_id, Location::new(2, 0)).unwrap();
+        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(2,0)));
+        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(2,0)));
+        
+        // Disembark
+        game.order_unit_go_to(armor_id, Location::new(3, 0)).unwrap();
+        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(3,0)));
+        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(2,0)));
+    }
+
+    #[test]
     fn test_shortest_paths_carrying() {
         let map = MapData::try_from("t t  ").unwrap();
 
