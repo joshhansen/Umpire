@@ -1701,6 +1701,11 @@ mod test {
         },
     };
 
+    use rand::{
+        Rng,
+        thread_rng,
+    };
+
     use crate::{
         game::{
             Alignment,
@@ -1755,6 +1760,33 @@ mod test {
             let result = game.end_turn();
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1-player);
+        }
+    }
+
+    #[test]
+    fn test_move_unit_by_id_far() {
+        let mut map = MapData::new(Dims::new(180, 90), |_| Terrain::Water);
+        let unit_id = map.new_unit(Location::new(0,0), UnitType::Fighter, Alignment::Belligerent{player:0}, "Han Solo").unwrap();
+
+        let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+
+        let mut rand = thread_rng();
+        for _ in 0..10 {
+            let mut delta = Vec2d::new(0,0);
+
+            while delta.x==0 && delta.y==0 {
+                delta = Vec2d::new(
+                    rand.gen_range(-5, 6),
+                    rand.gen_range(-5, 6),
+                );
+            }
+
+            let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
+            let dest = game.wrapping().wrapped_add(game.dims(), unit_loc, delta).unwrap();
+            let result = game.move_unit_by_id(unit_id, dest).unwrap();
+            assert_eq!(result.ending_loc(), Some(dest));
+
+            game.force_end_turn();
         }
     }
 
