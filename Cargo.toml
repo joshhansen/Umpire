@@ -35,9 +35,9 @@ pastel = "0.7.0"
 pitch_calc = "0.11.1"
 #rsrl = "0.7.0"
 #rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
-rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master", path="rsrl", features = ["serialize"] }
+rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master", features = ["serialize"] }
 #rsrl_domains = "0.1.0"
-rsrl_domains = { git = "https://github.com/joshhansen/rsrl", branch="master", path="rsrl_domains" }
+rsrl_domains = { git = "https://github.com/joshhansen/rsrl", branch="master" }
 sample = "0.10.0"
 serde = { version = "1.0.106", features = ["derive"] }
 spaces = "5.0.0"
