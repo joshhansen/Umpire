@@ -666,7 +666,7 @@ impl Game {
 
     /// How many cities does the current player control?
     pub fn current_player_city_count(&self) -> usize {
-        self.map.player_city_count(self.current_player()).unwrap()
+        self.map.player_city_count(self.current_player()).unwrap_or_default()
     }
 
     // /// All cities controlled by the current player which have a production target set, mutably
