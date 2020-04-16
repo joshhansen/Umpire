@@ -1,6 +1,7 @@
 use crate::{
     game::{
         Game,
+        Proposed,
         
         map::{
             dijkstra::{
@@ -99,28 +100,10 @@ impl Orders {
         }
     }
 
-    // pub fn propose(self, unit_id: UnitID, game: &Game) -> ProposedOrdersResult {
-    //     match self {
-    //         Orders::Skip => {
-    //             // When the `ProposedOrdersOutcome` here is "made" into an `OrdersOutcome`, the contained `Skip` orders will be carried out correctly.
-    //             Ok(ProposedOrdersOutcome::completed_without_move(unit_id, self))
-    //         },
-    //         Orders::Sentry => {
-    //             // do nothing---sentry is implemented as a reaction to approaching enemies
-    //             Ok(ProposedOrdersOutcome::in_progress_without_move(unit_id, self))
-    //         },
-    //         Orders::GoTo{dest} => {
-    //             propose_go_to(self, game, unit_id, dest)
-    //         },
-    //         Orders::Explore => {
-    //             propose_exploration(self, game, unit_id)
-    //         }
-    //     }
-    // }
-
-    pub fn propose(self, unit_id: UnitID, game: &Game) -> OrdersResult {
+    pub fn propose(self, unit_id: UnitID, game: &Game) -> Proposed<OrdersResult> {
         let mut game = game.clone();
-        self.carry_out(unit_id, &mut game)
+        let delta = self.carry_out(unit_id, &mut game);
+        Proposed::new(game, delta)
     }
 
     /// A present-tense, progressive aspect verb phrase describing the action of the unit as it carries out these orders
@@ -142,43 +125,6 @@ impl Orders {
         }
     }
 }
-
-// /// A proposal that orders be given to a unit
-// pub struct ProposedSetOrders {
-//     unit_id: UnitID,
-//     orders: Option<Orders>,
-// }
-
-// impl ProposedAction for ProposedSetOrders {
-//     type Outcome = Result<(),OrdersError>;
-
-//     fn take(self, game: &mut Game) -> Self::Outcome {
-//         game.set_orders(self.unit_id, self.orders)
-//     }
-// }
-
-// /// A proposed action in which the specified unit's orders are set and then carried out
-// /// 
-// /// The result that would come about is represented by `proposed_orders_result`.
-// pub struct ProposedSetAndFollowOrders {
-//     pub unit_id: UnitID,
-//     pub orders: Orders,
-//     pub proposed_orders_result: ProposedOrdersResult,
-// }
-
-// impl ProposedAction for ProposedSetAndFollowOrders {
-//     type Outcome = OrdersResult;
-//     fn take(mut self, game: &mut Game) -> Self::Outcome {
-//         // Set the orders of the unit in our simulated orders outcome so that after the simulation is made real, the
-//         // orders will still be set.
-//         if let Ok(ref mut proposed_orders_outcome) = self.proposed_orders_result {
-//             if let Some(ref mut proposed_move) = proposed_orders_outcome.proposed_move {
-//                 proposed_move.0.unit.orders = Some(self.orders);
-//             }
-//         }
-//         self.proposed_orders_result.take(game)
-//     }
-// }
 
 /// Keep moving toward the nearest unobserved tile we can see a path
 /// to, until either there is no such tile or we run out of moves
@@ -282,9 +228,10 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
     }
 }
 
-pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> OrdersResult {
+pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Proposed<OrdersResult> {
     let mut new = game.clone();
-    explore(orders, &mut new, unit_id)
+    let delta = explore(orders, &mut new, unit_id);
+    Proposed::new(new, delta)
 }
 
 /// Analysis of potential destinations:
@@ -336,15 +283,17 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
             }
         }
 
-        if let Some(prev_dest) = shortest_paths.prev[dest2] {
-            dest2 = prev_dest;
-        } else {
-            return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
+        dest2 = shortest_paths
+            .prev[dest2]
+            .ok_or(GameError::MoveError{
                 id: unit_id,
-                src,
-                dest,
-            }});
-        }
+                orders,
+                move_error: MoveError::NoRoute {
+                    id: unit_id,
+                    src,
+                    dest,
+                }
+            })?;
     }
     let dest2 = dest2;
 
@@ -390,9 +339,10 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
             move_error: err,
         })
 }
-pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Location) -> OrdersResult {
+pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Location) -> Proposed<OrdersResult> {
     let mut new = game.clone();
-    go_to(orders, &mut new, unit_id, dest)
+    let delta = go_to(orders, &mut new, unit_id, dest);
+    Proposed::new(new, delta)
 }
 
 pub mod test_support {
@@ -490,13 +440,13 @@ pub mod test {
             Game,
             GameError,
             MoveError,
+            Proposed,
             map::{
                 MapData,
             },
             unit::{
                 orders::{
                     Orders,
-                    OrdersOutcome,
                     propose_exploration,
                     test_support,
                 },
@@ -504,7 +454,6 @@ pub mod test {
             },
         },
         name::{
-            IntNamer,
             unit_namer,
         },
         util::{
@@ -514,7 +463,10 @@ pub mod test {
         },
     };
 
-    use super::OrdersStatus;
+    use super::{
+        OrdersStatus,
+        OrdersResult,
+    };
 
     #[test]
     fn test_go_to() {
@@ -577,7 +529,8 @@ pub mod test {
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
-        let outcome: OrdersOutcome = propose_exploration(Orders::Explore, &game, unit_id).unwrap();
+        let proposed_outcome: Proposed<OrdersResult> = propose_exploration(Orders::Explore, &game, unit_id);
+        let outcome = proposed_outcome.delta.unwrap();
 
     //         /// The ID of the ordered unit
     // pub ordered_unit_id: UnitID,
