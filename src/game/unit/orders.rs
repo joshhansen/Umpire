@@ -1,5 +1,3 @@
-use failure::{Fail};
-
 use crate::{
     game::{
         Game,
@@ -71,102 +69,7 @@ impl OrdersOutcome {
     }
 }
 
-// /// The proposed outcome that would result if a unit carried out its orders
-// #[derive(Debug,PartialEq)]
-// pub struct ProposedOrdersOutcome {
-//     /// The ID of the ordered unit
-//     pub ordered_unit_id: UnitID,
-
-//     /// The orders that were given / carried out
-//     pub orders: Orders,
-
-//     /// Any movement that would be undertaken by the unit as part of its orders
-//     pub proposed_move: Option<Move>,
-
-//     /// A summary of the status of the orders, whether in progress or completed
-//     pub status: OrdersStatus,
-// }
-
-// // pub struct ProposedOrdersOutcome(OrdersOutcome);
-// impl ProposedOrdersOutcome {
-//     pub fn completed_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
-//         Self { ordered_unit_id, orders, proposed_move: None, status: OrdersStatus::Completed }
-//     }
-
-//     pub fn in_progress_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
-//         Self { ordered_unit_id, orders, proposed_move: None, status: OrdersStatus::InProgress }
-//     }
-
-//     pub fn in_progress_with_move(ordered_unit_id: UnitID, orders: Orders, proposed_move: Move) -> Self {
-//         Self { ordered_unit_id, orders, proposed_move: Some(proposed_move), status: OrdersStatus::InProgress }
-//     }
-
-//     pub fn completed_with_move(ordered_unit_id: UnitID, orders: Orders, proposed_move: Move) -> Self {
-//         Self { ordered_unit_id, orders, proposed_move: Some(proposed_move), status: OrdersStatus::Completed }
-//     }
-
-//     pub fn proposed_move(&self) -> Option<&Move> {
-//         self.proposed_move.as_ref()
-//     }
-
-//     pub fn status(&self) -> OrdersStatus  {
-//         self.status
-//     }
-// }
-
-// impl ProposedAction for ProposedOrdersOutcome {
-//     type Outcome = OrdersOutcome;
-//     fn take(self, game: &mut Game) -> Self::Outcome {
-        
-//         // We need to run the proposed move first so the cloned unit contained therein gets put in place inside `Game`.
-//         let move_ = self.proposed_move.map(|proposed_move| {
-//             proposed_move.take(game)
-//         });
-
-//         // Now we clear the unit's orders if approprirate
-//         if self.status == OrdersStatus::Completed {
-//             game.clear_orders(self.ordered_unit_id).unwrap();
-//         }
-
-//         OrdersOutcome {
-//             ordered_unit_id: self.ordered_unit_id,
-//             orders: self.orders,
-//             move_,
-//             status: self.status,
-//         }
-//     }
-// }
-
 pub type OrdersResult = Result<OrdersOutcome,GameError>;
-// pub type ProposedOrdersResult = Result<ProposedOrdersOutcome,OrdersError>;
-
-// impl ProposedAction for ProposedOrdersResult {
-//     type Outcome = OrdersResult;
-
-//     fn take(self, game: &mut Game) -> Self::Outcome {
-//         let outcome = self.map(|proposed_orders_outcome| proposed_orders_outcome.take(game));
-
-//         match outcome {
-//             Ok(OrdersOutcome{ status: OrdersStatus::Completed, ordered_unit_id, .. }) => {
-//                 // The orders are already complete, clear them out
-//                 game.clear_orders(ordered_unit_id).unwrap();
-//             },
-//             Err(ref err) => {
-//                 // The orders resulted in error when carried out, clear them out
-//                 match err {
-//                     OrdersError::OrderedUnitDoesNotExist { id , ..} | OrdersError::MoveError { id, .. } => {
-//                         game.clear_orders(*id).unwrap();
-//                     },
-//                 }
-//             },
-//             _ => {
-//                 // For all other cases, do not clear the orders
-//             }
-//         }
-
-//         outcome
-//     }
-// }
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum Orders {
