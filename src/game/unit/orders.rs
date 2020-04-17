@@ -132,7 +132,9 @@ impl Orders {
 /// If there are no such tiles then set the unit's orders to None
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
     // Clone the unit and simulate exploration using the clone
-    let mut unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
+    let mut unit = game.current_player_unit_by_id(unit_id)
+        .ok_or(GameError::NoSuchUnit{id:unit_id})?
+        .clone();
 
     let starting_loc = unit.loc;
 
