@@ -669,7 +669,7 @@ impl TermUI {
                 // };
 
                 self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, 
-                    false, None, None, None, Some(&located_obs.item));
+                    false, None, None, None, Some(&located_obs.obs));
             }
         }
     }

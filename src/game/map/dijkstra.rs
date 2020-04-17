@@ -4,6 +4,7 @@ use std::{
     cmp::Ordering,
     collections::{
         BinaryHeap,
+        HashMap,
         HashSet,
         VecDeque,
     },
@@ -18,7 +19,8 @@ use std::{
 use crate::{
     game::{
         Alignment,
-        map::{LocationGrid,Terrain,Tile},
+        map::LocationGridI,
+        map::{LocationGrid,SparseLocationGrid,Terrain,Tile},
         obs::Obs,
         unit::{Unit,UnitType},
     },
@@ -40,8 +42,8 @@ impl IndexMut<Location> for Vec<Vec<u16>> {
 }
 
 pub struct ShortestPaths {
-    pub dist: LocationGrid<Option<u16>>,
-    pub prev: LocationGrid<Option<Location>>
+    pub dist: SparseLocationGrid<u16>,
+    pub prev: SparseLocationGrid<Location>
 }
 
 impl fmt::Debug for ShortestPaths {
@@ -58,7 +60,7 @@ impl ShortestPaths {
 
         let mut most_recent = dest;
 
-        while let Some(prev) = self.prev[most_recent] {
+        while let Some(prev) = self.prev.get(most_recent).cloned() {
             path.insert(0, prev);
             most_recent = prev;
         }
@@ -568,23 +570,25 @@ impl PartialOrd for State {
 /// to any particular destination.
 ///
 /// The provided wrapping strategy is respected.
-pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, filter: &F, wrapping: Wrap2d) -> ShortestPaths {
-    let mut q = BinaryHeap::new();
+/// 
+/// # Arguments
+/// 
+/// * `max_dist`: the maximum distance to consider in the path search
+pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, filter: &F, wrapping: Wrap2d, max_dist: u16) -> ShortestPaths {
+    let mut q = Vec::new();
 
-    let mut dist = LocationGrid::new(tiles.dims(), |_loc| None);
-    let mut prev = LocationGrid::new(tiles.dims(), |_loc| None);
+    let mut dist: SparseLocationGrid<u16> = SparseLocationGrid::new(tiles.dims());
+    let mut prev: SparseLocationGrid<Location> = SparseLocationGrid::new(tiles.dims());
 
     q.push(State{ dist_: 0, loc: source });
 
-    dist[source] = Some(0);
+    dist.replace(source, 0);
 
     while let Some(State{ dist_, loc }) = q.pop() {
 
         // Quit early since we're already doing worse than the best known route
-        // if dist[loc].is_some() && dist_ > dist[loc].unwrap() { continue; }
-
-        if let Some(dist) = dist[loc] {
-            if dist_ > dist {
+        if let Some(dist) = dist.get(loc) {
+            if dist_ > *dist {
                 continue;
             }
         }
@@ -592,22 +596,23 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
         // for neighb_loc in neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), filter, wrapping) {
         for neighb_loc in neighbors_iter(tiles, loc, RELATIVE_NEIGHBORS.iter(), filter, wrapping) {
             let new_dist = dist_ + 1;
+
+            if new_dist > max_dist {
+                continue;//NOTE we might be able to just return here
+            }
+
             let next = State { dist_: new_dist, loc: neighb_loc };
 
-            if dist[neighb_loc].is_none() || new_dist < dist[neighb_loc].unwrap() {
+            // if let Some(neighb_dist) = dist.get(neighb_loc) {
+            if dist.get(neighb_loc).is_none() || new_dist < dist[neighb_loc] {
                 q.push(next);
-                // Relaxation, we have now found a better way
-                dist[neighb_loc] = Some(new_dist);
-                prev[neighb_loc] = Some(loc);
+                dist.replace(neighb_loc, new_dist);
+                prev.replace(neighb_loc, loc);
             }
         }
     }
 
     ShortestPaths { dist, prev }
-}
-
-pub fn old_shortest_paths_for_unit<T:Source<Tile>>(tiles: &T, source: Location, unit: &Unit, wrapping: Wrap2d) -> ShortestPaths {
-    shortest_paths(tiles, source, &UnitMovementFilter{unit}, wrapping)
 }
 
 /// Return the (or a) closest tile to the source which is reachable by the given
@@ -658,6 +663,7 @@ mod test {
             Alignment,
             map::{
                 LocationGrid,
+                LocationGridI,
                 Tile,
                 terrain::Terrain,
             },
@@ -677,7 +683,6 @@ mod test {
         nearest_adjacent_unobserved_reachable_without_attacking,
         neighbors,
         neighbors_terrain_only,
-        old_shortest_paths_for_unit,
         shortest_paths,
         RELATIVE_NEIGHBORS,
     };
@@ -844,77 +849,77 @@ mod test {
 
     #[test]
     fn test_dijkstra() {
-        let map = LocationGrid::try_from(
+        let map: LocationGrid<Tile> = LocationGrid::try_from(
     "\
-    xxx\n\
+    *xx\n\
     x x\n\
-    *xx").unwrap();
+    xxx").unwrap();
 
         let loc = Location{x:0, y:0};
-        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
-        let shortest_neither = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::NEITHER);
+        let armor = Unit::new(UnitID::new(0), loc, UnitType::Armor, Alignment::Belligerent{player:0}, "Carmen Bentley");
+        let filter = UnitMovementFilter::new(&armor);
+        let shortest_neither = shortest_paths(&map, loc, &filter, Wrap2d::NEITHER, armor.moves_remaining());
         println!("{:?}", shortest_neither);
-        assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
-        assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
-        assert_eq!(shortest_neither.dist[Location{x:2, y:0}], Some(2));
+        assert_eq!(shortest_neither.dist[Location{x:0, y:0}], 0);
+        assert_eq!(shortest_neither.dist[Location{x:1, y:0}], 1);
+        assert_eq!(shortest_neither.dist[Location{x:2, y:0}], 2);
 
-        assert_eq!(shortest_neither.dist[Location{x:0, y:1}], Some(1));
-        assert_eq!(shortest_neither.dist[Location{x:1, y:1}], None);
-        assert_eq!(shortest_neither.dist[Location{x:2, y:1}], Some(2));
+        assert_eq!(shortest_neither.dist[Location{x:0, y:1}], 1);
+        assert_eq!(shortest_neither.dist.get(Location{x:1, y:1}), None);// Nothing here
+        assert_eq!(shortest_neither.dist[Location{x:2, y:1}], 2);
 
-        assert_eq!(shortest_neither.dist[Location{x:0, y:2}], Some(2));
-        assert_eq!(shortest_neither.dist[Location{x:1, y:2}], Some(2));
-        assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(3));
+        assert_eq!(shortest_neither.dist[Location{x:0, y:2}], 2);
+        assert_eq!(shortest_neither.dist[Location{x:1, y:2}], 2);
+        assert_eq!(shortest_neither.dist.get(Location{x:2, y:2}), None);// Out of range, takes 3 moves
 
 
-        let shortest_horiz = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::HORIZ);
+        let shortest_horiz = shortest_paths(&map, loc, &filter, Wrap2d::HORIZ, armor.moves_remaining());
         println!("{:?}", shortest_horiz);
-        assert_eq!(shortest_horiz.dist[Location{x:0, y:0}], Some(0));
-        assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], Some(1));
-        assert_eq!(shortest_horiz.dist[Location{x:2, y:0}], Some(1));
+        assert_eq!(shortest_horiz.dist[Location{x:0, y:0}], 0);
+        assert_eq!(shortest_horiz.dist[Location{x:1, y:0}], 1);
+        assert_eq!(shortest_horiz.dist[Location{x:2, y:0}], 1);
 
-        assert_eq!(shortest_horiz.dist[Location{x:0, y:1}], Some(1));
-        assert_eq!(shortest_horiz.dist[Location{x:1, y:1}], None);
-        assert_eq!(shortest_horiz.dist[Location{x:2, y:1}], Some(1));
+        assert_eq!(shortest_horiz.dist[Location{x:0, y:1}], 1);
+        assert_eq!(shortest_horiz.dist.get(Location{x:1, y:1}), None);
+        assert_eq!(shortest_horiz.dist[Location{x:2, y:1}], 1);
 
-        assert_eq!(shortest_horiz.dist[Location{x:0, y:2}], Some(2));
-        assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], Some(2));
-        assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], Some(2));
+        assert_eq!(shortest_horiz.dist[Location{x:0, y:2}], 2);
+        assert_eq!(shortest_horiz.dist[Location{x:1, y:2}], 2);
+        assert_eq!(shortest_horiz.dist[Location{x:2, y:2}], 2);
 
-        let shortest_vert = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::VERT);
-        assert_eq!(shortest_vert.dist[Location{x:0, y:0}], Some(0));
-        assert_eq!(shortest_vert.dist[Location{x:1, y:0}], Some(1));
-        assert_eq!(shortest_vert.dist[Location{x:2, y:0}], Some(2));
+        let shortest_vert = shortest_paths(&map, loc, &filter, Wrap2d::VERT, armor.moves_remaining());
+        assert_eq!(shortest_vert.dist[Location{x:0, y:0}], 0);
+        assert_eq!(shortest_vert.dist[Location{x:1, y:0}], 1);
+        assert_eq!(shortest_vert.dist[Location{x:2, y:0}], 2);
 
-        assert_eq!(shortest_vert.dist[Location{x:0, y:1}], Some(1));
-        assert_eq!(shortest_vert.dist[Location{x:1, y:1}], None);
-        assert_eq!(shortest_vert.dist[Location{x:2, y:1}], Some(2));
+        assert_eq!(shortest_vert.dist[Location{x:0, y:1}], 1);
+        assert_eq!(shortest_vert.dist.get(Location{x:1, y:1}), None);
+        assert_eq!(shortest_vert.dist[Location{x:2, y:1}], 2);
 
-        assert_eq!(shortest_vert.dist[Location{x:0, y:2}], Some(1));
-        assert_eq!(shortest_vert.dist[Location{x:1, y:2}], Some(1));
-        assert_eq!(shortest_vert.dist[Location{x:2, y:2}], Some(2));
+        assert_eq!(shortest_vert.dist[Location{x:0, y:2}], 1);
+        assert_eq!(shortest_vert.dist[Location{x:1, y:2}], 1);
+        assert_eq!(shortest_vert.dist[Location{x:2, y:2}], 2);
 
-        let shortest_both = old_shortest_paths_for_unit(&map, loc, &infantry, Wrap2d::BOTH);
-        assert_eq!(shortest_both.dist[Location{x:0, y:0}], Some(0));
-        assert_eq!(shortest_both.dist[Location{x:1, y:0}], Some(1));
-        assert_eq!(shortest_both.dist[Location{x:2, y:0}], Some(1));
+        let shortest_both = shortest_paths(&map, loc, &filter, Wrap2d::BOTH, armor.moves_remaining());
+        assert_eq!(shortest_both.dist[Location{x:0, y:0}], 0);
+        assert_eq!(shortest_both.dist[Location{x:1, y:0}], 1);
+        assert_eq!(shortest_both.dist[Location{x:2, y:0}], 1);
 
-        assert_eq!(shortest_both.dist[Location{x:0, y:1}], Some(1));
-        assert_eq!(shortest_both.dist[Location{x:1, y:1}], None);
-        assert_eq!(shortest_both.dist[Location{x:2, y:1}], Some(1));
+        assert_eq!(shortest_both.dist[Location{x:0, y:1}], 1);
+        assert_eq!(shortest_both.dist.get(Location{x:1, y:1}), None);
+        assert_eq!(shortest_both.dist[Location{x:2, y:1}], 1);
 
-        assert_eq!(shortest_both.dist[Location{x:0, y:2}], Some(1));
-        assert_eq!(shortest_both.dist[Location{x:1, y:2}], Some(1));
-        assert_eq!(shortest_both.dist[Location{x:2, y:2}], Some(1));
+        assert_eq!(shortest_both.dist[Location{x:0, y:2}], 1);
+        assert_eq!(shortest_both.dist[Location{x:1, y:2}], 1);
+        assert_eq!(shortest_both.dist[Location{x:2, y:2}], 1);
     }
 
     #[test]
     fn test_shortest_paths() {
         let map: LocationGrid<Obs> = LocationGrid::try_from(
-            "\
-            *..\n\
-            ???\n\
-            ...").unwrap();
+            "*..
+???
+...").unwrap();
 
         let loc = Location{x:0, y:0};
         let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Carmen Bentley");
@@ -923,19 +928,21 @@ mod test {
             &map,
             loc,
             &Xenophile::new(UnitMovementFilter::new(&infantry)),
-            Wrap2d::NEITHER);
+            Wrap2d::NEITHER,
+            infantry.moves_remaining(),
+        );
 
-        assert_eq!(shortest_neither.dist[Location{x:0, y:0}], Some(0));
-        assert_eq!(shortest_neither.dist[Location{x:1, y:0}], Some(1));
-        assert_eq!(shortest_neither.dist[Location{x:2, y:0}], Some(2));
+        assert_eq!(shortest_neither.dist[Location{x:0, y:0}], 0);
+        assert_eq!(shortest_neither.dist[Location{x:1, y:0}], 1);
+        assert_eq!(shortest_neither.dist.get(Location{x:2, y:0}), None);//distance 2
 
-        assert_eq!(shortest_neither.dist[Location{x:0, y:1}], Some(1));
-        assert_eq!(shortest_neither.dist[Location{x:1, y:1}], Some(1));
-        assert_eq!(shortest_neither.dist[Location{x:2, y:1}], Some(2));
+        assert_eq!(shortest_neither.dist[Location{x:0, y:1}], 1);
+        assert_eq!(shortest_neither.dist[Location{x:1, y:1}], 1);
+        assert_eq!(shortest_neither.dist.get(Location{x:2, y:1}), None);// distance 2
 
-        assert_eq!(shortest_neither.dist[Location{x:0, y:2}], Some(2));
-        assert_eq!(shortest_neither.dist[Location{x:1, y:2}], Some(2));
-        assert_eq!(shortest_neither.dist[Location{x:2, y:2}], Some(2));
+        assert_eq!(shortest_neither.dist.get(Location{x:0, y:2}), None);// distance 2
+        assert_eq!(shortest_neither.dist.get(Location{x:1, y:2}), None);// distance 2
+        assert_eq!(shortest_neither.dist.get(Location{x:2, y:2}), None);// distance 2
     }
 
     #[test]

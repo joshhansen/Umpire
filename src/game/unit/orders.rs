@@ -4,6 +4,7 @@ use crate::{
         Proposed,
         
         map::{
+            LocationGridI,
             dijkstra::{
                 ObservedReachableByPacifistUnit,
                 PacifistXenophileUnitMovementFilter,
@@ -145,14 +146,13 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
         let observations = game.current_player_observations();
         if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(observations, unit.loc, &unit, game.wrapping()) {
 
-
             let filter = ObservedReachableByPacifistUnit{unit: &unit};
-            let shortest_paths = shortest_paths(observations, unit.loc, &filter, game.wrapping());
+            let shortest_paths = shortest_paths(observations, unit.loc, &filter, game.wrapping(), std::u16::MAX);
 
-
-            let mut dist_to_real_goal = shortest_paths.dist[goal].unwrap();
+            // Find the proximate goal that the unit can reach on this turn
+            let mut dist_to_real_goal = shortest_paths.dist[goal];
             while dist_to_real_goal > unit.moves_remaining() {
-                goal = shortest_paths.prev[goal].unwrap();
+                goal = shortest_paths.prev[goal];
                 dist_to_real_goal -= 1;
             }
 
@@ -206,7 +206,9 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
     }
 
     let (moves_remaining, shortest_paths, src) = {
-        let unit = game.current_player_unit_by_id(unit_id).unwrap();
+        let unit = game.current_player_unit_by_id(unit_id)
+            .ok_or(GameError::NoSuchUnit{id:unit_id})?;
+
         let moves_remaining = unit.moves_remaining;
 
         let filter = PacifistXenophileUnitMovementFilter{unit: &unit};
@@ -216,7 +218,9 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
             game,
             unit.loc,
             &filter,
-            game.wrapping());
+            game.wrapping(),
+            std::u16::MAX
+        );
 
         (moves_remaining, shortest_paths, unit.loc)
     };
@@ -230,7 +234,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
     let mut dest2 = dest;
     loop {
         if game.current_player_tile(dest2).is_some() {
-            if let Some(dist) = shortest_paths.dist[dest2] {
+            if let Some(dist) = shortest_paths.dist.get(dest2).cloned() {
                 if dist <= moves_remaining {
                     break;
                 }
@@ -238,7 +242,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         }
 
         dest2 = shortest_paths
-            .prev[dest2]
+            .prev.get(dest2).cloned()
             .ok_or(GameError::MoveError{
                 id: unit_id,
                 orders,

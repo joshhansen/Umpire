@@ -33,11 +33,13 @@ use crate::{
         city::{CityID,City},
         combat::CombatCapable,
         map::{
+            LocationGridI,
             MapData,
             NewUnitError,
             Tile,
             gen::generate_map,
             dijkstra::{
+                self,
                 AndFilter,
                 Filter,
                 NoCitiesButOursFilter,
@@ -47,7 +49,6 @@ use crate::{
                 directions_unit_could_move_iter,
                 neighbors_terrain_only,
                 neighbors_unit_could_move_to_iter,
-                shortest_paths
             },
         },
         obs::{Obs,Observer,ObsTracker,ObsTrackerI},
@@ -90,7 +91,7 @@ use self::move_::{
     MoveError,
     MoveResult,
 };
-use map::dijkstra::UnitMovementFilterXenophile;
+use map::dijkstra::{ShortestPaths, UnitMovementFilterXenophile};
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
@@ -813,7 +814,10 @@ impl Game {
         FIXME This function checks two separate times whether a unit exists at src
     */
     pub fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> MoveResult {
-        let unit = self.map.toplevel_unit_by_loc(src).unwrap().clone();
+        let unit = self.map.toplevel_unit_by_loc(src)
+                                  .ok_or(MoveError::SourceUnitNotAtLocation{src})?
+                                  .clone();
+        
         let filter = UnitMovementFilter::new(&unit);
         self.move_toplevel_unit_by_loc_using_filter(src, dest, &filter)
     }
@@ -928,13 +932,25 @@ impl Game {
         // piecewise recording of movements.
         let mut movement_complete = false;
 
-        while unit.loc != dest {
-            let shortest_paths = shortest_paths(obs_tracker, unit.loc, tile_filter, self.wrapping);
+        let mut shortest_paths: Option<ShortestPaths> = None;
+        let mut moves_remaining_on_last_shortest_paths_calculation = unit.moves_remaining();
 
-            if let Some(distance) = shortest_paths.dist[dest] {
-                if distance == 0 {// We might be able to just assert this
-                    return Err(MoveError::ZeroLengthMove);
-                }
+        while unit.loc != dest {
+            if shortest_paths.is_none() {
+                // Establish a new "baseline"---calculation of shortest paths from the unit's current location
+                shortest_paths = Some(dijkstra::shortest_paths(obs_tracker, unit.loc, tile_filter, self.wrapping, unit.moves_remaining()));
+                moves_remaining_on_last_shortest_paths_calculation = unit.moves_remaining();
+            }
+
+            if let Some(distance_to_dest_on_last_shortest_paths_calculation) = shortest_paths.as_ref().unwrap().dist.get(dest).cloned() {
+                let movement_since_last_shortest_paths_calculation = moves_remaining_on_last_shortest_paths_calculation - unit.moves_remaining();
+
+                // Distance to destination from unit's current location
+                let distance = distance_to_dest_on_last_shortest_paths_calculation - movement_since_last_shortest_paths_calculation;
+
+                // if distance == 0 {// We might be able to just assert this
+                //     return Err(MoveError::ZeroLengthMove);
+                // }
     
                 if distance > unit.moves_remaining() {
                     return Err(MoveError::RemainingMovesExceeded {
@@ -946,9 +962,10 @@ impl Game {
                     });
                 }
 
-                let shortest_path: Vec<Location> = shortest_paths.shortest_path(dest);
+                let shortest_path: Vec<Location> = shortest_paths.as_ref().unwrap().shortest_path(dest);
 
-                let loc = shortest_path[1];// skip the current location
+                // skip the source location and steps we've taken since "baseline"
+                let loc = shortest_path[1 + movement_since_last_shortest_paths_calculation as usize];
                 
                 let prev_loc = unit.loc;
 
@@ -1000,6 +1017,7 @@ impl Game {
                     // If it is a friendly unit:
                     if unit.is_friendly_to(other_unit) {
 
+                        debug_assert_ne!(unit.id, other_unit.id);
                         debug_assert!(other_unit.can_carry_unit(&unit));
 
                         // the friendly unit must have space for us in its carrying capacity or else the
@@ -1119,6 +1137,21 @@ impl Game {
 
                 // ----- Make observations from the unit's new location -----
                 move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+
+                // Inspect all observations besides at the unit's previous and current location to see if any changes in
+                // passability have occurred relevant to the unit's future moves.
+                // If so, request shortest_paths to be recalculated
+                let passability_changed = move_.observations_after_move
+                    .iter()
+                    .filter(|located_obs| located_obs.loc != unit.loc && located_obs.loc != prev_loc)
+                    .any(|located_obs| {
+                        located_obs.passability_changed(tile_filter)
+                    }
+                );
+                if passability_changed {
+                    // Mark the shortest_paths stale so it gets recomputed
+                    shortest_paths = None;
+                }
 
             } else {
                 return Err(MoveError::NoRoute{src, dest, id: unit_id});
@@ -1577,7 +1610,7 @@ pub mod test_support {
         // Make sure the intended destination is now observed as containing this unit, and that no other observed tiles
         // are observed as containing it
         for located_obs in &component.observations_after_move {
-            match located_obs.item {
+            match located_obs.obs {
                 Obs::Observed{ref tile, turn, current} =>{
                     if located_obs.loc == dest {
                         let unit = tile.unit.as_ref().unwrap();
@@ -1784,6 +1817,7 @@ mod test {
             let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
             let dest = game.wrapping().wrapped_add(game.dims(), unit_loc, delta).unwrap();
             let result = game.move_unit_by_id(unit_id, dest).unwrap();
+            assert!(result.moved_successfully());
             assert_eq!(result.ending_loc(), Some(dest));
 
             game.force_end_turn();

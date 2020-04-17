@@ -1,7 +1,14 @@
-use std::convert::TryFrom;
-use std::fmt;
-use std::iter::FromIterator;
-use std::ops::{Index,IndexMut};
+use std::{
+    collections::HashMap,
+    convert::TryFrom,
+    fmt,
+    iter::FromIterator,
+    ops::{
+        Index,
+        IndexMut,
+    },
+};
+
 
 use crate::{
     game::{
@@ -24,6 +31,14 @@ use super::{
     dijkstra::Source,
 };
 
+pub trait LocationGridI<T> : Dimensioned + Index<Location,Output=T> {
+    fn get(&self, loc: Location) -> Option<&T>;
+
+    fn get_mut(&mut self, loc: Location) -> Option<&mut T>;
+
+    fn replace(&mut self, loc: Location, value: T) -> Option<T>;
+}
+
 // NOTE This is a dense representation and really doesn't handle large maps well, e.g. 10000x10000
 #[derive(Clone)]
 pub struct LocationGrid<T> {
@@ -33,7 +48,7 @@ pub struct LocationGrid<T> {
 
 impl<T> LocationGrid<T> {
     pub fn new_from_vec(dims: Dims, grid: Vec<Vec<T>>) -> Self {
-        LocationGrid{ grid, dims }
+        Self{ grid, dims }
     }
 
     pub fn new<I>(dims: Dims, initializer: I) -> Self
@@ -55,26 +70,7 @@ impl<T> LocationGrid<T> {
             grid.push(col);
         }
 
-        LocationGrid{ grid, dims }
-    }
-
-    pub fn get(&self, loc: Location) -> Option<&T> {
-        self.grid.get(loc.x as usize).and_then(|col| col.get(loc.y as usize))
-    }
-
-    pub fn get_mut(&mut self, loc: Location) -> Option<&mut T> {
-        self.grid.get_mut(loc.x as usize).and_then(|col| col.get_mut(loc.y as usize))
-    }
-
-    pub fn replace(&mut self, loc: Location, value: T) -> Option<T> {
-        self.grid.get_mut(loc.x as usize)
-                .and_then(|col| col.get_mut(loc.y as usize)
-                                                   .map(|v| std::mem::replace(v, value))
-                )
-    }
-
-    pub fn dims(&self) -> Dims {
-        self.dims
+        Self{ grid, dims }
     }
 
     pub fn iter(&self) -> impl Iterator<Item=&T> {
@@ -87,6 +83,23 @@ impl<T> LocationGrid<T> {
 
     pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
         self.dims.iter_locs()
+    }
+}
+
+impl <T> LocationGridI<T> for LocationGrid<T> {
+    fn get(&self, loc: Location) -> Option<&T> {
+        self.grid.get(loc.x as usize).and_then(|col| col.get(loc.y as usize))
+    }
+
+    fn get_mut(&mut self, loc: Location) -> Option<&mut T> {
+        self.grid.get_mut(loc.x as usize).and_then(|col| col.get_mut(loc.y as usize))
+    }
+
+    fn replace(&mut self, loc: Location, value: T) -> Option<T> {
+        self.grid.get_mut(loc.x as usize)
+                .and_then(|col| col.get_mut(loc.y as usize)
+                                                   .map(|v| std::mem::replace(v, value))
+                )
     }
 }
 
@@ -113,7 +126,7 @@ impl Source<Tile> for LocationGrid<Tile> {
 
 impl Source<Obs> for LocationGrid<Obs> {
     fn get(&self, loc: Location) -> &Obs {
-        if let Some(obs) = self.get(loc) {
+        if let Some(obs) = LocationGridI::get(self, loc) {
             obs
         } else {
             &Obs::Unobserved
@@ -135,6 +148,7 @@ impl<T> IndexMut<Location> for LocationGrid<T> {
     }
 }
 
+/// NOTE: this impl is identical to the Debug impl on SparseLocationGrid
 impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = write!(f, "");
@@ -169,7 +183,7 @@ impl <T:fmt::Debug> fmt::Debug for LocationGrid<T> {
 /// Error if there are no lines or if the lines aren't of equal length
 impl TryFrom<String> for LocationGrid<Tile> {
     type Error = String;
-    fn try_from(s: String) -> Result<LocationGrid<Tile>,String> {
+    fn try_from(s: String) -> Result<Self,String> {
         let lines: Vec<Vec<char>> = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
         if lines.is_empty() {
             return Err(String::from("String contained no lines"));
@@ -289,7 +303,7 @@ impl TryFrom<&'static str> for LocationGrid<Tile> {
 /// Error if there are no lines or if the lines aren't of equal length
 impl TryFrom<String> for LocationGrid<Obs> {
     type Error = String;
-    fn try_from(s: String) -> Result<LocationGrid<Obs>,String> {
+    fn try_from(s: String) -> Result<Self,String> {
         let lines = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
 
         let tile_grid: LocationGrid<Tile> = LocationGrid::try_from(s).unwrap();
@@ -313,8 +327,78 @@ impl TryFrom<String> for LocationGrid<Obs> {
 
 impl TryFrom<&'static str> for LocationGrid<Obs> {
     type Error = String;
-    fn try_from(s: &'static str) -> Result<LocationGrid<Obs>,String> {
-        LocationGrid::try_from(String::from(s))
+    fn try_from(s: &'static str) -> Result<Self,String> {
+        Self::try_from(String::from(s))
+    }
+}
+
+pub struct SparseLocationGrid<T> {
+    grid: HashMap<Location,T>,
+    dims: Dims
+}
+
+impl <T> SparseLocationGrid<T> {
+    pub fn new(dims: Dims) -> Self {
+        Self {
+            grid: HashMap::new(),
+            dims,
+        }
+    }
+}
+
+impl <T> Dimensioned for SparseLocationGrid<T> {
+    fn dims(&self) -> Dims {
+        self.dims
+    }
+}
+
+impl <T> Index<Location> for SparseLocationGrid<T> {
+    type Output = T;
+
+    fn index(&self, loc: Location) -> &Self::Output {
+        self.get(loc).unwrap()
+    }
+}
+
+impl<T> IndexMut<Location> for SparseLocationGrid<T> {
+    fn index_mut(&mut self, loc: Location) -> &mut T {
+        self.get_mut(loc).unwrap()
+    }
+}
+
+impl <T> LocationGridI<T> for SparseLocationGrid<T> {
+    fn get(&self, loc: Location) -> Option<&T> {
+        self.grid.get(&loc)
+    }
+
+    fn get_mut(&mut self, loc: Location) -> Option<&mut T> {
+        self.grid.get_mut(&loc)
+    }
+
+    fn replace(&mut self, loc: Location, value: T) -> Option<T> {
+        self.grid.insert(loc, value)
+    }
+}
+
+/// NOTE: this impl is identical to the Debug impl on LocationGrid
+impl <T:fmt::Debug> fmt::Debug for SparseLocationGrid<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut result = write!(f, "");
+
+        for y in 0..self.dims.height {
+            for x in 0..self.dims.width {
+                let value = self.get(Location::new(x,y));
+                if let Some(value) = value {
+                    result = result.and(value.fmt(f));
+                } else {
+                    result = result.and(write!(f, " "));
+                }
+                // result = result.and(self[Location::new(x,y)].fmt(f));
+            }
+            result = result.and(writeln!(f));
+        }
+
+        result
     }
 }
 

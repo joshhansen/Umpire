@@ -576,7 +576,7 @@ mod test {
             obs::{Obs,ObsTracker},
             unit::{Alignment,Observer,UnitID,Unit,UnitType},
         },
-        util::{Dims,Location,Wrap2d},
+        util::{Dims,Dimensioned,Location,Wrap2d},
     };
 
 

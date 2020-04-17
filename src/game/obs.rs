@@ -5,6 +5,7 @@ use crate::{
         TurnNum,
         map::{
             LocationGrid,
+            grid::LocationGridI,
             Tile,
             dijkstra::{
                 Source,
@@ -14,6 +15,7 @@ use crate::{
     },
     util::{Dims,Dimensioned,Location,Located,LocatedItem,Vec2d,Wrap2d},
 };
+use super::map::dijkstra::Filter;
 
 
 /// What a particular player knows about a tile
@@ -42,7 +44,28 @@ impl fmt::Debug for Obs {
     }
 }
 
-pub type LocatedObs = LocatedItem<Obs>;
+#[derive(Debug,PartialEq)]
+pub struct LocatedObs {
+    pub loc: Location,
+    pub obs: Obs,
+    pub old_obs: Obs,
+}
+impl LocatedObs {
+    pub fn new(loc: Location, obs: Obs, old_obs: Obs) -> Self {
+        Self { loc, obs, old_obs }
+    }
+
+    pub fn passability_changed<F:Filter<Obs>>(&self, filter: &F) -> bool {
+        let was_included = filter.include(&self.old_obs);
+        let is_included = filter.include(&self.obs);
+        was_included != is_included
+    }
+}
+impl Located for LocatedObs {
+    fn loc(&self) -> Location {
+        self.loc
+    }
+}
 
 pub trait ObsTrackerI : Source<Obs> {
     fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
@@ -54,9 +77,7 @@ pub trait UnifiedObsTrackerI : ObsTrackerI + Source<Obs> + Source<Tile> {
 
 pub struct UnifiedObsTracker<'a, O, S> {
     truth: &'a mut S,
-    // observations: LocationGrid<Option<Obs>>,
     observations: &'a mut O,
-    // overlay: HashMap<Location,Option<Obs>>,
 }
 
 impl <'a, O:ObsTrackerI, S:Source<Tile>> UnifiedObsTracker<'a, O, S> {
@@ -110,15 +131,8 @@ impl <'a, O:ObsTrackerI, S:Source<Tile>> ObsTrackerI for UnifiedObsTracker<'a, O
 
 impl <'a, O:ObsTrackerI, S:Source<Tile>> UnifiedObsTrackerI for UnifiedObsTracker<'a, O, S> {
     fn track_observation_unified(&mut self, loc: Location, turn: TurnNum) -> LocatedObs {
-        // let tile = <Self as Source<Tile>>::get(self, loc).clone();//CLONE
-        let tile = self.truth.get(loc).clone();//CLONE
-
-        self.observations.track_observation(loc, &tile, turn);
-
-        let obs = Obs::Observed{ tile, turn, current: true };
-        // self.observations[loc] = Some(obs.clone());//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
-        
-        LocatedObs{ loc, item: obs }
+        let tile = self.truth.get(loc);
+        self.observations.track_observation(loc, tile, turn)
     }
 }
 
@@ -175,13 +189,13 @@ impl ObsTrackerI for ObsTracker {
             self.num_observed += 1;
         }
 
-        LocatedObs{ loc, item: obs }
+        LocatedObs::new(loc, obs, old.unwrap_or(Obs::Unobserved))
     }
 }
 
 impl Source<Obs> for ObsTracker {
     fn get(&self, loc: Location) -> &Obs {
-        if let Some(in_bounds) = self.observations.get(loc) {
+        if let Some(in_bounds) = LocationGridI::get(&self.observations, loc) {
             in_bounds
         } else {
             &Obs::Unobserved

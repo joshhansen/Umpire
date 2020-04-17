@@ -10,7 +10,7 @@ pub(in crate::game) mod tile;
 
 pub use self::terrain::Terrain;
 pub use self::tile::Tile;
-pub use self::grid::LocationGrid;
+pub use self::grid::{LocationGrid,LocationGridI,SparseLocationGrid};
 
 use std::{
     collections::{
@@ -148,7 +148,7 @@ impl MapData {
     }
 
     fn index_tile(&mut self, loc: Location) {
-        let tile = self.tiles.get(loc).cloned().unwrap();//CLONE
+        let tile = LocationGridI::get(&self.tiles, loc).cloned().unwrap();//CLONE
         if let Some(city) = tile.city.as_ref() {
             self.index_city(&city);
         }
@@ -264,7 +264,7 @@ impl MapData {
     }
 
     pub fn terrain(&self, loc: Location) -> Option<&Terrain> {
-        self.tiles.get(loc).map(|tile| &tile.terrain)
+        LocationGridI::get(&self.tiles, loc).map(|tile| &tile.terrain)
     }
 
     /// Set the terrain of a tile at the given location, returning the prior setting.
@@ -284,7 +284,7 @@ impl MapData {
             return Err(NewUnitError::OutOfBounds { loc, dims: self.dims() });
         }
 
-        if let Some(ref prior_unit) = self.tiles.get(loc).unwrap().unit {
+        if let Some(ref prior_unit) = LocationGridI::get(&self.tiles, loc).unwrap().unit {
             return Err(NewUnitError::UnitAlreadyPresent { loc, prior_unit: prior_unit.clone(), unit_type_under_production: type_ });
         }
 
@@ -302,7 +302,7 @@ impl MapData {
 
     /// Get the top-level unit at the given location, if any exists
     pub fn toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
-        if let Some(tile) = self.tiles.get(loc) {
+        if let Some(tile) = LocationGridI::get(&self.tiles, loc) {
             tile.unit.as_ref()
         } else {
             None
@@ -643,7 +643,7 @@ impl MapData {
             return Err(format!("Attempted to create city at location {} which is out of bounds {}", loc, self.dims()));
         }
 
-        if let Some(ref prior_city) = self.tiles.get(loc).unwrap().city {
+        if let Some(ref prior_city) = LocationGridI::get(&self.tiles, loc).unwrap().city {
             return Err(format!("Attempted to create city at location {}, but city {} is already there", loc, prior_city));
         }
 
@@ -660,7 +660,7 @@ impl MapData {
     }
 
     pub fn city_by_loc(&self, loc: Location) -> Option<&City> {
-        if let Some(tile) = self.tiles.get(loc) {
+        if let Some(tile) = LocationGridI::get(&self.tiles, loc) {
             tile.city.as_ref()
         } else {
             None
@@ -696,7 +696,7 @@ impl MapData {
     }
 
     pub fn tile(&self, loc: Location) -> Option<&Tile> {
-        self.tiles.get(loc)
+        LocationGridI::get(&self.tiles, loc)
     }
 
     fn tile_mut(&mut self, loc: Location) -> Option<&mut Tile> {
@@ -930,6 +930,7 @@ mod test {
             GameError,
             map::{
                 CityID,
+                LocationGridI,
                 gen::generate_map,
                 terrain::Terrain,
             },
@@ -1118,7 +1119,7 @@ mod test {
     fn test_carry_unit_by_id() {
         let mut map = MapData::try_from("ffffffktaaaaa").unwrap();
 
-        let ids: Vec<UnitID> = map.tiles.iter_locs().map(|loc| map.tiles.get(loc).unwrap().unit.as_ref().unwrap().id).collect();
+        let ids: Vec<UnitID> = map.tiles.iter_locs().map(|loc| LocationGridI::get(&map.tiles, loc).unwrap().unit.as_ref().unwrap().id).collect();
 
         let fighter_ids = &ids[..=5];
         let carrier_id = ids[6];
