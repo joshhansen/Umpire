@@ -363,7 +363,7 @@ impl Unit {
             alignment,
             hp: max_hp,
             max_hp,
-            moves_remaining: 0,
+            moves_remaining: type_.movement_per_turn(),
             name: name.into(),
             orders: None,
             carrying_space: type_.new_carrying_space_for(alignment),
