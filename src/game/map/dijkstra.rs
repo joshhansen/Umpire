@@ -594,15 +594,6 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
             let new_dist = dist_ + 1;
             let next = State { dist_: new_dist, loc: neighb_loc };
 
-            // If the new route to the neighbor is better than any we've found so far...
-            // if let Some(best_dist_so_far) = dist[neighb_loc] {
-            //     if new_dist < best_dist_so_far {
-            //         q.push(next);
-            //         // Relaxation, we have now found a better way
-            //         dist[neighb_loc] = Some(new_dist);
-            //         prev[neighb_loc] = Some(loc);
-            //     }
-            // }
             if dist[neighb_loc].is_none() || new_dist < dist[neighb_loc].unwrap() {
                 q.push(next);
                 // Relaxation, we have now found a better way

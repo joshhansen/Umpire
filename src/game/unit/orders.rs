@@ -130,26 +130,14 @@ impl Orders {
 /// to, until either there is no such tile or we run out of moves
 /// If there are no such tiles then set the unit's orders to None
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
-     // An overlay atop the player's observations which tracks the changes that occur during this move
-    // let mut overlay = OverlayObsTracker::new(game.current_player_observations());
-    // let mut overlay = UnifiedObsTracker::new(&game.map, game.current_player_observations().clone());
-
-    // let observations = game.current_player_observations();
-
-    // let mut overlay_map = OverlaySource::new(&game.map);
-    // let mut overlay_observations = OverlayObsTracker::new(game.current_player_observations());
-
     // Clone the unit and simulate exploration using the clone
     let mut unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
 
     let starting_loc = unit.loc;
 
     let mut move_components: Vec<MoveComponent> = Vec::new();
-    // let mut unit = None;
+    
     loop {
-        // Get a fresh copy of the unit
-        // let unit = game.current_player_unit_by_id(unit_id).expect("Somehow the unit disappeared during exploration").clone();
-
         if unit.moves_remaining() == 0 {
             return Ok(OrdersOutcome::in_progress_with_move(unit_id, orders, Move::new(unit, starting_loc, move_components).unwrap()));
         }
@@ -157,16 +145,10 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
         let observations = game.current_player_observations();
         if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(observations, unit.loc, &unit, game.wrapping()) {
 
-            //                                                     //FIXME this simplistic filter may be the source of some trouble
-            // let shortest_paths = shortest_paths(game, unit.loc, &ObservedFilter{}, game.wrapping());
 
             let filter = ObservedReachableByPacifistUnit{unit: &unit};
             let shortest_paths = shortest_paths(observations, unit.loc, &filter, game.wrapping());
 
-            // let shortest_paths = {
-            //     let filter = ObservedReachableByPacifistUnit{unit: &unit};
-            //     shortest_paths(&overlay, unit.loc, &filter, game.wrapping())
-            // };
 
             let mut dist_to_real_goal = shortest_paths.dist[goal].unwrap();
             while dist_to_real_goal > unit.moves_remaining() {
@@ -174,32 +156,15 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
                 dist_to_real_goal -= 1;
             }
 
-            // eprintln!("move from {} to {}", unit.loc, goal);
-            // let mut move_result = game.propose_move_unit_avoiding_combat(unit, goal)
-            //                       .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
-
             let mut move_ = game.move_unit_by_id_using_filter(
                 unit.id, goal, &filter
             ).map_err(|err| GameError::MoveError{id: unit_id, orders, move_error: err})?;
 
-            // let mut move_ = game.propose_move_unit_following_shortest_paths_custom_tracker(&unit, goal, shortest_paths, &mut overlay)
-            //                           .map_err(|err| OrdersError::MoveError{id: unit_id, orders, move_error: err})?;
-
 
             if move_.moved_successfully() {
-                // unit.loc = move_result.0.ending_loc().unwrap();
                 unit = move_.unit;
 
                 move_components.append(&mut move_.components);
-
-                // for move_component in move_.0.components {
-
-                //     for located_obs in move_component.observations_after_move {
-
-                //     }
-
-                //     move_components.push(move_component);
-                // }
             } else {
                 panic!("Unit was unexpectedly destroyed during exploration");
             }
@@ -213,17 +178,6 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
                     Move::new(unit, starting_loc, move_components).unwrap()
                 )
             });
-            // return game.set_orders(unit_id, None)
-            //     .map(|_| if moves.is_empty() {
-            //         ProposedOrdersOutcome::completed_without_move(unit_id, orders)
-            //     } else {
-            //         ProposedOrdersOutcome::completed_with_move(
-            //             unit_id,
-            //             orders,
-            //             ProposedMove::new(unit, starting_loc, moves).unwrap()
-            //         )
-            //     }
-            // );
         }
     }
 }

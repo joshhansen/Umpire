@@ -90,12 +90,6 @@ impl <'a, O:ObsTrackerI, S:Source<Tile>> Dimensioned for UnifiedObsTracker<'a, O
 impl <'a, O:ObsTrackerI, S:Source<Tile>> Source<Obs> for UnifiedObsTracker<'a, O, S> {
     fn get(&self, loc: Location) -> &Obs {
         self.observations.get(loc)
-        // self.observations[loc].as_ref().unwrap()
-        // if let Some(overlay_obs) = self.overlay[loc].as_ref() {
-        //     overlay_obs
-        // } else {
-        //     self.inner.get(loc)
-        // }
     }
 }
 
@@ -111,11 +105,6 @@ impl <'a, O:ObsTrackerI, S:Source<Tile>> Source<Tile> for UnifiedObsTracker<'a, 
 impl <'a, O:ObsTrackerI, S:Source<Tile>> ObsTrackerI for UnifiedObsTracker<'a, O, S> {
     fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         self.observations.track_observation(loc, tile, turn)
-        // let tile = <Self as Source<Tile>>::get(self, loc).clone();//CLONE
-        // let obs = Obs::Observed{ tile, turn, current: true };
-        // // self.observations[loc] = Some(obs.clone());//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
-        // self.observations.observe(loc, &tile, turn);
-        // LocatedObs{ loc, item: obs }
     }
 }
 
@@ -205,70 +194,6 @@ impl fmt::Debug for ObsTracker {
         self.observations.fmt(f)
     }
 }
-
-
-pub struct OverlayObsTracker<'a, S:Source<Obs>> {
-    inner: &'a S,
-    overlay: LocationGrid<Option<Obs>>,
-    // overlay: HashMap<Location,Option<Obs>>,
-}
-
-impl <'a,S:Source<Obs>> OverlayObsTracker<'a, S> {
-    pub fn new(inner: &'a S) -> Self {
-        Self {
-            inner,
-            overlay: LocationGrid::new(inner.dims(), |_loc| None),
-        }
-    }
-
-    pub fn overlaid_observations(&self) -> Vec<LocatedObs> {
-        let mut observations = Vec::new();
-
-        for loc in self.overlay.iter_locs() {
-            if let Some(ref obs) = self.overlay[loc] {
-                observations.push(LocatedObs::new(loc, obs.clone()));//CLONE
-            }
-        }
-
-        observations
-    }
-}
-
-impl <'a,S:Source<Obs>> Dimensioned for OverlayObsTracker<'a, S> {
-    fn dims(&self) -> Dims {
-        // The inner and overlay dims are identical
-        self.inner.dims()
-    }
-}
-
-impl <'a,S:Source<Obs>> Source<Obs> for OverlayObsTracker<'a, S> {
-    fn get(&self, loc: Location) -> &Obs {
-        if let Some(overlay_obs) = self.overlay[loc].as_ref() {
-            overlay_obs
-        } else {
-            self.inner.get(loc)
-        }
-    }
-}
-
-impl <'a,S:Source<Obs>> Source<Tile> for OverlayObsTracker<'a, S> {
-    fn get(&self, loc: Location) -> &Tile {
-        match <Self as Source<Obs>>::get(self, loc) {
-            Obs::Observed{ref tile, ..} => tile,
-            Obs::Unobserved => panic!("Tried to get tile from unobserved tile {:?}", loc)
-        }
-    }
-}
-
-impl <'a,S:Source<Obs>> ObsTrackerI for OverlayObsTracker<'a, S> {
-    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
-        let obs = Obs::Observed{ tile: tile.clone(), turn, current: true };//CLONE
-        self.overlay[loc] = Some(obs.clone());//CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
-        LocatedObs{ loc, item: obs }
-    }
-}
-
-
 
 pub fn visible_coords_iter(sight_distance: u16) -> impl Iterator<Item=Vec2d<i32>>  {
     let sight_distance = i32::from(sight_distance);
