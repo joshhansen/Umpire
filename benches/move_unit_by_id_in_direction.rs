@@ -1,0 +1,57 @@
+#[macro_use]
+extern crate criterion;
+
+use criterion::{
+    BatchSize,
+    Criterion,
+};
+
+use rand::{
+    Rng,
+    thread_rng,
+};
+
+use umpire::{
+    game::{
+        Alignment,
+        Game,
+        map::{
+            MapData,
+            terrain::Terrain,
+        },
+        
+        unit::UnitType,
+    },
+    util::{
+        Dims,
+        Direction,
+        Location,
+        Wrap2d,
+    },
+};
+
+fn criterion_benchmark(c: &mut Criterion) {
+    c.bench_function(
+        "move_unit_by_id_in_direction",
+        |b| b.iter_batched_ref(
+            || {
+                let mut map = MapData::new(Dims::new(180, 90), |_| Terrain::Water);
+                let unit_id = map.new_unit(Location::new(0,0), UnitType::Fighter, Alignment::Belligerent{player:0}, "Han Solo").unwrap();
+
+                let game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+
+                let dir_idx = thread_rng().gen_range(0, 8);
+                let dir = Direction::values()[dir_idx];
+                (game, unit_id, dir)
+            },
+            |(game,unit_id,dir)| {
+                game.move_unit_by_id_in_direction(*unit_id, *dir).unwrap()
+            },
+            BatchSize::SmallInput,
+        )
+    );
+}
+
+
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);

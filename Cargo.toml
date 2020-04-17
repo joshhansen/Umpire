@@ -78,6 +78,11 @@ harness = false
 path = "benches/move_unit_by_id.rs"
 
 [[bench]]
+name = "move_unit_by_id_in_direction"
+harness = false
+path = "benches/move_unit_by_id_in_direction.rs"
+
+[[bench]]
 name = "nearest_adjacent_unobserved"
 harness = false
 path = "benches/nearest_adjacent_unobserved.rs"
