@@ -15,15 +15,13 @@ pub use self::grid::{LocationGrid,LocationGridI,SparseLocationGrid};
 use std::{
     collections::{
         HashMap,
+        HashSet,
     },
     convert::TryFrom,
     fmt::{
         Debug,
         Formatter,
         Result as FmtResult,
-    },
-    iter::{
-        once,
     },
 };
 
@@ -75,6 +73,12 @@ pub struct MapData {
     /// A grid of map tiles. All cities and units are owned by the tiles that contain them.
     tiles: LocationGrid<Tile>,
 
+    /// where are all the units located?
+    /// 
+    /// This duplicates the values of `unit_loc_by_id` but those contain duplicates. we keep this to keep things
+    /// deduplicated at all times so we can iterate once and only once over each unit's location.
+    unit_locs: HashSet<Location>,
+
     /// What is the location of the tile that directly contains a particular unit (if any)?
     ///
     /// Carried units are not found here but rather in `unit_carrier_by_id`. The carrier unit's location can
@@ -121,9 +125,10 @@ impl MapData {
                                                        .max()
                                                        .map(|id| id.next())
                                                        .unwrap_or(UnitID::default());
-        
+
         let mut map_data = Self {
             tiles,
+            unit_locs: HashSet::new(),
             unit_loc_by_id: HashMap::new(),
             unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: HashMap::new(),
@@ -173,6 +178,9 @@ impl MapData {
 
     /// Add a carried unit to the relevant indices, specified piecemeal
     fn index_carried_unit_piecemeal(&mut self, carried_id: UnitID, carried_alignment: Alignment, carried_type: UnitType, carrier_id: UnitID, carrier_loc: Location) {
+        // NOTE: Carried units will already be represented in `unit_locs` by the location of their carrier unit
+        //       No need to update `unit_locs` here for that reason.
+
         let overwritten_loc: Option<Location> = self.unit_loc_by_id.insert(carried_id, carrier_loc);
         let overwritten_carrier_id: Option<UnitID> = self.unit_carrier_by_id.insert(carried_id, carrier_id);
 
@@ -189,6 +197,9 @@ impl MapData {
 
     /// Remove a carried unit from relevant indices
     fn unindex_carried_unit(&mut self, unit: &Unit) {
+        // NOTE: Carried units will already be represented in `unit_locs` by the location of their carrier unit
+        //       No need to update `unit_locs` here for that reason.
+
         let removed_loc: Option<Location> = self.unit_loc_by_id.remove(&unit.id);
         let removed_carrier_id: Option<UnitID> = self.unit_carrier_by_id.remove(&unit.id);
 
@@ -205,6 +216,9 @@ impl MapData {
 
     /// Add a top-level unit (and all carried units) to the relevant indices
     fn index_toplevel_unit(&mut self, unit: &Unit) {
+        let added = self.unit_locs.insert(unit.loc);
+        debug_assert!(added);
+
         let overwritten_loc: Option<Location> = self.unit_loc_by_id.insert(unit.id, unit.loc);
         debug_assert_eq!(
             overwritten_loc,
@@ -228,6 +242,9 @@ impl MapData {
 
     /// Remove a top-level unit (and all carried units) from the relevant indices
     fn unindex_toplevel_unit(&mut self, unit: &Unit) {
+        let was_present = self.unit_locs.remove(&unit.loc);
+        debug_assert!(was_present);
+
         let removed_loc: Option<Location> = self.unit_loc_by_id.remove(&unit.id);
         debug_assert_eq!(removed_loc.unwrap(), unit.loc);
 
@@ -721,9 +738,10 @@ impl MapData {
     // }
 
     pub(crate) fn cities(&self) -> impl Iterator<Item=&City> {
-        self.tiles.iter().filter_map(|tile| tile.city.as_ref())
+        self.city_loc_by_id.values().map(move |loc| self.city_by_loc(*loc).unwrap())
     }
 
+    //FIXME Use the `city_locs` index instead of scanning every tile in search of cities
     fn cities_mut(&mut self) -> impl Iterator<Item=&mut City> {
         self.tiles.iter_mut().filter_map(|tile| tile.city.as_mut())
     }
@@ -737,8 +755,9 @@ impl MapData {
     }
     
     pub(crate) fn units(&self) -> impl Iterator<Item=&Unit> {
-        self.tiles.iter().filter_map(|tile| tile.unit.as_ref())
-        .flat_map(|unit| once(unit).chain(unit.carried_units()))
+        self.unit_locs.iter()
+                      .map(move |unit_loc| self.tile(*unit_loc).unwrap())
+                      .flat_map(|tile| tile.all_units())
     }
 
     pub fn player_toplevel_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {

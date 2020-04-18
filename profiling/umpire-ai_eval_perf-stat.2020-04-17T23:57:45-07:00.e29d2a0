@@ -1,0 +1,20 @@
+# started on Sat Apr 18 00:12:44 2020
+
+
+ Performance counter stats for 'target/debug/umpire-ai -e 10 -s 100 eval random ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai':
+
+         40,894.69 msec task-clock:u              #    0.999 CPUs utilized          
+                 0      context-switches:u        #    0.000 K/sec                  
+                 0      cpu-migrations:u          #    0.000 K/sec                  
+             7,683      page-faults:u             #    0.188 K/sec                  
+   126,237,076,497      cycles:u                  #    3.087 GHz                    
+   253,435,955,377      instructions:u            #    2.01  insn per cycle         
+    48,641,246,603      branches:u                # 1189.427 M/sec                  
+        50,206,879      branch-misses:u           #    0.10% of all branches        
+
+      40.934962949 seconds time elapsed
+
+      40.758479000 seconds user
+       0.050155000 seconds sys
+
+

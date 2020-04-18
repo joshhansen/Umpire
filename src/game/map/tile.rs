@@ -36,6 +36,19 @@ impl Tile {
     pub fn set_unit(&mut self, unit: Unit) {
         self.unit = Some(unit);
     }
+
+    pub fn all_units(&self) -> Vec<&Unit> {
+        if let Some(unit) = self.unit.as_ref() {
+            let mut units = Vec::with_capacity(1 + unit.type_.carrying_capacity());
+
+            units.push(unit);
+            units.extend(unit.carried_units());
+
+            units
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 impl Colorized for Tile {
