@@ -53,6 +53,9 @@ pub fn generate_map<N:Namer>(city_namer: &mut N, map_dims: Dims, num_players: Pl
         map.set_terrain(loc, Terrain::Land).unwrap();
     }
 
+    //FIXME by keeping an index of land locations and counts of cardinal/diagonal land neighbors this could probably be
+    //      sped up substantially
+
     // Grow landmasses
     for _iteration in 0..conf::GROWTH_ITERATIONS {
         for loc in map_dims.iter_locs() {
