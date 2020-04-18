@@ -77,6 +77,12 @@ impl Dims {
 
     /// Iterate through all `Location`s implied by placing the rectangle of these dimensions at the origin
     pub fn iter_locs(self) -> impl Iterator<Item=Location> {
+        self.iter_locs_column_major()
+    }
+
+    /// Iterate through all `Location`s implied by placing the rectangle of these dimensions at the origin, in column-
+    /// major order.
+    pub fn iter_locs_column_major(self) -> impl Iterator<Item=Location> {
         let width: u16 = self.width;
         let height: u16 = self.height;
         (0..width).flat_map(move |x| {
@@ -669,5 +675,27 @@ mod test {
             assert_eq!( Wrap2d::NEITHER.wrapped_add(dims, loc, *rel_neighb), None );
         }
 
+    }
+
+    #[test]
+    fn test_iter_locs_column_major() {
+        let dims = Dims::new(3, 5);
+        let mut it = dims.iter_locs_column_major();
+        assert_eq!(it.next(), Some(Location::new(0, 0)));
+        assert_eq!(it.next(), Some(Location::new(0, 1)));
+        assert_eq!(it.next(), Some(Location::new(0, 2)));
+        assert_eq!(it.next(), Some(Location::new(0, 3)));
+        assert_eq!(it.next(), Some(Location::new(0, 4)));
+        assert_eq!(it.next(), Some(Location::new(1, 0)));
+        assert_eq!(it.next(), Some(Location::new(1, 1)));
+        assert_eq!(it.next(), Some(Location::new(1, 2)));
+        assert_eq!(it.next(), Some(Location::new(1, 3)));
+        assert_eq!(it.next(), Some(Location::new(1, 4)));
+        assert_eq!(it.next(), Some(Location::new(2, 0)));
+        assert_eq!(it.next(), Some(Location::new(2, 1)));
+        assert_eq!(it.next(), Some(Location::new(2, 2)));
+        assert_eq!(it.next(), Some(Location::new(2, 3)));
+        assert_eq!(it.next(), Some(Location::new(2, 4)));
+        assert_eq!(it.next(), None);
     }
 }

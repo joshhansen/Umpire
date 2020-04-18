@@ -1,0 +1,1446 @@
+desc: (none)
+cmd: target/debug/umpire
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=493639154
+mem_heap_B=1048763
+mem_heap_extra_B=268917
+mem_stacks_B=0
+heap_tree=detailed
+n5: 1048763 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 786432 0x593E6C: alloc::alloc::realloc (alloc.rs:125)
+  n2: 786432 0x593C35: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 786432 0x5DD6C2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 786432 0x5E6B39: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 786432 0x576759: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 786432 0x57520C: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 786432 0x1C3B16: umpire::name::city_namer (name.rs:176)
+        n1: 786432 0x1B4A17: umpire::main (umpire.rs:191)
+         n1: 786432 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+          n1: 786432 0x6CB3B2: {{closure}} (rt.rs:52)
+           n1: 786432 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+            n1: 786432 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+             n1: 786432 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+              n1: 786432 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+               n1: 786432 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                n1: 786432 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                 n0: 786432 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 0 in 3 places, all below massif's threshold (1.00%)
+ n1: 168046 0x4DAD5B: alloc::alloc::alloc (alloc.rs:81)
+  n2: 168046 0x4DABD1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 168046 0x4DC6FD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 168046 0x4DC555: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 168046 0x4DBFC3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 159854 0x4D7FF0: alloc::slice::hack::to_vec (slice.rs:158)
+       n2: 159854 0x4DAF64: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n2: 159758 0x4DAF94: alloc::slice::<impl alloc::borrow::ToOwned for [T]>::to_owned (slice.rs:727)
+         n1: 159758 0x4CF249: alloc::str::<impl alloc::borrow::ToOwned for str>::to_owned (str.rs:205)
+          n1: 159758 0x4CF1A3: <alloc::string::String as core::convert::From<&str>>::from (string.rs:2223)
+           n1: 159758 0x4CF1D3: <T as core::convert::Into<U>>::into (mod.rs:558)
+            n1: 159758 0x1C3AE8: umpire::name::city_namer (name.rs:176)
+             n1: 159758 0x1B4A17: umpire::main (umpire.rs:191)
+              n1: 159758 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+               n1: 159758 0x6CB3B2: {{closure}} (rt.rs:52)
+                n1: 159758 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                 n1: 159758 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                  n1: 159758 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                   n1: 159758 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                    n1: 159758 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                     n1: 159758 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                      n0: 159758 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+         n0: 0 in 1 place, below massif's threshold (1.00%)
+        n0: 96 in 1 place, below massif's threshold (1.00%)
+      n0: 8192 in 3 places, all below massif's threshold (1.00%)
+   n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 43784 0x39973B: alloc::alloc::alloc (alloc.rs:81)
+  n1: 43784 0x3996AB: alloc::alloc::exchange_malloc (alloc.rs:203)
+   n1: 43784 0x398652: <alloc::boxed::Box<T> as core::default::Default>::default (boxed.rs:561)
+    n1: 43784 0x39F412: miniz_oxide::inflate::stream::InflateState::new_boxed (stream.rs:72)
+     n1: 43784 0x3881FA: <flate2::ffi::rust::Inflate as flate2::ffi::InflateBackend>::make (rust.rs:53)
+      n1: 43784 0x387B76: flate2::mem::Decompress::new (mem.rs:337)
+       n1: 43784 0x32BE7C: flate2::deflate::bufread::DeflateDecoder<R>::new (bufread.rs:186)
+        n1: 43784 0x2FCD58: flate2::gz::bufread::GzDecoder<R>::new (bufread.rs:374)
+         n1: 43784 0x254A4B: flate2::gz::read::GzDecoder<R>::new (read.rs:142)
+          n1: 43784 0x1C383F: umpire::name::city_namer (name.rs:166)
+           n1: 43784 0x1B4A17: umpire::main (umpire.rs:191)
+            n1: 43784 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 43784 0x6CB3B2: {{closure}} (rt.rs:52)
+              n1: 43784 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+               n1: 43784 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 43784 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 43784 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 43784 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 43784 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                    n0: 43784 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+ n1: 32768 0x3C38FB: alloc::alloc::alloc_zeroed (alloc.rs:162)
+  n1: 32768 0x3C3761: <alloc::alloc::Global as core::alloc::Alloc>::alloc_zeroed (alloc.rs:189)
+   n1: 32768 0x3C7B81: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 32768 0x3B4578: alloc::raw_vec::RawVec<T>::with_capacity_zeroed (raw_vec.rs:146)
+     n1: 32768 0x3B050C: <u8 as alloc::vec::SpecFromElem>::from_elem (vec.rs:1743)
+      n1: 32768 0x3B1065: alloc::vec::from_elem (vec.rs:1723)
+       n1: 32768 0x2BA140: flate2::bufreader::BufReader<R>::new (<::alloc::macros::vec macros>:1)
+        n1: 32768 0x254A38: flate2::gz::read::GzDecoder<R>::new (read.rs:142)
+         n1: 32768 0x1C383F: umpire::name::city_namer (name.rs:166)
+          n1: 32768 0x1B4A17: umpire::main (umpire.rs:191)
+           n1: 32768 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+            n1: 32768 0x6CB3B2: {{closure}} (rt.rs:52)
+             n1: 32768 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+              n1: 32768 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+               n1: 32768 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                n1: 32768 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                 n1: 32768 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                  n1: 32768 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                   n0: 32768 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+ n0: 17733 in 43 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=2
+#-----------
+time=953854588
+mem_heap_B=1990013
+mem_heap_extra_B=564147
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=3
+#-----------
+time=1254407661
+mem_heap_B=2099198
+mem_heap_extra_B=722410
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=4
+#-----------
+time=1681426591
+mem_heap_B=2253252
+mem_heap_extra_B=941700
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=5
+#-----------
+time=2261389612
+mem_heap_B=4024517
+mem_heap_extra_B=1280811
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=6
+#-----------
+time=2834609684
+mem_heap_B=4237512
+mem_heap_extra_B=1564608
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=7
+#-----------
+time=3276597872
+mem_heap_B=4376388
+mem_heap_extra_B=1816188
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=8
+#-----------
+time=3778830365
+mem_heap_B=7681641
+mem_heap_extra_B=2085567
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=9
+#-----------
+time=4167446655
+mem_heap_B=7819671
+mem_heap_extra_B=2304841
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=10
+#-----------
+time=4701926124
+mem_heap_B=7825158
+mem_heap_extra_B=2314882
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=11
+#-----------
+time=5195932190
+mem_heap_B=11314022
+mem_heap_extra_B=2432018
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=12
+#-----------
+time=5573230714
+mem_heap_B=11314022
+mem_heap_extra_B=2432018
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=13
+#-----------
+time=5842385226
+mem_heap_B=11313996
+mem_heap_extra_B=2432004
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=14
+#-----------
+time=6220036635
+mem_heap_B=11314022
+mem_heap_extra_B=2432018
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=15
+#-----------
+time=6472972627
+mem_heap_B=27621643
+mem_heap_extra_B=1545565
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=16
+#-----------
+time=7076290563
+mem_heap_B=41321505
+mem_heap_extra_B=156703
+mem_stacks_B=0
+heap_tree=peak
+n2: 41321505 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 40729804 0x1F74FB: alloc::alloc::alloc (alloc.rs:81)
+  n4: 40710612 0x1F72D1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 33696000 0x2FF3CD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 33696000 0x2FEF45: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 33696000 0x1C5383: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 16848000 0x1D4240: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 16848000 0x2BE904: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 16848000 0x1CB780: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 16848000 0x1E30A3: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 16848000 0x240393: <umpire::game::obs::ObsTracker as core::clone::Clone>::clone (obs.rs:142)
+           n1: 16848000 0x1EAAA4: core::clone::Clone::clone (clone.rs:122)
+            n1: 16848000 0x25C949: <hashbrown::raw::RawTable<T> as core::clone::Clone>::clone (mod.rs:1014)
+             n1: 16848000 0x324FE8: <hashbrown::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:196)
+              n1: 16848000 0x2F3C21: <std::collections::hash::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:203)
+               n1: 16848000 0x2541EE: <umpire::game::Game as core::clone::Clone>::clone (game.rs:279)
+                n1: 16848000 0x1DF0ED: umpire::game::player::PlayerTurnControl::propose_end_turn (player.rs:326)
+                 n1: 16848000 0x320F7C: <umpire::ui::mode::turn_over::TurnOverMode as umpire::ui::mode::IMode>::run (turn_over.rs:247)
+                  n1: 16848000 0x242CF2: umpire::ui::mode::Mode::run (mode.rs:69)
+                   n1: 16848000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                    n1: 16848000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                     n1: 16848000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                      n1: 16848000 0x1B5AD7: umpire::main (umpire.rs:276)
+                       n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                        n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+                         n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                          n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                           n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                            n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                             n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                              n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                               n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n1: 16848000 0x1E0881: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 16848000 0x23F774: umpire::game::obs::ObsTracker::new (obs.rs:150)
+        n1: 16848000 0x24CA72: umpire::game::Game::new_with_map (game.rs:332)
+         n1: 16848000 0x1A942D: umpire::game::Game::new (game.rs:319)
+          n1: 16848000 0x1B4BF4: umpire::main (umpire.rs:194)
+           n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+            n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+             n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+              n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+               n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                 n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                  n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                   n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n1: 6480000 0x2FFE8D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 6480000 0x2FEFD5: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 6480000 0x1C5623: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 3240000 0x195B04: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 3240000 0x1A569F: umpire::game::map::MapData::new (map.rs:108)
+        n1: 3240000 0x1A57DD: umpire::game::map::gen::generate_map (gen.rs:44)
+         n1: 3240000 0x1A93A1: umpire::game::Game::new (game.rs:318)
+          n1: 3240000 0x1B4BF4: umpire::main (umpire.rs:194)
+           n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+            n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+             n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+              n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+               n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                 n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                  n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                   n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n1: 3240000 0x1D43A0: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 3240000 0x2E7B54: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 3240000 0x1CB820: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 3240000 0x1E3163: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 3240000 0x24980C: <umpire::game::map::MapData as core::clone::Clone>::clone (map.rs:73)
+           n1: 3240000 0x2541C7: <umpire::game::Game as core::clone::Clone>::clone (game.rs:276)
+            n1: 3240000 0x1DF0ED: umpire::game::player::PlayerTurnControl::propose_end_turn (player.rs:326)
+             n1: 3240000 0x320F7C: <umpire::ui::mode::turn_over::TurnOverMode as umpire::ui::mode::IMode>::run (turn_over.rs:247)
+              n1: 3240000 0x242CF2: umpire::ui::mode::Mode::run (mode.rs:69)
+               n1: 3240000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                n1: 3240000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                 n1: 3240000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                  n1: 3240000 0x1B5AD7: umpire::main (umpire.rs:276)
+                   n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                    n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+                     n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                      n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                       n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                        n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                         n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                          n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                           n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n1: 530000 0x30013D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 530000 0x2FF005: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n1: 530000 0x1C54A3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 530000 0x1E173E: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 530000 0x2AFF85: umpire::ui::map::Map::new (map.rs:181)
+        n1: 530000 0x1C05B5: umpire::ui::TermUI::new (ui.rs:539)
+         n1: 530000 0x1B5311: umpire::main (umpire.rs:234)
+          n1: 530000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 530000 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 530000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 530000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 530000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 530000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 530000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 530000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 530000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 4612 in 7 places, all below massif's threshold (1.00%)
+  n0: 19192 in 5 places, all below massif's threshold (1.00%)
+ n0: 591701 in 126 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=17
+#-----------
+time=7340249222
+mem_heap_B=21209096
+mem_heap_extra_B=152488
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=18
+#-----------
+time=7754647550
+mem_heap_B=21208994
+mem_heap_extra_B=152574
+mem_stacks_B=0
+heap_tree=detailed
+n3: 21208994 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 20631948 0x1F74FB: alloc::alloc::alloc (alloc.rs:81)
+  n4: 20622100 0x1F72D1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 16848000 0x2FF3CD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 16848000 0x2FEF45: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 16848000 0x1C5383: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 16848000 0x1E0881: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 16848000 0x23F774: umpire::game::obs::ObsTracker::new (obs.rs:150)
+        n1: 16848000 0x24CA72: umpire::game::Game::new_with_map (game.rs:332)
+         n1: 16848000 0x1A942D: umpire::game::Game::new (game.rs:319)
+          n1: 16848000 0x1B4BF4: umpire::main (umpire.rs:194)
+           n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+            n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+             n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+              n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+               n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                 n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                  n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                   n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 3240000 0x2FFE8D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 3240000 0x2FEFD5: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 3240000 0x1C5623: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 3240000 0x195B04: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 3240000 0x1A569F: umpire::game::map::MapData::new (map.rs:108)
+        n1: 3240000 0x1A57DD: umpire::game::map::gen::generate_map (gen.rs:44)
+         n1: 3240000 0x1A93A1: umpire::game::Game::new (game.rs:318)
+          n1: 3240000 0x1B4BF4: umpire::main (umpire.rs:194)
+           n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+            n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+             n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+              n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+               n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                 n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                  n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                   n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 530000 0x30013D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 530000 0x2FF005: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n1: 530000 0x1C54A3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 530000 0x1E173E: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 530000 0x2AFF85: umpire::ui::map::Map::new (map.rs:181)
+        n1: 530000 0x1C05B5: umpire::ui::TermUI::new (ui.rs:539)
+         n1: 530000 0x1B5311: umpire::main (umpire.rs:234)
+          n1: 530000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 530000 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 530000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 530000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 530000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 530000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 530000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 530000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 530000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 4100 in 8 places, all below massif's threshold (1.00%)
+  n0: 9848 in 6 places, all below massif's threshold (1.00%)
+ n1: 295936 0x1F75CC: alloc::alloc::realloc (alloc.rs:125)
+  n2: 295936 0x1F7395: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 262144 0x305E12: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 262144 0x30F0C9: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 262144 0x1CAD59: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 262144 0x1C8FEB: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 262144 0x1F30B1: umpire::name::load_cumulative_weights (name.rs:150)
+        n1: 262144 0x1C3D7F: umpire::name::unit_namer (name.rs:209)
+         n1: 262144 0x1B4A32: umpire::main (umpire.rs:192)
+          n1: 262144 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 262144 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 262144 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 262144 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 262144 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 262144 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 262144 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 262144 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 262144 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 33792 in 4 places, all below massif's threshold (1.00%)
+ n0: 281110 in 127 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=19
+#-----------
+time=8130252799
+mem_heap_B=21210905
+mem_heap_extra_B=152647
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=20
+#-----------
+time=8556066866
+mem_heap_B=21210212
+mem_heap_extra_B=152628
+mem_stacks_B=0
+heap_tree=detailed
+n3: 21210212 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 20631948 0x1F74FB: alloc::alloc::alloc (alloc.rs:81)
+  n4: 20622100 0x1F72D1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 16848000 0x2FF3CD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 16848000 0x2FEF45: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 16848000 0x1C5383: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 16848000 0x1E0881: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 16848000 0x23F774: umpire::game::obs::ObsTracker::new (obs.rs:150)
+        n1: 16848000 0x24CA72: umpire::game::Game::new_with_map (game.rs:332)
+         n1: 16848000 0x1A942D: umpire::game::Game::new (game.rs:319)
+          n1: 16848000 0x1B4BF4: umpire::main (umpire.rs:194)
+           n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+            n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+             n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+              n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+               n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                 n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                  n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                   n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 3240000 0x2FFE8D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 3240000 0x2FEFD5: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 3240000 0x1C5623: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 3240000 0x195B04: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 3240000 0x1A569F: umpire::game::map::MapData::new (map.rs:108)
+        n1: 3240000 0x1A57DD: umpire::game::map::gen::generate_map (gen.rs:44)
+         n1: 3240000 0x1A93A1: umpire::game::Game::new (game.rs:318)
+          n1: 3240000 0x1B4BF4: umpire::main (umpire.rs:194)
+           n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+            n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+             n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+              n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+               n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                 n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                  n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                   n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 530000 0x30013D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 530000 0x2FF005: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n1: 530000 0x1C54A3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 530000 0x1E173E: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 530000 0x2AFF85: umpire::ui::map::Map::new (map.rs:181)
+        n1: 530000 0x1C05B5: umpire::ui::TermUI::new (ui.rs:539)
+         n1: 530000 0x1B5311: umpire::main (umpire.rs:234)
+          n1: 530000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 530000 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 530000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 530000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 530000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 530000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 530000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 530000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 530000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 4100 in 8 places, all below massif's threshold (1.00%)
+  n0: 9848 in 6 places, all below massif's threshold (1.00%)
+ n1: 296960 0x1F75CC: alloc::alloc::realloc (alloc.rs:125)
+  n2: 296960 0x1F7395: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 262144 0x305E12: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 262144 0x30F0C9: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 262144 0x1CAD59: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 262144 0x1C8FEB: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 262144 0x1F30B1: umpire::name::load_cumulative_weights (name.rs:150)
+        n1: 262144 0x1C3D7F: umpire::name::unit_namer (name.rs:209)
+         n1: 262144 0x1B4A32: umpire::main (umpire.rs:192)
+          n1: 262144 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 262144 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 262144 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 262144 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 262144 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 262144 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 262144 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 262144 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 262144 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 34816 in 4 places, all below massif's threshold (1.00%)
+ n0: 281304 in 127 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=21
+#-----------
+time=9171058811
+mem_heap_B=21210902
+mem_heap_extra_B=152738
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=22
+#-----------
+time=9673215227
+mem_heap_B=37943146
+mem_heap_extra_B=157390
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=23
+#-----------
+time=10000702832
+mem_heap_B=21211591
+mem_heap_extra_B=152881
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=24
+#-----------
+time=10524861073
+mem_heap_B=31202569
+mem_heap_extra_B=157103
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=25
+#-----------
+time=11093653398
+mem_heap_B=21211827
+mem_heap_extra_B=152773
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=26
+#-----------
+time=11671187517
+mem_heap_B=37940275
+mem_heap_extra_B=156997
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=27
+#-----------
+time=12224903134
+mem_heap_B=21211331
+mem_heap_extra_B=152805
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=28
+#-----------
+time=12568954526
+mem_heap_B=34573675
+mem_heap_extra_B=157357
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=29
+#-----------
+time=13085420472
+mem_heap_B=21211639
+mem_heap_extra_B=152945
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=30
+#-----------
+time=13416751796
+mem_heap_B=21213871
+mem_heap_extra_B=153129
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=31
+#-----------
+time=13765248274
+mem_heap_B=21212673
+mem_heap_extra_B=152983
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=32
+#-----------
+time=14286702204
+mem_heap_B=21213083
+mem_heap_extra_B=153149
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=33
+#-----------
+time=14640096701
+mem_heap_B=21212349
+mem_heap_extra_B=153075
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=34
+#-----------
+time=15146452279
+mem_heap_B=21212145
+mem_heap_extra_B=153031
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=35
+#-----------
+time=15498870870
+mem_heap_B=21212191
+mem_heap_extra_B=153057
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=36
+#-----------
+time=16016984192
+mem_heap_B=21212913
+mem_heap_extra_B=153079
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=37
+#-----------
+time=16375219921
+mem_heap_B=41313063
+mem_heap_extra_B=157697
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=38
+#-----------
+time=16902823921
+mem_heap_B=21210643
+mem_heap_extra_B=152869
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=39
+#-----------
+time=17244213776
+mem_heap_B=21212162
+mem_heap_extra_B=153078
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=40
+#-----------
+time=17582777946
+mem_heap_B=21212198
+mem_heap_extra_B=153130
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=41
+#-----------
+time=18083643936
+mem_heap_B=27836353
+mem_heap_extra_B=157727
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=42
+#-----------
+time=18466361340
+mem_heap_B=21213832
+mem_heap_extra_B=153280
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=43
+#-----------
+time=18839811165
+mem_heap_B=21213832
+mem_heap_extra_B=153280
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=44
+#-----------
+time=19307477108
+mem_heap_B=21213732
+mem_heap_extra_B=153236
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=45
+#-----------
+time=19653887824
+mem_heap_B=21212492
+mem_heap_extra_B=153180
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=46
+#-----------
+time=20156107352
+mem_heap_B=21214116
+mem_heap_extra_B=153308
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=47
+#-----------
+time=20486170389
+mem_heap_B=41313610
+mem_heap_extra_B=157878
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=48
+#-----------
+time=21009182999
+mem_heap_B=21212920
+mem_heap_extra_B=153200
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=49
+#-----------
+time=21345723210
+mem_heap_B=21221343
+mem_heap_extra_B=153313
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=50
+#-----------
+time=21610321309
+mem_heap_B=21212568
+mem_heap_extra_B=153192
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=51
+#-----------
+time=21895809305
+mem_heap_B=21212994
+mem_heap_extra_B=153206
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=52
+#-----------
+time=22148753723
+mem_heap_B=24454178
+mem_heap_extra_B=153894
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=53
+#-----------
+time=22408543881
+mem_heap_B=41314018
+mem_heap_extra_B=158150
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=54
+#-----------
+time=22661514629
+mem_heap_B=21212882
+mem_heap_extra_B=153310
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=55
+#-----------
+time=22949504148
+mem_heap_B=21212974
+mem_heap_extra_B=153298
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=56
+#-----------
+time=23219806394
+mem_heap_B=41322639
+mem_heap_extra_B=158337
+mem_stacks_B=0
+heap_tree=detailed
+n2: 41322639 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 40732052 0x1F74FB: alloc::alloc::alloc (alloc.rs:81)
+  n4: 40710660 0x1F72D1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 33696000 0x2FF3CD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 33696000 0x2FEF45: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 33696000 0x1C5383: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 33696000 0x1D4240: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 33696000 0x2BE904: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 33696000 0x1CB780: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 33696000 0x1E30A3: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 33696000 0x240393: <umpire::game::obs::ObsTracker as core::clone::Clone>::clone (obs.rs:142)
+           n1: 33696000 0x1EAAA4: core::clone::Clone::clone (clone.rs:122)
+            n1: 33696000 0x25C949: <hashbrown::raw::RawTable<T> as core::clone::Clone>::clone (mod.rs:1014)
+             n1: 33696000 0x324FE8: <hashbrown::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:196)
+              n1: 33696000 0x2F3C21: <std::collections::hash::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:203)
+               n2: 33696000 0x2541EE: <umpire::game::Game as core::clone::Clone>::clone (game.rs:279)
+                n1: 33696000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+                 n1: 33696000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+                  n1: 33696000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+                   n1: 33696000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                    n1: 33696000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                     n1: 33696000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                      n1: 33696000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                       n1: 33696000 0x1B5AD7: umpire::main (umpire.rs:276)
+                        n1: 33696000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                         n1: 33696000 0x6CB3B2: {{closure}} (rt.rs:52)
+                          n1: 33696000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                           n1: 33696000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                            n1: 33696000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                             n1: 33696000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                              n1: 33696000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                               n1: 33696000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                                n0: 33696000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+                n0: 0 in 1 place, below massif's threshold (1.00%)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 6480000 0x2FFE8D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 6480000 0x2FEFD5: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 6480000 0x1C5623: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 6480000 0x1D43A0: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 6480000 0x2E7B54: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 6480000 0x1CB820: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 6480000 0x1E3163: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 6480000 0x24980C: <umpire::game::map::MapData as core::clone::Clone>::clone (map.rs:73)
+           n2: 6480000 0x2541C7: <umpire::game::Game as core::clone::Clone>::clone (game.rs:276)
+            n1: 6480000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+             n1: 6480000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+              n1: 6480000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+               n1: 6480000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                n1: 6480000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                 n1: 6480000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                  n1: 6480000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                   n1: 6480000 0x1B5AD7: umpire::main (umpire.rs:276)
+                    n1: 6480000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                     n1: 6480000 0x6CB3B2: {{closure}} (rt.rs:52)
+                      n1: 6480000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                       n1: 6480000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                        n1: 6480000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                         n1: 6480000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                          n1: 6480000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                           n1: 6480000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                            n0: 6480000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+            n0: 0 in 1 place, below massif's threshold (1.00%)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 530000 0x30013D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 530000 0x2FF005: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n1: 530000 0x1C54A3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 530000 0x1E173E: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 530000 0x2AFF85: umpire::ui::map::Map::new (map.rs:181)
+        n1: 530000 0x1C05B5: umpire::ui::TermUI::new (ui.rs:539)
+         n1: 530000 0x1B5311: umpire::main (umpire.rs:234)
+          n1: 530000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 530000 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 530000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 530000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 530000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 530000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 530000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 530000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 530000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 4660 in 14 places, all below massif's threshold (1.00%)
+  n0: 21392 in 12 places, all below massif's threshold (1.00%)
+ n0: 590587 in 128 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=57
+#-----------
+time=23479797880
+mem_heap_B=21212478
+mem_heap_extra_B=153282
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=58
+#-----------
+time=23733899807
+mem_heap_B=21212606
+mem_heap_extra_B=153346
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=59
+#-----------
+time=23988054292
+mem_heap_B=21214040
+mem_heap_extra_B=153400
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=60
+#-----------
+time=24244152075
+mem_heap_B=21214072
+mem_heap_extra_B=153392
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=61
+#-----------
+time=24499867717
+mem_heap_B=41322789
+mem_heap_extra_B=158331
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=62
+#-----------
+time=24777392357
+mem_heap_B=21214423
+mem_heap_extra_B=153417
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=63
+#-----------
+time=25030343007
+mem_heap_B=21214431
+mem_heap_extra_B=153425
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=64
+#-----------
+time=25312611855
+mem_heap_B=21213565
+mem_heap_extra_B=153379
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=65
+#-----------
+time=25568612813
+mem_heap_B=27836987
+mem_heap_extra_B=157885
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=66
+#-----------
+time=25823134858
+mem_heap_B=41314718
+mem_heap_extra_B=158426
+mem_stacks_B=0
+heap_tree=detailed
+n2: 41314718 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 40732116 0x1F74FB: alloc::alloc::alloc (alloc.rs:81)
+  n4: 40710724 0x1F72D1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 33696000 0x2FF3CD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 33696000 0x2FEF45: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 33696000 0x1C5383: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 33696000 0x1D4240: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 33696000 0x2BE904: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 33696000 0x1CB780: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 33696000 0x1E30A3: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 33696000 0x240393: <umpire::game::obs::ObsTracker as core::clone::Clone>::clone (obs.rs:142)
+           n1: 33696000 0x1EAAA4: core::clone::Clone::clone (clone.rs:122)
+            n1: 33696000 0x25C949: <hashbrown::raw::RawTable<T> as core::clone::Clone>::clone (mod.rs:1014)
+             n1: 33696000 0x324FE8: <hashbrown::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:196)
+              n1: 33696000 0x2F3C21: <std::collections::hash::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:203)
+               n2: 33696000 0x2541EE: <umpire::game::Game as core::clone::Clone>::clone (game.rs:279)
+                n1: 16848000 0x1DF0ED: umpire::game::player::PlayerTurnControl::propose_end_turn (player.rs:326)
+                 n1: 16848000 0x320F7C: <umpire::ui::mode::turn_over::TurnOverMode as umpire::ui::mode::IMode>::run (turn_over.rs:247)
+                  n1: 16848000 0x242CF2: umpire::ui::mode::Mode::run (mode.rs:69)
+                   n1: 16848000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                    n1: 16848000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                     n1: 16848000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                      n1: 16848000 0x1B5AD7: umpire::main (umpire.rs:276)
+                       n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                        n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+                         n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                          n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                           n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                            n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                             n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                              n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                               n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+                n1: 16848000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+                 n1: 16848000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+                  n1: 16848000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+                   n1: 16848000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                    n1: 16848000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                     n1: 16848000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                      n1: 16848000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                       n1: 16848000 0x1B5AD7: umpire::main (umpire.rs:276)
+                        n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                         n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+                          n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                           n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                            n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                             n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                              n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                               n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                                n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 6480000 0x2FFE8D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 6480000 0x2FEFD5: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 6480000 0x1C5623: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 6480000 0x1D43A0: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 6480000 0x2E7B54: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 6480000 0x1CB820: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 6480000 0x1E3163: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 6480000 0x24980C: <umpire::game::map::MapData as core::clone::Clone>::clone (map.rs:73)
+           n2: 6480000 0x2541C7: <umpire::game::Game as core::clone::Clone>::clone (game.rs:276)
+            n1: 3240000 0x1DF0ED: umpire::game::player::PlayerTurnControl::propose_end_turn (player.rs:326)
+             n1: 3240000 0x320F7C: <umpire::ui::mode::turn_over::TurnOverMode as umpire::ui::mode::IMode>::run (turn_over.rs:247)
+              n1: 3240000 0x242CF2: umpire::ui::mode::Mode::run (mode.rs:69)
+               n1: 3240000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                n1: 3240000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                 n1: 3240000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                  n1: 3240000 0x1B5AD7: umpire::main (umpire.rs:276)
+                   n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                    n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+                     n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                      n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                       n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                        n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                         n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                          n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                           n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+            n1: 3240000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+             n1: 3240000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+              n1: 3240000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+               n1: 3240000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                n1: 3240000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                 n1: 3240000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                  n1: 3240000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                   n1: 3240000 0x1B5AD7: umpire::main (umpire.rs:276)
+                    n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                     n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+                      n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                       n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                        n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                         n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                          n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                           n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                            n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 530000 0x30013D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 530000 0x2FF005: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n1: 530000 0x1C54A3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 530000 0x1E173E: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 530000 0x2AFF85: umpire::ui::map::Map::new (map.rs:181)
+        n1: 530000 0x1C05B5: umpire::ui::TermUI::new (ui.rs:539)
+         n1: 530000 0x1B5311: umpire::main (umpire.rs:234)
+          n1: 530000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 530000 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 530000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 530000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 530000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 530000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 530000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 530000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 530000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 4724 in 14 places, all below massif's threshold (1.00%)
+  n0: 21392 in 12 places, all below massif's threshold (1.00%)
+ n0: 582602 in 128 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=67
+#-----------
+time=26077786712
+mem_heap_B=21213112
+mem_heap_extra_B=153488
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=68
+#-----------
+time=26332101555
+mem_heap_B=21265373
+mem_heap_extra_B=153531
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=69
+#-----------
+time=26585582490
+mem_heap_B=21214692
+mem_heap_extra_B=153580
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=70
+#-----------
+time=26839810189
+mem_heap_B=37946262
+mem_heap_extra_B=158218
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=71
+#-----------
+time=27146548475
+mem_heap_B=21214758
+mem_heap_extra_B=153514
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=72
+#-----------
+time=27402352545
+mem_heap_B=37944810
+mem_heap_extra_B=158158
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=73
+#-----------
+time=27656384419
+mem_heap_B=21215268
+mem_heap_extra_B=153508
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=74
+#-----------
+time=27920605654
+mem_heap_B=21211844
+mem_heap_extra_B=153252
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=75
+#-----------
+time=28177318788
+mem_heap_B=21213216
+mem_heap_extra_B=153512
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=76
+#-----------
+time=28443600926
+mem_heap_B=21214551
+mem_heap_extra_B=153537
+mem_stacks_B=0
+heap_tree=detailed
+n3: 21214551 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 20633252 0x1F74FB: alloc::alloc::alloc (alloc.rs:81)
+  n4: 20622100 0x1F72D1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 16848000 0x2FF3CD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 16848000 0x2FEF45: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 16848000 0x1C5383: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 16848000 0x1D4240: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 16848000 0x2BE904: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 16848000 0x1CB780: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 16848000 0x1E30A3: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 16848000 0x240393: <umpire::game::obs::ObsTracker as core::clone::Clone>::clone (obs.rs:142)
+           n1: 16848000 0x1EAAA4: core::clone::Clone::clone (clone.rs:122)
+            n1: 16848000 0x25C949: <hashbrown::raw::RawTable<T> as core::clone::Clone>::clone (mod.rs:1014)
+             n1: 16848000 0x324FE8: <hashbrown::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:196)
+              n1: 16848000 0x2F3C21: <std::collections::hash::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:203)
+               n2: 16848000 0x2541EE: <umpire::game::Game as core::clone::Clone>::clone (game.rs:279)
+                n1: 16848000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+                 n1: 16848000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+                  n1: 16848000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+                   n1: 16848000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                    n1: 16848000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                     n1: 16848000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                      n1: 16848000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                       n1: 16848000 0x1B5AD7: umpire::main (umpire.rs:276)
+                        n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                         n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+                          n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                           n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                            n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                             n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                              n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                               n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                                n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+                n0: 0 in 1 place, below massif's threshold (1.00%)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 3240000 0x2FFE8D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 3240000 0x2FEFD5: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 3240000 0x1C5623: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 3240000 0x1D43A0: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 3240000 0x2E7B54: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 3240000 0x1CB820: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 3240000 0x1E3163: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 3240000 0x24980C: <umpire::game::map::MapData as core::clone::Clone>::clone (map.rs:73)
+           n2: 3240000 0x2541C7: <umpire::game::Game as core::clone::Clone>::clone (game.rs:276)
+            n1: 3240000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+             n1: 3240000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+              n1: 3240000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+               n1: 3240000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                n1: 3240000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                 n1: 3240000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                  n1: 3240000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                   n1: 3240000 0x1B5AD7: umpire::main (umpire.rs:276)
+                    n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                     n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+                      n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                       n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                        n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                         n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                          n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                           n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                            n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+            n0: 0 in 1 place, below massif's threshold (1.00%)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 530000 0x30013D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 530000 0x2FF005: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n1: 530000 0x1C54A3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 530000 0x1E173E: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 530000 0x2AFF85: umpire::ui::map::Map::new (map.rs:181)
+        n1: 530000 0x1C05B5: umpire::ui::TermUI::new (ui.rs:539)
+         n1: 530000 0x1B5311: umpire::main (umpire.rs:234)
+          n1: 530000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 530000 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 530000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 530000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 530000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 530000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 530000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 530000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 530000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 4100 in 14 places, all below massif's threshold (1.00%)
+  n0: 11152 in 12 places, all below massif's threshold (1.00%)
+ n1: 296960 0x1F75CC: alloc::alloc::realloc (alloc.rs:125)
+  n2: 296960 0x1F7395: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 262144 0x305E12: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 262144 0x30F0C9: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 262144 0x1CAD59: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 262144 0x1C8FEB: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 262144 0x1F30B1: umpire::name::load_cumulative_weights (name.rs:150)
+        n1: 262144 0x1C3D7F: umpire::name::unit_namer (name.rs:209)
+         n1: 262144 0x1B4A32: umpire::main (umpire.rs:192)
+          n1: 262144 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 262144 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 262144 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 262144 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 262144 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 262144 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 262144 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 262144 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 262144 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 34816 in 6 places, all below massif's threshold (1.00%)
+ n0: 284339 in 127 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=77
+#-----------
+time=28708744893
+mem_heap_B=41314843
+mem_heap_extra_B=158357
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=78
+#-----------
+time=28962274336
+mem_heap_B=21213052
+mem_heap_extra_B=153396
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=79
+#-----------
+time=29226230682
+mem_heap_B=21213291
+mem_heap_extra_B=153413
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=80
+#-----------
+time=29498482829
+mem_heap_B=21213432
+mem_heap_extra_B=153368
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=81
+#-----------
+time=29751453115
+mem_heap_B=41323351
+mem_heap_extra_B=158489
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=82
+#-----------
+time=30018550459
+mem_heap_B=21213011
+mem_heap_extra_B=153381
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=83
+#-----------
+time=30273835324
+mem_heap_B=21213411
+mem_heap_extra_B=153405
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=84
+#-----------
+time=30553240135
+mem_heap_B=21213499
+mem_heap_extra_B=153397
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=85
+#-----------
+time=30813097906
+mem_heap_B=21214393
+mem_heap_extra_B=153479
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=86
+#-----------
+time=31081119253
+mem_heap_B=21214417
+mem_heap_extra_B=153487
+mem_stacks_B=0
+heap_tree=detailed
+n3: 21214417 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n2: 20633252 0x1F74FB: alloc::alloc::alloc (alloc.rs:81)
+  n4: 20622100 0x1F72D1: <alloc::alloc::Global as core::alloc::Alloc>::alloc (alloc.rs:169)
+   n1: 16848000 0x2FF3CD: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 16848000 0x2FEF45: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 16848000 0x1C5383: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 16848000 0x1D4240: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 16848000 0x2BE904: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 16848000 0x1CB780: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 16848000 0x1E30A3: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 16848000 0x240393: <umpire::game::obs::ObsTracker as core::clone::Clone>::clone (obs.rs:142)
+           n1: 16848000 0x1EAAA4: core::clone::Clone::clone (clone.rs:122)
+            n1: 16848000 0x25C949: <hashbrown::raw::RawTable<T> as core::clone::Clone>::clone (mod.rs:1014)
+             n1: 16848000 0x324FE8: <hashbrown::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:196)
+              n1: 16848000 0x2F3C21: <std::collections::hash::map::HashMap<K,V,S> as core::clone::Clone>::clone (map.rs:203)
+               n2: 16848000 0x2541EE: <umpire::game::Game as core::clone::Clone>::clone (game.rs:279)
+                n1: 16848000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+                 n1: 16848000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+                  n1: 16848000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+                   n1: 16848000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                    n1: 16848000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                     n1: 16848000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                      n1: 16848000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                       n1: 16848000 0x1B5AD7: umpire::main (umpire.rs:276)
+                        n1: 16848000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                         n1: 16848000 0x6CB3B2: {{closure}} (rt.rs:52)
+                          n1: 16848000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                           n1: 16848000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                            n1: 16848000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                             n1: 16848000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                              n1: 16848000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                               n1: 16848000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                                n0: 16848000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+                n0: 0 in 1 place, below massif's threshold (1.00%)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 3240000 0x2FFE8D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 3240000 0x2FEFD5: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n2: 3240000 0x1C5623: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 3240000 0x1D43A0: alloc::slice::hack::to_vec (slice.rs:158)
+       n1: 3240000 0x2E7B54: alloc::slice::<impl [T]>::to_vec (slice.rs:394)
+        n1: 3240000 0x1CB820: <alloc::vec::Vec<T> as core::clone::Clone>::clone (vec.rs:1848)
+         n1: 3240000 0x1E3163: <umpire::game::map::grid::LocationGrid<T> as core::clone::Clone>::clone (grid.rs:50)
+          n1: 3240000 0x24980C: <umpire::game::map::MapData as core::clone::Clone>::clone (map.rs:73)
+           n2: 3240000 0x2541C7: <umpire::game::Game as core::clone::Clone>::clone (game.rs:276)
+            n1: 3240000 0x24F3EA: umpire::game::Game::propose_move_unit_by_id (game.rs:877)
+             n1: 3240000 0x1DED71: umpire::game::player::PlayerTurnControl::propose_move_unit_by_id (player.rs:236)
+              n1: 3240000 0x2B96B4: <umpire::ui::mode::get_unit_orders::GetUnitOrdersMode as umpire::ui::mode::IMode>::run (get_unit_orders.rs:101)
+               n1: 3240000 0x242FA7: umpire::ui::mode::Mode::run (mode.rs:80)
+                n1: 3240000 0x1C31E0: <umpire::ui::TermUI as umpire::game::player::LimitedTurnTaker>::take_turn (ui.rs:996)
+                 n1: 3240000 0x1AB04F: <T as umpire::game::player::TurnTaker>::take_turn_clearing (player.rs:394)
+                  n1: 3240000 0x1AB188: umpire::game::player::TurnTaker::take_turn (player.rs:372)
+                   n1: 3240000 0x1B5AD7: umpire::main (umpire.rs:276)
+                    n1: 3240000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+                     n1: 3240000 0x6CB3B2: {{closure}} (rt.rs:52)
+                      n1: 3240000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+                       n1: 3240000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+                        n1: 3240000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+                         n1: 3240000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                          n1: 3240000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                           n1: 3240000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                            n0: 3240000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+            n0: 0 in 1 place, below massif's threshold (1.00%)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 530000 0x30013D: alloc::raw_vec::RawVec<T,A>::allocate_in (raw_vec.rs:88)
+    n1: 530000 0x2FF005: alloc::raw_vec::RawVec<T>::with_capacity (raw_vec.rs:140)
+     n1: 530000 0x1C54A3: alloc::vec::Vec<T>::with_capacity (vec.rs:355)
+      n1: 530000 0x1E173E: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:63)
+       n1: 530000 0x2AFF85: umpire::ui::map::Map::new (map.rs:181)
+        n1: 530000 0x1C05B5: umpire::ui::TermUI::new (ui.rs:539)
+         n1: 530000 0x1B5311: umpire::main (umpire.rs:234)
+          n1: 530000 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 530000 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 530000 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 530000 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 530000 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 530000 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 530000 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 530000 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 530000 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 4100 in 14 places, all below massif's threshold (1.00%)
+  n0: 11152 in 12 places, all below massif's threshold (1.00%)
+ n1: 296960 0x1F75CC: alloc::alloc::realloc (alloc.rs:125)
+  n2: 296960 0x1F7395: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 262144 0x305E12: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 262144 0x30F0C9: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 262144 0x1CAD59: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 262144 0x1C8FEB: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 262144 0x1F30B1: umpire::name::load_cumulative_weights (name.rs:150)
+        n1: 262144 0x1C3D7F: umpire::name::unit_namer (name.rs:209)
+         n1: 262144 0x1B4A32: umpire::main (umpire.rs:192)
+          n1: 262144 0x1AAFCF: std::rt::lang_start::{{closure}} (rt.rs:67)
+           n1: 262144 0x6CB3B2: {{closure}} (rt.rs:52)
+            n1: 262144 0x6CB3B2: std::panicking::try::do_call (panicking.rs:305)
+             n1: 262144 0x6D28C6: __rust_maybe_catch_panic (lib.rs:86)
+              n1: 262144 0x6CBD8F: try<i32,closure-0> (panicking.rs:281)
+               n1: 262144 0x6CBD8F: catch_unwind<closure-0,i32> (panic.rs:394)
+                n1: 262144 0x6CBD8F: std::rt::lang_start_internal (rt.rs:51)
+                 n1: 262144 0x1AAFA8: std::rt::lang_start (rt.rs:67)
+                  n0: 262144 0x1B6159: main (in /home/josh/Projects/Umpire/target/debug/umpire)
+   n0: 34816 in 6 places, all below massif's threshold (1.00%)
+ n0: 284205 in 127 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=87
+#-----------
+time=31615709079
+mem_heap_B=21214417
+mem_heap_extra_B=153487
+mem_stacks_B=0
+heap_tree=empty

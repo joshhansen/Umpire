@@ -1,0 +1,849 @@
+desc: (none)
+cmd: target/debug/umpire-ai -e 100 -s 100 eval random ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=1687015491
+mem_heap_B=14239256
+mem_heap_extra_B=9888
+mem_stacks_B=0
+heap_tree=peak
+n2: 14239256 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14211072 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n3: 14211072 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 9584640 0x1BC3B2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 9584640 0x1BF509: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 9584640 0x1C89E9: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 9584640 0x1C7344: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 9584640 0x2CF4DE: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 9584640 0x2194D4: umpire::game::obs::ObsTracker::new (obs.rs:150)
+         n1: 9584640 0x21E772: umpire::game::Game::new_with_map (game.rs:332)
+          n1: 9584640 0x28EB61: umpire::game::Game::new (game.rs:319)
+           n1: 9584640 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 9584640 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 9584640 0x608F52: {{closure}} (rt.rs:52)
+              n1: 9584640 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 9584640 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 9584640 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 9584640 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 9584640 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 9584640 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 9584640 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 18432 in 2 places, all below massif's threshold (1.00%)
+ n0: 28184 in 44 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=2
+#-----------
+time=10971488891
+mem_heap_B=14239990
+mem_heap_extra_B=10314
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=3
+#-----------
+time=21660273603
+mem_heap_B=14240305
+mem_heap_extra_B=10567
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=4
+#-----------
+time=28305942829
+mem_heap_B=14239745
+mem_heap_extra_B=9951
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=5
+#-----------
+time=35606543414
+mem_heap_B=14240101
+mem_heap_extra_B=10459
+mem_stacks_B=0
+heap_tree=detailed
+n2: 14240101 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14211072 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n3: 14211072 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 9584640 0x1BC3B2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 9584640 0x1BF509: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 9584640 0x1C89E9: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 9584640 0x1C7344: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 9584640 0x2CF4DE: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 9584640 0x2194D4: umpire::game::obs::ObsTracker::new (obs.rs:150)
+         n1: 9584640 0x21E772: umpire::game::Game::new_with_map (game.rs:332)
+          n1: 9584640 0x28EB61: umpire::game::Game::new (game.rs:319)
+           n1: 9584640 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 9584640 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 9584640 0x608F52: {{closure}} (rt.rs:52)
+              n1: 9584640 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 9584640 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 9584640 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 9584640 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 9584640 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 9584640 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 9584640 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 18432 in 6 places, all below massif's threshold (1.00%)
+ n0: 29029 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=6
+#-----------
+time=45153194214
+mem_heap_B=14240208
+mem_heap_extra_B=10648
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=7
+#-----------
+time=52062475608
+mem_heap_B=4631058
+mem_heap_extra_B=2534
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=8
+#-----------
+time=59246899146
+mem_heap_B=14239471
+mem_heap_extra_B=9673
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=9
+#-----------
+time=64295035573
+mem_heap_B=14239886
+mem_heap_extra_B=9690
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=10
+#-----------
+time=73505300414
+mem_heap_B=14239762
+mem_heap_extra_B=9758
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=11
+#-----------
+time=80206457142
+mem_heap_B=14239760
+mem_heap_extra_B=9744
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=12
+#-----------
+time=90262348991
+mem_heap_B=14239681
+mem_heap_extra_B=9775
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=13
+#-----------
+time=96133123101
+mem_heap_B=14239681
+mem_heap_extra_B=9775
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=14
+#-----------
+time=102985021358
+mem_heap_B=14239699
+mem_heap_extra_B=9773
+mem_stacks_B=0
+heap_tree=detailed
+n2: 14239699 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14211072 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n3: 14211072 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 9584640 0x1BC3B2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 9584640 0x1BF509: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 9584640 0x1C89E9: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 9584640 0x1C7344: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 9584640 0x2CF4DE: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 9584640 0x2194D4: umpire::game::obs::ObsTracker::new (obs.rs:150)
+         n1: 9584640 0x21E772: umpire::game::Game::new_with_map (game.rs:332)
+          n1: 9584640 0x28EB61: umpire::game::Game::new (game.rs:319)
+           n1: 9584640 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 9584640 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 9584640 0x608F52: {{closure}} (rt.rs:52)
+              n1: 9584640 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 9584640 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 9584640 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 9584640 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 9584640 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 9584640 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 9584640 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 18432 in 7 places, all below massif's threshold (1.00%)
+ n0: 28627 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=15
+#-----------
+time=111703738225
+mem_heap_B=14239661
+mem_heap_extra_B=9731
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=16
+#-----------
+time=119441294897
+mem_heap_B=14239854
+mem_heap_extra_B=9970
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=17
+#-----------
+time=130070513643
+mem_heap_B=14291822
+mem_heap_extra_B=10202
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=18
+#-----------
+time=136841303175
+mem_heap_B=14240154
+mem_heap_extra_B=10406
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=19
+#-----------
+time=146370344726
+mem_heap_B=14240662
+mem_heap_extra_B=9874
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=20
+#-----------
+time=153393866585
+mem_heap_B=14240242
+mem_heap_extra_B=9862
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=21
+#-----------
+time=160407153015
+mem_heap_B=14235215
+mem_heap_extra_B=9089
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=22
+#-----------
+time=169234611402
+mem_heap_B=14235616
+mem_heap_extra_B=9248
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=23
+#-----------
+time=176277322891
+mem_heap_B=14236412
+mem_heap_extra_B=9404
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=24
+#-----------
+time=185062241845
+mem_heap_B=14240022
+mem_heap_extra_B=10018
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=25
+#-----------
+time=192106791865
+mem_heap_B=14239910
+mem_heap_extra_B=10106
+mem_stacks_B=0
+heap_tree=detailed
+n2: 14239910 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14211072 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n3: 14211072 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 9584640 0x1BC3B2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 9584640 0x1BF509: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 9584640 0x1C89E9: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 9584640 0x1C7344: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 9584640 0x2CF4DE: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 9584640 0x2194D4: umpire::game::obs::ObsTracker::new (obs.rs:150)
+         n1: 9584640 0x21E772: umpire::game::Game::new_with_map (game.rs:332)
+          n1: 9584640 0x28EB61: umpire::game::Game::new (game.rs:319)
+           n1: 9584640 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 9584640 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 9584640 0x608F52: {{closure}} (rt.rs:52)
+              n1: 9584640 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 9584640 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 9584640 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 9584640 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 9584640 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 9584640 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 9584640 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 18432 in 7 places, all below massif's threshold (1.00%)
+ n0: 28838 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=26
+#-----------
+time=202702086738
+mem_heap_B=14240079
+mem_heap_extra_B=10209
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=27
+#-----------
+time=211482079676
+mem_heap_B=14240177
+mem_heap_extra_B=9647
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=28
+#-----------
+time=222058336198
+mem_heap_B=14240671
+mem_heap_extra_B=9681
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=29
+#-----------
+time=229095085589
+mem_heap_B=14239345
+mem_heap_extra_B=9511
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=30
+#-----------
+time=238656666463
+mem_heap_B=14291497
+mem_heap_extra_B=9567
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=31
+#-----------
+time=244750464051
+mem_heap_B=14239573
+mem_heap_extra_B=9547
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=32
+#-----------
+time=250798731303
+mem_heap_B=14235581
+mem_heap_extra_B=9403
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=33
+#-----------
+time=256860150400
+mem_heap_B=14235304
+mem_heap_extra_B=9560
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=34
+#-----------
+time=265963834576
+mem_heap_B=14236641
+mem_heap_extra_B=9751
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=35
+#-----------
+time=272025087773
+mem_heap_B=14236708
+mem_heap_extra_B=9836
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=36
+#-----------
+time=278085207830
+mem_heap_B=14236704
+mem_heap_extra_B=9904
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=37
+#-----------
+time=284123757454
+mem_heap_B=4631058
+mem_heap_extra_B=2534
+mem_stacks_B=0
+heap_tree=detailed
+n2: 4631058 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 4614144 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n2: 4614144 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 6144 in 9 places, all below massif's threshold (1.00%)
+ n0: 16914 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=38
+#-----------
+time=290186151548
+mem_heap_B=14240782
+mem_heap_extra_B=10114
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=39
+#-----------
+time=296268212380
+mem_heap_B=14240457
+mem_heap_extra_B=10135
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=40
+#-----------
+time=308366836772
+mem_heap_B=14240529
+mem_heap_extra_B=10255
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=41
+#-----------
+time=320459063325
+mem_heap_B=14240118
+mem_heap_extra_B=9722
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=42
+#-----------
+time=329548864861
+mem_heap_B=14239920
+mem_heap_extra_B=9968
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=43
+#-----------
+time=341645726478
+mem_heap_B=14240206
+mem_heap_extra_B=9770
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=44
+#-----------
+time=347691129877
+mem_heap_B=14240213
+mem_heap_extra_B=9787
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=45
+#-----------
+time=353777578440
+mem_heap_B=14240404
+mem_heap_extra_B=9884
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=46
+#-----------
+time=359844879854
+mem_heap_B=14240481
+mem_heap_extra_B=9951
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=47
+#-----------
+time=365904272260
+mem_heap_B=14239626
+mem_heap_extra_B=9646
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=48
+#-----------
+time=374980628356
+mem_heap_B=14239932
+mem_heap_extra_B=9820
+mem_stacks_B=0
+heap_tree=detailed
+n2: 14239932 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14211072 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n3: 14211072 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 9584640 0x1BC3B2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 9584640 0x1BF509: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 9584640 0x1C89E9: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 9584640 0x1C7344: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 9584640 0x2CF4DE: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 9584640 0x2194D4: umpire::game::obs::ObsTracker::new (obs.rs:150)
+         n1: 9584640 0x21E772: umpire::game::Game::new_with_map (game.rs:332)
+          n1: 9584640 0x28EB61: umpire::game::Game::new (game.rs:319)
+           n1: 9584640 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 9584640 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 9584640 0x608F52: {{closure}} (rt.rs:52)
+              n1: 9584640 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 9584640 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 9584640 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 9584640 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 9584640 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 9584640 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 9584640 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 18432 in 8 places, all below massif's threshold (1.00%)
+ n0: 28860 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=49
+#-----------
+time=384058253919
+mem_heap_B=14240027
+mem_heap_extra_B=9909
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=50
+#-----------
+time=384817288544
+mem_heap_B=14240422
+mem_heap_extra_B=9938
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=51
+#-----------
+time=385571272453
+mem_heap_B=14240017
+mem_heap_extra_B=9855
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=52
+#-----------
+time=386325079036
+mem_heap_B=14240005
+mem_heap_extra_B=9907
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=53
+#-----------
+time=387089302278
+mem_heap_B=14240027
+mem_heap_extra_B=9925
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=54
+#-----------
+time=387844774323
+mem_heap_B=14240023
+mem_heap_extra_B=9945
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=55
+#-----------
+time=388601615903
+mem_heap_B=14240443
+mem_heap_extra_B=9925
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=56
+#-----------
+time=389363409098
+mem_heap_B=14240436
+mem_heap_extra_B=10036
+mem_stacks_B=0
+heap_tree=detailed
+n2: 14240436 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14211072 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n3: 14211072 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 9584640 0x1BC3B2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 9584640 0x1BF509: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 9584640 0x1C89E9: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 9584640 0x1C7344: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 9584640 0x2CF4DE: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 9584640 0x2194D4: umpire::game::obs::ObsTracker::new (obs.rs:150)
+         n1: 9584640 0x21E772: umpire::game::Game::new_with_map (game.rs:332)
+          n1: 9584640 0x28EB61: umpire::game::Game::new (game.rs:319)
+           n1: 9584640 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 9584640 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 9584640 0x608F52: {{closure}} (rt.rs:52)
+              n1: 9584640 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 9584640 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 9584640 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 9584640 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 9584640 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 9584640 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 9584640 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 18432 in 8 places, all below massif's threshold (1.00%)
+ n0: 29364 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=57
+#-----------
+time=390117100418
+mem_heap_B=14242219
+mem_heap_extra_B=10037
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=58
+#-----------
+time=390870475186
+mem_heap_B=14240039
+mem_heap_extra_B=9945
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=59
+#-----------
+time=391628657392
+mem_heap_B=14240075
+mem_heap_extra_B=9981
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=60
+#-----------
+time=392381832533
+mem_heap_B=4631032
+mem_heap_extra_B=2520
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=61
+#-----------
+time=393135350146
+mem_heap_B=4631058
+mem_heap_extra_B=2534
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=62
+#-----------
+time=393893694822
+mem_heap_B=14234641
+mem_heap_extra_B=9215
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=63
+#-----------
+time=394666042451
+mem_heap_B=14235025
+mem_heap_extra_B=9215
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=64
+#-----------
+time=395422639057
+mem_heap_B=14235318
+mem_heap_extra_B=9314
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=65
+#-----------
+time=396183231111
+mem_heap_B=14234916
+mem_heap_extra_B=9316
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=66
+#-----------
+time=396952013227
+mem_heap_B=14235099
+mem_heap_extra_B=9333
+mem_stacks_B=0
+heap_tree=detailed
+n2: 14235099 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14211072 0x1DE05C: alloc::alloc::realloc (alloc.rs:125)
+  n3: 14211072 0x1DDE25: <alloc::alloc::Global as core::alloc::Alloc>::realloc (alloc.rs:184)
+   n1: 9584640 0x1BC3B2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 9584640 0x1BF509: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 9584640 0x1C89E9: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 9584640 0x1C7344: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 9584640 0x2CF4DE: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 9584640 0x2194D4: umpire::game::obs::ObsTracker::new (obs.rs:150)
+         n1: 9584640 0x21E772: umpire::game::Game::new_with_map (game.rs:332)
+          n1: 9584640 0x28EB61: umpire::game::Game::new (game.rs:319)
+           n1: 9584640 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 9584640 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 9584640 0x608F52: {{closure}} (rt.rs:52)
+              n1: 9584640 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 9584640 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 9584640 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 9584640 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 9584640 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 9584640 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 9584640 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n1: 4608000 0x1BB5D2: alloc::raw_vec::RawVec<T,A>::reserve_internal (raw_vec.rs:659)
+    n1: 4608000 0x1BEF89: alloc::raw_vec::RawVec<T,A>::reserve (raw_vec.rs:485)
+     n1: 4608000 0x1C8929: alloc::vec::Vec<T>::reserve (vec.rs:493)
+      n1: 4608000 0x1C7A24: alloc::vec::Vec<T>::push (vec.rs:1166)
+       n1: 4608000 0x2CF158: umpire::game::map::grid::LocationGrid<T>::new (grid.rs:67)
+        n1: 4608000 0x2AA054: umpire::game::map::MapData::new (map.rs:108)
+         n1: 4608000 0x29828E: umpire::game::map::gen::generate_map (gen.rs:44)
+          n1: 4608000 0x28EAD5: umpire::game::Game::new (game.rs:318)
+           n1: 4608000 0x1A4298: umpire_ai::main (umpire-ai.rs:230)
+            n1: 4608000 0x1AA14F: std::rt::lang_start::{{closure}} (rt.rs:67)
+             n1: 4608000 0x608F52: {{closure}} (rt.rs:52)
+              n1: 4608000 0x608F52: std::panicking::try::do_call (panicking.rs:305)
+               n1: 4608000 0x60C1E6: __rust_maybe_catch_panic (lib.rs:86)
+                n1: 4608000 0x60992F: try<i32,closure-0> (panicking.rs:281)
+                 n1: 4608000 0x60992F: catch_unwind<closure-0,i32> (panic.rs:394)
+                  n1: 4608000 0x60992F: std::rt::lang_start_internal (rt.rs:51)
+                   n1: 4608000 0x1AA128: std::rt::lang_start (rt.rs:67)
+                    n0: 4608000 0x1A6939: main (in /home/josh/Projects/Umpire/target/debug/umpire-ai)
+   n0: 18432 in 8 places, all below massif's threshold (1.00%)
+ n0: 24027 in 46 places, all below massif's threshold (1.00%)

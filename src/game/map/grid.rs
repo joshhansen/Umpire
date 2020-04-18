@@ -42,43 +42,40 @@ pub trait LocationGridI<T> : Dimensioned + Index<Location,Output=T> {
 // NOTE This is a dense representation and really doesn't handle large maps well, e.g. 10000x10000
 #[derive(Clone)]
 pub struct LocationGrid<T> {
-    grid: Vec<Vec<T>>,//grid[col i.e. x][row i.e. y]
-    dims: Dims
+    /// The values stored in column-major order
+    /// 
+    /// Look up locations thus:
+    ///      grid[col * dims.height + row]
+    /// i.e. grid[x * dims.height + y]
+    grid: Vec<T>,
+    dims: Dims,
 }
 
 impl<T> LocationGrid<T> {
-    pub fn new_from_vec(dims: Dims, grid: Vec<Vec<T>>) -> Self {
+    /// Make a new location grid from values provided in column-major order
+    pub fn new_from_vec(dims: Dims, grid: Vec<T>) -> Self {
         Self{ grid, dims }
     }
 
     pub fn new<I>(dims: Dims, initializer: I) -> Self
         where I : Fn(Location) -> T {
-        let mut grid: Vec<Vec<T>> = Vec::new();
 
-        let mut loc = Location{x:0, y:0};
-
-        for x in 0..dims.width {
-            loc.x = x;
-
-            let mut col: Vec<T> = Vec::new();
-            for y in 0..dims.height {
-                loc.y = y;
-
-                col.push(initializer(loc));
-            }
-
-            grid.push(col);
+        let mut grid = Vec::with_capacity(dims.area() as usize);
+        for loc in dims.iter_locs_column_major() {
+            grid.push(initializer(loc));
         }
 
+        debug_assert_eq!(grid.len(), dims.area() as usize);
+    
         Self{ grid, dims }
     }
 
     pub fn iter(&self) -> impl Iterator<Item=&T> {
-        self.grid.iter().flat_map(|item: &Vec<T>| item.iter())
+        self.grid.iter()
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut T> {
-        self.grid.iter_mut().flat_map(|item: &mut Vec<T>| item.iter_mut())
+        self.grid.iter_mut()
     }
 
     pub fn iter_locs(&self) -> impl Iterator<Item=Location> {
@@ -88,29 +85,28 @@ impl<T> LocationGrid<T> {
 
 impl <T> LocationGridI<T> for LocationGrid<T> {
     fn get(&self, loc: Location) -> Option<&T> {
-        self.grid.get(loc.x as usize).and_then(|col| col.get(loc.y as usize))
+        if !self.dims.contain(loc) {
+            return None;
+        }
+
+        self.grid.get((loc.x * self.dims.height + loc.y) as usize)
     }
 
     fn get_mut(&mut self, loc: Location) -> Option<&mut T> {
-        self.grid.get_mut(loc.x as usize).and_then(|col| col.get_mut(loc.y as usize))
+        if !self.dims.contain(loc) {
+            return None;
+        }
+
+        self.grid.get_mut((loc.x * self.dims.height + loc.y) as usize)
     }
 
     fn replace(&mut self, loc: Location, value: T) -> Option<T> {
-        self.grid.get_mut(loc.x as usize)
-                .and_then(|col| col.get_mut(loc.y as usize)
-                                                   .map(|v| std::mem::replace(v, value))
-                )
+        debug_assert!(self.dims.contain(loc));
+
+        self.grid.get_mut((loc.x * self.dims.height + loc.y) as usize)
+                 .map(|v| std::mem::replace(v, value))
     }
 }
-
-// impl <T> Source<T> for LocationGrid<T> {
-//     fn get(&self, loc: Location) -> &T {
-//         self.get(loc)
-//     }
-//     fn dims(&self) -> Dims {
-//         self.dims
-//     }
-// }
 
 impl <T> Dimensioned for LocationGrid<T> {
     fn dims(&self) -> Dims {
@@ -136,15 +132,14 @@ impl Source<Obs> for LocationGrid<Obs> {
 
 impl<T> Index<Location> for LocationGrid<T> {
     type Output = T;
-    fn index(&self, location: Location) -> &T {
-        &self.grid[location.x as usize][location.y as usize]
+    fn index(&self, loc: Location) -> &T {
+        &self.grid[(loc.x * self.dims.height + loc.y) as usize]
     }
 }
 
 impl<T> IndexMut<Location> for LocationGrid<T> {
-    fn index_mut(&mut self, location: Location) -> &mut T {
-        let col:  &mut Vec<T> = &mut self.grid[location.x as usize];
-        &mut col[location.y as usize]
+    fn index_mut(&mut self, loc: Location) -> &mut T {
+        &mut self.grid[(loc.x * self.dims.height + loc.y) as usize]
     }
 }
 
@@ -307,21 +302,20 @@ impl TryFrom<String> for LocationGrid<Obs> {
         let lines = Vec::from_iter( s.lines().map(|line| Vec::from_iter( line.chars() )) );
 
         let tile_grid: LocationGrid<Tile> = LocationGrid::try_from(s).unwrap();
+        let dims = tile_grid.dims;
 
-        let obs_vecs: Vec<Vec<Obs>> = tile_grid.grid.iter()
-                                                               .map(|col: &Vec<Tile>| {
-            col.iter().cloned().map(|tile| {
-                let loc = tile.loc;
-                let c = lines[loc.y as usize][loc.x as usize];
-                if c == '?' {
-                    Obs::Unobserved
-                } else {
-                    Obs::Observed{tile, turn: 0, current: false}
-                }
-            }).collect()
+        let obs_vecs: Vec<Obs> = tile_grid.grid.into_iter()
+                                               .map(|tile: Tile| {
+            let loc = tile.loc;
+            let c = lines[loc.y as usize][loc.x as usize];
+            if c == '?' {
+                Obs::Unobserved
+            } else {
+                Obs::Observed{tile, turn: 0, current: false}
+            }
         }).collect();
 
-        Ok(LocationGrid::new_from_vec(tile_grid.dims(), obs_vecs))
+        Ok(LocationGrid::new_from_vec(dims, obs_vecs))
     }
 }
 
@@ -414,7 +408,29 @@ mod test {
         util::{Dims,Location},
     };
 
-    use super::LocationGrid;
+    use super::{
+        LocationGrid,
+        LocationGridI,
+    };
+
+    #[test]
+    fn test_grid() {
+        let mut grid = LocationGrid::new(
+            Dims::new(10, 20),
+            |_| 0
+        );
+
+        assert!(grid.iter().all(|x| *x==0));
+
+        assert_eq!(grid.replace(Location::new(5, 6), 100), Some(0));
+
+        assert_eq!(grid.iter().filter(|x| **x==100).count(), 1);
+
+        assert_eq!(grid.get(Location::new(50, 1000)), None);
+
+        assert_eq!(grid.get_mut(Location::new(10, 20)), None);
+
+    }
 
     #[test]
     fn test_str_to_tile_map() {
@@ -548,5 +564,32 @@ mod test {
             assert_eq!(None, tile.city);
         }
         assert_eq!(9, count);
+    }
+
+    #[test]
+    fn test_layout() {
+        let v = vec![
+            Location::new(0, 0),
+            Location::new(0, 1),
+            Location::new(0, 2),
+            Location::new(0, 3),
+            Location::new(0, 4),
+            Location::new(1, 0),
+            Location::new(1, 1),
+            Location::new(1, 2),
+            Location::new(1, 3),
+            Location::new(1, 4),
+            Location::new(2, 0),
+            Location::new(2, 1),
+            Location::new(2, 2),
+            Location::new(2, 3),
+            Location::new(2, 4),
+        ];
+
+        let grid = LocationGrid::new_from_vec(Dims::new(3, 5), v);
+
+        for loc in grid.dims.iter_locs() {
+            assert_eq!(loc, grid[loc]);
+        }
     }
 }
