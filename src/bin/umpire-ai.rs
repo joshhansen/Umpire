@@ -145,7 +145,7 @@ fn main() {
     let dims: Vec<Dims> = map_heights.into_iter().enumerate().map(|(i,h)| Dims::new(map_widths[i], h)).collect();
 
     let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
-    let verbose = matches.is_present("verbose");
+    let verbosity = matches.occurrences_of("verbose") as usize;
     let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
 
     let (subcommand, sub_matches) = matches.subcommand();
@@ -164,7 +164,7 @@ fn main() {
 
     println!("Steps: {}", steps);
 
-    println!("Verbose: {:?}", verbose);
+    println!("Verbosity: {:?}", verbosity);
 
     if subcommand == "eval" {
 
@@ -182,7 +182,7 @@ fn main() {
             let b: Rc<RefCell<dyn TurnTaker>> =
             if *ai_model == "r" || *ai_model == "random" {
 
-                Rc::new(RefCell::new(RandomAI::new(verbose)))
+                Rc::new(RefCell::new(RandomAI::new(verbosity)))
 
             } else {
 
@@ -237,7 +237,7 @@ fn main() {
                         );
 
                         for _ in 0..steps {
-                            if verbose {
+                            if verbosity > 1  {
                                 println!("{:?}", game);
                             }
 
@@ -247,7 +247,7 @@ fn main() {
 
                             ai1.borrow_mut().take_turn_clearing(&mut game);
 
-                            if verbose {
+                            if verbosity > 1 {
                                 println!("{:?}", game);
                             }
 
@@ -302,7 +302,7 @@ fn main() {
         let qf = {
             // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
     
-            let agent = trained_agent(ai_model_path, dims, episodes, steps, avoid_skip, verbose);
+            let agent = trained_agent(ai_model_path, dims, episodes, steps, avoid_skip, verbosity);
     
             agent.q.q_func.0
         };

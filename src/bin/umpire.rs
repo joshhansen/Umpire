@@ -241,7 +241,7 @@ fn main() {
         ).unwrap();
 
         // We can share one instance of RandomAI across players since it's stateless
-        let mut random_ai = RandomAI::new(false);
+        let mut random_ai = RandomAI::new(0);
 
         let mut ais: HashMap<usize,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
 
