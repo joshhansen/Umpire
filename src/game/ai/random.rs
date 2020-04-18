@@ -18,13 +18,13 @@ use crate::{
 
 pub struct RandomAI {
     unit_type_vec: Vec<UnitType>,
-    verbose: bool,
+    verbosity: usize,
 }
 impl RandomAI {
-    pub fn new(verbose: bool) -> Self {
+    pub fn new(verbosity: usize) -> Self {
         Self {
             unit_type_vec: UnitType::values().to_vec(),
-            verbose,
+            verbosity,
         }
     }
 }
@@ -32,7 +32,7 @@ impl LimitedTurnTaker for RandomAI {
     fn take_turn(&mut self, game: &mut PlayerTurnControl) {
         let mut rng = rand::thread_rng();
 
-        if self.verbose {
+        if self.verbosity > 1 {
             println!("Random:\n{:?}", game.current_player_observations());
             println!("Random cities: {}", game.current_player_cities().count());
             println!("Random units: {}", game.current_player_units().count());
@@ -42,7 +42,7 @@ impl LimitedTurnTaker for RandomAI {
         for city_loc in production_set_requests {
             let unit_type = self.unit_type_vec.choose(&mut rng).unwrap();
 
-            if self.verbose {
+            if self.verbosity > 2 {
                 println!("{:?} -> {:?}", city_loc, unit_type);
             }
 
@@ -81,21 +81,21 @@ impl LimitedTurnTaker for RandomAI {
             // let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
             if let Some(dest) = possible.choose(&mut rng) {
                 // println!("dest: {:?}", dest);
-                if self.verbose {
+                if self.verbosity > 1 {
                     let src = game.current_player_unit_loc(unit_id).unwrap();
                     println!("{:?} {} -> {}", unit_id, src, dest);
                 }
                 let result = game.move_unit_by_id(unit_id, *dest).unwrap();
-                if self.verbose && !result.moved_successfully() {
+                if self.verbosity > 1 && !result.moved_successfully() {
                     println!("**DESTROYED: {:?}", result);
                 }
 
-                if self.verbose {
+                if self.verbosity > 1 {
                     println!("{:?}", game.current_player_observations());
                 }
 
             } else {
-                if self.verbose {
+                if self.verbosity > 1 {
                     println!("skip");
                 }
                 game.order_unit_skip(unit_id).unwrap();
@@ -135,7 +135,7 @@ mod test {
     #[test]
     pub fn test_random_ai() {
         {
-            let mut ai = RandomAI::new(false);
+            let mut ai = RandomAI::new(0);
 
             let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
             // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
@@ -149,7 +149,7 @@ mod test {
             }
         }
 
-        let mut ai = RandomAI::new(true);
+        let mut ai = RandomAI::new(2);
 
         for r in 0..100 {
             let players = 2;
@@ -197,7 +197,7 @@ mod test {
 
         let game = Game::new_with_map(map, 2, true, None, Wrap2d::BOTH);
 
-        let mut ai = RandomAI::new(false);
+        let mut ai = RandomAI::new(0);
 
         for _ in 0..1000 {
             let mut game = game.clone();

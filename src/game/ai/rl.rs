@@ -294,17 +294,17 @@ pub struct UmpireDomain {
     /// Our formidable foe
     opponent: Rc<RefCell<dyn TurnTaker>>,
 
-    verbose: bool,
+    verbosity: usize,
 }
 
 impl UmpireDomain {
-    fn _instantiate_opponent(ai_model_path: Option<&String>, verbose: bool) -> Rc<RefCell<dyn TurnTaker>> {
+    fn _instantiate_opponent(ai_model_path: Option<&String>, verbosity: usize) -> Rc<RefCell<dyn TurnTaker>> {
         let opponent: Rc<RefCell<dyn TurnTaker>> = if let Some(ai_model_path) = ai_model_path {
             let f = File::open(Path::new(ai_model_path.as_str())).unwrap();
             let rl_ai: RL_AI<LFA<Basis,SGD,VectorFunction>> = bincode::deserialize_from(f).unwrap();
             Rc::new(RefCell::new(rl_ai))
         } else {
-            Rc::new(RefCell::new(RandomAI::new(verbose)))
+            Rc::new(RefCell::new(RandomAI::new(verbosity)))
         };
         opponent
     }
@@ -313,7 +313,7 @@ impl UmpireDomain {
     //     Self { game, opponent, verbose }
     // }
 
-    fn new_from_path(map_dims: Dims, ai_model_path: Option<&String>, verbose: bool) -> Self {
+    fn new_from_path(map_dims: Dims, ai_model_path: Option<&String>, verbosity: usize) -> Self {
         let city_namer = IntNamer::new("city");
     
         let game = Game::new(
@@ -325,22 +325,22 @@ impl UmpireDomain {
             Wrap2d::BOTH,
         );
 
-        let opponent = Self::_instantiate_opponent(ai_model_path, verbose);
+        let opponent = Self::_instantiate_opponent(ai_model_path, verbosity);
 
         Self {
             game,
             opponent,
-            verbose,
+            verbosity,
         }
     }
 
     #[cfg(test)]
-    fn from_game(game: Game, ai_model_path: Option<&String>, verbose: bool) -> Self {
-        let opponent = Self::_instantiate_opponent(ai_model_path, verbose);
+    fn from_game(game: Game, ai_model_path: Option<&String>, verbosity: usize) -> Self {
+        let opponent = Self::_instantiate_opponent(ai_model_path, verbosity);
         Self {
             game,
             opponent,
-            verbose,
+            verbosity,
         }
     }
 
@@ -351,7 +351,7 @@ impl UmpireDomain {
 
         action.take(&mut self.game);
 
-        if self.verbose {
+        if self.verbosity > 1 {
             println!("{:?}", action);
             let loc = if let Some(unit_id) = self.game.unit_orders_requests().next() {
                 self.game.current_player_unit_loc(unit_id)
@@ -492,7 +492,7 @@ impl Domain for UmpireDomain {
 
         let reward = end_score - start_score;
 
-        if self.verbose {
+        if self.verbosity > 1 {
             println!("AI Reward: {}", reward);
         }
 
@@ -726,7 +726,7 @@ fn agent(avoid_skip: bool) ->
     UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0), avoid_skip}
 }
 
-pub fn trained_agent(opponent_model_path: Option<String>, dims: Vec<Dims>, episodes: usize, steps: u64, avoid_skip: bool, verbose: bool) ->
+pub fn trained_agent(opponent_model_path: Option<String>, dims: Vec<Dims>, episodes: usize, steps: u64, avoid_skip: bool, verbosity: usize) ->
         UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
             UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
 
@@ -736,22 +736,24 @@ pub fn trained_agent(opponent_model_path: Option<String>, dims: Vec<Dims>, episo
 
         let opponent_model_path = opponent_model_path.clone();
 
-        if verbose {
+        if verbosity > 0 {
             println!("Training {}", dims);
         }
 
-        let domain_builder = Box::new(move || UmpireDomain::new_from_path(dims, opponent_model_path.as_ref(), verbose));
+        let domain_builder = Box::new(move || UmpireDomain::new_from_path(dims, opponent_model_path.as_ref(), verbosity));
 
         // Start a serial learning experiment up to 1000 steps per episode.
         let e = SerialExperiment::new(&mut agent, domain_builder, steps);
 
         // Realise 1000 episodes of the experiment generator.
-        run(e, episodes, if verbose {
-            let logger = logging::root(logging::stdout());
-            Some(logger)
-        } else {
-            None
-        });
+        run(e, episodes,
+            if verbosity > 0 {
+                let logger = logging::root(logging::stdout());
+                Some(logger)
+            } else {
+                None
+            }
+        );
     }
 
     agent
@@ -877,7 +879,7 @@ mod test {
         let n = 100000;
 
         // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
-        let agent = trained_agent(None, vec![Dims::new(10,10)], 10, 50, false, false);
+        let agent = trained_agent(None, vec![Dims::new(10,10)], 10, 50, false, 0);
 
 
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
@@ -889,7 +891,7 @@ mod test {
 
         let mut counts: HashMap<UmpireAction,usize> = HashMap::new();
 
-        let mut domain = UmpireDomain::from_game(game, None, false);
+        let mut domain = UmpireDomain::from_game(game, None, 0);
 
         let mut rng = thread_rng();
         for _ in 0..n {
