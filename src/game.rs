@@ -750,7 +750,7 @@ impl Game {
 
     /// If the current player controls a unit with ID `id`, return it
     pub fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.current_player_units().find(|unit| unit.id==id)
+        self.map.player_unit_by_id(self.current_player, id)
     }
 
     /// If the current player controls a unit with ID `id`, return its location

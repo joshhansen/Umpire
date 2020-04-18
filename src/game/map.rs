@@ -509,6 +509,11 @@ impl MapData {
         self.unit_by_loc_and_id_mut(self.unit_loc_by_id[&id], id)
     }
 
+    pub fn player_unit_by_id(&self, player: PlayerNum, id: UnitID) -> Option<&Unit> {
+        self.unit_by_id(id)
+            .filter(|unit| unit.belongs_to_player(player) && unit.id==id)
+    }
+
     fn player_unit_by_id_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_id_mut(id)
             .filter(|unit| unit.belongs_to_player(player) && unit.id==id)
