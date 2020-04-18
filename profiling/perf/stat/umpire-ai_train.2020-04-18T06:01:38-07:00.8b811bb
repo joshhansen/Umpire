@@ -1,0 +1,20 @@
+# started on Sat Apr 18 06:10:42 2020
+
+
+ Performance counter stats for 'target/debug/umpire-ai -v -W 10 -H 10 -e 1 -s 1000 train -a /tmp/profiling_10x10_e1_s1000_a.ai':
+
+          1,603.92 msec task-clock:u              #    1.000 CPUs utilized          
+                 0      context-switches:u        #    0.000 K/sec                  
+                 0      cpu-migrations:u          #    0.000 K/sec                  
+               454      page-faults:u             #    0.283 K/sec                  
+     5,228,025,107      cycles:u                  #    3.260 GHz                    
+     7,427,973,585      instructions:u            #    1.42  insn per cycle         
+     1,245,961,284      branches:u                #  776.825 M/sec                  
+        14,226,416      branch-misses:u           #    1.14% of all branches        
+
+       1.604216180 seconds time elapsed
+
+       1.597881000 seconds user
+       0.001992000 seconds sys
+
+
