@@ -164,7 +164,7 @@ fn main() {
 
     println!("Steps: {}", steps);
 
-    println!("Verbosity: {:?}", verbosity);
+    println!("Verbosity: {}", verbosity);
 
     if subcommand == "eval" {
 
@@ -237,7 +237,7 @@ fn main() {
                         );
 
                         for _ in 0..steps {
-                            if verbosity > 1  {
+                            if verbosity > 1 {
                                 println!("{:?}", game);
                             }
 
