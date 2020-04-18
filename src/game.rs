@@ -574,34 +574,21 @@ impl Game {
         let current_player = self.current_player();
         let obs_tracker = self.player_observations.get_mut(&current_player).unwrap();
 
-        for loc in self.map.dims().iter_locs() {
-            let tile = self.map.tile(loc).unwrap();
+        if self.fog_of_war {
+            for city in self.map.player_cities(self.current_player) {
+                city.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+            }
 
-            if self.fog_of_war {
-
-                // With "fog of war" we only get updated observations where there are units and cities in the player's control
-                
-                if let Some(ref city) = tile.city {
-                    if let Alignment::Belligerent{player} = city.alignment {
-                        if player==current_player {
-                            city.observe(&self.map, self.turn, self.wrapping, obs_tracker);
-                        }
-                    }
-                }
-
-                if let Some(ref unit) = tile.unit {
-                    if let Alignment::Belligerent{player} = unit.alignment {
-                        if player==current_player {
-                            unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
-                        }
-                    }
-                }
-
-            } else {
-                // Without "fog of war" we get updated observations everywhere
-
+            for unit in self.map.player_units(self.current_player) {
+                unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+            }
+        } else {
+            //FIXME when fog of war is disabled we shouldn't need to track observations at all
+            for loc in self.map.dims().iter_locs() {
+                let tile = self.map.tile(loc).unwrap();
                 obs_tracker.track_observation(loc, tile, self.turn);
             }
+
         }
     }
 
