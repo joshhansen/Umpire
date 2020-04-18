@@ -575,16 +575,16 @@ impl PartialOrd for State {
 /// 
 /// * `max_dist`: the maximum distance to consider in the path search
 pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, filter: &F, wrapping: Wrap2d, max_dist: u16) -> ShortestPaths {
-    let mut q = Vec::new();
+    let mut q = VecDeque::new();
 
     let mut dist: SparseLocationGrid<u16> = SparseLocationGrid::new(tiles.dims());
     let mut prev: SparseLocationGrid<Location> = SparseLocationGrid::new(tiles.dims());
 
-    q.push(State{ dist_: 0, loc: source });
+    q.push_back(State{ dist_: 0, loc: source });
 
     dist.replace(source, 0);
 
-    while let Some(State{ dist_, loc }) = q.pop() {
+    while let Some(State{ dist_, loc }) = q.pop_front() {
 
         // Quit early since we're already doing worse than the best known route
         if let Some(dist) = dist.get(loc) {
@@ -605,7 +605,7 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
 
             // if let Some(neighb_dist) = dist.get(neighb_loc) {
             if dist.get(neighb_loc).is_none() || new_dist < dist[neighb_loc] {
-                q.push(next);
+                q.push_back(next);
                 dist.replace(neighb_loc, new_dist);
                 prev.replace(neighb_loc, loc);
             }
