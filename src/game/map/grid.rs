@@ -326,6 +326,7 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
     }
 }
 
+#[derive(Clone)]
 pub struct SparseLocationGrid<T> {
     grid: HashMap<Location,T>,
     dims: Dims
@@ -337,6 +338,14 @@ impl <T> SparseLocationGrid<T> {
             grid: HashMap::new(),
             dims,
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item=&T> {
+        self.grid.values()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut T> {
+        self.grid.values_mut()
     }
 }
 

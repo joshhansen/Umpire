@@ -161,7 +161,7 @@ impl ObsTracker {
         }
     }
 
-    /// Transfer all "current" to "observed"
+    /// Mark everything as no longer being current
     pub fn archive(&mut self) {
         for obs in self.observations.iter_mut() {
             if let Obs::Observed{current,..} = obs {
