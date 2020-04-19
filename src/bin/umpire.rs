@@ -15,7 +15,7 @@ use std::{
         RwLock,
     },
     thread,
-    time::{Duration,SystemTime}, fs::File, path::Path,
+    time::{Duration,SystemTime},
 };
 
 use clap::Arg;

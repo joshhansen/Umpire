@@ -332,10 +332,10 @@ impl <'a> PlayerTurnControl<'a> {
         proposal.apply(self.game)
     }
 
-    // ----- Consuming methods -----
-    fn end_turn(self) -> Result<TurnStart,PlayerNum> {
-        self.game.end_turn()
-    }
+    // // ----- Consuming methods -----
+    // fn end_turn(self) -> Result<TurnStart,PlayerNum> {
+    //     self.game.end_turn()
+    // }
 }
 
 /// If for whatever reason a careless user fails to end the turn, we do it for them so the game continues to advance.

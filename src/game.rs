@@ -1748,7 +1748,6 @@ mod test {
             },
         },
         name::{
-            IntNamer,
             Named,
             unit_namer,
         },
