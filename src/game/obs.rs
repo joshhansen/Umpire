@@ -69,6 +69,11 @@ impl Located for LocatedObs {
 
 pub trait ObsTrackerI : Source<Obs> {
     fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
+
+    /// How many observations are we tracking right now?
+    /// 
+    /// I.e. the number of tiles for which we have an observation other than Obs::Unobserved
+    fn num_observed(&self) -> usize;
 }
 
 pub trait UnifiedObsTrackerI : ObsTrackerI + Source<Obs> + Source<Tile> {
@@ -126,6 +131,10 @@ impl <'a, O:ObsTrackerI, S:Source<Tile>> Source<Tile> for UnifiedObsTracker<'a, 
 impl <'a, O:ObsTrackerI, S:Source<Tile>> ObsTrackerI for UnifiedObsTracker<'a, O, S> {
     fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         self.observations.track_observation(loc, tile, turn)
+    }
+
+    fn num_observed(&self) -> usize {
+        self.observations.num_observed()
     }
 }
 
@@ -190,6 +199,10 @@ impl ObsTrackerI for ObsTracker {
         }
 
         LocatedObs::new(loc, obs, old.unwrap_or(Obs::Unobserved))
+    }
+
+    fn num_observed(&self) -> usize {
+        self.num_observed
     }
 }
 

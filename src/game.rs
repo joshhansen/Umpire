@@ -1346,15 +1346,13 @@ impl Game {
         self.follow_unit_orders(id)
     }
 
-    fn player_score(&self, player: PlayerNum) -> Result<f64,String> {
+    fn player_score(&self, player: PlayerNum) -> Result<f64,GameError> {
         let mut score = 0.0;
 
         // Observations
         let observed_tiles = self.player_observations.get(&player)
-                                 .ok_or(format!("No player {} found", player))?
-                                 .iter()
-                                 .filter(|obs| **obs != Obs::Unobserved)
-                                 .count();
+                                 .ok_or(GameError::NoSuchPlayer{player})?
+                                 .num_observed();
 
         score += observed_tiles as f64 * TILE_OBSERVED_BASE_SCORE;
     
