@@ -263,14 +263,14 @@ impl TryFrom<char> for Direction {
     type Error = String;
     fn try_from(c: char) -> Result<Direction,String> {
         match c {
-            conf::KEY_UP                        => Ok(Direction::Up),
-            conf::KEY_DOWN                      => Ok(Direction::Down),
-            conf::KEY_LEFT                      => Ok(Direction::Left),
-            conf::KEY_RIGHT                     => Ok(Direction::Right),
-            conf::KEY_UP_LEFT                   => Ok(Direction::UpLeft),
-            conf::KEY_UP_RIGHT                  => Ok(Direction::UpRight),
-            conf::KEY_DOWN_LEFT                 => Ok(Direction::DownLeft),
-            conf::KEY_DOWN_RIGHT                => Ok(Direction::DownRight),
+            conf::KEY_UP         | conf::KEY_NUMPAD_UP         => Ok(Direction::Up),
+            conf::KEY_DOWN       | conf::KEY_NUMPAD_DOWN       => Ok(Direction::Down),
+            conf::KEY_LEFT       | conf::KEY_NUMPAD_LEFT       => Ok(Direction::Left),
+            conf::KEY_RIGHT      | conf::KEY_NUMPAD_RIGHT      => Ok(Direction::Right),
+            conf::KEY_UP_LEFT    | conf::KEY_NUMPAD_UP_LEFT    => Ok(Direction::UpLeft),
+            conf::KEY_UP_RIGHT   | conf::KEY_NUMPAD_UP_RIGHT   => Ok(Direction::UpRight),
+            conf::KEY_DOWN_LEFT  | conf::KEY_NUMPAD_DOWN_LEFT  => Ok(Direction::DownLeft),
+            conf::KEY_DOWN_RIGHT | conf::KEY_NUMPAD_DOWN_RIGHT => Ok(Direction::DownRight),
             _                    => Err(format!("{} doesn't indicate a direction", c))
         }
     }

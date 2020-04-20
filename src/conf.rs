@@ -106,6 +106,15 @@ pub const KEY_VIEWPORT_SHIFT_UP_RIGHT: char = 'U';
 pub const KEY_VIEWPORT_SHIFT_DOWN_LEFT: char = 'B';
 pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';
 
+pub const KEY_NUMPAD_LEFT:       char = '4';
+pub const KEY_NUMPAD_RIGHT:      char = '6';
+pub const KEY_NUMPAD_UP:         char = '8';
+pub const KEY_NUMPAD_DOWN:       char = '2';
+pub const KEY_NUMPAD_UP_LEFT:    char = '7';
+pub const KEY_NUMPAD_UP_RIGHT:   char = '9';
+pub const KEY_NUMPAD_DOWN_LEFT:  char = '1';
+pub const KEY_NUMPAD_DOWN_RIGHT: char = '3';
+
 pub const KEY_EXPLORE: char = 'o';
 
 pub const KEY_SENTRY: char = 's';
