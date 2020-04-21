@@ -165,12 +165,16 @@ impl <'a> Filter<Obs> for PacifistXenophileUnitMovementFilter<'a> {
     fn include(&self, obs: &Obs) -> bool {
         if let Obs::Observed{tile,..} = obs {
 
-            if tile.unit.is_some() {
+            if let Some(ref unit) = tile.unit {
+                if unit.is_friendly_to(self.unit) {
+                    return unit.can_carry_unit(&self.unit);
+                }
+
                 return false;
             }
 
             if let Some(ref city) = tile.city {
-                if city.alignment != self.unit.alignment {
+                if !city.is_friendly_to(self.unit) {
                     return false;
                 }
             }
@@ -709,6 +713,7 @@ mod test {
     use super::{
         All,
         Filter,
+        PacifistXenophileUnitMovementFilter,
         Source,
         UnitMovementFilter,
         Xenophile,
@@ -1030,5 +1035,30 @@ mod test {
         tile.unit = Some(u2);
 
         assert!(!filter.include(&tile));
+    }
+
+    // FIXME: This test isn't very thorough---it only tests loading onto a transport
+    #[test]
+    fn test_pacifist_xenophile_movement_filter() {
+        let l1 = Location::new(0,0);
+        let l2 = Location::new(1,0);
+        let a = Alignment::Belligerent{player:0};
+
+        let armor = Unit::new(UnitID::new(0), l1, UnitType::Armor, a, "Armie");
+        let transport = Unit::new(UnitID::new(1), l2, UnitType::Transport, a, "Portia");
+
+        let filter = PacifistXenophileUnitMovementFilter{unit: &armor};
+
+        let mut transport_tile = Tile::new(Terrain::Water, transport.loc);
+        transport_tile.unit = Some(transport);
+
+        let obs = Obs::Observed {
+            tile: transport_tile,
+            turn: 0,
+            current: true,
+        };
+
+        assert!(filter.include(&obs));
+    
     }
 }
