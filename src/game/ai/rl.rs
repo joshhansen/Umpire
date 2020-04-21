@@ -84,6 +84,7 @@ use rsrl_domains::{
 use super::RandomAI;
 
 pub type Basis = Constant;
+// pub type Basis = Polynomial;
 
 #[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub enum UmpireAction {
@@ -707,8 +708,8 @@ fn agent(avoid_skip: bool) ->
 
     // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
     let basis = Constant::new(5.0);
-    // let basis = Polynomial::new(1, 1);
-    let lfa = LFA::vector(basis, SGD(0.05), n_actions);
+    // let basis = Polynomial::new(2, 1);
+    let lfa = LFA::vector(basis, SGD(0.001), n_actions);
     let q_func = make_shared(lfa);
 
     // let policy = EpsilonGreedy::new(
@@ -723,7 +724,7 @@ fn agent(avoid_skip: bool) ->
         0.2
     );
 
-    UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 1.0), avoid_skip}
+    UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 0.8), avoid_skip}
 }
 
 pub fn trained_agent(opponent_model_path: Option<String>, dims: Vec<Dims>, episodes: usize, steps: u64, avoid_skip: bool, verbosity: usize) ->
