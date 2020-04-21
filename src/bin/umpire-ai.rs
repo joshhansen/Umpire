@@ -260,21 +260,26 @@ fn main() {
 
                         * victory_counts.entry(game.victor()).or_insert(0) += 1;
 
-                        if let Some(victor) = game.victor() {
-                            println!("Victory: {}", match victor {
-                                0 => spec1,
-                                1 => spec2,
-                                v => panic!("Unrecognized victor {}", v)
-                            });
-                        } else {
-                            println!("Draw");
-                        }
+                        if verbosity > 0 {
+                            if let Some(victor) = game.victor() {
+                                println!("Victory: {}", match victor {
+                                    0 => spec1,
+                                    1 => spec2,
+                                    v => panic!("Unrecognized victor {}", v)
+                                });
+                            } else {
+                                println!("Draw");
+                            }
+                        
 
-                        let scores = game.player_scores();
-                        println!("{} score: {}", spec1, scores.get(0).unwrap());
-                        println!("{} score: {}", spec2, scores.get(1).unwrap());
-                        println!("Turn: {}", game.turn());
-                        println!();
+                            if verbosity > 1 {
+                                let scores = game.player_scores();
+                                println!("{} score: {}", spec1, scores.get(0).unwrap());
+                                println!("{} score: {}", spec2, scores.get(1).unwrap());
+                                println!("Turn: {}", game.turn());
+                                println!();
+                            }
+                        }
 
                     }
 

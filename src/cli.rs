@@ -29,6 +29,7 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
             'v' => Arg::with_name("verbose")
                 .short("v")
                 .long("verbose")
+                .multiple(true)
                 .help("Show verbose output"),
 
             'w' => Arg::with_name("wrapping")
