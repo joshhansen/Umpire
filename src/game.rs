@@ -1980,11 +1980,7 @@ mod test {
         let mut victorious = false;
         let mut defeated = false;
         while !victorious || !defeated {
-            let mut map = MapData::try_from("itP").unwrap();
-
-            // Put the ships on water for realism
-            map.set_terrain(Location::new(1, 0), Terrain::Water).unwrap();
-            map.set_terrain(Location::new(2, 0), Terrain::Water).unwrap();
+            let map = MapData::try_from("itP").unwrap();
 
             let infantry_id = map.toplevel_unit_by_loc(Location::new(0, 0)).unwrap().id;
             let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
