@@ -1501,7 +1501,7 @@ impl DerefVec for Game {
 
         // - number of each type of unit controlled by player
         let empty_map = HashMap::new();
-        let type_counts = self.current_player_unit_type_counts().unwrap_or_else(|_| &empty_map);
+        let type_counts = self.current_player_unit_type_counts().unwrap_or(&empty_map);
         let counts_vec: Vec<f64> = UnitType::values().iter()
                                     .map(|type_| *type_counts.get(type_).unwrap_or(&0) as f64)
                                     .collect();
