@@ -116,6 +116,25 @@ impl <'a> Filter<Obs> for UnitMovementFilter<'a> {
     }
 }
 
+/// Include tiles that a unit could attack if adjacent
+pub struct UnitAttackFilter<'a> {
+    pub unit: &'a Unit
+}
+impl <'a> Filter<Tile> for UnitAttackFilter<'a> {
+    fn include(&self, neighb_tile: &Tile) -> bool {
+        self.unit.can_attack_tile(neighb_tile)
+    }
+}
+impl <'a> Filter<Obs> for UnitAttackFilter<'a> {
+    fn include(&self, obs: &Obs) -> bool {
+        if let Obs::Observed{tile,..} = obs {
+            Self::include(self, tile)
+        } else {
+            false
+        }
+    }
+}
+
 pub struct UnitMovementFilterXenophile<'a> {
     pub unit: &'a Unit
 }
@@ -622,25 +641,40 @@ pub fn nearest_adjacent_unobserved_reachable_without_attacking<S:Source<Obs>>(
     unit: &Unit,
     wrapping: Wrap2d
 ) -> Option<Location> {
+    let candidate_filter = ObservedReachableByPacifistUnit{ unit };
+    let target_filter = UnobservedFilter;
+    bfs(tiles, src, wrapping, &candidate_filter, &target_filter)
+}
 
-    let observed_and_reachable_filter = ObservedReachableByPacifistUnit{ unit };
+/// Perform a breadth first search.
+/// 
+/// # Arguments
+/// * `candidate_filter` determines which tiles to include in the search
+/// * `target_filter` specifies which tiles we're searching for
+pub fn bfs<T,S:Source<T>,CandidateFilter:Filter<T>,TargetFilter:Filter<T>>(
+    tiles: &S,
+    src: Location,
+    wrapping: Wrap2d,
+    candidate_filter: &CandidateFilter,
+    target_filter: &TargetFilter,
+) -> Option<Location> {
 
     let mut q: VecDeque<Location> = VecDeque::new();
     q.push_back(src);
 
-    let mut visited: LocationGrid<bool> = LocationGrid::new(tiles.dims(), |_loc| false);
-    visited[src] = true;
+    let mut visited: SparseLocationGrid<bool> = SparseLocationGrid::new(tiles.dims());
+    visited.replace(src, true);
 
     while let Some(loc) = q.pop_front() {
         for (neighb,obs) in all_resolved_neighbors_iter(tiles, loc, wrapping) {
 
-            if obs.is_unobserved() {
+            if target_filter.include(obs) {
                 return Some(loc);
             }
 
-            if !visited[neighb] && observed_and_reachable_filter.include(obs) {
+            if !visited.get(neighb).cloned().unwrap_or(false) && candidate_filter.include(obs) {
                 q.push_back(neighb);
-                visited[neighb] = true;// do this now to preempt duplicates, even though we haven't visited it yet
+                visited.replace(src, true);// do this now to preempt duplicates, even though we haven't visited it yet
             }
 
         }

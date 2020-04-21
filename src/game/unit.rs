@@ -405,6 +405,16 @@ impl Unit {
         }
     }
 
+    /// Could this unit attack the given tile if it were adjacent?
+    /// 
+    /// This basically amounts to whether there is an enemy city or unit on the tile
+    pub fn can_attack_tile(&self, tile: &Tile) -> bool {
+        tile.unit.as_ref().map(|_| true)
+                 .or_else(|| tile.city.as_ref().map(|_| true)
+        )
+        .unwrap_or(false)
+    }
+
     pub fn moves_remaining(&self) -> u16 {
         self.moves_remaining
     }

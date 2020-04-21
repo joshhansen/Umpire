@@ -442,6 +442,13 @@ impl Location {
     pub fn shift_wrapped(self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
         wrapping.wrapped_add(dims, self, dir.into())
     }
+
+    pub fn dist(&self, other: Location) -> f64 {
+        (
+            (self.x as f64 - other.x as f64).powf(2.0) +
+            (self.y as f64 - other.y as f64).powf(2.0)
+        ).sqrt()
+    }
 }
 
 impl Into<Vec2d<i32>> for Location {

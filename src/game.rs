@@ -45,7 +45,9 @@ use crate::{
                 NoCitiesButOursFilter,
                 NoUnitsFilter,
                 Source,
+                UnitAttackFilter,
                 UnitMovementFilter,
+                bfs,
                 directions_unit_could_move_iter,
                 neighbors_terrain_only,
                 neighbors_unit_could_move_to_iter,
@@ -108,7 +110,7 @@ const TURN_PENALTY: f64 = 1000.0;
 const UNIT_MULTIPLIER: f64 = 10.0;
 
 /// How much is victory worth?
-const VICTORY_SCORE: f64 = 1000000.0;
+const VICTORY_SCORE: f64 = 1_000_000.0;
 
 /// A proposed change to the game state.
 /// 
@@ -1476,7 +1478,7 @@ impl DerefVec for Game {
         // 
 
         // We also add a context around the currently active unit (if any)
-        let mut x = Vec::with_capacity(6414);
+        let mut x = Vec::with_capacity(7759);
 
         // General statistics
 
@@ -1519,19 +1521,37 @@ impl DerefVec for Game {
             }
         });
 
-        for loc in Dims::new(10, 10).iter_locs() {
-            let inc: Vec2d<i32> = loc.into();
+        for inc_x in -5..=5 {
+            for inc_y in -5..=5 {
+                let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
-            let obs = if let Some(unit_loc) = unit_loc {
-                self.wrapping.wrapped_add(self.dims(), unit_loc, inc)
-                             .map_or(&Obs::Unobserved, |loc| observations.get(loc))
-            } else {
-                &Obs::Unobserved
-            };
+                let obs = if let Some(unit_loc) = unit_loc {
+                    self.wrapping.wrapped_add(self.dims(), unit_loc, inc)
+                                 .map_or(&Obs::Unobserved, |loc| observations.get(loc))
+                } else {
+                    &Obs::Unobserved
+                };
 
-            // x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
-            push_obs_to_vec(&mut x, &obs, self.num_players);
+                // x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
+                push_obs_to_vec(&mut x, &obs, self.num_players);
+            }
         }
+
+        let nearest_enemy_loc = unit_id.and_then(|unit_id| {
+            let unit = self.current_player_unit_by_id(unit_id).unwrap();
+            let candidate_filter = UnitMovementFilter{unit};
+            let target_filter = UnitAttackFilter{unit};
+            let nearest_enemy_loc = bfs(
+                observations, unit.loc, self.wrapping, &candidate_filter, &target_filter
+            );
+            nearest_enemy_loc
+        });
+
+        let nearest_enemy_distance = nearest_enemy_loc.map(|nearest_enemy_loc| {
+            unit_loc.unwrap().dist(nearest_enemy_loc)
+        }).unwrap_or_else(|| (self.map.dims().width as f64).max(self.map.dims().height as f64));
+
+        x.push(nearest_enemy_distance);
 
         x
     }
