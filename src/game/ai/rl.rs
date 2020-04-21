@@ -646,7 +646,7 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGr
             ps[i] = p;
         }
 
-        ps.into()
+        ps
     }
 }
 

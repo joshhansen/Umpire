@@ -258,7 +258,7 @@ impl IMode for TurnOverMode {
 
             self.process_turn_start(game, ui, &turn_start);
 
-            return ModeStatus::TurnOver;
+            ModeStatus::TurnOver
         }
     }
 }
