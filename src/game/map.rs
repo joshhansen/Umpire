@@ -25,6 +25,8 @@ use std::{
     },
 };
 
+use failure::Fail;
+
 use crate::{
     game::{
         AlignedMaybe,
@@ -40,14 +42,15 @@ use crate::{
 use self::dijkstra::Source;
 use super::unit::orders::Orders;
 
-
-
-#[derive(Debug)]
+#[derive(Debug,Fail)]
 pub enum NewUnitError {
+    #[fail(display = "Attempted to create a unit at {} outside the bounds {}", loc, dims)]
     OutOfBounds {
         loc: Location,
         dims: Dims
     },
+
+    #[fail(display = "Attempted to create a unit at {} but the unit {:?} was already present; the city is producing {}", loc, prior_unit, unit_type_under_production)]
     UnitAlreadyPresent {
         loc: Location,
         prior_unit: Unit,

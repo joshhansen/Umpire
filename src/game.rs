@@ -422,15 +422,15 @@ impl Game {
                     }
                 },
                 Err(err) => match err {
-                    NewUnitError::OutOfBounds{ loc, dims } => {
-                        panic!(format!("Attempted to create a unit at {} outside the bounds {}", loc, dims))
-                    },
                     NewUnitError::UnitAlreadyPresent{ prior_unit, unit_type_under_production, .. } => {
                         let city = self.map.city_by_loc(city_loc).unwrap();
 
                         UnitProductionOutcome::UnitAlreadyPresent {
                             prior_unit, unit_type_under_production, city: city.clone(),
                         }
+                    },
+                    err => {
+                        panic!(format!("Error creating unit: {}", err))
                     }
                 }
             }
