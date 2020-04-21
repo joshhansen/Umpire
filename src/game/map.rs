@@ -118,13 +118,13 @@ impl MapData {
                                                .map(|city| city.id)
                                                .max()
                                                .map(|id| id.next())
-                                               .unwrap_or(CityID::default());
+                                               .unwrap_or_else(CityID::default);
 
         let next_unit_id: UnitID = tiles.iter().filter_map(|tile| tile.unit.as_ref())
-                                                       .map(|unit| unit.id)
-                                                       .max()
-                                                       .map(|id| id.next())
-                                                       .unwrap_or(UnitID::default());
+                                               .map(|unit| unit.id)
+                                               .max()
+                                               .map(|id| id.next())
+                                               .unwrap_or_else(UnitID::default);
 
         let mut map_data = Self {
             tiles,

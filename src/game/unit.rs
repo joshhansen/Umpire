@@ -299,7 +299,7 @@ impl UnitType {
         }
     }
 
-    pub fn can_travese(&self, terrain: Terrain) -> bool {
+    pub fn can_traverse(&self, terrain: Terrain) -> bool {
         self.transport_mode().can_traverse(terrain)
     }
 
