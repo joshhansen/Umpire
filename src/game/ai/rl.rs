@@ -785,6 +785,7 @@ pub fn find_legal_max<Q:EnumerableStateActionFunction<Game>>(q_func: &Q, state: 
         .unwrap()
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Deserialize, Serialize)]
 pub struct RL_AI<Q> {
     q_func: Q,
