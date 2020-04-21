@@ -169,6 +169,12 @@ impl <T:fmt::Display> fmt::Display for Vec2d<T> {
     }
 }
 
+impl <T:fmt::Display> fmt::Debug for Vec2d<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
 #[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub enum Direction {
     Up,
@@ -462,12 +468,6 @@ impl Into<Vec2d<i32>> for Location {
 
 pub trait Located {
     fn loc(&self) -> Location;
-}
-
-impl fmt::Debug for Location {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.x, self.y)
-    }
 }
 
 #[derive(Debug,PartialEq)]
