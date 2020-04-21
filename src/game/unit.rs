@@ -268,7 +268,7 @@ impl UnitType {
         }
     }
 
-    fn transport_mode(self) -> TransportMode {
+    pub fn transport_mode(self) -> TransportMode {
         match self {
             UnitType::Infantry | UnitType::Armor => TransportMode::Land,
             UnitType::Fighter | UnitType::Bomber => TransportMode::Air,

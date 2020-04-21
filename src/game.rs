@@ -44,13 +44,17 @@ use crate::{
                 Filter,
                 NoCitiesButOursFilter,
                 NoUnitsFilter,
+                ShortestPaths,
                 Source,
                 UnitAttackFilter,
                 UnitMovementFilter,
+                UnitMovementFilterXenophile,
                 bfs,
                 directions_unit_could_move_iter,
+                nearest_adjacent_unobserved_reachable_without_attacking,
                 neighbors_terrain_only,
                 neighbors_unit_could_move_to_iter,
+                shortest_paths,
             },
         },
         obs::{Obs,Observer,ObsTracker,ObsTrackerI},
@@ -93,7 +97,6 @@ use self::move_::{
     MoveError,
     MoveResult,
 };
-use map::dijkstra::{ShortestPaths, UnitMovementFilterXenophile};
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
@@ -951,7 +954,7 @@ impl Game {
                     });
                 }
 
-                let shortest_path: Vec<Location> = shortest_paths.as_ref().unwrap().shortest_path(dest);
+                let shortest_path: Vec<Location> = shortest_paths.as_ref().unwrap().shortest_path(dest).unwrap();
 
                 // skip the source location and steps we've taken since "baseline"
                 let loc = shortest_path[1 + movement_since_last_shortest_paths_calculation as usize];
@@ -1468,6 +1471,20 @@ fn push_obs_to_vec(x: &mut Vec<f64>, obs: &Obs, num_players: PlayerNum) {
     }
 }
 
+
+/// Push a one-hot-encoded representation of a direction (or none at all) onto a vector
+fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
+    if let Some(dir) = dir {
+        for dir2 in Direction::values().iter() {
+            x.push(if dir==*dir2 { 1.0 } else { 0.0 } );
+        }
+    } else {
+        for _ in 0..Direction::values().len() {
+            x.push(0.0);
+        }
+    }
+}
+
 /// Represent the first player's game state as a vector
 impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<f64> {
@@ -1481,7 +1498,7 @@ impl DerefVec for Game {
         // 
 
         // We also add a context around the currently active unit (if any)
-        let mut x = Vec::with_capacity(7759);
+        let mut x = Vec::with_capacity(7776);
 
         // General statistics
 
@@ -1540,21 +1557,58 @@ impl DerefVec for Game {
             }
         }
 
-        let nearest_enemy_loc = unit_id.and_then(|unit_id| {
+        let max_dist = (self.map.dims().width as f64).max(self.map.dims().height as f64);
+
+        // Get distance and direction to the nearest reachable enemy and the nearest reachable tile adjacent an
+        // unobserved tile. The hope is to reward attacking enemy units and cities, and exploration.
+        let (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir) = if let Some(unit_id) = unit_id {
             let unit = self.current_player_unit_by_id(unit_id).unwrap();
             let candidate_filter = UnitMovementFilter{unit};
             let target_filter = UnitAttackFilter{unit};
             let nearest_enemy_loc = bfs(
                 observations, unit.loc, self.wrapping, &candidate_filter, &target_filter
             );
-            nearest_enemy_loc
-        });
 
-        let nearest_enemy_distance = nearest_enemy_loc.map(|nearest_enemy_loc| {
-            unit_loc.unwrap().dist(nearest_enemy_loc)
-        }).unwrap_or_else(|| (self.map.dims().width as f64).max(self.map.dims().height as f64));
+            let nearest_adjacent_unobserved = nearest_adjacent_unobserved_reachable_without_attacking(
+                observations, unit.loc, unit, self.wrapping
+            );
 
-        x.push(nearest_enemy_distance);
+            
+            let nearest_enemy_dist = nearest_enemy_loc.map(|nearest_enemy_loc| {
+                unit_loc.unwrap().dist(nearest_enemy_loc)
+            });
+    
+            let nearest_adjacent_unobserved_dist = nearest_adjacent_unobserved.map(|nearest_adjacent_unobserved| {
+                unit_loc.unwrap().dist(nearest_adjacent_unobserved)
+            });
+
+
+            let path_search_filter = UnitMovementFilterXenophile{unit};
+            let shortest_paths = shortest_paths(observations, unit.loc, &path_search_filter, self.wrapping, std::u16::MAX);
+
+            let nearest_enemy_dir = nearest_enemy_loc.and_then(|nearest_enemy_loc| {
+                shortest_paths.direction_of(self.dims(), self.wrapping, nearest_enemy_loc)
+            });
+
+            let nearest_adjacent_unobserved_dir = nearest_adjacent_unobserved.and_then(|nearest_adjacent_unobserved| {
+                shortest_paths.direction_of(self.dims(), self.wrapping, nearest_adjacent_unobserved)
+            });
+
+            (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir)
+        } else {
+            (None, None, None, None)
+        };
+
+
+        x.push(nearest_enemy_dist.unwrap_or(max_dist));
+        push_dir_to_vec(&mut x, nearest_enemy_dir);
+
+        x.push(nearest_adjacent_unobserved_dist.unwrap_or(max_dist));
+        push_dir_to_vec(&mut x, nearest_adjacent_unobserved_dir);
+
+
+
+
 
         x
     }

@@ -6,6 +6,7 @@ use std::{
         HashSet,
         VecDeque,
     },
+    convert::TryFrom,
     fmt,
     marker::PhantomData,
     ops::{
@@ -41,6 +42,7 @@ impl IndexMut<Location> for Vec<Vec<u16>> {
 }
 
 pub struct ShortestPaths {
+    pub start_loc: Location,
     pub dist: SparseLocationGrid<u16>,
     pub prev: SparseLocationGrid<Location>
 }
@@ -52,7 +54,8 @@ impl fmt::Debug for ShortestPaths {
 }
 
 impl ShortestPaths {
-    pub fn shortest_path(&self, dest: Location) -> Vec<Location> {
+    pub fn shortest_path(&self, dest: Location) -> Option<Vec<Location>> {
+
         let mut path = Vec::new();
 
         path.insert(0, dest);
@@ -64,7 +67,22 @@ impl ShortestPaths {
             most_recent = prev;
         }
 
-        path
+        if path.len() > 1 {
+            Some(path)
+        } else {
+            None
+        }
+    }
+
+    /// The next direction to move to begin moving along the shortest path to the destination
+    pub fn direction_of(&self, dims: Dims, wrapping: Wrap2d, dest: Location) -> Option<Direction> {
+        self.shortest_path(dest).map(|path| {
+            let first_loc: Location = path[1];
+            // let inc = first_loc - self.start_loc;
+            let inc: Vec2d<i32> = wrapping.wrapped_sub(dims, self.start_loc, first_loc).unwrap();
+            let dir = Direction::try_from(inc).expect(format!("{} not a Direction; first_loc: {:?}, start_loc: {:?}", inc, first_loc, self.start_loc).as_str());
+            dir
+        })
     }
 }
 
@@ -634,7 +652,7 @@ pub fn shortest_paths<T,F:Filter<T>,S:Source<T>>(tiles: &S, source: Location, fi
         }
     }
 
-    ShortestPaths { dist, prev }
+    ShortestPaths { start_loc: source, dist, prev }
 }
 
 /// Return the (or a) closest tile to the source which is reachable by the given
@@ -667,8 +685,9 @@ pub fn bfs<T,S:Source<T>,CandidateFilter:Filter<T>,TargetFilter:Filter<T>>(
     let mut q: VecDeque<Location> = VecDeque::new();
     q.push_back(src);
 
-    let mut visited: SparseLocationGrid<bool> = SparseLocationGrid::new(tiles.dims());
-    visited.replace(src, true);
+    // let mut visited: SparseLocationGrid<bool> = SparseLocationGrid::new(tiles.dims());
+    let mut visited: HashSet<Location> = HashSet::new();
+    visited.insert(src);
 
     while let Some(loc) = q.pop_front() {
         for (neighb,obs) in all_resolved_neighbors_iter(tiles, loc, wrapping) {
@@ -677,9 +696,10 @@ pub fn bfs<T,S:Source<T>,CandidateFilter:Filter<T>,TargetFilter:Filter<T>>(
                 return Some(loc);
             }
 
-            if !visited.get(neighb).cloned().unwrap_or(false) && candidate_filter.include(obs) {
+            if !visited.contains(&neighb) && candidate_filter.include(obs) {
                 q.push_back(neighb);
-                visited.replace(src, true);// do this now to preempt duplicates, even though we haven't visited it yet
+                visited.insert(neighb);
+                // visited.replace(src, true);// do this now to preempt duplicates, even though we haven't visited it yet
             }
 
         }

@@ -1,8 +1,10 @@
 //! Utility functions and structs
 
 use std::{
+    cmp::Ordering,
     convert::TryFrom,
     fmt,
+    mem,
     ops::{
         Add,
         Sub,
@@ -10,6 +12,8 @@ use std::{
     thread::sleep,
     time::Duration,
 };
+
+use failure::Fail;
 
 use rand::{
     Rng,
@@ -19,6 +23,12 @@ use rand::{
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::conf;
+
+/// A location in a non-negative coordinate space such as the game map or viewport
+pub type Location = Vec2d<u16>;
+
+/// An increment or delta on `Location`s.
+pub type Inc = Vec2d<i32>;
 
 #[derive(Clone,Copy,Debug)]
 pub struct Rect {
@@ -145,16 +155,6 @@ impl<N:Add<Output=N>> Add for Vec2d<N> {
         Vec2d {
             x: self.x + rhs.x,
             y: self.y + rhs.y
-        }
-    }
-}
-
-impl<N:Sub<Output=N>> Sub for Vec2d<N> {
-    type Output = Vec2d<N>;
-    fn sub(self, rhs: Vec2d<N>) -> Vec2d<N> {
-        Vec2d {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y
         }
     }
 }
@@ -298,6 +298,12 @@ impl Direction {
     }
 }
 
+#[derive(Debug,Fail,PartialEq)]
+enum WrapError {
+    #[fail(display = "coord0? {}. Coordinate with value {} is out of the bounds 0 to {}", coord0, coord, dimension_width)]
+    OutOfBounds { coord0: bool, coord: u16, dimension_width: u16},
+}
+
 #[derive(Clone,Copy,Debug)]
 pub enum Wrap {
     Wrapping,
@@ -331,6 +337,53 @@ impl Wrap {
         }
         Some(new_coord as u16)
     }
+
+    /// Get the vector that transforms the coord0 to coord1, taking wrapping into consideration. In other words, calculate
+    /// `coord1 - coord0` thinking in terms of wrapping. This gives the minimal distance.
+    fn wrapped_sub(self, dimension_width: u16, coord0: u16, coord1: u16) -> Result<i32,WrapError> {
+        if coord0 >= dimension_width {
+            return Err(WrapError::OutOfBounds{coord0: true, coord: coord0, dimension_width});
+        }
+
+        if coord1 >= dimension_width {
+            return Err(WrapError::OutOfBounds{coord0: false, coord: coord1, dimension_width});
+        }
+
+        let mut coord0 = coord0 as i32;
+        let mut coord1 = coord1 as i32;
+
+        let cmp = coord0.cmp(&coord1);
+        if let Ordering::Equal = cmp {
+            return Ok(0);
+        }
+
+        if let Ordering::Greater = cmp {
+            mem::swap(&mut coord0, &mut coord1);
+        }
+
+        let dimension_width = dimension_width as i32;
+        let mut best_result = coord1 - coord0;
+
+        if let Self::Wrapping = self {
+            let wrapped_result = - coord0 - dimension_width + coord1;
+
+            if wrapped_result.abs() < best_result.abs() {
+                best_result = wrapped_result;
+            }
+        }
+
+        if let Ordering::Greater = cmp {
+            best_result *= -1;
+        }
+
+        Ok(best_result)
+    }
+}
+
+#[derive(Debug,Fail,PartialEq)]
+pub enum Wrap2dError {
+    #[fail(display = "Location {} is out of the bounds of dimensions {}", loc, dims)]
+    OutOfBounds { loc: Location, dims: Dims },
 }
 
 #[derive(Clone,Copy,Debug)]
@@ -379,6 +432,24 @@ impl Wrap2d {
                 x: new_x,
                 y: new_y,
             }
+        })
+    }
+
+    //// Subtract `loc0` from `loc1` respecting the wrapping rules. This basically means we will search for the
+    /// smallest answer we can give (the way of seeing the two points as nearest on both dimensions independently)
+    /// that respects the wrapping rules, whether that's via a wrapped subtraction or a normal subtraction
+    pub fn wrapped_sub(self, dims: Dims, loc0: Location, loc1: Location) -> Result<Vec2d<i32>,Wrap2dError> {
+        let inc_x = self.horiz.wrapped_sub(dims.width, loc0.x, loc1.x)
+        .map_err(|err| match err {
+            WrapError::OutOfBounds { coord0: true, .. } => Wrap2dError::OutOfBounds{loc: loc0, dims},
+            WrapError::OutOfBounds { coord0: false, .. } => Wrap2dError::OutOfBounds{loc: loc1, dims},
+        })?;
+
+        self.vert.wrapped_sub(dims.height, loc0.y, loc1.y)
+        .map(|inc_y| Vec2d::new(inc_x, inc_y))
+        .map_err(|err| match err {
+            WrapError::OutOfBounds { coord0: true, .. } => Wrap2dError::OutOfBounds{loc: loc0, dims},
+            WrapError::OutOfBounds { coord0: false, .. } => Wrap2dError::OutOfBounds{loc: loc1, dims},
         })
     }
 }
@@ -442,18 +513,27 @@ impl TryFrom<&str> for Wrap2d {
 //     })
 // }
 
-pub type Location = Vec2d<u16>;
-
 impl Location {
     pub fn shift_wrapped(self, dir: Direction, dims: Dims, wrapping: Wrap2d) -> Option<Location> {
         wrapping.wrapped_add(dims, self, dir.into())
     }
 
-    pub fn dist(&self, other: Location) -> f64 {
+    pub fn dist(self, other: Location) -> f64 {
         (
             (self.x as f64 - other.x as f64).powf(2.0) +
             (self.y as f64 - other.y as f64).powf(2.0)
         ).sqrt()
+    }
+}
+
+impl Sub for Location {
+    type Output = Vec2d<i32>;
+
+    fn sub(self, rhs: Location) -> Vec2d<i32> {
+        Vec2d {
+            x: self.x as i32 - rhs.x as i32,
+            y: self.y as i32 - rhs.y as i32
+        }
     }
 }
 
@@ -514,6 +594,7 @@ mod test {
         Dims,
         Location,
         Vec2d,
+        Wrap,
         Wrap2d,
     };
 
@@ -682,6 +763,73 @@ mod test {
             assert_eq!( Wrap2d::NEITHER.wrapped_add(dims, loc, *rel_neighb), None );
         }
 
+    }
+
+    #[test]
+    fn test_wrapped_sub_1d() {
+
+        /* 0xxx1x */
+
+        let dimension_width = 6;
+        let coord0 = 0;
+        let coord1 = 4;
+        assert_eq!(Wrap::Wrapping.wrapped_sub(dimension_width, coord0, coord1), Ok(-2));
+        assert_eq!(Wrap::NonWrapping.wrapped_sub(dimension_width, coord0, coord1), Ok(4));
+        assert_eq!(Wrap::Wrapping.wrapped_sub(dimension_width, coord1, coord0), Ok(2));
+        assert_eq!(Wrap::NonWrapping.wrapped_sub(dimension_width, coord1, coord0), Ok(-4));
+
+        assert!(Wrap::Wrapping.wrapped_sub(5, 5, 0).is_err());
+        assert!(Wrap::Wrapping.wrapped_sub(5, 0, 5).is_err());
+        assert!(Wrap::Wrapping.wrapped_sub(5, 5, 5).is_err());
+        assert!(Wrap::Wrapping.wrapped_sub(5, 0, 0).is_ok());
+    }
+    
+
+    #[test]
+    fn test_wrapped_sub_2d() {
+    /*
+        xxxxx 5
+        xxx1x 4
+        xxxxx 3
+        xxxxx 2
+        xxxxx 1
+        0xxxx 0
+
+        01234
+    */
+        let dims = Dims{width: 5, height: 6};
+        let loc0 = Location::new(0, 0);
+        let loc1 = Location::new(3, 4);
+
+        let bad0 = Location::new(dims.width, 0);
+        let bad1 = Location::new(0, dims.height);
+        let bad2 = Location::new(dims.width, dims.height);
+
+
+        assert_eq!(Wrap2d::BOTH.wrapped_sub(dims, loc0, loc1), Ok(Vec2d::new(-2, -2)));
+        assert_eq!(Wrap2d::HORIZ.wrapped_sub(dims, loc0, loc1), Ok(Vec2d::new(-2, 4)));
+        assert_eq!(Wrap2d::VERT.wrapped_sub(dims, loc0, loc1), Ok(Vec2d::new(3, -2)));
+        assert_eq!(Wrap2d::NEITHER.wrapped_sub(dims, loc0, loc1), Ok(Vec2d::new(3, 4)));
+
+        assert_eq!(Wrap2d::BOTH.wrapped_sub(dims, loc1, loc0), Ok(Vec2d::new(2, 2)));
+        assert_eq!(Wrap2d::HORIZ.wrapped_sub(dims, loc1, loc0), Ok(Vec2d::new(2, -4)));
+        assert_eq!(Wrap2d::VERT.wrapped_sub(dims, loc1, loc0), Ok(Vec2d::new(-3, 2)));
+        assert_eq!(Wrap2d::NEITHER.wrapped_sub(dims, loc1, loc0), Ok(Vec2d::new(-3, -4)));
+        
+        for wrapping in Wrap2d::values().iter() {
+            for loc in [loc0, loc1].iter().cloned() {
+
+                for loc_ in [loc0, loc1].iter().cloned() {
+                    assert!(wrapping.wrapped_sub(dims, loc, loc_).is_ok());
+                    assert!(wrapping.wrapped_sub(dims, loc_, loc).is_ok());
+                }
+
+                for bad in [bad0, bad1, bad2].iter().cloned() {
+                    assert!(wrapping.wrapped_sub(dims, bad, loc).is_err());
+                    assert!(wrapping.wrapped_sub(dims, loc, bad).is_err());
+                }
+            }
+        }
     }
 
     #[test]
