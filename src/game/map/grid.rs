@@ -420,6 +420,7 @@ mod test {
     use super::{
         LocationGrid,
         LocationGridI,
+        SparseLocationGrid,
     };
 
     #[test]
@@ -438,6 +439,32 @@ mod test {
         assert_eq!(grid.get(Location::new(50, 1000)), None);
 
         assert_eq!(grid.get_mut(Location::new(10, 20)), None);
+
+    }
+
+    #[test]
+    fn test_sparse_grid() {
+        let mut grid = SparseLocationGrid::new(
+            Dims::new(10, 20)
+        );
+
+        // A sparse grid only returns those locations which have been explicitly set
+        assert_eq!(grid.iter().count(), 0);
+
+        // Because of this, replacement returns None to begin with
+        assert_eq!(grid.replace(Location::new(5, 6), 100), None);
+
+        assert_eq!(grid.get(Location::new(5, 6)), Some(&100));
+        
+        assert_eq!(grid.get_mut(Location::new(5, 6)), Some(&mut 100));
+
+        assert_eq!(grid.iter().filter(|x| **x==100).count(), 1);
+
+        assert_eq!(grid.get(Location::new(50, 1000)), None);
+
+        assert_eq!(grid.get_mut(Location::new(10, 20)), None);
+
+        
 
     }
 
