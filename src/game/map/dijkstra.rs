@@ -16,6 +16,7 @@ use std::{
 
 use crate::{
     game::{
+        Aligned,
         Alignment,
         map::LocationGridI,
         map::{LocationGrid,SparseLocationGrid,Terrain,Tile},
