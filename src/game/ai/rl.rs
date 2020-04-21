@@ -884,7 +884,7 @@ mod test {
 
     #[test]
     fn test_ai_movement() {
-        let n = 100_000;
+        let n = 10_000;
 
         // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
         let agent = trained_agent(None, vec![Dims::new(10,10)], 10, 50, false, 0);
@@ -893,16 +893,24 @@ mod test {
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
         let _unit_id = map.new_unit(Location::new(5,5), UnitType::Infantry,
             Alignment::Belligerent{player:0}, "Aragorn").unwrap();
-        let game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        
 
         let mut directions: HashSet<Direction> = Direction::values().iter().cloned().collect();
 
         let mut counts: HashMap<UmpireAction,usize> = HashMap::new();
 
-        let mut domain = UmpireDomain::from_game(game, None, 0);
+
+        let game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let mut domain = UmpireDomain::from_game(game.clone(), None, 0);
 
         let mut rng = thread_rng();
         for _ in 0..n {
+
+            // Reinitialize when somebody wins
+            if domain.game.victor().is_some() {
+                domain = UmpireDomain::from_game(game.clone(), None, 0);
+            }
+
             let idx = agent.sample_behaviour(&mut rng, domain.emit().state());
 
             domain.step(idx);
