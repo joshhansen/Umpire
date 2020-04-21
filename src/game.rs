@@ -1252,12 +1252,15 @@ impl Game {
 
         self.map.set_player_unit_orders(self.current_player(), unit_id, orders)?;
 
-        Ok(OrdersOutcome::completed_without_move(unit_id, orders))
+        let ordered_unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
+
+        Ok(OrdersOutcome::completed_without_move(ordered_unit, orders))
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Skip;
-        self.set_orders(unit_id, orders).map(|_| OrdersOutcome::in_progress_without_move(unit_id, orders))
+        let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
+        self.set_orders(unit_id, orders).map(|_| OrdersOutcome::in_progress_without_move(unit, orders))
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
@@ -2063,7 +2066,7 @@ mod test {
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
         
         let outcome = game.order_unit_explore(unit_id).unwrap();
-        assert_eq!(outcome.ordered_unit_id, unit_id);
+        assert_eq!(outcome.ordered_unit.id, unit_id);
         assert_eq!(outcome.orders, Orders::Explore);
         assert_eq!(outcome.status, OrdersStatus::InProgress);
     }

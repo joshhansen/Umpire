@@ -23,6 +23,7 @@ use crate::{
         Location,
     },
 };
+use super::Unit;
 
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum OrdersStatus {
@@ -34,7 +35,7 @@ pub enum OrdersStatus {
 #[derive(Debug,PartialEq)]
 pub struct OrdersOutcome {
     /// The ID of the ordered unit
-    pub ordered_unit_id: UnitID,
+    pub ordered_unit: Unit,
 
     /// The orders that were given / carried out
     pub orders: Orders,
@@ -46,20 +47,20 @@ pub struct OrdersOutcome {
     pub status: OrdersStatus,
 }
 impl OrdersOutcome {
-    pub fn completed_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
-        Self { ordered_unit_id, orders, move_: None, status: OrdersStatus::Completed }
+    pub fn completed_without_move(ordered_unit: Unit, orders: Orders) -> Self {
+        Self { ordered_unit, orders, move_: None, status: OrdersStatus::Completed }
     }
 
-    pub fn in_progress_without_move(ordered_unit_id: UnitID, orders: Orders) -> Self {
-        Self { ordered_unit_id, orders, move_: None, status: OrdersStatus::InProgress }
+    pub fn in_progress_without_move(ordered_unit: Unit, orders: Orders) -> Self {
+        Self { ordered_unit, orders, move_: None, status: OrdersStatus::InProgress }
     }
 
-    pub fn in_progress_with_move(ordered_unit_id: UnitID, orders: Orders, move_: Move) -> Self {
-        Self { ordered_unit_id, orders, move_: Some(move_), status: OrdersStatus::InProgress }
+    pub fn in_progress_with_move(ordered_unit: Unit, orders: Orders, move_: Move) -> Self {
+        Self { ordered_unit, orders, move_: Some(move_), status: OrdersStatus::InProgress }
     }
 
-    pub fn completed_with_move(ordered_unit_id: UnitID, orders: Orders, move_: Move) -> Self {
-        Self { ordered_unit_id, orders, move_: Some(move_), status: OrdersStatus::Completed }
+    pub fn completed_with_move(ordered_unit: Unit, orders: Orders, move_: Move) -> Self {
+        Self { ordered_unit, orders, move_: Some(move_), status: OrdersStatus::Completed }
     }
 
     pub fn move_(&self) -> Option<&Move> {
@@ -85,11 +86,13 @@ impl Orders {
     pub fn carry_out(self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
         match self {
             Orders::Skip => {
-                game.clear_orders(unit_id).map(|_| OrdersOutcome::completed_without_move(unit_id, self))
+                let unit = game.map.unit_by_id(unit_id).unwrap().clone();
+                game.clear_orders(unit_id).map(|_| OrdersOutcome::completed_without_move(unit, self))
             },
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
-                Ok(OrdersOutcome::in_progress_without_move(unit_id, self))
+                let unit = game.map.unit_by_id(unit_id).unwrap().clone();
+                Ok(OrdersOutcome::in_progress_without_move(unit, self))
 
             },
             Orders::GoTo{dest} => {
@@ -132,7 +135,7 @@ impl Orders {
 /// If there are no such tiles then set the unit's orders to None
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
     // Clone the unit and simulate exploration using the clone
-    let mut unit = game.current_player_unit_by_id(unit_id)
+    let mut unit: Unit = game.current_player_unit_by_id(unit_id)
         .ok_or(GameError::NoSuchUnit{id:unit_id})?
         .clone();
 
@@ -142,7 +145,7 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
     
     loop {
         if unit.moves_remaining() == 0 {
-            return Ok(OrdersOutcome::in_progress_with_move(unit_id, orders, Move::new(unit, starting_loc, move_components).unwrap()));
+            return Ok(OrdersOutcome::in_progress_with_move(unit.clone(), orders, Move::new(unit, starting_loc, move_components).unwrap()));
         }
 
         let observations = game.current_player_observations();
@@ -172,10 +175,10 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
             }
         } else {
             return Ok(if move_components.is_empty() {
-                OrdersOutcome::completed_without_move(unit_id, orders)
+                OrdersOutcome::completed_without_move(unit, orders)
             } else {
                 OrdersOutcome::completed_with_move(
-                    unit_id,
+                    unit.clone(),
                     orders,
                     Move::new(unit, starting_loc, move_components).unwrap()
                 )
@@ -287,7 +290,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
             };
 
             OrdersOutcome {
-                ordered_unit_id: unit_id,
+                ordered_unit: game.current_player_unit_by_id(unit_id).unwrap().clone(),
                 orders,
                 move_: Some(move_),
                 status
@@ -504,7 +507,7 @@ pub mod test {
     // /// A summary of the status of the orders, whether in progress or completed
     // pub status: OrdersStatus,
 
-        assert_eq!(outcome.ordered_unit_id, unit_id);
+        assert_eq!(outcome.ordered_unit.id, unit_id);
         assert_eq!(outcome.orders, Orders::Explore);
         assert_eq!(outcome.status, OrdersStatus::InProgress);
         let proposed_move = outcome.move_().unwrap();
