@@ -30,7 +30,7 @@ use rsrl::{
         linear::{
             basis::{
                 Constant,
-                Polynomial,
+                // Polynomial,
             },
             optim::SGD,
             LFA,
@@ -68,10 +68,9 @@ use crate::{
 
 use rand::{
     Rng,
-    seq::SliceRandom, thread_rng,
+    seq::SliceRandom,
+    thread_rng,
 };
-
-
 
 use rsrl_domains::{
     Action,
@@ -85,6 +84,9 @@ use super::RandomAI;
 
 pub type Basis = Constant;
 // pub type Basis = Polynomial;
+
+type FA = LFA<Basis,SGD,VectorFunction>;
+type Agent = UmpireAgent<Shared<Shared<FA>>,UmpireEpsilonGreedy<Shared<FA>>>;
 
 #[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub enum UmpireAction {
@@ -174,12 +176,12 @@ impl UmpireAction {
         Err(())
     }
 
-    pub fn to_idx(&self) -> usize {
-        Self::possible_actions().into_iter().position(|a| *self == a).unwrap()
+    pub fn to_idx(self) -> usize {
+        Self::possible_actions().into_iter().position(|a| self == a).unwrap()
     }
 
-    pub fn take(&self, game: &mut Game) {
-        match *self {
+    pub fn take(self, game: &mut Game) {
+        match self {
             UmpireAction::SetNextCityProduction{unit_type} => {
                 let city_loc = game.production_set_requests().next().unwrap();
                 game.set_production_by_loc(city_loc, unit_type).unwrap();
@@ -302,7 +304,7 @@ impl UmpireDomain {
     fn _instantiate_opponent(ai_model_path: Option<&String>, verbosity: usize) -> Rc<RefCell<dyn TurnTaker>> {
         let opponent: Rc<RefCell<dyn TurnTaker>> = if let Some(ai_model_path) = ai_model_path {
             let f = File::open(Path::new(ai_model_path.as_str())).unwrap();
-            let rl_ai: RL_AI<LFA<Basis,SGD,VectorFunction>> = bincode::deserialize_from(f).unwrap();
+            let rl_ai: RL_AI<FA> = bincode::deserialize_from(f).unwrap();
             Rc::new(RefCell::new(rl_ai))
         } else {
             Rc::new(RefCell::new(RandomAI::new(verbosity)))
@@ -698,9 +700,7 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireEp
     }
 }
 
-fn agent(avoid_skip: bool) ->
-        UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
-            UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
+fn agent(avoid_skip: bool) -> Agent {
 
     let n_actions = UmpireAction::possible_actions().len();
     
@@ -728,9 +728,14 @@ fn agent(avoid_skip: bool) ->
     UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 0.8), avoid_skip}
 }
 
-pub fn trained_agent(opponent_model_path: Option<String>, dims: Vec<Dims>, episodes: usize, steps: u64, avoid_skip: bool, verbosity: usize) ->
-        UmpireAgent<Shared<Shared<LFA<Basis,SGD,VectorFunction>>>,
-            UmpireEpsilonGreedy<Shared<LFA<Basis, SGD, VectorFunction>>>>{
+pub fn trained_agent(
+    opponent_model_path: Option<String>,
+    dims: Vec<Dims>,
+    episodes: usize,
+    steps: u64,
+    avoid_skip: bool,
+    verbosity: usize,
+) -> Agent {
 
     let mut agent = agent(avoid_skip);
 
@@ -878,7 +883,7 @@ mod test {
 
     #[test]
     fn test_ai_movement() {
-        let n = 100000;
+        let n = 100_000;
 
         // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
         let agent = trained_agent(None, vec![Dims::new(10,10)], 10, 50, false, 0);

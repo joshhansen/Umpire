@@ -1,8 +1,10 @@
 use std::fmt;
 
 // Use crossterm to colorize the debug output
-use crossterm::{queue, QueueableCommand, cursor};
-use crossterm::style::{Print, SetForegroundColor, SetBackgroundColor, ResetColor, Color};
+use crossterm::{
+    queue,
+    style::{SetForegroundColor, ResetColor, Color},
+};
 
 use crate::{
     color::{Colors,Colorized},
@@ -11,7 +13,7 @@ use crate::{
         AlignedMaybe,
         Alignment,
         city::City,
-        unit::{Unit},
+        unit::Unit,
     },
     util::Location,
 };
