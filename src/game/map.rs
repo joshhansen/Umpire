@@ -516,7 +516,10 @@ impl MapData {
     /// 
     /// This covers all units, whether top-level or carried.
     pub fn unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.unit_by_loc_and_id(self.unit_loc_by_id[&id], id)
+        self.unit_loc_by_id.get(&id)
+                            .map(|loc| {
+                                self.unit_by_loc_and_id(*loc, id).unwrap()
+                            })
     }
 
     /// Get the unit with ID `id`, if any, mutably
@@ -1137,6 +1140,22 @@ mod test {
         ].iter().cloned() {
             assert_eq!(map.set_terrain(loc, Terrain::Water), Err(GameError::NoTileAtLocation{loc}));
         }
+    }
+
+    #[test]
+    fn test_unit_by_id() {
+        let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
+
+        {
+            let id = UnitID::default();
+            assert_eq!(map.unit_by_id(id), None);
+        }
+
+        let id = map.new_unit(Location::new(5, 6), UnitType::Submarine,
+                                Alignment::Neutral, "Swiss Army Man").unwrap();
+
+        assert_eq!(map.unit_by_id(id).unwrap().id, id);
+
     }
 
     #[test]
