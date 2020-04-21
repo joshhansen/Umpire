@@ -1,5 +1,9 @@
 use std::fmt;
 
+// Use crossterm to colorize the debug output
+use crossterm::{queue, QueueableCommand, cursor};
+use crossterm::style::{Print, SetForegroundColor, SetBackgroundColor, ResetColor, Color};
+
 use crate::{
     color::{Colors,Colorized},
     game::{
@@ -93,29 +97,48 @@ impl fmt::Display for Tile {
 
 impl fmt::Debug for Tile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(ref _city) = self.city {
-            if let Some(ref unit) = self.unit {
 
-                // Capitalize if it belongs to player 1
-                let key: char = if let Alignment::Belligerent{player:1} = unit.alignment() {
-                    unit.type_.key().to_uppercase().next().unwrap()
-                } else {
-                    unit.type_.key()
-                };
-
-                write!(f, "{}", key)
-
+        // If there's a unit, show the unit
+        if let Some(ref unit) = self.unit {
+            // Capitalize if it belongs to player 1
+            if unit.belongs_to_player(1) {
+                queue!(f, SetForegroundColor(Color::Red)).unwrap();
             } else {
-                write!(f, "#")
-            }
-        } else if let Some(ref unit) = self.unit {
-            write!(f, "{}", unit.type_.key())
-        } else {
-            match self.terrain {
-                Terrain::Land => write!(f, "·"),
-                Terrain::Water => write!(f, "~"),
-            }
+                queue!(f, SetForegroundColor(Color::White)).unwrap();
+            };
+
+            let result = write!(f, "{}", unit.type_.key());
+            queue!(f, ResetColor).unwrap();
+            return result;
         }
+
+        // If there's a city, show the city
+        if let Some(ref city) = self.city {
+            if city.belongs_to_player(1) {
+                queue!(f, SetForegroundColor(Color::Red)).unwrap();
+            } else {
+                queue!(f, SetForegroundColor(Color::White)).unwrap();
+            }
+            let result = write!(f, "#");
+            queue!(f, ResetColor).unwrap();
+            return result;
+        }
+
+        // Otherwise, show the terrain
+        let result = match self.terrain {
+            Terrain::Land => {
+                queue!(f, SetForegroundColor(Color::Green)).unwrap();
+                write!(f, "·")
+            },
+            Terrain::Water => {
+                queue!(f, SetForegroundColor(Color::Blue)).unwrap();
+                write!(f, "~")
+            },
+        };
+
+        queue!(f, ResetColor).unwrap();
+
+        result
     }
 }
 
