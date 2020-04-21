@@ -516,6 +516,7 @@ impl Domain for UmpireDomain {
     }
 }
 
+#[derive(Deserialize,Serialize)]
 pub struct UmpireAgent<Q,P> {
     pub q: QLearning<Q,P>,
     avoid_skip: bool,

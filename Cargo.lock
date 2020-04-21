@@ -1336,7 +1336,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "rsrl"
 version = "0.7.1"
-source = "git+https://github.com/joshhansen/rsrl?branch=master_deref_vec#9443346e7dd4b87f474ba929f9f8a3be3d98fb22"
+source = "git+https://github.com/joshhansen/rsrl?branch=master_deref_vec#f7d9b2bb03132a0dbae678aa2c03624cda3b6f25"
 dependencies = [
  "lfa 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1356,7 +1356,7 @@ dependencies = [
 [[package]]
 name = "rsrl_domains"
 version = "0.1.0"
-source = "git+https://github.com/joshhansen/rsrl?branch=master_deref_vec#9443346e7dd4b87f474ba929f9f8a3be3d98fb22"
+source = "git+https://github.com/joshhansen/rsrl?branch=master_deref_vec#f7d9b2bb03132a0dbae678aa2c03624cda3b6f25"
 dependencies = [
  "ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
