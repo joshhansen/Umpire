@@ -116,7 +116,9 @@ impl fmt::Debug for Tile {
 
         // If there's a city, show the city
         if let Some(ref city) = self.city {
-            if city.belongs_to_player(1) {
+            if city.is_neutral() {
+                queue!(f, SetForegroundColor(Color::DarkGrey)).unwrap();
+            } else if city.belongs_to_player(1) {
                 queue!(f, SetForegroundColor(Color::Red)).unwrap();
             } else {
                 queue!(f, SetForegroundColor(Color::White)).unwrap();

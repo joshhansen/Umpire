@@ -169,6 +169,10 @@ pub trait Aligned : AlignedMaybe {
     fn is_friendly_to<A:Aligned>(&self, other: &A) -> bool {
         self.alignment() == other.alignment()
     }
+
+    fn is_neutral(&self) -> bool {
+        self.alignment() == Alignment::Neutral
+    }
 }
 
 pub trait AlignedMaybe {
