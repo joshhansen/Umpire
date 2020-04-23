@@ -145,6 +145,36 @@ pub enum Alignment {
     // active neutral, chaotic, etc.
 }
 
+impl Alignment {
+    fn is_friendly_to(self, other: Alignment) -> bool {
+        self == other
+    }
+
+    fn is_friendly_to_player(self, player: PlayerNum) -> bool {
+        self == Alignment::Belligerent{player}
+    }
+
+    fn is_enemy_of(self, other: Alignment) -> bool {
+        !self.is_friendly_to(other)
+    }
+
+    fn is_enemy_of_player(self, player: PlayerNum) -> bool {
+        !self.is_friendly_to_player(player)
+    }
+
+    fn is_neutral(self) -> bool {
+        self == Alignment::Neutral
+    }
+
+    fn is_belligerent(self) -> bool {
+        if let Alignment::Belligerent{..} = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
 impl Colorized for Alignment {
     fn color(&self) -> Option<Colors> {
         Some(match self {
@@ -167,11 +197,27 @@ pub trait Aligned : AlignedMaybe {
     fn alignment(&self) -> Alignment;
 
     fn is_friendly_to<A:Aligned>(&self, other: &A) -> bool {
-        self.alignment() == other.alignment()
+        self.alignment().is_friendly_to(other.alignment())
+    }
+
+    fn is_friendly_to_player(&self, player: PlayerNum) -> bool {
+        self.alignment().is_friendly_to_player(player)
+    }
+
+    fn is_enemy_of<A:Aligned>(&self, other: &A) -> bool {
+        self.alignment().is_enemy_of(other.alignment())
+    }
+
+    fn is_enemy_of_player(&self, player: PlayerNum) -> bool {
+        self.alignment().is_enemy_of_player(player)
     }
 
     fn is_neutral(&self) -> bool {
-        self.alignment() == Alignment::Neutral
+        self.alignment().is_neutral()
+    }
+
+    fn is_belligerent(&self) -> bool {
+        self.alignment().is_belligerent()
     }
 }
 
@@ -1491,6 +1537,20 @@ fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
 
 /// Represent the first player's game state as a vector
 impl DerefVec for Game {
+    /// Map of the output vector:
+    /// 
+    /// # 14: 1d features
+    /// * 1: current turn
+    /// * 1: current player city count
+    /// * 1: number of tiles observed by current player
+    /// * 1: percentage of tiles observed by current player
+    /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
+    ///                                                     submarines, cruisers, battleships, carriers)
+    /// # 363: 2d features, three layers
+    /// * 121: is_enemy_belligerent (11x11)
+    /// * 121: is_observed (11x11)
+    /// * 121: is_neutral (11x11)
+    /// 
     fn deref_vec(&self) -> Vec<f64> {
         // For every tile we add these f64's:
         // is the tile observed or not?
@@ -1545,6 +1605,66 @@ impl DerefVec for Game {
             }
         });
 
+
+
+        // let max_dist = (self.map.dims().width as f64).max(self.map.dims().height as f64);
+
+        // // Get distance and direction to the nearest reachable enemy and the nearest reachable tile adjacent an
+        // // unobserved tile. The hope is to reward attacking enemy units and cities, and exploration.
+        // let (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir) = if let Some(unit_id) = unit_id {
+        //     let unit = self.current_player_unit_by_id(unit_id).unwrap();
+        //     let candidate_filter = UnitMovementFilter{unit};
+        //     let target_filter = UnitAttackFilter{unit};
+        //     let nearest_enemy_loc = bfs(
+        //         observations, unit.loc, self.wrapping, &candidate_filter, &target_filter
+        //     );
+
+        //     let nearest_adjacent_unobserved = nearest_adjacent_unobserved_reachable_without_attacking(
+        //         observations, unit.loc, unit, self.wrapping
+        //     );
+
+            
+        //     let nearest_enemy_dist = nearest_enemy_loc.map(|nearest_enemy_loc| {
+        //         unit_loc.unwrap().dist(nearest_enemy_loc)
+        //     });
+    
+        //     let nearest_adjacent_unobserved_dist = nearest_adjacent_unobserved.map(|nearest_adjacent_unobserved| {
+        //         unit_loc.unwrap().dist(nearest_adjacent_unobserved)
+        //     });
+
+
+        //     let path_search_filter = UnitMovementFilterXenophile{unit};
+        //     let shortest_paths = shortest_paths(observations, unit.loc, &path_search_filter, self.wrapping, std::u16::MAX);
+
+        //     let nearest_enemy_dir = nearest_enemy_loc.and_then(|nearest_enemy_loc| {
+        //         shortest_paths.direction_of(self.dims(), self.wrapping, nearest_enemy_loc)
+        //     });
+
+        //     let nearest_adjacent_unobserved_dir = nearest_adjacent_unobserved.and_then(|nearest_adjacent_unobserved| {
+        //         shortest_paths.direction_of(self.dims(), self.wrapping, nearest_adjacent_unobserved)
+        //     });
+
+        //     (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir)
+        // } else {
+        //     (None, None, None, None)
+        // };
+
+
+        // x.push(nearest_enemy_dist.unwrap_or(max_dist));
+        // push_dir_to_vec(&mut x, nearest_enemy_dir);
+
+        // x.push(nearest_adjacent_unobserved_dist.unwrap_or(max_dist));
+        // push_dir_to_vec(&mut x, nearest_adjacent_unobserved_dir);
+
+
+        // let num_tiles = 121;
+        // let num_features: usize = 2;
+
+        let mut is_enemy_belligerent = Vec::new();
+        let mut is_observed = Vec::new();
+        let mut is_neutral = Vec::new();
+
+        // 2d features
         for inc_x in -5..=5 {
             for inc_y in -5..=5 {
                 let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
@@ -1557,62 +1677,36 @@ impl DerefVec for Game {
                 };
 
                 // x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
-                push_obs_to_vec(&mut x, &obs, self.num_players);
+                // push_obs_to_vec(&mut x, &obs, self.num_players);
+
+                let mut enemy = 0.0;
+                let mut observed = 0.0;
+                let mut neutral = 0.0;
+
+                if let Obs::Observed{tile, ..} = obs {
+                    observed = 1.0;
+
+                    if let Some(alignment) = tile.alignment_maybe() {
+                        if alignment.is_neutral() {
+                            neutral = 1.0;
+                        } else if alignment.is_belligerent() && alignment.is_enemy_of_player(self.current_player) {
+                            enemy = 1.0;
+                        }
+                    }
+                }
+
+                is_enemy_belligerent.push(enemy);
+                is_observed.push(observed);
+                is_neutral.push(neutral);
+
             }
         }
 
-        let max_dist = (self.map.dims().width as f64).max(self.map.dims().height as f64);
+        x.extend(is_enemy_belligerent);
+        x.extend(is_observed);
+        x.extend(is_neutral);
 
-        // Get distance and direction to the nearest reachable enemy and the nearest reachable tile adjacent an
-        // unobserved tile. The hope is to reward attacking enemy units and cities, and exploration.
-        let (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir) = if let Some(unit_id) = unit_id {
-            let unit = self.current_player_unit_by_id(unit_id).unwrap();
-            let candidate_filter = UnitMovementFilter{unit};
-            let target_filter = UnitAttackFilter{unit};
-            let nearest_enemy_loc = bfs(
-                observations, unit.loc, self.wrapping, &candidate_filter, &target_filter
-            );
-
-            let nearest_adjacent_unobserved = nearest_adjacent_unobserved_reachable_without_attacking(
-                observations, unit.loc, unit, self.wrapping
-            );
-
-            
-            let nearest_enemy_dist = nearest_enemy_loc.map(|nearest_enemy_loc| {
-                unit_loc.unwrap().dist(nearest_enemy_loc)
-            });
-    
-            let nearest_adjacent_unobserved_dist = nearest_adjacent_unobserved.map(|nearest_adjacent_unobserved| {
-                unit_loc.unwrap().dist(nearest_adjacent_unobserved)
-            });
-
-
-            let path_search_filter = UnitMovementFilterXenophile{unit};
-            let shortest_paths = shortest_paths(observations, unit.loc, &path_search_filter, self.wrapping, std::u16::MAX);
-
-            let nearest_enemy_dir = nearest_enemy_loc.and_then(|nearest_enemy_loc| {
-                shortest_paths.direction_of(self.dims(), self.wrapping, nearest_enemy_loc)
-            });
-
-            let nearest_adjacent_unobserved_dir = nearest_adjacent_unobserved.and_then(|nearest_adjacent_unobserved| {
-                shortest_paths.direction_of(self.dims(), self.wrapping, nearest_adjacent_unobserved)
-            });
-
-            (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir)
-        } else {
-            (None, None, None, None)
-        };
-
-
-        x.push(nearest_enemy_dist.unwrap_or(max_dist));
-        push_dir_to_vec(&mut x, nearest_enemy_dir);
-
-        x.push(nearest_adjacent_unobserved_dist.unwrap_or(max_dist));
-        push_dir_to_vec(&mut x, nearest_adjacent_unobserved_dir);
-
-
-
-
+        println!("Length: {}", x.len());
 
         x
     }
