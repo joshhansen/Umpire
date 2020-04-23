@@ -25,6 +25,8 @@ use failure::{
     Fail,
 };
 
+use half::f16;
+
 use rsrl::DerefVec;
 
 use crate::{
@@ -1445,98 +1447,9 @@ impl Game {
         .map(|player| self.player_score(player).unwrap())
         .collect()
     }
-}
 
-impl Dimensioned for Game {
-    fn dims(&self) -> Dims {
-        self.dims()
-    }
-}
-
-impl Source<Tile> for Game {
-    fn get(&self, loc: Location) -> &Tile {
-        self.current_player_tile(loc).unwrap()
-    }
-}
-impl Source<Obs> for Game {
-    fn get(&self, loc: Location) -> &Obs {
-        self.current_player_obs(loc)
-    }
-}
-
-fn push_obs_to_vec(x: &mut Vec<f64>, obs: &Obs, num_players: PlayerNum) {
-    match obs {
-        Obs::Unobserved => {
-            let n_zeros = 1// unobserved
-                + num_players// which player controls the tile (nobody, one hot encoded)
-                + 1//city or not
-                + 6 * UnitType::values().len()// what is the unit type? (one hot encoded), for this unit and any
-                                              // carried units. Could be none (all zeros)
-            ;
-            x.extend(vec![0.0; n_zeros]);
-            // for _ in 0..n_zeros {
-            //     x.push(0.0);
-            // }
-        },
-        Obs::Observed{tile,..} => {
-
-            // let mut x = vec![1.0];// observed
-            x.push(1.0);// observed
-
-            for p in 0..num_players {// which player controls the tile (one hot encoded)
-                x.push(if let Some(Alignment::Belligerent{player}) = tile.alignment_maybe() {
-                    if player==p {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                } else {
-                    0.0
-                });
-            }
-
-            x.push(if tile.city.is_some() { 1.0 } else { 0.0 });// city or not
-
-            let mut units_unaccounted_for = 6;
-
-            if let Some(ref unit) = tile.unit {
-                units_unaccounted_for -= 1;
-                for t in UnitType::values().iter() {
-                    x.push(if unit.type_ == *t { 1.0 } else { 0.0 });
-                }
-
-                for carried_unit in unit.carried_units() {
-                    units_unaccounted_for -= 1;
-                    for t in UnitType::values().iter() {
-                        x.push(if carried_unit.type_ == *t { 1.0 } else { 0.0 });
-                    }
-                }
-            }
-
-            // fill in zeros for any missing units
-            x.extend_from_slice(&vec![0.0; UnitType::values().len() * units_unaccounted_for]);
-
-            // x
-        }
-    }
-}
-
-
-/// Push a one-hot-encoded representation of a direction (or none at all) onto a vector
-fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
-    if let Some(dir) = dir {
-        for dir2 in Direction::values().iter() {
-            x.push(if dir==*dir2 { 1.0 } else { 0.0 } );
-        }
-    } else {
-        for _ in 0..Direction::values().len() {
-            x.push(0.0);
-        }
-    }
-}
-
-/// Represent the first player's game state as a vector
-impl DerefVec for Game {
+    /// Feature vector for use in AI training
+    /// 
     /// Map of the output vector:
     /// 
     /// # 14: 1d features
@@ -1551,7 +1464,7 @@ impl DerefVec for Game {
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
     /// 
-    fn deref_vec(&self) -> Vec<f64> {
+    fn features(&self) -> Vec<f64> {
         // For every tile we add these f64's:
         // is the tile observed or not?
         // which player controls the tile (one hot encoded)
@@ -1709,6 +1622,100 @@ impl DerefVec for Game {
         println!("Length: {}", x.len());
 
         x
+    }
+}
+
+impl Dimensioned for Game {
+    fn dims(&self) -> Dims {
+        self.dims()
+    }
+}
+
+impl Source<Tile> for Game {
+    fn get(&self, loc: Location) -> &Tile {
+        self.current_player_tile(loc).unwrap()
+    }
+}
+impl Source<Obs> for Game {
+    fn get(&self, loc: Location) -> &Obs {
+        self.current_player_obs(loc)
+    }
+}
+
+fn push_obs_to_vec(x: &mut Vec<f64>, obs: &Obs, num_players: PlayerNum) {
+    match obs {
+        Obs::Unobserved => {
+            let n_zeros = 1// unobserved
+                + num_players// which player controls the tile (nobody, one hot encoded)
+                + 1//city or not
+                + 6 * UnitType::values().len()// what is the unit type? (one hot encoded), for this unit and any
+                                              // carried units. Could be none (all zeros)
+            ;
+            x.extend(vec![0.0; n_zeros]);
+            // for _ in 0..n_zeros {
+            //     x.push(0.0);
+            // }
+        },
+        Obs::Observed{tile,..} => {
+
+            // let mut x = vec![1.0];// observed
+            x.push(1.0);// observed
+
+            for p in 0..num_players {// which player controls the tile (one hot encoded)
+                x.push(if let Some(Alignment::Belligerent{player}) = tile.alignment_maybe() {
+                    if player==p {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                });
+            }
+
+            x.push(if tile.city.is_some() { 1.0 } else { 0.0 });// city or not
+
+            let mut units_unaccounted_for = 6;
+
+            if let Some(ref unit) = tile.unit {
+                units_unaccounted_for -= 1;
+                for t in UnitType::values().iter() {
+                    x.push(if unit.type_ == *t { 1.0 } else { 0.0 });
+                }
+
+                for carried_unit in unit.carried_units() {
+                    units_unaccounted_for -= 1;
+                    for t in UnitType::values().iter() {
+                        x.push(if carried_unit.type_ == *t { 1.0 } else { 0.0 });
+                    }
+                }
+            }
+
+            // fill in zeros for any missing units
+            x.extend_from_slice(&vec![0.0; UnitType::values().len() * units_unaccounted_for]);
+
+            // x
+        }
+    }
+}
+
+
+/// Push a one-hot-encoded representation of a direction (or none at all) onto a vector
+fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
+    if let Some(dir) = dir {
+        for dir2 in Direction::values().iter() {
+            x.push(if dir==*dir2 { 1.0 } else { 0.0 } );
+        }
+    } else {
+        for _ in 0..Direction::values().len() {
+            x.push(0.0);
+        }
+    }
+}
+
+impl DerefVec for Game {
+    fn deref_vec(&self) -> Vec<f64> {
+        self.features()
     }
 }
 

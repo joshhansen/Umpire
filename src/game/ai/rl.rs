@@ -80,12 +80,14 @@ use rsrl_domains::{
 };
 
 
-use super::RandomAI;
+use super::{dnn::DNN, RandomAI};
 
 pub type Basis = Constant;
 // pub type Basis = Polynomial;
 
-type FA = LFA<Basis,SGD,VectorFunction>;
+type LFA_ = LFA<Basis,SGD,VectorFunction>;
+// type FA = LFA_;
+type FA = DNN;
 type Agent = UmpireAgent<Shared<Shared<FA>>,UmpireEpsilonGreedy<Shared<FA>>>;
 
 #[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
@@ -303,9 +305,18 @@ pub struct UmpireDomain {
 impl UmpireDomain {
     fn _instantiate_opponent(ai_model_path: Option<&String>, verbosity: usize) -> Rc<RefCell<dyn TurnTaker>> {
         let opponent: Rc<RefCell<dyn TurnTaker>> = if let Some(ai_model_path) = ai_model_path {
-            let f = File::open(Path::new(ai_model_path.as_str())).unwrap();
-            let rl_ai: RL_AI<FA> = bincode::deserialize_from(f).unwrap();
-            Rc::new(RefCell::new(rl_ai))
+
+            let path = Path::new(ai_model_path.as_str());
+
+            if path.is_dir() {
+                // A TensorFlow model
+                let rl_dnn_ai: DNN = DNN::load_from_dir(path).unwrap();
+                Rc::new(RefCell::new(rl_dnn_ai))
+            } else {
+                let f = File::open(path).unwrap();
+                let rl_ai: RL_AI<LFA_> = bincode::deserialize_from(f).unwrap();
+                Rc::new(RefCell::new(rl_ai))
+            }
         } else {
             Rc::new(RefCell::new(RandomAI::new(verbosity)))
         };
@@ -708,9 +719,10 @@ fn agent(avoid_skip: bool) -> Agent {
     // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
 
     // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
-    let basis = Constant::new(5.0);
+    // let basis = Constant::new(5.0);
     // let basis = Polynomial::new(2, 1);
-    let lfa = LFA::vector(basis, SGD(0.001), n_actions);
+    // let lfa = LFA::vector(basis, SGD(0.001), n_actions);
+    let lfa = DNN::load_from_dir(Path::new("ai/umpire_regressor")).unwrap();
     let q_func = make_shared(lfa);
 
     // let policy = EpsilonGreedy::new(

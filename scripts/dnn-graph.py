@@ -1,8 +1,13 @@
+import os
+
 import tensorflow as tf
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Concatenate, Conv2D, Dense, Dropout, Flatten, MaxPooling2D, Reshape
 
 if __name__=="__main__":
+
+    # Disable GPU output which isn't needed just to build and serialize the graph
+    os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
     tf.keras.backend.set_floatx('float16')
 
@@ -69,7 +74,8 @@ if __name__=="__main__":
     dropout1 = Dropout(0.1, name="dropout1")(dense1)
 
     # The estimate of the value
-    y_hat = Dense(1, activation='linear', name="y_hat")(dropout1)
+    # y_hat = Dense(1, activation='linear', name="y_hat")(dropout1)
+    action_values = Dense(19, activation='linear', name='action_values')(dropout1)
 
     # loss = tf.reduce_mean(tf.square(y_hat - y))
     # optimizer = tf.train.GradientDescentOptimizer(0.5)
@@ -77,7 +83,7 @@ if __name__=="__main__":
 
 
 
-    model = Model(inputs=inputs_1d, outputs=[y_hat], name='umpire_regressor')
+    model = Model(inputs=inputs_1d, outputs=[action_values], name='umpire_regressor')
     model.compile(
         optimizer="sgd",
         loss="mean_squared_error",
@@ -89,7 +95,7 @@ if __name__=="__main__":
     # Save in SavedModel format
     model.save('ai/umpire_regressor', save_format='tf')
 
-    print(dir(model))
+    # print(dir(model))
 
 
     # model.add(Conv2D(32, kernel_size=(3, 3),

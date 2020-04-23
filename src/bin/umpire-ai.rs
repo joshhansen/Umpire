@@ -318,20 +318,20 @@ fn main() {
     
         let rl_ai = RL_AI::new(qfdd, avoid_skip);
     
-        let data = bincode::serialize(&rl_ai).unwrap();
+        // let data = bincode::serialize(&rl_ai).unwrap();
     
-        let path = Path::new(output_path);
-        let display = path.display();
+        // let path = Path::new(output_path);
+        // let display = path.display();
     
-        let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't create {}: {}", display, why),
-            Ok(file) => file,
-        };
+        // let mut file = match File::create(&path) {
+        //     Err(why) => panic!("couldn't create {}: {}", display, why),
+        //     Ok(file) => file,
+        // };
     
-        match file.write_all(&data) {
-            Err(why) => panic!("couldn't write to {}: {}", display, why),
-            Ok(_) => println!("successfully wrote to {}", display),
-        }
+        // match file.write_all(&data) {
+        //     Err(why) => panic!("couldn't write to {}: {}", display, why),
+        //     Ok(_) => println!("successfully wrote to {}", display),
+        // }
     } else {
         println!("{}", matches.usage());
     }
