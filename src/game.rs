@@ -1619,8 +1619,6 @@ impl Game {
         x.extend(is_observed);
         x.extend(is_neutral);
 
-        println!("Length: {}", x.len());
-
         x
     }
 }
