@@ -8,8 +8,17 @@ use std::{
     },
     fmt,
     fs::File,
+    io::{
+        stdout,
+        Write,
+    },
     rc::Rc,
     path::Path,
+};
+
+use crossterm::{
+    execute,
+    cursor::MoveTo,
 };
 
 use serde::{Deserialize,Serialize};
@@ -86,8 +95,8 @@ pub type Basis = Constant;
 // pub type Basis = Polynomial;
 
 type LFA_ = LFA<Basis,SGD,VectorFunction>;
-// type FA = LFA_;
-type FA = DNN;
+type FA = LFA_;
+// type FA = DNN;
 type Agent = UmpireAgent<Shared<Shared<FA>>,UmpireEpsilonGreedy<Shared<FA>>>;
 
 #[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
@@ -300,10 +309,12 @@ pub struct UmpireDomain {
     opponent: Rc<RefCell<dyn TurnTaker>>,
 
     verbosity: usize,
+
+    fix_output_loc: bool,
 }
 
 impl UmpireDomain {
-    fn _instantiate_opponent(ai_model_path: Option<&String>, verbosity: usize) -> Rc<RefCell<dyn TurnTaker>> {
+    fn _instantiate_opponent(ai_model_path: Option<&String>, fix_output_loc: bool, verbosity: usize) -> Rc<RefCell<dyn TurnTaker>> {
         let opponent: Rc<RefCell<dyn TurnTaker>> = if let Some(ai_model_path) = ai_model_path {
 
             let path = Path::new(ai_model_path.as_str());
@@ -327,33 +338,35 @@ impl UmpireDomain {
     //     Self { game, opponent, verbose }
     // }
 
-    fn new_from_path(map_dims: Dims, ai_model_path: Option<&String>, verbosity: usize) -> Self {
+    fn new_from_path(map_dims: Dims, ai_model_path: Option<&String>, fix_output_loc: bool, fog_of_war: bool, verbosity: usize) -> Self {
         let city_namer = IntNamer::new("city");
     
         let game = Game::new(
             map_dims,
             city_namer,
             2,
-            true,
+            fog_of_war,
             None,
             Wrap2d::BOTH,
         );
 
-        let opponent = Self::_instantiate_opponent(ai_model_path, verbosity);
+        let opponent = Self::_instantiate_opponent(ai_model_path, fix_output_loc, verbosity);
 
         Self {
             game,
             opponent,
+            fix_output_loc,
             verbosity,
         }
     }
 
     #[cfg(test)]
-    fn from_game(game: Game, ai_model_path: Option<&String>, verbosity: usize) -> Self {
-        let opponent = Self::_instantiate_opponent(ai_model_path, verbosity);
+    fn from_game(game: Game, ai_model_path: Option<&String>, fix_output_loc: bool, verbosity: usize) -> Self {
+        let opponent = Self::_instantiate_opponent(ai_model_path, fix_output_loc, verbosity);
         Self {
             game,
             opponent,
+            fix_output_loc,
             verbosity,
         }
     }
@@ -366,6 +379,10 @@ impl UmpireDomain {
         action.take(&mut self.game);
 
         if self.verbosity > 1 {
+            if self.fix_output_loc {
+                execute!(stdout(), MoveTo(0,0)).unwrap();
+            }
+
             println!("{:?}", action);
             let loc = if let Some(unit_id) = self.game.unit_orders_requests().next() {
                 self.game.current_player_unit_loc(unit_id)
@@ -719,10 +736,10 @@ fn agent(avoid_skip: bool) -> Agent {
     // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
 
     // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
-    // let basis = Constant::new(5.0);
+    let basis = Constant::new(5.0);
     // let basis = Polynomial::new(2, 1);
-    // let lfa = LFA::vector(basis, SGD(0.001), n_actions);
-    let lfa = DNN::load_from_dir(Path::new("ai/umpire_regressor")).unwrap();
+    let lfa = LFA::vector(basis, SGD(0.001), n_actions);
+    // let lfa = DNN::load_from_dir(Path::new("ai/umpire_regressor")).unwrap();
     let q_func = make_shared(lfa);
 
     // let policy = EpsilonGreedy::new(
@@ -746,6 +763,8 @@ pub fn trained_agent(
     episodes: usize,
     steps: u64,
     avoid_skip: bool,
+    fix_output_loc: bool,
+    fog_of_war: bool,
     verbosity: usize,
 ) -> Agent {
 
@@ -759,7 +778,7 @@ pub fn trained_agent(
             println!("Training {}", dims);
         }
 
-        let domain_builder = Box::new(move || UmpireDomain::new_from_path(dims, opponent_model_path.as_ref(), verbosity));
+        let domain_builder = Box::new(move || UmpireDomain::new_from_path(dims, opponent_model_path.as_ref(), fix_output_loc, fog_of_war, verbosity));
 
         // Start a serial learning experiment up to 1000 steps per episode.
         let e = SerialExperiment::new(&mut agent, domain_builder, steps);
@@ -899,7 +918,7 @@ mod test {
         let n = 10_000;
 
         // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
-        let agent = trained_agent(None, vec![Dims::new(10,10)], 10, 50, false, 0);
+        let agent = trained_agent(None, vec![Dims::new(10,10)], 10, 50, false, false, true, 0);
 
 
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
@@ -913,14 +932,14 @@ mod test {
 
 
         let game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
-        let mut domain = UmpireDomain::from_game(game.clone(), None, 0);
+        let mut domain = UmpireDomain::from_game(game.clone(), None, false, 0);
 
         let mut rng = thread_rng();
         for _ in 0..n {
 
             // Reinitialize when somebody wins
             if domain.game.victor().is_some() {
-                domain = UmpireDomain::from_game(game.clone(), None, 0);
+                domain = UmpireDomain::from_game(game.clone(), None, false, 0);
             }
 
             let idx = agent.sample_behaviour(&mut rng, domain.emit().state());

@@ -15,12 +15,20 @@ use std::{
     },
     convert::TryFrom,
     fs::File,
-    io::Write,
+    io::{
+        stdout,
+        Write,
+    },
     rc::Rc,
     path::Path,
 };
 
 use clap::{AppSettings, Arg, SubCommand};
+
+use crossterm::{
+    execute,
+    cursor::MoveTo,
+};
 
 use rsrl::{
     fa::{
@@ -87,6 +95,13 @@ fn main() {
         })
     )
 
+    .arg(
+        Arg::with_name("fix_output_loc")
+        .short("F")
+        .long("fix")
+        .help("Fix the location of output. Makes the output seem animated.")
+    )
+
     .subcommand(
         SubCommand::with_name("eval")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME).as_str())
@@ -130,6 +145,7 @@ fn main() {
     
     // Arguments common across subcommands:
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
+    let fix_output_loc: bool = matches.is_present("fix_output_loc");
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
     // let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
     // let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
@@ -165,6 +181,8 @@ fn main() {
     println!("Steps: {}", steps);
 
     println!("Verbosity: {}", verbosity);
+
+    let mut stdout = stdout();
 
     if subcommand == "eval" {
 
@@ -219,6 +237,11 @@ fn main() {
                 if i < j {
                     let spec2 = ai_specs[j];
                     let ai2 = ais.get_mut(j).unwrap();
+
+                    if fix_output_loc {
+                        execute!(stdout, MoveTo(0,0)).unwrap();
+                    }
+
                     println!("{} vs. {}", spec1, spec2);
 
                     let mut victory_counts: HashMap<Option<PlayerNum>,usize> = HashMap::new();
@@ -236,10 +259,20 @@ fn main() {
                             wrapping,
                         );
 
-                        for _ in 0..steps {
-                            if verbosity > 1 {
-                                println!("{:?}", game);
+                        if verbosity > 1 {
+                            if fix_output_loc {
+                                execute!(stdout, MoveTo(0,1)).unwrap();
                             }
+                            println!("{:?}", game);
+                        }
+
+                        for _ in 0..steps {
+                            // if verbosity > 1 {
+                            //     if fix_output_loc {
+                            //         execute!(stdout, MoveTo(0,1)).unwrap();
+                            //     }
+                            //     println!("{:?}", game);
+                            // }
 
                             if game.victor().is_some() {
                                 break;
@@ -248,6 +281,9 @@ fn main() {
                             ai1.borrow_mut().take_turn_clearing(&mut game);
 
                             if verbosity > 1 {
+                                if fix_output_loc {
+                                    execute!(stdout, MoveTo(0,1)).unwrap();
+                                }
                                 println!("{:?}", game);
                             }
 
@@ -307,7 +343,7 @@ fn main() {
         let qf = {
             // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
     
-            let agent = trained_agent(ai_model_path, dims, episodes, steps, avoid_skip, verbosity);
+            let agent = trained_agent(ai_model_path, dims, episodes, steps, avoid_skip, fix_output_loc, fog_of_war, verbosity);
     
             agent.q.q_func.0
         };
