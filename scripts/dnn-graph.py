@@ -4,6 +4,9 @@ import tensorflow as tf
 from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import Concatenate, Conv2D, Dense, Dropout, Flatten, MaxPooling2D, Reshape
 
+POSSIBLE_ACTIONS = 19
+
+
 if __name__=="__main__":
 
     # Disable GPU output which isn't needed just to build and serialize the graph
@@ -36,7 +39,7 @@ if __name__=="__main__":
     layers = [inputs_2d]
 
 
-    for i, (filters, kernel_size) in enumerate([ (32, (3, 3)), (64, (3, 3)), (16, (5, 5)) ]):
+    for i, (filters, kernel_size) in enumerate([ (32, (3, 3)), (64, (3, 3)), (64, (3, 3)) ]):
 
         layer = list()
 
@@ -75,7 +78,7 @@ if __name__=="__main__":
 
     # The estimate of the value
     # y_hat = Dense(1, activation='linear', name="y_hat")(dropout1)
-    action_values = Dense(19, activation='linear', name='action_values')(dropout1)
+    action_values = Dense(POSSIBLE_ACTIONS, activation='linear', name='action_values')(dropout1)
 
     # loss = tf.reduce_mean(tf.square(y_hat - y))
     # optimizer = tf.train.GradientDescentOptimizer(0.5)
@@ -88,7 +91,7 @@ if __name__=="__main__":
         optimizer="sgd",
         loss="mean_squared_error",
         metrics=["mse"],
-        target_tensors=[input_y],
+        # target_tensors=[input_y],
     )
     model.summary()
 
