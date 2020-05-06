@@ -1,3 +1,8 @@
+use std::{
+    collections::HashSet,
+    convert::TryFrom,
+};
+
 use crate::{
     game::{
         Game,
@@ -33,51 +38,110 @@ use crate::{
         Direction,
         Location,
         Wrap2d,
-    },
+    }, cli::Specified,
 };
-use std::collections::HashSet;
+use super::ai::AISpec;
 
 
 pub type PlayerNum = usize;
 
-#[derive(Clone,Copy,Debug,Eq,Hash,PartialEq)]
+#[derive(Clone,Debug,Eq,Hash,PartialEq)]
 pub enum PlayerType {
     Human,
-    Random,
-    AI(usize),
+    AI(AISpec),
 }
 
 impl PlayerType {
-    pub fn values() -> [Self; 5] {
-        [Self::Human, Self::Random, Self::AI(1), Self::AI(2), Self::AI(3)]
+    pub fn values() -> [Self; 6] {
+        [
+            Self::Human,
+            Self::AI(AISpec::Random),
+            Self::AI(AISpec::FromLevel(1)),
+            Self::AI(AISpec::FromLevel(2)),
+            Self::AI(AISpec::FromLevel(3)),
+            Self::AI(AISpec::FromLevel(4)),
+        ]
     }
 
-    pub fn desc(&self) -> String {
+    // /// The text description of this type of player
+    // pub fn desc(&self) -> String {
+    //     match self {
+    //         Self::Human => String::from("human"),
+    //         Self::AI(ai_type) => ai_type.desc(),
+    //     }
+    // }
+
+    // pub fn spec(&self) -> String {
+    //     match self {
+    //         Self::Human => "h".to_string(),
+    //         Self::AI(ai_type) => ai_type.spec()
+    //     }
+    // }
+
+    // /// The character used to specify this variant on the command line
+    // pub fn spec_char(&self) -> char {
+    //     match self {
+    //         Self::Human => 'h',
+    //         Self::Random => 'r',
+    //         Self::AI(level) => std::char::from_digit(*level as u32, 10).unwrap(),
+    //     }
+    // }
+
+    // pub fn from_spec_char(c: char) -> Result<Self,String> {
+    //     match c {
+    //         'h' => Ok(Self::Human),
+    //         c => AIType::try_from(c).map(Self::AI)
+    //     }
+    // }
+}
+
+impl Specified for PlayerType {
+    fn desc(&self) -> String {
         match self {
             Self::Human => String::from("human"),
-            Self::Random => String::from("random"),
-            Self::AI(level) => format!("level {} AI", level),
+            Self::AI(ai_type) => ai_type.desc(),
         }
     }
 
-    /// The character used to specify this variant on the command line
-    pub fn spec_char(&self) -> char {
+    fn spec(&self) -> String {
         match self {
-            Self::Human => 'h',
-            Self::Random => 'r',
-            Self::AI(level) => std::char::from_digit(*level as u32, 10).unwrap(),
-        }
-    }
-
-    pub fn from_spec_char(c: char) -> Result<Self,String> {
-        match c {
-            'h' => Ok(Self::Human),
-            'r' => Ok(Self::Random),
-            '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => Ok(Self::AI(c.to_digit(10).unwrap() as usize)),
-            c => Err(format!("Unrecognized player specification '{}'", c))
+            Self::Human => String::from("h"),
+            Self::AI(ai_type) => ai_type.spec()
         }
     }
 }
+
+impl TryFrom<String> for PlayerType {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "h" | "human" => Ok(Self::Human),
+            _ => AISpec::try_from(value).map(Self::AI)
+        }
+    }
+}
+
+impl Into<String> for PlayerType {
+    fn into(self) -> String {
+        match self {
+            Self::Human => "h".to_string(),
+            Self::AI(ai_type) => ai_type.into()
+        }
+    }
+}
+
+// impl Into<Rc<RefCell<dyn TurnTaker>>> for PlayerType {
+//     fn into(self) -> Rc<RefCell<dyn TurnTaker>> {
+
+//     }
+// }
+
+// impl Into<String> for PlayerType {
+//     fn into(self) -> String {
+
+//     }
+// }
 
 pub struct PlayerTurnControl<'a> {
     game: &'a mut Game,

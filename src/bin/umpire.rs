@@ -7,6 +7,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use std::{
+    cell::RefCell,
     collections::HashMap,
     convert::TryFrom,
     io::{BufRead,BufReader,Write,stdout},
@@ -20,18 +21,21 @@ use std::{
 
 use clap::Arg;
 
-use rsrl::{
-    fa::{
-        linear::{
-            optim::SGD,
-            LFA,
-            VectorFunction,
-        },
-    },
-};
+// use rsrl::{
+//     fa::{
+//         linear::{
+//             optim::SGD,
+//             LFA,
+//             VectorFunction,
+//         },
+//     },
+// };
 
 use umpire::{
-    cli,
+    cli::{
+        self,
+        Specified,
+    },
     color::{palette16, palette256, palette24},
     conf,
     game::{
@@ -39,9 +43,8 @@ use umpire::{
         PlayerNum,
         PlayerType,
         ai::{
-            RL_AI,
-            RandomAI,
-            rl::Basis,
+            AI,
+            AISpec,
         },
         player::{
             TurnTaker,
@@ -54,6 +57,7 @@ use umpire::{
         Wrap2d,
     }, log::LogTarget,
 };
+use cli::parse_player_spec;
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 
@@ -70,6 +74,10 @@ fn print_loading_screen() {
     println!("{}: {}", conf::APP_NAME, conf::APP_SUBTITLE);
     stdout().flush().unwrap();
 }
+
+
+
+
 
 fn main() {
     let matches = cli::app(conf::APP_NAME, "fwWH")
@@ -122,18 +130,19 @@ fn main() {
             .help(
                 format!("Player type specification string, {}", 
                     PlayerType::values().iter()
-                    .map(|player_type| format!("'{}' for {}", player_type.spec_char(), player_type.desc()))
+                    .map(|player_type| format!("'{}' for {}", player_type.spec(), player_type.desc()))
                     .collect::<Vec<String>>()
                     .join(", ")
                 ).as_str()
             )
             .validator(|s| {
-                for spec_char in s.chars() {
-                    PlayerType::from_spec_char(spec_char)
-                    .map(|_| ())
-                    .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
-                }
-                Ok(())
+                parse_player_spec(s.as_str()).map(|_| ())
+                // for spec_char in s.chars() {
+                //     PlayerType::from_spec_char(spec_char)
+                //     .map(|_| ())
+                //     .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
+                // }
+                // Ok(())
             })
         )
         .arg(Arg::with_name("quiet")
@@ -156,14 +165,17 @@ fn main() {
 
     // let ai_model_path = matches.value_of("ai_model");
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
-    let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
-        .chars()
-        .map(|spec_char| {
-            PlayerType::from_spec_char(spec_char)
-                        .expect(format!("'{}' is not a valid player type", spec_char).as_str())
-        })
-        .collect()
-    ;
+    // let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
+    //     .chars()
+    //     .map(|spec_char| {
+    //         PlayerType::from_spec_char(spec_char)
+    //                     .expect(format!("'{}' is not a valid player type", spec_char).as_str())
+    //     })
+    //     .collect()
+    // ;
+
+    let player_types: Vec<PlayerType> = parse_player_spec(matches.value_of("players").unwrap()).unwrap();
+
     let num_players: PlayerNum = player_types.len();
     let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
     let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
@@ -241,19 +253,18 @@ fn main() {
         ).unwrap();
 
         // We can share one instance of RandomAI across players since it's stateless
-        let mut random_ai = RandomAI::new(0);
+        // let mut random_ai = RandomAI::new(0);
 
-        let mut ais: HashMap<usize,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
+        // AIs indexed by spec
+        // let mut ais: HashMap<String,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
+        let mut ais: HashMap<AISpec,Rc<RefCell<AI>>> = HashMap::new();
 
         for ptype in player_types.iter() {
-            if let PlayerType::AI(level) = ptype {
-                ais.insert(*level, match level {
-                    1 => bincode::deserialize(include_bytes!("../../ai/10x10_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-                    2 => bincode::deserialize(include_bytes!("../../ai/20x20_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-                    3 => bincode::deserialize(include_bytes!("../../ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-                    4 => bincode::deserialize(include_bytes!("../../ai/10-40+full_e100_s100000_a.ai")).unwrap(),
-                    level => unreachable!("Unsupported AI level: {}", level)
-                });
+            if let PlayerType::AI(ai_type) = ptype {
+                let ai: AI = ai_type.clone().into();
+                let ai = Rc::new(RefCell::new(ai));
+                // let player: Rc<RefCell<dyn TurnTaker>> = ai_type.clone().into();
+                ais.insert(ai_type.clone(), ai);
             }
         }
 
@@ -267,7 +278,7 @@ fn main() {
                     break 'outer;
                 }
 
-                let next_player = player_types[(i+1) % player_types.len()];
+                let next_player = &player_types[(i+1) % player_types.len()];
                 let clear_at_end_of_turn = match next_player {
                     PlayerType::Human => false,
                     _ => true,
@@ -275,8 +286,9 @@ fn main() {
 
                 match ptype {
                     PlayerType::Human => ui.take_turn(&mut game, clear_at_end_of_turn),
-                    PlayerType::Random => random_ai.take_turn(&mut game, clear_at_end_of_turn),
-                    PlayerType::AI(level) => ais.get_mut(level).unwrap().take_turn(&mut game, clear_at_end_of_turn),
+                    PlayerType::AI(ai_type) => {
+                        ais.get_mut(ai_type).unwrap().borrow_mut().take_turn(&mut game, clear_at_end_of_turn);
+                    },
                 }
             }
         }

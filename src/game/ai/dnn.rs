@@ -1,15 +1,16 @@
-use std::{ffi::OsStr, path::Path};
+use std::{fmt, path::Path};
 
 
 use tensorflow::{
     Code,
     Graph,
+    ImportGraphDefOptions,
     Operation,
     Session,
     SessionOptions,
     SessionRunArgs,
     Status,
-    Tensor,
+    Tensor, SavedModelBundle,
 };
 
 use rsrl::{
@@ -21,17 +22,68 @@ use rsrl::{
 
 use serde::{
     Deserialize,
+    Deserializer,
     Serialize,
+    Serializer,
+    de::{self,Visitor},
 };
 
 use crate::{
     game::{
         Game,
-        ai::UmpireAction, player::{TurnTaker, LimitedTurnTaker},
+        ai::UmpireAction,
     },
 };
 
+use super::{Storable, Loadable};
+
 const ITS: usize = 1000;
+
+
+struct BytesVisitor;
+impl<'de> Visitor<'de> for BytesVisitor {
+    type Value = Vec<u8>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "an array of bytes")
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> where E: de::Error {
+        Ok(Vec::from(v))
+    }
+}
+
+
+struct SerializableGraph(Graph);
+impl <'de> Deserialize<'de> for SerializableGraph {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+
+        let graph_bytes: Vec<u8> = deserializer.deserialize_bytes(BytesVisitor)?;
+
+        let mut g = Graph::new();
+        g.import_graph_def(&graph_bytes[..], &ImportGraphDefOptions::new());
+
+        //TODO This needs to deserialize the model weights as well
+
+        Ok(SerializableGraph(g))
+
+    }
+}
+
+impl Serialize for SerializableGraph {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let bytes = self.0.graph_def().unwrap();//FIXME unwrap---can we produce an appropriate S::Error?
+        serializer.serialize_bytes(&bytes[..])
+
+
+        //TODO This needs to serialize the model weights as well
+
+    }
+}
+
+
+
+
 
 
 // #[derive(Deserialize,Serialize)]
@@ -57,62 +109,6 @@ pub struct DNN {
 }
 
 impl DNN {
-    pub fn load_from_dir(path: &Path) -> Result<Self,Box<dyn std::error::Error>> {
-        // let export_dir = "ai/umpire_regressor";
-
-        if !path.exists() {
-            return Err(Box::new(
-                Status::new_set(
-                    Code::NotFound,
-                    &format!(
-                        "Run 'python regression_savedmodel.py' to generate \
-                         {} and try again.",
-                         path.display()
-                    ),
-                )
-                .unwrap(),
-            ));
-        }
-
-        // Load the saved model exported by regression_savedmodel.py.
-        let mut graph = Graph::new();
-        let session = Session::from_saved_model(
-            &SessionOptions::new(),
-            // &["train", "serve"],
-            &["serve"],
-            &mut graph,
-            path,
-        )?;
-
-        // for func in graph.get_functions().unwrap().iter() {
-        //     println!("{:?}", func);
-        // }
-
-        
-        let features_1d = graph.operation_by_name_required("1d_features")?;
-        let is_enemy_belligerent = graph.operation_by_name_required("is_enemy_belligerent")?;
-        let is_observed = graph.operation_by_name_required("is_observed")?;
-        let is_neutral = graph.operation_by_name_required("is_neutral")?;
-
-        let action_values = graph.operation_by_name_required("action_values")?;
-        let action_values_hat = graph.operation_by_name_required("action_values_hat")?;
-
-        let action_train_ops = UmpireAction::possible_actions().iter().enumerate().map(|(i,action)| {
-            graph.operation_by_name_required(format!("train_action_{}", i).as_str()).unwrap()
-        }).collect();
-
-        Ok(Self {
-            session,
-            graph,
-            features_1d,
-            is_enemy_belligerent,
-            is_observed,
-            is_neutral,
-            action_values,
-            action_values_hat,
-            action_train_ops,
-        })
-    }
 
     // pub fn new() -> Result<Self,Box<dyn std::error::Error>> {
 
@@ -322,17 +318,88 @@ impl EnumerableStateActionFunction<Game> for DNN {
 }
 
 
-impl TurnTaker for DNN {
-    fn take_turn_not_clearing(&mut self, game: &mut Game) {
-        unimplemented!()
-    }
+// impl TurnTaker for DNN {
+//     fn take_turn_not_clearing(&mut self, game: &mut Game) {
+//         unimplemented!()
+//     }
 
-    fn take_turn_clearing(&mut self, game: &mut Game) {
-        unimplemented!()
+//     fn take_turn_clearing(&mut self, game: &mut Game) {
+//         unimplemented!()
+//     }
+// }
+
+impl Loadable for DNN {
+    fn load(path: &Path) -> Result<Self,String> {
+        if !path.exists() {
+            return Err(format!("Can't load DNN from path '{:?}' because it doesn't exist", path));
+        }
+
+        // Load the saved model exported by regression_savedmodel.py.
+        let mut graph = Graph::new();
+        let bundle = SavedModelBundle::load(
+        // let session = Session::from_saved_model(
+            &SessionOptions::new(),
+            // &["train", "serve"],
+            &["serve"],
+            &mut graph,
+            path,
+        )
+        .map_err(|err| format!("Error loading saved model bundle: {}", err))?;
+
+        println!("===== Signatures =====");
+
+        for (k,v) in bundle.meta_graph_def().signatures().iter() {
+            println!("{:?} -> {:?}", k, v);
+        }
+
+        let session = bundle.session;
+
+        // for func in graph.get_functions().unwrap().iter() {
+        //     println!("{:?}", func);
+        // }
+
+        
+        let features_1d = graph.operation_by_name_required("1d_features")
+        .map_err(|err| format!("Error getting 1d_features: {}", err))?;
+
+        let is_enemy_belligerent = graph.operation_by_name_required("is_enemy_belligerent")
+        .map_err(|err| format!("Error getting is_enemy_belligerent: {}", err))?;
+
+        let is_observed = graph.operation_by_name_required("is_observed")
+        .map_err(|err| format!("Error getting is_observed: {}", err))?;
+
+        let is_neutral = graph.operation_by_name_required("is_neutral")
+        .map_err(|err| format!("Error getting is_neutral: {}", err))?;
+
+        let action_values = graph.operation_by_name_required("action_values")
+        .map_err(|err| format!("Error getting action_values: {}", err))?;
+
+        let action_values_hat = graph.operation_by_name_required("action_values_hat")
+        .map_err(|err| format!("Error getting action_values_hat: {}", err))?;
+
+        let action_train_ops = UmpireAction::possible_actions().iter().enumerate().map(|(i,action)| {
+            graph.operation_by_name_required(format!("train_action_{}", i).as_str()).unwrap()
+        }).collect();
+
+        Ok(Self {
+            session,
+            graph,
+            features_1d,
+            is_enemy_belligerent,
+            is_observed,
+            is_neutral,
+            action_values,
+            action_values_hat,
+            action_train_ops,
+        })
     }
 }
 
-
+impl Storable for DNN {
+    fn store(self, path: &Path) -> Result<(),String> {
+        unimplemented!()
+    }
+}
 
 // fn main() -> Result<(), Box<dyn Error>> {
 
