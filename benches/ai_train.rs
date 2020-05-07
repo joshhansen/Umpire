@@ -5,7 +5,10 @@ use criterion::Criterion;
 
 use umpire::{
     game::{
-        ai::rl::trained_agent,
+        ai::{
+            AISpec,
+            rl::trained_agent,
+        }
     },
     util::{
         Dims,
@@ -18,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         .bench_function(
             format!("ai_train_{}", dims).as_str(),
             |b| b.iter(|| {
-                let _agent = trained_agent(None, vec![dims], 1, 100, true, false, true, 0);
+                let _agent = trained_agent(false, vec![AISpec::Random], vec![dims], 1, 100, true, false, true, 0);
             })
         );
     }

@@ -14,7 +14,6 @@ use std::{
         HashMap,
     },
     convert::TryFrom,
-    fs::File,
     io::{
         stdout,
         Write,
@@ -23,29 +22,17 @@ use std::{
     path::Path,
 };
 
-use clap::{AppSettings, Arg, SubCommand, ArgMatches};
+use clap::{AppSettings, Arg, SubCommand};
 
 use crossterm::{
     execute,
     cursor::MoveTo,
 };
 
-use rsrl::{
-    fa::{
-        EnumerableStateActionFunction,
-        linear::{
-            optim::SGD,
-            LFA,
-            VectorFunction,
-        },
-    },
-};
-
 use umpire::{
     cli::{
         self,
         parse_spec,
-        Specified,
     },
     conf,
     game::{
@@ -53,10 +40,8 @@ use umpire::{
         ai::{
             AI,
             AISpec,
-            RandomAI,
             Storable,
             rl::{
-                Basis,
                 trained_agent,
 
             },
@@ -432,7 +417,7 @@ fn main() -> Result<(),String> {
         }
 
         let opponent_specs: Vec<AISpec> = parse_ai_specs(&opponent_specs_s)?;
-        let opponents = load_ais(&opponent_specs)?;
+        // let opponents = load_ais(&opponent_specs)?;
 
         let avoid_skip = sub_matches.is_present("avoid_skip");
         let deep = sub_matches.is_present("deep");

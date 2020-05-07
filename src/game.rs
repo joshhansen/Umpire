@@ -27,6 +27,8 @@ use failure::{
 
 use half::f16;
 
+type fX = f64;
+
 use rsrl::DerefVec;
 
 use crate::{
@@ -1464,7 +1466,7 @@ impl Game {
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
     /// 
-    fn features(&self) -> Vec<f64> {
+    fn features(&self) -> Vec<fX> {
         // For every tile we add these f64's:
         // is the tile observed or not?
         // which player controls the tile (one hot encoded)
@@ -1480,27 +1482,27 @@ impl Game {
         // General statistics
 
         // - current turn
-        x.push(self.turn as f64);
+        x.push(self.turn as fX);
 
         // - number of cities player controls
 
-        x.push(self.current_player_city_count() as f64);
+        x.push(self.current_player_city_count() as fX);
 
         // - number of tiles observed
 
-        let num_observed: f64 = self.current_player_observations().num_observed() as f64;
+        let num_observed: fX = self.current_player_observations().num_observed() as fX;
         
         x.push(num_observed);
         
 
         // - percentage of tiles observed
-        x.push(num_observed / self.dims().area() as f64);
+        x.push(num_observed / self.dims().area() as fX);
 
         // - number of each type of unit controlled by player
         let empty_map = HashMap::new();
         let type_counts = self.current_player_unit_type_counts().unwrap_or(&empty_map);
-        let counts_vec: Vec<f64> = UnitType::values().iter()
-                                    .map(|type_| *type_counts.get(type_).unwrap_or(&0) as f64)
+        let counts_vec: Vec<fX> = UnitType::values().iter()
+                                    .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
                                     .collect();
 
         x.extend(counts_vec);
@@ -1712,7 +1714,7 @@ fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
 }
 
 impl DerefVec for Game {
-    fn deref_vec(&self) -> Vec<f64> {
+    fn deref_vec(&self) -> Vec<fX> {
         self.features()
     }
 }

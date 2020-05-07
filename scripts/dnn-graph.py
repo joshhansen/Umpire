@@ -12,7 +12,9 @@ if __name__=="__main__":
     # Disable GPU output which isn't needed just to build and serialize the graph
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
-    tf.keras.backend.set_floatx('float16')
+    # tf.keras.backend.set_floatx('float16')
+    # tf.keras.backend.set_floatx('float32')
+    tf.keras.backend.set_floatx('float64')
 
     
     input_1d = Input(shape=(14,), name='1d_features')
@@ -23,10 +25,10 @@ if __name__=="__main__":
         map_inputs.append(Input(shape=(121,), name=name))
 
     # The true value
-    input_y = Input(shape=(1,), name='y')
+    # input_y = Input(shape=(1,), name='y')
 
 
-    inputs_1d = [ input_1d, *map_inputs, input_y ]
+    inputs_1d = [ input_1d, *map_inputs ]#, input_y ]
 
 
 
@@ -78,7 +80,11 @@ if __name__=="__main__":
 
     # The estimate of the value
     # y_hat = Dense(1, activation='linear', name="y_hat")(dropout1)
-    action_values = Dense(POSSIBLE_ACTIONS, activation='linear', name='action_values')(dropout1)
+    # action_values = Dense(POSSIBLE_ACTIONS, activation='linear', name='action_values')(dropout1)
+
+    action_values = list()
+    for action in range(POSSIBLE_ACTIONS):
+        action_values.append(Dense(1, activation='linear', name='action_value%s' % action)(dropout1))
 
     # loss = tf.reduce_mean(tf.square(y_hat - y))
     # optimizer = tf.train.GradientDescentOptimizer(0.5)
@@ -86,7 +92,7 @@ if __name__=="__main__":
 
 
 
-    model = Model(inputs=inputs_1d, outputs=[action_values], name='umpire_regressor')
+    model = Model(inputs=inputs_1d, outputs=action_values, name='umpire_regressor')
     model.compile(
         optimizer="sgd",
         loss="mean_squared_error",

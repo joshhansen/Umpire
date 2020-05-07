@@ -6,6 +6,8 @@ use tensorflow::{
     Graph,
     ImportGraphDefOptions,
     Operation,
+    SavedModelBuilder,
+    Scope,
     Session,
     SessionOptions,
     SessionRunArgs,
@@ -31,14 +33,14 @@ use serde::{
 use crate::{
     game::{
         Game,
-        ai::UmpireAction,
+        ai::UmpireAction, fX,
     },
 };
 
 use super::{Storable, Loadable};
 
 const ITS: usize = 1000;
-
+static TAG: &'static str = "serve";
 
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
@@ -53,44 +55,12 @@ impl<'de> Visitor<'de> for BytesVisitor {
     }
 }
 
-
-struct SerializableGraph(Graph);
-impl <'de> Deserialize<'de> for SerializableGraph {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-
-        let graph_bytes: Vec<u8> = deserializer.deserialize_bytes(BytesVisitor)?;
-
-        let mut g = Graph::new();
-        g.import_graph_def(&graph_bytes[..], &ImportGraphDefOptions::new());
-
-        //TODO This needs to deserialize the model weights as well
-
-        Ok(SerializableGraph(g))
-
-    }
-}
-
-impl Serialize for SerializableGraph {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let bytes = self.0.graph_def().unwrap();//FIXME unwrap---can we produce an appropriate S::Error?
-        serializer.serialize_bytes(&bytes[..])
-
-
-        //TODO This needs to serialize the model weights as well
-
-    }
-}
-
-
-
-
-
-
-// #[derive(Deserialize,Serialize)]
 #[derive(Debug)]
 pub struct DNN {
+    // Namespacey container for everything
+    scope: Scope,
+
     session: Session,
-    graph: Graph,
 
     // The inputs
     features_1d: Operation,
@@ -101,76 +71,32 @@ pub struct DNN {
     /// The true value of each action (the discounted estimate, anyway)
     action_values: Operation,
 
-    /// The predicted value of each action
-    action_values_hat: Operation,
+    // /// The predicted value of each action
+    // action_values_hat: Operation,
 
-    // Operations
-    action_train_ops: Vec<Operation>,
+    // // Operations
+    // action_train_ops: Vec<Operation>,
 }
 
 impl DNN {
-
-    // pub fn new() -> Result<Self,Box<dyn std::error::Error>> {
-
-    //     let export_dir = "ai/umpire_regressor";
-    //     if !Path::new(export_dir).exists() {
-    //         return Err(Box::new(
-    //             Status::new_set(
-    //                 Code::NotFound,
-    //                 &format!(
-    //                     "Run 'python regression_savedmodel.py' to generate \
-    //                      {} and try again.",
-    //                     export_dir
-    //                 ),
-    //             )
-    //             .unwrap(),
-    //         ));
-    //     }
-
-    //     // Load the saved model exported by regression_savedmodel.py.
-    //     let mut graph = Graph::new();
-    //     let session = Session::from_saved_model(
-    //         &SessionOptions::new(),
-    //         &["train", "serve"],
-    //         &mut graph,
-    //         export_dir,
-    //     )?;
-
-    //     for func in graph.get_functions().unwrap().iter() {
-    //         println!("{:?}", func);
-    //     }
-
-        
-    //     let features_1d = graph.operation_by_name_required("1d_features")?;
-    //     let is_enemy_belligerent = graph.operation_by_name_required("is_enemy_belligerent")?;
-    //     let is_observed = graph.operation_by_name_required("is_observed")?;
-    //     let is_neutral = graph.operation_by_name_required("is_neutral")?;
-
-    //     let action_values = graph.operation_by_name_required("action_values")?;
-    //     let action_values_hat = graph.operation_by_name_required("action_values_hat")?;
-
-    //     let action_train_ops = UmpireAction::possible_actions().iter().enumerate().map(|(i,action)| {
-    //         graph.operation_by_name_required(format!("train_action_{}", i).as_str()).unwrap()
-    //     }).collect();
-
-    //     Ok(Self {
-    //         session,
-    //         graph,
-    //         features_1d,
-    //         is_enemy_belligerent,
-    //         is_observed,
-    //         is_neutral,
-    //         action_values,
-    //         action_values_hat,
-    //         action_train_ops,
-    //     })
-    // }
-
-    fn tensors_for(&self, state: &Game) -> (Tensor<f64>,Tensor<f64>,Tensor<f64>,Tensor<f64>) {
+    fn tensors_for(&self, state: &Game) -> (Tensor<fX>,Tensor<fX>,Tensor<fX>,Tensor<fX>) {
         let x = state.features();
 
         //FIXME Splitting the input vector is something Keras should be doing but isn't quite ready to yet
-        let features_1d: Tensor<f64> = Tensor::new(&[self.features_1d.num_outputs() as u64])
+        eprintln!("features_1d num outputs: {}", self.features_1d.num_outputs());
+        eprintln!("features_1d num inputs: {}", self.features_1d.num_inputs());
+        eprintln!("features_1d num control outputs: {}", self.features_1d.num_control_inputs());
+        eprintln!("features_1d num control inputs: {}", self.features_1d.num_control_inputs());
+        eprintln!("features_1d op type: {}", self.features_1d.op_type().unwrap());
+
+
+        // eprintln!("features_1d num inputs: {}", self.features_1d.input_list_length(arg_name));
+
+        // let sub_op = self.features_1d.input(1).0;
+        // eprintln!("sub_op outputs: {}", sub_op.num_outputs());
+        // eprintln!("sub_op inputs: {}", sub_op.num_inputs());
+
+        let features_1d = Tensor::new(&[1_u64, 14_u64])
                                                         .with_values(&x[0..14])
                                                         .unwrap();
                                                         // .map_err(|err| LinearError{
@@ -180,7 +106,7 @@ impl DNN {
         
         let mut base: usize = features_1d.dims()[0] as usize;
 
-        let is_enemy_belligerent: Tensor<f64> = Tensor::new(&[self.is_enemy_belligerent.num_outputs() as u64])
+        let is_enemy_belligerent = Tensor::new(&[1_u64, 121_u64])
                                                         .with_values(&x[base..(base+121)])
                                                         .unwrap();
                                                         // .map_err(|err| LinearError{
@@ -190,7 +116,7 @@ impl DNN {
 
         base += 121;
 
-        let is_observed: Tensor<f64> = Tensor::new(&[self.is_observed.num_outputs() as u64])
+        let is_observed = Tensor::new(&[1_u64, 121_u64])
                                                         .with_values(&x[base..(base+121)])
                                                         .unwrap();
                                                         // .map_err(|err| LinearError{
@@ -201,7 +127,7 @@ impl DNN {
         base += 121;
 
 
-        let is_neutral: Tensor<f64> = Tensor::new(&[self.is_neutral.num_outputs() as u64])
+        let is_neutral = Tensor::new(&[1_u64, 121_u64])
                                                         .with_values(&x[base..(base+121)])
                                                         .unwrap();
                                                         // .map_err(|err| LinearError{
@@ -232,7 +158,7 @@ impl StateActionFunction<Game, usize> for DNN {
         output_step.add_feed(&self.is_neutral, 0, &is_neutral);
 
 
-        let regressand_idx = output_step.request_fetch(&self.action_values_hat, *action as i32);
+        let regressand_idx = output_step.request_fetch(&self.action_values, *action as i32);
 
         self.session.run(&mut output_step)
                     .unwrap();
@@ -242,12 +168,10 @@ impl StateActionFunction<Game, usize> for DNN {
 
         let result = output_step.fetch(regressand_idx)
                     // .map_err(|err| LinearError{kind: ErrorKind::Evaluation, message: format!("Error evaluating DNN: {}", err)})
-                    .unwrap().get(&[0]);
+                    .unwrap().get(&[0, 0]);
         // ?[0];
 
         result
-
-
     }
 
     fn update(&mut self, state: &Game, action: &usize, error: Self::Output) {
@@ -280,9 +204,9 @@ impl StateActionFunction<Game, usize> for DNN {
         train_step.add_feed(&self.action_values, *action as i32, &action_value_tensor);
         
 
-        let regressand_op = self.action_train_ops.get(*action).unwrap();
+        // let regressand_op = self.action_train_ops.get(*action).unwrap();
 
-        train_step.add_target(&regressand_op);
+        // train_step.add_target(&regressand_op);
 
         //FIXME
         // train_step.add_target(&self.train);
@@ -317,157 +241,111 @@ impl EnumerableStateActionFunction<Game> for DNN {
     }
 }
 
-
-// impl TurnTaker for DNN {
-//     fn take_turn_not_clearing(&mut self, game: &mut Game) {
-//         unimplemented!()
-//     }
-
-//     fn take_turn_clearing(&mut self, game: &mut Game) {
-//         unimplemented!()
-//     }
-// }
-
 impl Loadable for DNN {
     fn load(path: &Path) -> Result<Self,String> {
         if !path.exists() {
             return Err(format!("Can't load DNN from path '{:?}' because it doesn't exist", path));
         }
 
-        // Load the saved model exported by regression_savedmodel.py.
-        let mut graph = Graph::new();
-        let bundle = SavedModelBundle::load(
-        // let session = Session::from_saved_model(
-            &SessionOptions::new(),
-            // &["train", "serve"],
-            &["serve"],
-            &mut graph,
-            path,
-        )
-        .map_err(|err| format!("Error loading saved model bundle: {}", err))?;
-
-        println!("===== Signatures =====");
-
-        for (k,v) in bundle.meta_graph_def().signatures().iter() {
-            println!("{:?} -> {:?}", k, v);
-        }
-
-        let session = bundle.session;
-
-        // for func in graph.get_functions().unwrap().iter() {
-        //     println!("{:?}", func);
-        // }
-
         
-        let features_1d = graph.operation_by_name_required("1d_features")
-        .map_err(|err| format!("Error getting 1d_features: {}", err))?;
 
-        let is_enemy_belligerent = graph.operation_by_name_required("is_enemy_belligerent")
-        .map_err(|err| format!("Error getting is_enemy_belligerent: {}", err))?;
-
-        let is_observed = graph.operation_by_name_required("is_observed")
-        .map_err(|err| format!("Error getting is_observed: {}", err))?;
-
-        let is_neutral = graph.operation_by_name_required("is_neutral")
-        .map_err(|err| format!("Error getting is_neutral: {}", err))?;
-
-        let action_values = graph.operation_by_name_required("action_values")
-        .map_err(|err| format!("Error getting action_values: {}", err))?;
-
-        let action_values_hat = graph.operation_by_name_required("action_values_hat")
-        .map_err(|err| format!("Error getting action_values_hat: {}", err))?;
-
-        let action_train_ops = UmpireAction::possible_actions().iter().enumerate().map(|(i,action)| {
-            graph.operation_by_name_required(format!("train_action_{}", i).as_str()).unwrap()
-        }).collect();
-
-        Ok(Self {
-            session,
-            graph,
+        // Load the saved model exported by regression_savedmodel.py.
+        let mut scope = Scope::new_root_scope();
+        let (
+            bundle,
             features_1d,
             is_enemy_belligerent,
             is_observed,
             is_neutral,
             action_values,
-            action_values_hat,
-            action_train_ops,
+            // action_values_hat,
+            // action_train_ops
+        ) = {
+            let mut graph = scope.graph_mut();
+            let bundle = SavedModelBundle::load(
+            // let session = Session::from_saved_model(
+                &SessionOptions::new(),
+                // &["train", "serve"],
+                &[TAG],
+                &mut graph,
+                path,
+            )
+            .map_err(|err| {
+                format!("Error loading saved model bundle from {}: {}", path.to_string_lossy(), err)
+            })?;
+
+            println!("===== Signatures =====");
+
+            for (k,v) in bundle.meta_graph_def().signatures().iter() {
+                println!("{:?} -> {:?}", k, v);
+            }
+
+            let features_1d = graph.operation_by_name_required("serving_default_1d_features")
+            .map_err(|err| format!("Error getting 1d_features: {}", err))?;
+
+            let is_enemy_belligerent = graph.operation_by_name_required("serving_default_is_enemy_belligerent")
+            .map_err(|err| format!("Error getting is_enemy_belligerent: {}", err))?;
+
+            let is_observed = graph.operation_by_name_required("serving_default_is_observed")
+            .map_err(|err| format!("Error getting is_observed: {}", err))?;
+
+            let is_neutral = graph.operation_by_name_required("serving_default_is_neutral")
+            .map_err(|err| format!("Error getting is_neutral: {}", err))?;
+
+            let action_values = graph.operation_by_name_required("StatefulPartitionedCall")
+            .map_err(|err| format!("Error getting action_values (StatefulPartitionedCall): {}", err))?;
+
+            eprintln!("Action values found: {}", action_values.num_outputs());
+
+            // let action_values_hat = graph.operation_by_name_required("action_values_hat")
+            // .map_err(|err| format!("Error getting action_values_hat: {}", err))?;
+
+            // let action_train_ops = UmpireAction::possible_actions().iter().enumerate().map(|(i,action)| {
+            //     graph.operation_by_name_required(format!("train_action_{}", i).as_str()).unwrap()
+            // }).collect();
+
+            (
+                bundle,
+                features_1d,
+                is_enemy_belligerent,
+                is_observed,
+                is_neutral,
+                action_values,
+                // action_values_hat,
+                // action_train_ops
+            )
+        };
+
+
+
+        let session = bundle.session;
+        Ok(Self {
+            scope,
+            session,
+            features_1d,
+            is_enemy_belligerent,
+            is_observed,
+            is_neutral,
+            action_values,
+            // action_values_hat,
+            // action_train_ops,
         })
     }
 }
 
 impl Storable for DNN {
-    fn store(self, path: &Path) -> Result<(),String> {
-        unimplemented!()
+    fn store(mut self, path: &Path) -> Result<(),String> {
+        let mut builder = SavedModelBuilder::new();
+        builder.add_tag(TAG);
+
+        let saver = builder.inject(&mut self.scope)
+               .map_err(|status| {
+                   format!("Error injecting scope into saved model builder, status {}", status)
+               })?;
+
+        let graph = self.scope.graph();
+
+        saver.save(&self.session, &(*graph), path)
+             .map_err(|err| format!("Error saving DNN: {}", err))
     }
 }
-
-// fn main() -> Result<(), Box<dyn Error>> {
-
-
-//     // Generate some test data.
-//     let w = 0.1;
-//     let b = 0.3;
-//     let num_points = 100;
-//     let steps = 201;
-//     // let mut rand = random::default();
-//     let mut x = Tensor::new(&[num_points as u64]);
-//     let mut y = Tensor::new(&[num_points as u64]);
-//     for i in 0..num_points {
-//         x[i] = (2.0 * rand.read::<f64>() - 1.0) as f32;
-//         y[i] = w * x[i] + b;
-//     }
-
-//     // Load the saved model exported by regression_savedmodel.py.
-//     let mut graph = Graph::new();
-//     let session = Session::from_saved_model(
-//         &SessionOptions::new(),
-//         &["train", "serve"],
-//         &mut graph,
-//         export_dir,
-//     )?;
-//     let op_x = graph.operation_by_name_required("x")?;
-//     let op_y = graph.operation_by_name_required("y")?;
-//     let op_train = graph.operation_by_name_required("train")?;
-//     let op_w = graph.operation_by_name_required("w")?;
-//     let op_b = graph.operation_by_name_required("b")?;
-
-//     // Train the model (e.g. for fine tuning).
-//     let mut train_step = SessionRunArgs::new();
-//     train_step.add_feed(&op_x, 0, &x);
-//     train_step.add_feed(&op_y, 0, &y);
-//     train_step.add_target(&op_train);
-//     for _ in 0..steps {
-//         session.run(&mut train_step)?;
-//     }
-
-//     // Grab the data out of the session.
-//     let mut output_step = SessionRunArgs::new();
-//     let w_ix = output_step.request_fetch(&op_w, 0);
-//     let b_ix = output_step.request_fetch(&op_b, 0);
-//     session.run(&mut output_step)?;
-
-//     // Check our results.
-//     let w_hat: f32 = output_step.fetch(w_ix)?[0];
-//     let b_hat: f32 = output_step.fetch(b_ix)?[0];
-//     println!(
-//         "Checking w: expected {}, got {}. {}",
-//         w,
-//         w_hat,
-//         if (w - w_hat).abs() < 1e-3 {
-//             "Success!"
-//         } else {
-//             "FAIL"
-//         }
-//     );
-//     println!(
-//         "Checking b: expected {}, got {}. {}",
-//         b,
-//         b_hat,
-//         if (b - b_hat).abs() < 1e-3 {
-//             "Success!"
-//         } else {
-//             "FAIL"
-//         }
-//     );
-//     Ok(())
-// }

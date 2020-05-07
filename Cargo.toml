@@ -46,7 +46,8 @@ serde = { version = "1.0.106", features = ["derive"] }
 spaces = "5.0.0"
 synth = "0.11.0" 
 rand = "0.7.3"
-tensorflow = { version = "0.15.0", features = ["experimental_training"] }
+#tensorflow = { version = "0.15.0", features = ["experimental_training"] }
+tensorflow = { path = "/home/josh/Projects/External/tensorflow-rust", features=["experimental_training"] }
 unicode-segmentation = "1.6.0"
 
 blas-src = { version = "0.2.0", default-features = false, features = ["openblas"] }
