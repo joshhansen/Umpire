@@ -131,7 +131,7 @@ fn main() -> Result<(),String> {
         .short("e")
         .long("episodes")
         .takes_value(true)
-        .default_value("1000")
+        .default_value("100")
         .validator(|s| {
             let episodes: Result<usize,_> = s.trim().parse();
             episodes.map(|_n| ()).map_err(|_e| format!("Invalid episodes '{}'", s))
@@ -143,7 +143,7 @@ fn main() -> Result<(),String> {
         .short("s")
         .long("steps")
         .takes_value(true)
-        .default_value("5000")
+        .default_value("100000")
         .help("The number of steps to execute in each episode")
         .validator(|s| {
             let steps: Result<u64,_> = s.trim().parse();
@@ -218,6 +218,7 @@ fn main() -> Result<(),String> {
                 // .takes_value(true)
                 // .number_of_values(1)
                 .multiple(true)
+                .required(true)
         )
         
     )

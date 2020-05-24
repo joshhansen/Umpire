@@ -103,6 +103,9 @@ type FA = LFA_;
 // type FA = DNN;
 type Agent = UmpireAgent<Shared<Shared<AI>>,UmpireEpsilonGreedy<Shared<AI>>>;
 
+//FIXME Someday compute this at compile time
+pub const POSSIBLE_ACTIONS: usize = 19;
+
 #[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub enum UmpireAction {
     SetNextCityProduction{unit_type: UnitType},
@@ -137,6 +140,9 @@ impl UmpireAction {
         a
     }
 
+
+    /// All actions possible in general---not specific to any particular game state
+    /// TODO: Make this an array?
     // UnitType::Infantry,    0
     // UnitType::Armor,       1
     // UnitType::Fighter,     2
@@ -157,7 +163,7 @@ impl UmpireAction {
     // Direction::DownRight,  17
     // SkipNextTurn           18
     pub fn possible_actions() -> Vec<Self> {
-        let mut a = Vec::new();
+        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS);
         for unit_type in UnitType::values().iter().cloned() {
             a.push(UmpireAction::SetNextCityProduction{unit_type});
         }
@@ -836,6 +842,7 @@ fn agent(deep: bool, avoid_skip: bool) -> Result<Agent,String> {
 
     let fa_ai = if deep {
         let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
+        // let fa = DNN::load(Path::new("ai/simple_graph"))?;
         AI::DNN(fa)
     } else {
         // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();

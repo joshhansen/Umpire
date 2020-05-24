@@ -101,6 +101,7 @@ use self::move_::{
     MoveError,
     MoveResult,
 };
+use ai::UmpireAction;
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
@@ -1489,7 +1490,6 @@ impl Game {
         x.push(self.current_player_city_count() as fX);
 
         // - number of tiles observed
-
         let num_observed: fX = self.current_player_observations().num_observed() as fX;
         
         x.push(num_observed);
