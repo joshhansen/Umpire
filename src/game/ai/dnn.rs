@@ -43,7 +43,8 @@ use tch::{
 use crate::{
     game::{
         Game,
-        ai::UmpireAction, fX,
+        ai::UmpireAction,
+        fX,
     },
 };
 
@@ -119,16 +120,13 @@ impl StateActionFunction<Game, usize> for DNN {
 
         let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
 
-
-        result_tensor.double_value(&[0])
+        result_tensor.double_value(&[*action as i64])
 
     }
 
-    fn update_by_error(&mut self, state: &Game, action: &usize, error: Self::Output) {
-        unimplemented!()
-    }
-
-    fn update(&mut self, state: &Game, action: &usize, value: Self::Output, estimate: Self::Output, learning_rate: Self::Output) {
+    fn update_with_error(&mut self, state: &Game, action: &usize, value: Self::Output, estimate: Self::Output,
+            error: Self::Output, raw_error: Self::Output, learning_rate: Self::Output) {
+    
         let features = self.tensor_for(state);
 
         let actual_estimate: Tensor = self.forward_t(&features, true);
@@ -138,31 +136,6 @@ impl StateActionFunction<Game, usize> for DNN {
         self.optimizer.backward_step(&loss);
 
     }
-
-    // fn update_by_error(&mut self, state: &Game, action: &usize, error: Self::Output) {
-        
-    // }
-
-    
-
-
-    // error = actual - estimate
-    // fn update(&mut self, state: &Game, action: &usize, error: Self::Output) {
-
-    //     // The estimate of the action value the model currently generates
-        
-    //     let features = self.tensor_for(state);
-
-    //     let action_value_hat: Tensor = self.forward_t(&features, true);
-
-    //     // Use that estimate and the reported error to reconstruct what the "actual" action value was
-    //     let action_value = action_value_hat + error;
-
-        
-
-    // }
-
-    
 }
 
 struct TensorAndScalar(pub Tensor, pub f64);
@@ -211,40 +184,13 @@ impl EnumerableStateActionFunction<Game> for DNN {
         }).collect()
     }
 
-    fn update_all_by_errors(&mut self, _state: &Game, _errors: Vec<f64>) {
-        unimplemented!()
-    }
+    fn update_all_with_errors(&mut self, state: &Game, values: Vec<f64>, estimates: Vec<f64>, errors: Vec<f64>,
+        raw_errors: Vec<f64>, learning_rate: f64) {
 
-    fn update_all(&mut self, state: &Game, values: Vec<f64>, estimates: Vec<f64>, learning_rate: f64) {
         for (i, value) in values.iter().enumerate() {
-            self.update(state, &i, *value, estimates[i], learning_rate);
+            self.update_with_error(state, &i, *value, estimates[i], errors[i], raw_errors[i], learning_rate);
         }
     }
-
-    
-
-    //FIXME Is this right?
-    // fn update_all(&mut self, state: &Game, errors: Vec<f64>) {
-    //     for error in errors {
-    //         for action_idx in 0..self.n_actions() {
-    //             self.update_by_error(state, &action_idx, error);
-    //         }
-    //     }
-    // }
-
-    // fn find_min(&self, state: &X) -> (usize, TensorAndScalar) {
-    //     let mut iter = self.evaluate_all(state).into_iter().enumerate();
-    //     let first = iter.next().unwrap();
-
-    //     iter.fold(first, |acc, (i, x)| if acc.1 < x { acc } else { (i, x) })
-    // }
-
-    // fn find_max(&self, state: &X) -> (usize, TensorAndScalar) {
-    //     let mut iter = self.evaluate_all(state).into_iter().enumerate();
-    //     let first = iter.next().unwrap();
-
-    //     iter.fold(first, |acc, (i, x)| if acc.1 > x { acc } else { (i, x) })
-    // }
 }
 
 impl Loadable for DNN {

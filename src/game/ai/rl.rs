@@ -1,13 +1,11 @@
 //! Reinforcement learning-based AI
 
 use std::{
-    borrow::Borrow,
     cell::RefCell,
     collections::{
         HashMap,
         HashSet,
     },
-    convert::TryFrom,
     fmt,
     fs::File,
     io::{
@@ -27,8 +25,6 @@ use crossterm::{
     execute,
     cursor::MoveTo,
 };
-
-use serde::{Deserialize,Deserializer,Serialize, Serializer};
 
 use rsrl::{
     OnlineLearner,
@@ -96,14 +92,12 @@ use rand::{
 };
 
 
-use super::{dnn::DNN, RandomAI, Loadable, Storable, AI};
+use super::{dnn::DNN, Loadable, AI};
 
 pub type Basis = Constant;
 // pub type Basis = Polynomial;
 
 pub type LFA_ = LFA<Basis,SGD,VectorFunction>;
-type FA = LFA_;
-// type FA = DNN;
 type Agent = UmpireAgent<Shared<Shared<AI>>,UmpireEpsilonGreedy<Shared<AI>>>;
 
 //FIXME Someday compute this at compile time

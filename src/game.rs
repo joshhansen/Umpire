@@ -25,10 +25,6 @@ use failure::{
     Fail,
 };
 
-use half::f16;
-
-type fX = f64;
-
 use rsrl::DerefVec;
 
 use crate::{
@@ -50,15 +46,11 @@ use crate::{
                 NoUnitsFilter,
                 ShortestPaths,
                 Source,
-                UnitAttackFilter,
                 UnitMovementFilter,
                 UnitMovementFilterXenophile,
-                bfs,
                 directions_unit_could_move_iter,
-                nearest_adjacent_unobserved_reachable_without_attacking,
                 neighbors_terrain_only,
                 neighbors_unit_could_move_to_iter,
-                shortest_paths,
             },
         },
         obs::{Obs,Observer,ObsTracker,ObsTrackerI},
@@ -119,6 +111,8 @@ const UNIT_MULTIPLIER: f64 = 10.0;
 
 /// How much is victory worth?
 const VICTORY_SCORE: f64 = 1_000_000.0;
+
+type fX = f64;
 
 /// A proposed change to the game state.
 /// 

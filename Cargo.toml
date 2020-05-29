@@ -37,8 +37,8 @@ ndarray = "0.12.1"
 pastel = "0.7.0"
 pitch_calc = "0.11.1"
 #rsrl = "0.7.1"
-#rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
-rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master_deref_vec_explicit_update", features = ["serialize"] }
+rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
+#rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master_deref_vec_explicit_update", features = ["serialize"] }
 sample = "0.10.0"
 serde = { version = "1.0.106", features = ["derive"] }
 spaces = "5.0.0"

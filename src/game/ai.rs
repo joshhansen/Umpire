@@ -319,17 +319,13 @@ impl StateActionFunction<Game, usize> for AI {
         }
     }
 
-    fn update_by_error(&mut self, state: &Game, action: &usize, error: Self::Output) {
-        unimplemented!()
-    }
+    fn update_with_error(&mut self, state: &Game, action: &usize, value: Self::Output, estimate: Self::Output,
+            error: Self::Output, raw_error: Self::Output, learning_rate: f64) {
 
-    fn update(&mut self, state: &Game, action: &usize, value: Self::Output, estimate: Self::Output, learning_rate: Self::Output) {
-        // let error = learning_rate * (value - estimate);
-        // rsrl::fa.update_by_error(state, action, error);
         match self {
             Self::Random(_) => { /* do nothing */ },
-            Self::LFA(fa) => fa.update(state, action, value, estimate, learning_rate),
-            Self::DNN(fa) => fa.update(state, action, value, estimate, learning_rate)
+            Self::LFA(fa) => fa.update_with_error(state, action, value, estimate, error, raw_error, learning_rate),
+            Self::DNN(fa) => fa.update_with_error(state, action, value, estimate, error, raw_error, learning_rate)
         }
     }
 }
@@ -344,13 +340,11 @@ impl EnumerableStateActionFunction<Game> for AI {
         .collect()
     }
 
-    fn update_all_by_errors(&mut self, state: &Game, errors: Vec<f64>) {
-        unimplemented!()
-    }
+    fn update_all_with_errors(&mut self, state: &Game, values: Vec<f64>, estimates: Vec<f64>, errors: Vec<f64>,
+            raw_errors: Vec<f64>, learning_rate: f64) {
 
-    fn update_all(&mut self, state: &Game, values: Vec<f64>, estimates: Vec<f64>, learning_rate: f64) {
         for (i, value) in values.iter().enumerate() {
-            self.update(state, &i, *value, estimates[i], learning_rate);
+            self.update_with_error(state, &i, *value, estimates[i], errors[i], raw_errors[i], learning_rate);
         }
     }
 }
