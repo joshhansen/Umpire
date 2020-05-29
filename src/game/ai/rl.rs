@@ -838,8 +838,11 @@ fn agent(deep: bool, avoid_skip: bool) -> Result<Agent,String> {
     // let q_func = make_shared(fa_ai);
 
     let fa_ai = if deep {
-        let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
+        // let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
         // let fa = DNN::load(Path::new("ai/simple_graph"))?;
+        // AI::DNN(fa)
+
+        let fa = DNN::new()?;
         AI::DNN(fa)
     } else {
         // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();

@@ -80,21 +80,29 @@ pub struct DNN {
     vars: nn::VarStore,
     dense0: nn::Linear,
     dense1: nn::Linear,
-    dense2: nn::Linear,
+    // dense2: nn::Linear,
     optimizer: Optimizer<nn::Adam>,
 }
 
 impl DNN {
     fn tensor_for(&self, state: &Game) -> Tensor {
-        let x = state.features();
-        Tensor::try_from(x).unwrap()
+        let x: Vec<f32> = state.features().iter().map(|x| *x as f32).collect();
+        Tensor::try_from(x).unwrap().to_device(Device::cuda_if_available())
     }
 
-    fn new(vars: nn::VarStore) -> Result<Self,String> {
+    pub fn new() -> Result<Self,String> {
+        let device = Device::cuda_if_available();
+        println!("Device: {:?}", device);
+        let vars = nn::VarStore::new(device);
+        Self::with_varstore(vars)
+    }
+
+    fn with_varstore(vars: nn::VarStore) -> Result<Self,String> {
         let path = vars.root();
-        let dense0 = nn::linear(&path, FEATS_LEN, 512, Default::default());
-        let dense1 = nn::linear(&path, 512, 256, Default::default());
-        let dense2 = nn::linear(&path, 256, POSSIBLE_ACTIONS as i64, Default::default());
+        let dense0 = nn::linear(&path, FEATS_LEN, 128, Default::default());
+        // let dense1 = nn::linear(&path, 512, 256, Default::default());
+        let dense1 = nn::linear(&path, 128, POSSIBLE_ACTIONS as i64, Default::default());
+        // let dense2 = nn::linear(&path, 256, POSSIBLE_ACTIONS as i64, Default::default());
 
         let optimizer = nn::Adam::default().build(&vars, LEARNING_RATE)
             .map_err(|err| err.to_string())
@@ -104,7 +112,7 @@ impl DNN {
             vars,
             dense0,
             dense1,
-            dense2,
+            // dense2,
             optimizer,
         })
     }
@@ -129,9 +137,13 @@ impl StateActionFunction<Game, usize> for DNN {
     
         let features = self.tensor_for(state);
 
-        let actual_estimate: Tensor = self.forward_t(&features, true);
+        let actual_estimate: Tensor = self.forward_t(&features, true).slice(0, *action as i64, *action as i64+1, 1);
 
         let loss: Tensor = (value - actual_estimate).pow(2.0f64);// we're doing mean squared error
+
+        // println!("Requires grad: {}", loss.requires_grad());
+        // println!("Dims: {}", loss.dim());
+        // println!("Shape: {:?}", loss.size());
 
         self.optimizer.backward_step(&loss);
 
@@ -209,7 +221,7 @@ impl Loadable for DNN {
 
         // let path = vars.root();
 
-        Self::new(vars)
+        Self::with_varstore(vars)
     }
 }
 
@@ -245,9 +257,9 @@ impl nn::ModuleT for DNN {
             .apply(&self.dense1)
             .relu()
             .dropout_(0.1, train)
-            .apply(&self.dense2)
-            .relu()
-            .dropout_(0.1, train)
+            // .apply(&self.dense2)
+            // .relu()
+            // .dropout_(0.1, train)
     }
 }
 
