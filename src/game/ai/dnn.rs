@@ -1,20 +1,18 @@
-use std::{fmt, path::Path};
-
-
-use tensorflow::{
-    Code,
-    Graph,
-    ImportGraphDefOptions,
-    Output,
-    Operation,
-    SavedModelBuilder,
-    Scope,
-    Session,
-    SessionOptions,
-    SessionRunArgs,
-    Status,
-    Tensor, SavedModelBundle,
+use std::{
+    cmp::{
+        Ordering,
+        PartialEq,
+        PartialOrd,
+    },
+    convert::TryFrom,
+    fmt,
+    ops::{
+        Mul,
+        Sub,
+    },
+    path::Path
 };
+
 
 use rsrl::{
     fa::{
@@ -31,6 +29,17 @@ use serde::{
     de::{self,Visitor},
 };
 
+use tch::{
+    Device,
+    nn::{
+        self,
+        ModuleT,
+        Optimizer,
+        OptimizerConfig,
+    },
+    Tensor,
+};
+
 use crate::{
     game::{
         Game,
@@ -41,7 +50,15 @@ use crate::{
 use super::{Storable, Loadable, rl::POSSIBLE_ACTIONS};
 
 const ITS: usize = 1000;
+const LEARNING_RATE: f64 = 1e-4;
 static TAG: &'static str = "serve";
+
+const WIDE_LEN: i64 = 14;
+const DEEP_WIDTH: i64 = 11;
+const DEEP_HEIGHT: i64 = 11;
+const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
+const DEEP_FEATS: i64 = 3;
+const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
@@ -58,94 +75,37 @@ impl<'de> Visitor<'de> for BytesVisitor {
 
 #[derive(Debug)]
 pub struct DNN {
-    // Namespacey container for everything
-    scope: Scope,
-
-    session: Session,
-
-    // The inputs
-    // features_1d: Operation,
-    // is_enemy_belligerent: Operation,
-    // is_observed: Operation,
-    // is_neutral: Operation,
-
-    /// The true value of each action (the discounted estimate, anyway)
-    // action_values: Operation,
-    // action_values: Vec<Output>,
-
-    // /// The predicted value of each action
-    // action_values_hat: Operation,
-
-    // // Operations
-    // action_train_ops: Vec<Operation>,
-
-    // optimizer_vars: Vec<Variable>,
-    // optimizer_ops: Vec<Operation>,
-    // op_evaluate_all_actions: Operation,
-    op_train_action: Operation,
+    // path: nn::Path<'a>,
+    vars: nn::VarStore,
+    dense0: nn::Linear,
+    dense1: nn::Linear,
+    dense2: nn::Linear,
+    optimizer: Optimizer<nn::Adam>,
 }
 
 impl DNN {
-    fn tensors_for(&self, state: &Game) -> (Tensor<fX>,Tensor<fX>,Tensor<fX>,Tensor<fX>) {
+    fn tensor_for(&self, state: &Game) -> Tensor {
         let x = state.features();
+        Tensor::try_from(x).unwrap()
+    }
 
-        // //FIXME Splitting the input vector is something Keras should be doing but isn't quite ready to yet
-        // eprintln!("features_1d num outputs: {}", self.features_1d.num_outputs());
-        // eprintln!("features_1d num inputs: {}", self.features_1d.num_inputs());
-        // eprintln!("features_1d num control outputs: {}", self.features_1d.num_control_inputs());
-        // eprintln!("features_1d num control inputs: {}", self.features_1d.num_control_inputs());
-        // eprintln!("features_1d op type: {}", self.features_1d.op_type().unwrap());
+    fn new(vars: nn::VarStore) -> Result<Self,String> {
+        let path = vars.root();
+        let dense0 = nn::linear(&path, FEATS_LEN, 512, Default::default());
+        let dense1 = nn::linear(&path, 512, 256, Default::default());
+        let dense2 = nn::linear(&path, 256, POSSIBLE_ACTIONS as i64, Default::default());
 
+        let optimizer = nn::Adam::default().build(&vars, LEARNING_RATE)
+            .map_err(|err| err.to_string())
+        ?;
 
-        // eprintln!("features_1d num inputs: {}", self.features_1d.input_list_length(arg_name));
-
-        // let sub_op = self.features_1d.input(1).0;
-        // eprintln!("sub_op outputs: {}", sub_op.num_outputs());
-        // eprintln!("sub_op inputs: {}", sub_op.num_inputs());
-
-        let features_1d = Tensor::new(&[1_u64, 14_u64])
-                                                        .with_values(&x[0..14])
-                                                        .unwrap();
-                                                        // .map_err(|err| LinearError{
-                                                        //     kind: ErrorKind::Optimisation,
-                                                        //     message: format!("Error training DNN: {}", err)
-                                                        // })?;
-        
-        let mut base: usize = features_1d.dims()[0] as usize;
-
-        let is_enemy_belligerent = Tensor::new(&[1_u64, 121_u64])
-                                                        .with_values(&x[base..(base+121)])
-                                                        .unwrap();
-                                                        // .map_err(|err| LinearError{
-                                                        //     kind: ErrorKind::Optimisation,
-                                                        //     message: format!("Error training DNN: {}", err)
-                                                        // })?;
-
-        base += 121;
-
-        let is_observed = Tensor::new(&[1_u64, 121_u64])
-                                                        .with_values(&x[base..(base+121)])
-                                                        .unwrap();
-                                                        // .map_err(|err| LinearError{
-                                                        //     kind: ErrorKind::Optimisation,
-                                                        //     message: format!("Error training DNN: {}", err)
-                                                        // })?;
-
-        base += 121;
-
-
-        let is_neutral = Tensor::new(&[1_u64, 121_u64])
-                                                        .with_values(&x[base..(base+121)])
-                                                        .unwrap();
-                                                        // .map_err(|err| LinearError{
-                                                        //     kind: ErrorKind::Optimisation,
-                                                        //     message: format!("Error training DNN: {}", err)
-                                                        // })?;
-
-        // train_step.add_target(&op_train);
-
-        
-        (features_1d, is_enemy_belligerent, is_observed, is_neutral)
+        Ok(Self {
+            vars,
+            dense0,
+            dense1,
+            dense2,
+            optimizer,
+        })
     }
 }
 
@@ -155,87 +115,92 @@ impl StateActionFunction<Game, usize> for DNN {
 
     fn evaluate(&self, state: &Game, action: &usize) -> Self::Output {
         
-        let (features_1d, is_enemy_belligerent, is_observed, is_neutral) = self.tensors_for(state);
+        let features = self.tensor_for(state);
 
-        let mut output_step = SessionRunArgs::new();
-
-        // output_step.add_feed(&self.features_1d, 0, &features_1d);
-        // output_step.add_feed(&self.is_enemy_belligerent, 0, &is_enemy_belligerent);
-        // output_step.add_feed(&self.is_observed, 0, &is_observed);
-        // output_step.add_feed(&self.is_neutral, 0, &is_neutral);
+        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
 
 
-        // let output = &self.action_values[*action];
-        // let op = &output.operation;
+        result_tensor.double_value(&[0])
 
-        // let regressand_idx = output_step.request_fetch(&op, *action as i32);
-
-        // self.session.run(&mut output_step)
-        //             .unwrap();
-        //             // .map_err(|err| LinearError{kind: ErrorKind::Evaluation, message: format!("Error evaluating DNN: {}", err)})
-        
-        // // ?;
-
-        // let result = output_step.fetch(regressand_idx)
-        //             // .map_err(|err| LinearError{kind: ErrorKind::Evaluation, message: format!("Error evaluating DNN: {}", err)})
-        //             .unwrap().get(&[0, 0]);
-        // ?[0];
-
-        // result
-
-        std::f64::NAN
     }
 
-    fn update(&mut self, state: &Game, action: &usize, error: Self::Output) {
+    fn update_by_error(&mut self, state: &Game, action: &usize, error: Self::Output) {
+        unimplemented!()
+    }
 
-        // The estimate of the action value the model currently generates
-        let action_value_hat = self.evaluate(state, action);
+    fn update(&mut self, state: &Game, action: &usize, value: Self::Output, estimate: Self::Output, learning_rate: Self::Output) {
+        let features = self.tensor_for(state);
 
-        // Use that estimate and the reported error to reconstruct what the "actual" action value was
-        let action_value = action_value_hat + error;
+        let actual_estimate: Tensor = self.forward_t(&features, true);
+
+        let loss: Tensor = (value - actual_estimate).pow(2.0f64);// we're doing mean squared error
+
+        self.optimizer.backward_step(&loss);
+
+    }
+
+    // fn update_by_error(&mut self, state: &Game, action: &usize, error: Self::Output) {
+        
+    // }
+
+    
 
 
-        let (features_1d, is_enemy_belligerent, is_observed, is_neutral) = self.tensors_for(state);
+    // error = actual - estimate
+    // fn update(&mut self, state: &Game, action: &usize, error: Self::Output) {
 
-        // train_step.add_target(&op_train);
+    //     // The estimate of the action value the model currently generates
+        
+    //     let features = self.tensor_for(state);
 
-        let action_value_tensor: Tensor<f64> = Tensor::new(&[1_u64])
-                                                        .with_values(&[action_value])
-                                                        .unwrap();
+    //     let action_value_hat: Tensor = self.forward_t(&features, true);
 
+    //     // Use that estimate and the reported error to reconstruct what the "actual" action value was
+    //     let action_value = action_value_hat + error;
 
-        let mut train_step = SessionRunArgs::new();
-
-        // Set inputs
-        // train_step.add_feed(&self.features_1d, 0, &features_1d);
-        // train_step.add_feed(&self.is_enemy_belligerent, 0, &is_enemy_belligerent);
-        // train_step.add_feed(&self.is_observed, 0, &is_observed);
-        // train_step.add_feed(&self.is_neutral, 0, &is_neutral);
-
-        // Set the correct output
-        // train_step.add_feed(&self.action_values, *action as i32, &action_value_tensor);
         
 
-        // let regressand_op = self.action_train_ops.get(*action).unwrap();
+    // }
 
-        // train_step.add_target(&regressand_op);
+    
+}
 
-        //FIXME
-        // train_step.add_target(&self.train);
+struct TensorAndScalar(pub Tensor, pub f64);
 
-
-
-
-        for _ in 0..ITS {
-            self.session.run(&mut train_step)
-                        .unwrap();
-                //    .map_err(|err| LinearError{kind: ErrorKind::Optimisation, message: format!("Error training DNN: {}", err)})?;
-        }
+impl Mul for TensorAndScalar {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self(
+            self.0 * rhs.0,
+            self.1 * rhs.1
+        )
     }
 }
 
+impl Sub for TensorAndScalar {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(
+            self.0 - rhs.0,
+            self.1 - rhs.1
+        )
+    }
+}
+
+impl PartialEq for TensorAndScalar {
+    fn eq(&self, other: &Self) -> bool {
+        self.1 == other.1
+    }
+}
+
+impl PartialOrd for TensorAndScalar {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.1.partial_cmp(&other.1)
+    }
+}
 
 impl EnumerableStateActionFunction<Game> for DNN {
+
     fn n_actions(&self) -> usize {
         UmpireAction::possible_actions().len()
     }
@@ -246,222 +211,117 @@ impl EnumerableStateActionFunction<Game> for DNN {
         }).collect()
     }
 
-    //FIXME Is this right?
-    fn update_all(&mut self, state: &Game, errors: Vec<f64>) {
-        for error in errors {
-            for action_idx in 0..self.n_actions() {
-                self.update(state, &action_idx, error);
-            }
+    fn update_all_by_errors(&mut self, _state: &Game, _errors: Vec<f64>) {
+        unimplemented!()
+    }
+
+    fn update_all(&mut self, state: &Game, values: Vec<f64>, estimates: Vec<f64>, learning_rate: f64) {
+        for (i, value) in values.iter().enumerate() {
+            self.update(state, &i, *value, estimates[i], learning_rate);
         }
     }
+
+    
+
+    //FIXME Is this right?
+    // fn update_all(&mut self, state: &Game, errors: Vec<f64>) {
+    //     for error in errors {
+    //         for action_idx in 0..self.n_actions() {
+    //             self.update_by_error(state, &action_idx, error);
+    //         }
+    //     }
+    // }
+
+    // fn find_min(&self, state: &X) -> (usize, TensorAndScalar) {
+    //     let mut iter = self.evaluate_all(state).into_iter().enumerate();
+    //     let first = iter.next().unwrap();
+
+    //     iter.fold(first, |acc, (i, x)| if acc.1 < x { acc } else { (i, x) })
+    // }
+
+    // fn find_max(&self, state: &X) -> (usize, TensorAndScalar) {
+    //     let mut iter = self.evaluate_all(state).into_iter().enumerate();
+    //     let first = iter.next().unwrap();
+
+    //     iter.fold(first, |acc, (i, x)| if acc.1 > x { acc } else { (i, x) })
+    // }
 }
 
 impl Loadable for DNN {
-    fn load(path: &Path) -> Result<Self,String> {
+    fn load<P: AsRef<Path>>(path: P) -> Result<Self,String> {
+        let path = path.as_ref();
         if !path.exists() {
             return Err(format!("Can't load DNN from path '{:?}' because it doesn't exist", path));
         }
 
+        let device = Device::cuda_if_available();
+
+        let mut vars = nn::VarStore::new(device);
+
+        vars.load(path)
+            .map_err(|err| err.to_string())?;
+
+        // let path = vars.root();
+
+        Self::new(vars)
+    }
+}
+
+impl nn::ModuleT for DNN {
+    fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
+        // let split: Vec<Tensor> = xs.split_with_sizes(&[14, 121, 121, 121], 1);
+
+        // // Wide features
+        // let wide = split[0];
+
+        // // Deep features
+        // let is_enemy_belligerent = split[1].view([-1, 11, 11, 1]);
+        // let is_observed = split[2].view([-1, 11, 11, 1]);
+        // let is_neutral = split[3].view([-1, 11, 11, 1]);
+
         
 
-        // Load the saved model exported by regression_savedmodel.py.
-        let mut scope = Scope::new_root_scope();
-        let (
-            bundle,
-            // features_1d,
-            // is_enemy_belligerent,
-            // is_observed,
-            // is_neutral,
-            // action_values,
-            // action_values_hat,
-            // action_train_ops
-            // optimizer_ops,
-            // optimizer_vars,
+        // xs.view([-1, 1, 28, 28])
+        //     .apply(&self.conv1)
+        //     .max_pool2d_default(2)
+        //     .apply(&self.conv2)
+        //     .max_pool2d_default(2)
+        //     .view([-1, 1024])
+        //     .apply(&self.fc1)
+        //     .relu()
+        //     .dropout_(0.5, train)
+        //     .apply(&self.fc2)
 
-            // op_evaluate_all_actions,
-            op_train_action,
-        ) = {
-            let mut graph = scope.graph_mut();
-            let bundle = SavedModelBundle::load(
-            // let session = Session::from_saved_model(
-                &SessionOptions::new(),
-                // &["train", "serve"],
-                &[TAG],
-                &mut graph,
-                path,
-            )
-            .map_err(|err| {
-                format!("Error loading saved model bundle from {}: {}", path.to_string_lossy(), err)
-            })?;
-
-            println!("===== Signatures =====");
-
-            for (k,v) in bundle.meta_graph_def().signatures().iter() {
-                println!("{:?} -> {:?}", k, v);
-            }
-
-            let functions = graph.get_functions().map_err(|err| {
-                format!("Error getting functions from graph: {}", err)
-            })?;
-
-            println!("===== Functions =====");
-
-            // for f in functions {
-            //     println!("{:?}", f.get_name().unwrap());
-
-            //     if f.get_name().starts_with("__inference_fit_action_") {
-                    
-            //     }
-            // }
-
-            let f_fit_action = functions.iter().find(|f| {
-                f.get_name().unwrap().starts_with("__inference_fit_action")
-            }).unwrap();
-
-
-
-            // let op_features_1d = graph.operation_by_name_required("serving_default_1d_features")
-            // .map_err(|err| format!("Error getting 1d_features: {}", err))?;
-
-            // let op_is_enemy_belligerent = graph.operation_by_name_required("serving_default_is_enemy_belligerent")
-            // .map_err(|err| format!("Error getting is_enemy_belligerent: {}", err))?;
-
-            // let op_is_observed = graph.operation_by_name_required("serving_default_is_observed")
-            // .map_err(|err| format!("Error getting is_observed: {}", err))?;
-
-            // let op_is_neutral = graph.operation_by_name_required("serving_default_is_neutral")
-            // .map_err(|err| format!("Error getting is_neutral: {}", err))?;
-
-            // let features_1d = Output {
-            //     operation: op_features_1d,
-            //     index: 0,
-            // };
-
-            // let is_enemy_belligerent = Output {
-            //     operation: op_is_enemy_belligerent,
-            //     index: 0,
-            // };
-
-            // let is_observed = Output {
-            //     operation: op_is_observed,
-            //     index: 0,
-            // };
-
-            // let is_neutral = Output {
-            //     operation: op_is_neutral,
-            //     index: 0,
-            // };
-
-
-
-            // let op_evaluate_all_desc = graph.new_operation("evaluate_all_actions", "evaluate_all")
-            //     .map_err(|err| format!("Error getting operation for function evalute_all_actions: {}", err))?;
-
-            // let op_evaluate_all = op_evaluate_all_desc.finish()
-            //     .map_err(|status| format!("Error finishing operation evaluate_all: {}", status))?;
-            // {
-            // let op_init = graph.new_operation("__saved_model_init_op", "init_op").unwrap().finish().unwrap();
-            // }
-
-            // let op_fit_action_type = "fit_action";
-            let op_fit_action_type = f_fit_action.get_name().unwrap();
-            let op_fit_action_desc = graph.new_operation(op_fit_action_type.as_str(), "fit_action_op")
-                .map_err(|err| format!("Error getting operation for function fit_action: {}", err))?;
-
-            let op_fit_action = op_fit_action_desc.finish()
-                .map_err(|status| format!("Error finishing operation fit_action: {}", status))?;
-
-
-            // let action_values = graph.operation_by_name_required("StatefulPartitionedCall")
-            // .map_err(|err| format!("Error getting action_values (StatefulPartitionedCall): {}", err))?;
-
-            // let optimizer = GradientDescentOptimizer::new(LEARNING_RATE);
-
-            // let mut action_values: Vec<Output> = Vec::with_capacity(POSSIBLE_ACTIONS);
-            // // let mut optimizer_ops: Vec<Operation> = Vec::with_capacity(POSSIBLE_ACTIONS);
-            // // let mut optimizer_vars: Vec<Vec<Variable>> = Vec::with_capacity(POSSIBLE_ACTIONS);
-            // for action_idx in 0..POSSIBLE_ACTIONS {
-            //     // let op = graph.operation_by_name_required(format!("action_value{}", action_idx).as_str())
-            //     let op = graph.operation_by_name_required(format!("StatefulPartitionedCall").as_str())
-            //     .map_err(|err| format!("Error getting action_value{}: {}", action_idx, err))?;
-
-            //     eprintln!("StatefulPartitionedCall inputs: {}", op.num_inputs());
-            //     eprintln!("StatefulPartitionedCall outputs: {}", op.num_outputs());
-
-            //     let output = Output {
-            //         operation: op,
-            //         index: action_idx as i32,
-            //     };
-            //     action_values.push(output);
-
-            //     // optimizer.minimize(&mut scope, output, )
-            // }
-
-
-            // let mut action_values = (0..POSSIBLE_ACTIONS).map(|action_idx| {
-            //     let op = graph.operation_by_name_required(format!("action_value{}", action_idx).as_str())
-            // }).collect();
-
-
-            // eprintln!("Action values found: {}", action_values.num_outputs());
-
-            // let action_values_hat = graph.operation_by_name_required("action_values_hat")
-            // .map_err(|err| format!("Error getting action_values_hat: {}", err))?;
-
-            // let action_train_ops = UmpireAction::possible_actions().iter().enumerate().map(|(i,action)| {
-            //     graph.operation_by_name_required(format!("train_action_{}", i).as_str()).unwrap()
-            // }).collect();
-
-            (
-                bundle,
-                // op_evaluate_all,
-                op_fit_action,
-                // features_1d,
-                // is_enemy_belligerent,
-                // is_observed,
-                // is_neutral,
-                // action_values,
-                // action_values_hat,
-                // action_train_ops
-                // optimizer_vars,
-                // optimizer_ops,
-            )
-        };
-
-
-
-        let session = bundle.session;
-        Ok(Self {
-            scope,
-            session,
-            // features_1d,
-            // is_enemy_belligerent,
-            // is_observed,
-            // is_neutral,
-            // action_values,
-            // action_values_hat,
-            // action_train_ops,
-            // optimizer_vars,
-            // optimizer_ops,
-            // op_evaluate_all_actions,
-            op_train_action,
-        })
+        xs
+            .apply(&self.dense0)
+            .relu()
+            .dropout_(0.1, train)
+            .apply(&self.dense1)
+            .relu()
+            .dropout_(0.1, train)
+            .apply(&self.dense2)
+            .relu()
+            .dropout_(0.1, train)
     }
 }
 
 impl Storable for DNN {
     fn store(mut self, path: &Path) -> Result<(),String> {
-        let mut builder = SavedModelBuilder::new();
-        builder.add_tag(TAG);
+        self.vars.save(path)
+            .map_err(|err| err.to_string())
+        // let mut builder = SavedModelBuilder::new();
+        // builder.add_tag(TAG);
 
-        let saver = builder.inject(&mut self.scope)
-               .map_err(|status| {
-                   format!("Error injecting scope into saved model builder, status {}", status)
-               })?;
+        // let saver = builder.inject(&mut self.scope)
+        //        .map_err(|status| {
+        //            format!("Error injecting scope into saved model builder, status {}", status)
+        //        })?;
 
-        let graph = self.scope.graph();
+        // let graph = self.scope.graph();
 
-        saver.save(&self.session, &(*graph), path)
-             .map_err(|err| format!("Error saving DNN: {}", err))
+        // saver.save(&self.session, &(*graph), path)
+        //      .map_err(|err| format!("Error saving DNN: {}", err))
+
+
     }
 }

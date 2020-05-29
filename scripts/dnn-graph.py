@@ -24,8 +24,6 @@ class TrainableAI(tf.Module):
         self.model = keras_model
         self.mse = tf.keras.losses.MeanSquaredError()
         self.optimizer = Adam()
-
-        # print(type(self.model))
         super().__init__(*args, **kwargs)
         
 

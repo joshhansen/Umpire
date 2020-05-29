@@ -30,7 +30,7 @@ use rsrl::fa::{
 };
 
 pub trait Loadable: Sized {
-    fn load(path: &Path) ->  Result<Self,String>;
+    fn load<P: AsRef<Path>>(path: P) ->  Result<Self,String>;
 }
 
 pub trait Storable {
@@ -319,11 +319,17 @@ impl StateActionFunction<Game, usize> for AI {
         }
     }
 
-    fn update(&mut self, state: &Game, action: &usize, error: Self::Output) {
+    fn update_by_error(&mut self, state: &Game, action: &usize, error: Self::Output) {
+        unimplemented!()
+    }
+
+    fn update(&mut self, state: &Game, action: &usize, value: Self::Output, estimate: Self::Output, learning_rate: Self::Output) {
+        // let error = learning_rate * (value - estimate);
+        // rsrl::fa.update_by_error(state, action, error);
         match self {
             Self::Random(_) => { /* do nothing */ },
-            Self::LFA(fa) => fa.update(state, action, error),
-            Self::DNN(fa) => fa.update(state, action, error),
+            Self::LFA(fa) => fa.update(state, action, value, estimate, learning_rate),
+            Self::DNN(fa) => fa.update(state, action, value, estimate, learning_rate)
         }
     }
 }
@@ -338,9 +344,13 @@ impl EnumerableStateActionFunction<Game> for AI {
         .collect()
     }
 
-    fn update_all(&mut self, state: &Game, errors: Vec<f64>) {
-        for (action, error) in errors.iter().enumerate() {
-            self.update(state, &action, *error);
+    fn update_all_by_errors(&mut self, state: &Game, errors: Vec<f64>) {
+        unimplemented!()
+    }
+
+    fn update_all(&mut self, state: &Game, values: Vec<f64>, estimates: Vec<f64>, learning_rate: f64) {
+        for (i, value) in values.iter().enumerate() {
+            self.update(state, &i, *value, estimates[i], learning_rate);
         }
     }
 }
@@ -365,12 +375,12 @@ impl From<AISpec> for AI {
 }
 
 impl Loadable for AI {
-    fn load(path: &Path) ->  Result<Self,String> {
-        if !path.exists() {
-            return Err(format!("Could not load FunctionApproximator from path '{:?}' because it doesn't exist", path));
+    fn load<P: AsRef<Path>>(path: P) ->  Result<Self,String> {
+        if !path.as_ref().exists() {
+            return Err(format!("Could not load FunctionApproximator from path '{:?}' because it doesn't exist", path.as_ref()));
         }
 
-        if path.is_file() {
+        if path.as_ref().is_file() {
             let f = File::open(path).unwrap();//NOTE unwrap on file open
             let result: Result<LFA_,String> = bincode::deserialize_from(f)
                                                    .map_err(|err| format!("{}", err));

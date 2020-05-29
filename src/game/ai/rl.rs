@@ -14,6 +14,10 @@ use std::{
         stdout,
         Write,
     },
+    ops::{
+        Mul,
+        Sub,
+    },
     rc::Rc,
     sync::Arc,
     path::Path,
@@ -36,7 +40,13 @@ use rsrl::{
         Controller,
         td::QLearning,
     },
-    domains::Domain,
+    domains::{
+        Action,
+        Domain,
+        Observation,
+        State,
+        Transition,
+    },
     fa::{
         EnumerableStateActionFunction,
         linear::{
@@ -83,13 +93,6 @@ use rand::{
     Rng,
     seq::SliceRandom,
     thread_rng,
-};
-
-use rsrl_domains::{
-    Action,
-    Observation,
-    State,
-    Transition,
 };
 
 
@@ -1052,9 +1055,8 @@ mod test {
 
     use rsrl::{
         control::Controller,
+        domains::Domain,
     };
-
-    use rsrl_domains::Domain;
 
     use crate::{
         game::{
