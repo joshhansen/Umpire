@@ -87,13 +87,15 @@ pub use self::player::{
     PlayerType,
 };
 
-use self::move_::{
-    Move,
-    MoveComponent,
-    MoveError,
-    MoveResult,
+use self::{
+    ai::dnn::FEATS_LEN,
+    move_::{
+        Move,
+        MoveComponent,
+        MoveError,
+        MoveResult,
+    }
 };
-use ai::UmpireAction;
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
@@ -1472,7 +1474,7 @@ impl Game {
         // 
 
         // We also add a context around the currently active unit (if any)
-        let mut x = Vec::with_capacity(7776);
+        let mut x = Vec::with_capacity(FEATS_LEN as usize);
 
         // General statistics
 

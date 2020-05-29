@@ -59,7 +59,7 @@ const DEEP_WIDTH: i64 = 11;
 const DEEP_HEIGHT: i64 = 11;
 const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
 const DEEP_FEATS: i64 = 3;
-const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
+pub(crate) const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
