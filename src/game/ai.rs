@@ -371,16 +371,16 @@ impl From<AISpec> for AI {
 impl Loadable for AI {
     fn load<P: AsRef<Path>>(path: P) ->  Result<Self,String> {
         if !path.as_ref().exists() {
-            return Err(format!("Could not load FunctionApproximator from path '{:?}' because it doesn't exist", path.as_ref()));
+            return Err(format!("Could not load AI from path '{:?}' because it doesn't exist", path.as_ref()));
         }
 
-        if path.as_ref().is_file() {
+        if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("deep")) {
+            DNN::load(path).map(Self::DNN)
+        } else {
             let f = File::open(path).unwrap();//NOTE unwrap on file open
             let result: Result<LFA_,String> = bincode::deserialize_from(f)
                                                    .map_err(|err| format!("{}", err));
             result.map(Self::LFA)
-        } else {
-            DNN::load(path).map(Self::DNN)
         }
     }
 }
