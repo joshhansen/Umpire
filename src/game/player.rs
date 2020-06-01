@@ -308,6 +308,10 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
     }
 
+    pub fn disband_unit_by_id(&mut self, id: UnitID) -> Result<Unit,GameError> {
+        self.game.disband_unit_by_id(id)
+    }
+
     /// Sets the production of the current player's city at location `loc` to `production`.
     /// 
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.

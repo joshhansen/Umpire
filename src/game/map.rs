@@ -373,6 +373,14 @@ impl MapData {
         self.pop_toplevel_unit_by_id(id).or_else(|| self.pop_carried_unit_by_id(id))
     }
 
+    pub fn pop_player_unit_by_id(&mut self, player: PlayerNum, id: UnitID) -> Option<Unit> {
+        if self.player_unit_by_id(player, id).is_some() {
+            self.pop_unit_by_id(id)
+        } else {
+            None
+        }
+    }
+
     /// Get a mutable reference to the top-level unit at the given location, if any exists
     fn unit_by_loc_mut(&mut self, loc: Location) -> Option<&mut Unit> {
         if let Some(tile) = self.tiles.get_mut(loc) {

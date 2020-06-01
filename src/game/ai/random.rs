@@ -1,5 +1,7 @@
-use rand::seq::SliceRandom;
-
+use rand::{
+    Rng,
+    seq::SliceRandom,
+};
 
 use crate::{
     game::{
@@ -15,6 +17,8 @@ use crate::{
         Location,
     },
 };
+
+const P_DISBAND: f64 = 0.01;
 
 pub struct RandomAI {
     unit_type_vec: Vec<UnitType>,
@@ -78,8 +82,15 @@ impl LimitedTurnTaker for RandomAI {
                 possible
             );
 
-            // let possible: Vec<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().collect();
-            if let Some(dest) = possible.choose(&mut rng) {
+            let non_disband_options = possible.len() + 1;
+            let move_prob = possible.len() as f64 / non_disband_options as f64;
+            let skip_prob = (1.0f64 / non_disband_options as f64) - P_DISBAND;
+
+            let x: f64 = rng.gen();
+
+            if x <= move_prob {
+                let dest = possible.choose(&mut rng).unwrap();
+
                 // println!("dest: {:?}", dest);
                 if self.verbosity > 1 {
                     let src = game.current_player_unit_loc(unit_id).unwrap();
@@ -87,18 +98,23 @@ impl LimitedTurnTaker for RandomAI {
                 }
                 let result = game.move_unit_by_id(unit_id, *dest).unwrap();
                 if self.verbosity > 1 && !result.moved_successfully() {
-                    println!("**DESTROYED: {:?}", result);
+                    println!("Random's unit destroyed: {:?}", unit_id);
                 }
 
                 if self.verbosity > 1 {
                     println!("{:?}", game.current_player_observations());
                 }
-
-            } else {
+            } else if x <= move_prob + skip_prob {
                 if self.verbosity > 1 {
-                    println!("skip");
+                    println!("Random skipped unit: {:?}", unit_id);
                 }
                 game.order_unit_skip(unit_id).unwrap();
+            } else {
+                if self.verbosity > 1 {
+                    let loc = game.current_player_unit_loc(unit_id).unwrap();
+                    println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
+                }
+                game.disband_unit_by_id(unit_id).unwrap();
             }
         }
     }

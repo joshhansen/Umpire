@@ -62,7 +62,8 @@ impl GetUnitOrdersMode {
         ui.set_sidebar_row(8, cols("Explore:", conf::KEY_EXPLORE));
         ui.set_sidebar_row(10, cols("Skip:", key_desc(conf::KEY_SKIP)));
         ui.set_sidebar_row(12, cols("Sentry:", conf::KEY_SENTRY));
-        ui.set_sidebar_row(14, cols("Quit:", conf::KEY_QUIT));
+        ui.set_sidebar_row(14, cols("Disband:", conf::KEY_DISBAND));
+        ui.set_sidebar_row(16, cols("Quit:", conf::KEY_QUIT));
     }
 }
 impl IMode for GetUnitOrdersMode {
@@ -131,6 +132,12 @@ impl IMode for GetUnitOrdersMode {
                         } else if c == conf::KEY_SENTRY {
                             ui.log_message("Going sentry");
                             game.order_unit_sentry(self.unit_id).unwrap();
+                            *mode = Mode::GetOrders;
+                            Self::clear_buf(ui);
+                            return ModeStatus::Continue;
+                        } else if c == conf::KEY_DISBAND {
+                            let unit = game.disband_unit_by_id(self.unit_id).unwrap();
+                            ui.log_message(format!("Disbanded unit {}", unit.short_desc()));
                             *mode = Mode::GetOrders;
                             Self::clear_buf(ui);
                             return ModeStatus::Continue;

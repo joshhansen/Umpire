@@ -121,6 +121,8 @@ pub const KEY_SENTRY: char = 's';
 
 pub const KEY_SKIP: char = ' ';
 
+pub const KEY_DISBAND: char = 'd';
+
 pub const KEY_QUIT: char = 'q';
 
 pub const KEY_EXAMINE: char = 'x';

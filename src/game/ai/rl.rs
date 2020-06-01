@@ -101,12 +101,13 @@ pub type LFA_ = LFA<Basis,SGD,VectorFunction>;
 type Agent = UmpireAgent<Shared<Shared<AI>>,UmpireEpsilonGreedy<Shared<AI>>>;
 
 //FIXME Someday compute this at compile time
-pub const POSSIBLE_ACTIONS: usize = 19;
+pub const POSSIBLE_ACTIONS: usize = UnitType::values().len() + Direction::values().len() + 2;
 
 #[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
 pub enum UmpireAction {
     SetNextCityProduction{unit_type: UnitType},
     MoveNextUnit{direction: Direction},
+    DisbandNextUnit,
     SkipNextUnit,
 }
 
@@ -216,6 +217,10 @@ impl UmpireAction {
                 });
 
                 game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
+            },
+            UmpireAction::DisbandNextUnit => {
+                let unit_id = game.unit_orders_requests().next().unwrap();
+                game.disband_unit_by_id(unit_id).unwrap();
             },
             UmpireAction::SkipNextUnit => {
                 let unit_id = game.unit_orders_requests().next().unwrap();

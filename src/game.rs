@@ -1220,6 +1220,17 @@ impl Game {
         Move::new(unit, src, moves)
     }
 
+    /// Disbands
+    pub fn disband_unit_by_id(&mut self, unit_id: UnitID) -> Result<Unit,GameError> {
+        let unit = self.map.pop_player_unit_by_id(self.current_player, unit_id)
+            .ok_or(GameError::NoSuchUnit{id: unit_id})?;
+
+        // Make a fresh observation with the disbanding unit so that its absence is noted.
+        let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+        unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+        Ok(unit)
+    }
+
     /// Sets the production of the current player's city at location `loc` to `production`, returning the prior setting.
     /// 
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
@@ -1906,6 +1917,7 @@ mod test {
         game::{
             Alignment,
             Game,
+            GameError,
             map::{
                 MapData,
                 Terrain,
@@ -2670,30 +2682,72 @@ mod test {
         game.move_unit_by_id(unit_id, dest).unwrap();
     }
 
+    #[test]
+    fn test_disband_unit_by_id() {
+        {
+            let map = MapData::try_from("i").unwrap();
+            let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+            let id = UnitID::new(0);
 
-    // skip
-    // UnitID { id: 27 } (4,1) -> (3,0)
-    // ··tt#
-    // i···#
-    // ····i
-    // ·#···
-    // ·····
-    
-    // UnitID { id: 28 } (3,0) -> (2,0)
-    // thread 'game::ai::random::test::test_random_ai' panicked at 'assertion failed: `(left == right)`
-    //   left: `Err(WrongTransportMode { carried_id: UnitID { id: 26 }, carrier_transport_mode: Land, carried_transport_mode: Sea })`,
-    //  right: `Ok(())`: Error carrying unit Unit { id: UnitID { id: 26 }, loc: (3, 0), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 1, name: "unit79", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [Unit { id: UnitID { id: 27 }, loc: (3, 0), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 0, name: "unit83", orders: None, carrying_space: None }, Unit { id: UnitID { id: 28 }, loc: (3, 0), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 1, name: "unit92", orders: None, carrying_space: None }] }) } on unit Some(Unit { id: UnitID { id: 33 }, loc: (2, 0), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 2, name: "unit118", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [] }) })', src/game/map.rs:496:9
+            let unit = game.current_player_unit_by_id(id).cloned().unwrap();
 
-    // UnitID { id: 22 } (1,4) -> (2,4)
-    // #··t·
-    // ·····
-    // ·····
-    // ····#
-    // ··t··
+            assert!(game.unit_orders_requests().find(|unit_id| *unit_id == id ).is_some());
 
-    // UnitID { id: 21 } (2,4) -> (3,0)
-    // thread 'game::ai::random::test::test_random_ai' panicked at 'assertion failed: `(left == right)`
-    // left: `Err(WrongTransportMode { carried_id: UnitID { id: 18 }, carrier_transport_mode: Land, carried_transport_mode: Sea })`,
-    // right: `Ok(())`: Error carrying unit Unit { id: UnitID { id: 18 }, loc: (2, 4), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 1, name: "unit53", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [Unit { id: UnitID { id: 16 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 0, name: "unit41", orders: None, carrying_space: None }, Unit { id: UnitID { id: 22 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 0, name: "unit77", orders: None, carrying_space: None }, Unit { id: UnitID { id: 21 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 1, name: "unit70", orders: None, carrying_space: None }, Unit { id: UnitID { id: 24 }, loc: (2, 4), type_: Infantry, alignment: Belligerent { player: 0 }, hp: 1, max_hp: 1, moves_remaining: 1, name: "unit82", orders: None, carrying_space: None }] }) } on unit Some(Unit { id: UnitID { id: 25 }, loc: (3, 0), type_: Transport, alignment: Belligerent { player: 0 }, hp: 3, max_hp: 3, moves_remaining: 2, name: "unit83", orders: Some(Skip), carrying_space: Some(CarryingSpace { owner: Belligerent { player: 0 }, accepted_transport_mode: Land, capacity: 4, space: [] }) })', src/game/map.rs:496:9
+            assert_eq!(game.disband_unit_by_id(id), Ok(unit));
 
+            let id2 = UnitID::new(1);
+
+            assert_eq!(game.disband_unit_by_id(id2), Err(GameError::NoSuchUnit{id:id2}));
+
+            assert!(game.unit_orders_requests().find(|unit_id| *unit_id == id ).is_none());
+        }
+
+        {
+            let map2 = MapData::try_from("it ").unwrap();
+            let infantry_id = map2.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
+            let transport_id = map2.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
+
+            let mut game2 = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
+
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_some());
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_some());
+
+            game2.move_unit_by_id_in_direction(infantry_id, Direction::Right).unwrap();
+
+            game2.force_end_turn();
+
+            let infantry = game2.current_player_unit_by_id(infantry_id).cloned().unwrap();
+
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_some());
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_some());
+
+            assert_eq!(game2.disband_unit_by_id(infantry_id), Ok(infantry));
+
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_none());
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_some());
+
+            let transport = game2.current_player_unit_by_id(transport_id).cloned().unwrap();
+
+            assert_eq!(game2.disband_unit_by_id(transport_id), Ok(transport));
+
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_none());
+            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_none());
+        }
+
+        {
+
+            let map = MapData::try_from("ii").unwrap();
+            let a = map.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
+            let b = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
+
+            let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+
+            assert!(game.disband_unit_by_id(a).is_ok());
+
+            assert!(game.current_player_unit_by_id(a).is_none());
+
+            assert!(game.move_unit_by_id_in_direction(b, Direction::Left).is_ok());
+
+        }
+    }
 }
