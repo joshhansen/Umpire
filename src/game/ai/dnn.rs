@@ -267,7 +267,7 @@ impl nn::ModuleT for DNN {
 }
 
 impl Storable for DNN {
-    fn store(mut self, path: &Path) -> Result<(),String> {
+    fn store(self, path: &Path) -> Result<(),String> {
         self.vars.save(path)
             .map_err(|err| err.to_string())
         // let mut builder = SavedModelBuilder::new();
