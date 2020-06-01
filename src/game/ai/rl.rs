@@ -375,21 +375,22 @@ impl UmpireDomain {
                 execute!(stdout(), MoveTo(0,0)).unwrap();
             }
 
-            println!("{:?}", action);
             let loc = if let Some(unit_id) = self.game.unit_orders_requests().next() {
                 self.game.current_player_unit_loc(unit_id)
             } else {
                 self.game.production_set_requests().next()
             };
 
-            println!("AI:\n{:?}", self.game.current_player_observations());
-            if let Some(loc) = loc {
-                println!("Loc: {:?}", loc);
-            }
+            println!("{:?}", self.game.current_player_observations());
             
-            println!("AI Cities: {}", self.game.current_player_cities().count());
-            println!("AI Units: {}", self.game.current_player_units().count());
-            println!("AI Score: {}", self.current_player_score());
+            if self.fix_output_loc {
+
+            }
+            println!("AI Cities: {}     ", self.game.current_player_cities().count());
+            println!("AI Units: {}     ", self.game.current_player_units().count());
+            println!("AI Score: {}     ", self.current_player_score());
+            println!("Considering move for: {}     ", loc.map_or(String::from(""), |loc| format!("{:?}", loc)));
+            println!("Action taken: {:?}                         ", action);
         }
 
         // If the user's turn is done, end it and take a complete turn for the other player until there's something
@@ -518,7 +519,7 @@ impl Domain for UmpireDomain {
         let reward = end_score - start_score;
 
         if self.verbosity > 1 {
-            println!("AI Reward: {}", reward);
+            println!("AI Reward: {}     ", reward);
         }
 
         Transition {
@@ -830,9 +831,30 @@ where
 //     }
 // }
 
-fn agent(deep: bool, avoid_skip: bool) -> Result<Agent,String> {
+fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, avoid_skip: bool) -> Result<Agent,String> {
 
     let n_actions = UmpireAction::possible_actions().len();
+
+    let q_func = match initialize_from {
+        AI::Random(_) => {
+            let fa_ai = if deep {
+                // let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
+                // let fa = DNN::load(Path::new("ai/simple_graph"))?;
+                // AI::DNN(fa)
+        
+                let fa = DNN::new()?;
+                AI::DNN(fa)
+            } else {
+                // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
+                let basis = Constant::new(5.0);
+                // let basis = Polynomial::new(2, 1);
+                let fa = LFA::vector(basis, SGD(0.001), n_actions);
+                AI::LFA(fa)
+            };
+            fa_ai
+        },
+        other => other
+    };
     
     // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
     // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
@@ -842,22 +864,22 @@ fn agent(deep: bool, avoid_skip: bool) -> Result<Agent,String> {
     // let fa_ai = AI::DNN(fa);
     // let q_func = make_shared(fa_ai);
 
-    let fa_ai = if deep {
-        // let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
-        // let fa = DNN::load(Path::new("ai/simple_graph"))?;
-        // AI::DNN(fa)
+    // let fa_ai = if deep {
+    //     // let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
+    //     // let fa = DNN::load(Path::new("ai/simple_graph"))?;
+    //     // AI::DNN(fa)
 
-        let fa = DNN::new()?;
-        AI::DNN(fa)
-    } else {
-        // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
-        let basis = Constant::new(5.0);
-        // let basis = Polynomial::new(2, 1);
-        let fa = LFA::vector(basis, SGD(0.001), n_actions);
-        AI::LFA(fa)
-    };
+    //     let fa = DNN::new()?;
+    //     AI::DNN(fa)
+    // } else {
+    //     // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
+    //     let basis = Constant::new(5.0);
+    //     // let basis = Polynomial::new(2, 1);
+    //     let fa = LFA::vector(basis, SGD(0.001), n_actions);
+    //     AI::LFA(fa)
+    // };
 
-    let q_func = make_shared(fa_ai);
+    let q_func = make_shared(q_func);
 
 
     // let policy = EpsilonGreedy::new(
@@ -872,15 +894,18 @@ fn agent(deep: bool, avoid_skip: bool) -> Result<Agent,String> {
         0.2
     );
 
-    Ok(UmpireAgent{q:QLearning::new(q_func, policy, 0.01, 0.8), avoid_skip})
+    Ok(UmpireAgent{q:QLearning::new(q_func, policy, alpha, gamma), avoid_skip})
 }
 
 pub fn trained_agent(
+    initialize_from: AI,
     deep: bool,
     opponent_specs: Vec<AISpec>,
     dims: Vec<Dims>,
     episodes: usize,
     steps: u64,
+    alpha: f64,
+    gamma: f64,
     avoid_skip: bool,
     fix_output_loc: bool,
     fog_of_war: bool,
@@ -891,7 +916,7 @@ pub fn trained_agent(
         return Err(format!("Cannot train agent against {} opponents; max is 3", opponent_specs.len()));
     }
 
-    let mut agent = agent(deep, avoid_skip)?;
+    let mut agent = agent(initialize_from, deep, alpha, gamma, avoid_skip)?;
 
     for dims in dims {
 
@@ -1089,7 +1114,8 @@ mod test {
         let opponent: Rc<RefCell<AI>> = Rc::new(RefCell::new(AI::random(0)));
 
         // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
-        let agent = trained_agent(false, vec![AISpec::Random], vec![Dims::new(10,10)], 10, 50, false, false, true, 0).unwrap();
+        let agent = trained_agent(AI::random(0), false,
+            vec![AISpec::Random], vec![Dims::new(10,10)], 10, 50, 0.05, 0.90, false, false, true, 0).unwrap();
 
 
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);

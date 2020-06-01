@@ -19,6 +19,7 @@ use std::{
         Write,
     },
     rc::Rc,
+    str::FromStr,
     path::Path,
 };
 
@@ -27,6 +28,10 @@ use clap::{AppSettings, Arg, SubCommand};
 use crossterm::{
     execute,
     cursor::MoveTo,
+    terminal::{
+        Clear,
+        ClearType,
+    },
 };
 
 use umpire::{
@@ -40,6 +45,7 @@ use umpire::{
         ai::{
             AI,
             AISpec,
+            Loadable,
             Storable,
             rl::{
                 trained_agent,
@@ -169,6 +175,7 @@ fn main() -> Result<(),String> {
                 // .takes_value(true)
                 // .number_of_values(1)
                 .multiple(true)
+                .required(true)
         )
     )
 
@@ -182,6 +189,32 @@ fn main() -> Result<(),String> {
             .long("avoid_skip")
             .help("Execute policies in a way that avoids the SkipNextUnit action when possible")
             .takes_value(false)
+        )
+        .arg(
+            Arg::with_name("qlearning_alpha")
+            .short("-A")
+            .long("alpha")
+            .help("The alpha parameter (learning rate) for the Q-Learning algorithm")
+            .takes_value(true)
+            .validator(|s|
+                f64::from_str(s.as_str())
+                    .map(|_| ())
+                    .map_err(|err| format!("{}", err))
+            )
+            .default_value("0.01")
+        )
+        .arg(
+            Arg::with_name("qlearning_gamma")
+            .short("-G")
+            .long("gamma")
+            .help("The gamma parameter (discount rate) for the Q-Learning algorithm")
+            .takes_value(true)
+            .validator(|s| 
+                f64::from_str(s.as_str())
+                    .map(|_| ())
+                    .map_err(|err| format!("{}", err))
+            )
+            .default_value("0.9")
         )
         .arg(
             Arg::with_name("deep")
@@ -225,7 +258,6 @@ fn main() -> Result<(),String> {
 
     .get_matches();
 
-    
     // Arguments common across subcommands:
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
     let fix_output_loc: bool = matches.is_present("fix_output_loc");
@@ -256,7 +288,11 @@ fn main() -> Result<(),String> {
 
     let sub_matches = sub_matches.unwrap();
 
-    
+    let mut stdout = stdout();
+
+    if fix_output_loc {
+        execute!(stdout, Clear(ClearType::All)).unwrap();
+    }
 
     println!("Dimensions: {}", dims.iter().map(|dims| format!("{}", dims)).collect::<Vec<String>>().join(", "));
 
@@ -266,7 +302,9 @@ fn main() -> Result<(),String> {
 
     println!("Verbosity: {}", verbosity);
 
-    let mut stdout = stdout();
+    
+
+
 
     if subcommand == "eval" {
 
@@ -420,33 +458,56 @@ fn main() -> Result<(),String> {
         let opponent_specs: Vec<AISpec> = parse_ai_specs(&opponent_specs_s)?;
         // let opponents = load_ais(&opponent_specs)?;
 
+        let alpha: f64 = f64::from_str( sub_matches.value_of("qlearning_alpha").unwrap() ).unwrap();
+        let gamma: f64 = f64::from_str( sub_matches.value_of("qlearning_gamma").unwrap() ).unwrap();
+
         let avoid_skip = sub_matches.is_present("avoid_skip");
         let deep = sub_matches.is_present("deep");
-        // let initial_model_path = sub_matches.value_of("initial_model_path").map(String::from);
+        let initial_model_path = sub_matches.value_of("initial_model_path").map(String::from);
         let output_path = sub_matches.value_of("out").unwrap();
     
-        // println!("Initial AI: {}", initial_model_path.as_ref().unwrap_or(&String::from("none")));
+        let initialize_from_spec_s = initial_model_path.unwrap_or(String::from("random"));
+
+        println!("Initialize From: {}", initialize_from_spec_s);
         
         println!("Opponents: {}", opponent_specs_s.join(", "));
     
         println!("Output path: {}", output_path);
-    
-        let qf = {
-            // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
-    
-            let agent = trained_agent(deep, opponent_specs, dims, episodes, steps, avoid_skip, fix_output_loc, fog_of_war, verbosity)?;
-    
-            agent.q.q_func.0
-        };
-    
-        // Pry the q function loose
-        let qfd = Rc::try_unwrap(qf)
-            .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
-        ?.into_inner();
 
-        let ai: AI = Rc::try_unwrap(qfd.0)
-            .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
-        ?.into_inner();
+        // let initialize_from_spec_s = initial_model_path.unwrap_or("random");
+        let initialize_from_spec = AISpec::try_from(initialize_from_spec_s)
+            .map_err(|err| format!("{}", err))?;
+
+        let initialize_from: AI = initialize_from_spec.into();
+
+        // let ai: AI =
+        // if let Some(initial_model_path) = initial_model_path {
+
+        //     let path = Path::new(initial_model_path.as_str());
+        //     let ai = AI::load(path)?;
+        //     ai
+
+        // } else {
+    
+            let qf = {
+                // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
+        
+                let agent = trained_agent(initialize_from, deep, opponent_specs, dims, episodes, steps, alpha, gamma, avoid_skip, fix_output_loc, fog_of_war, verbosity)?;
+        
+                agent.q.q_func.0
+            };
+        
+            // Pry the q function loose
+            let qfd = Rc::try_unwrap(qf)
+                .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
+            ?.into_inner();
+
+            let ai: AI = Rc::try_unwrap(qfd.0)
+                .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
+            ?.into_inner();
+
+            // ai
+        // };
 
 
     
