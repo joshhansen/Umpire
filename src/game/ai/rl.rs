@@ -729,109 +729,7 @@ where
     }
 }
 
-// impl From<RL_AI> for UmpireAgent<Shared<Shared<FunctionApproximator>>,UmpireEpsilonGreedy<Shared<FunctionApproximator>>> {
-//     fn from(rl_ai: RL_AI) -> Self {
-
-//         let q_func: Shared<FunctionApproximator> = make_shared(rl_ai.q_func);
-    
-//         let policy: UmpireEpsilonGreedy<Shared<FunctionApproximator>> = UmpireEpsilonGreedy::new(
-//             UmpireGreedy::new(q_func.clone()),
-//             UmpireRandom::new(),
-//             0.2
-//         );
-
-//         let q: QLearning<Shared<Shared<FunctionApproximator>>,UmpireEpsilonGreedy<Shared<FunctionApproximator>>> = QLearning::new(q_func, policy, 0.01, 0.8);
-    
-//         Self{q, avoid_skip: rl_ai.avoid_skip}
-//     }
-// }
-
-// /// The lightweight, serializable counterpart to `UmpireAgent`. 
-// #[allow(non_camel_case_types)]
-// pub struct RL_AI {
-//     q_func: FunctionApproximator,
-//     avoid_skip: bool,
-// }
-// impl RL_AI {
-//     pub fn new(q_func: FunctionApproximator, avoid_skip: bool) -> Self {
-//         Self { q_func, avoid_skip }
-//     }
-
-//     fn _take_turn_unended(&mut self, game: &mut Game) {
-//         while !game.turn_is_done() {
-//             // let q_func: &Q = *self.q_func.borrow();
-
-
-//             // let refcell: &RefCell<Q> = self.q_func.borrow();
-//             // let ref_ = refcell.borrow();
-//             // let q_func = ref_.borrow();
-//             // let q_func: &Q = <RefCell<Q> as Borrow<Q>>::borrow(refcell);
-//             let action_idx = find_legal_max(&self.q_func, game, self.avoid_skip).0;
-//             let action = UmpireAction::from_idx(action_idx).unwrap();
-//             action.take(game);
-//         }
-//     }
-
-//     pub fn to_agent(self) -> UmpireAgent<Shared<Shared<FunctionApproximator>>,UmpireEpsilonGreedy<Shared<FunctionApproximator>>> {
-//         let agent: UmpireAgent<Shared<Shared<FunctionApproximator>>,UmpireEpsilonGreedy<Shared<FunctionApproximator>>> = self.into();
-//         agent
-//     }
-// }
-// impl TurnTaker for RL_AI {
-//     fn take_turn_not_clearing(&mut self, game: &mut Game) {
-//         self._take_turn_unended(game);
-
-//         game.end_turn().unwrap();
-//     }
-
-//     fn take_turn_clearing(&mut self, game: &mut Game) {
-//         self._take_turn_unended(game);
-
-//         game.end_turn_clearing().unwrap();
-//     }
-// }
-
-// impl Loadable for RL_AI {
-//     fn load(path: &Path) ->  Result<Self,String> {
-//         FunctionApproximator::load(path).map(|q_func| Self {
-//             q_func: q_func,
-//             avoid_skip: true
-//         })//NOTE assumes avoid_skip
-//     }
-// }
-
-// impl Storable for RL_AI {
-//     fn store(self, path: &Path) -> Result<(),String> {
-//         self.q_func.store(path)
-//         // let refcell = Rc::try_unwrap(self.q_func)
-//         //                 .map_err(|_| String::from("Could not unwrap q_func from Rc"))?;
-//         // let q = refcell.into_inner();
-//         // q.store(path)
-//     }
-// }
-
-// impl <'de, Q:Deserialize<'de>> Deserialize<'de> for RL_AI<Q> {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-//         Q::deserialize(deserializer)
-//         .map(|q| Self {
-//             q_func: Rc::new(RefCell::new(q)),
-//             avoid_skip: true,
-//         })
-//     }
-// }
-
-// impl <Q:Serialize> Serialize for RL_AI<Q> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-//         let refcell: &RefCell<Q> = self.q_func.borrow();
-//         let q = refcell.borrow();
-//         // let q: &RefCell<Q> = <Rc<RefCell<Q>> as Borrow<Q>>::borrow(&self.q_func);
-//         // let q: &Q = self.q_func.borrow();
-
-//         q.serialize(serializer)
-//     }
-// }
-
-fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, avoid_skip: bool) -> Result<Agent,String> {
+fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, epsilon: f64, dnn_learning_rate: f32, avoid_skip: bool) -> Result<Agent,String> {
 
     let n_actions = UmpireAction::possible_actions().len();
 
@@ -842,7 +740,7 @@ fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, avoid_skip: bo
                 // let fa = DNN::load(Path::new("ai/simple_graph"))?;
                 // AI::DNN(fa)
         
-                let fa = DNN::new()?;
+                let fa = DNN::new(dnn_learning_rate)?;
                 AI::DNN(fa)
             } else {
                 // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
@@ -855,43 +753,13 @@ fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, avoid_skip: bo
         },
         other => other
     };
-    
-    // lfa::basis::stack::Stacker<lfa::basis::fourier::Fourier, lfa::basis::constant::Constant>
-    // let basis = Fourier::from_space(5, domain.state_space()).with_constant();
-
-
-    // let fa = DNN::load(Path::new("ai/umpire_regressor")).unwrap();
-    // let fa_ai = AI::DNN(fa);
-    // let q_func = make_shared(fa_ai);
-
-    // let fa_ai = if deep {
-    //     // let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
-    //     // let fa = DNN::load(Path::new("ai/simple_graph"))?;
-    //     // AI::DNN(fa)
-
-    //     let fa = DNN::new()?;
-    //     AI::DNN(fa)
-    // } else {
-    //     // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
-    //     let basis = Constant::new(5.0);
-    //     // let basis = Polynomial::new(2, 1);
-    //     let fa = LFA::vector(basis, SGD(0.001), n_actions);
-    //     AI::LFA(fa)
-    // };
 
     let q_func = make_shared(q_func);
-
-
-    // let policy = EpsilonGreedy::new(
-    //     Greedy::new(q_func.clone()),
-    //     Random::new(n_actions),
-    //     0.2
-    // );
 
     let policy = UmpireEpsilonGreedy::new(
         UmpireGreedy::new(q_func.clone()),
         UmpireRandom::new(),
-        0.2
+        epsilon,
     );
 
     Ok(UmpireAgent{q:QLearning::new(q_func, policy, alpha, gamma), avoid_skip})
@@ -906,6 +774,8 @@ pub fn trained_agent(
     steps: u64,
     alpha: f64,
     gamma: f64,
+    epsilon: f64,
+    dnn_learning_rate: f32,
     avoid_skip: bool,
     fix_output_loc: bool,
     fog_of_war: bool,
@@ -916,7 +786,7 @@ pub fn trained_agent(
         return Err(format!("Cannot train agent against {} opponents; max is 3", opponent_specs.len()));
     }
 
-    let mut agent = agent(initialize_from, deep, alpha, gamma, avoid_skip)?;
+    let mut agent = agent(initialize_from, deep, alpha, gamma, epsilon, dnn_learning_rate, avoid_skip)?;
 
     for dims in dims {
 
@@ -999,72 +869,6 @@ fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
     (max, ixs)
 }
 
-// pub fn instantiate_opponent(ai_model_path: Option<&String>, fix_output_loc: bool, verbosity: usize) -> Result<Rc<RefCell<dyn TurnTaker>>,String> {
-//     let ai_type = AIType::try_from(ai_model_path)?;
-//     // let player_type: PlayerType = ai_type.into();
-//     let opponent: Rc<RefCell<dyn TurnTaker>> = ai_type.into();
-
-//     //FIXME somehow set these verbosity settings
-
-
-//     Ok(opponent)
-// }
-
-
-// pub fn instantiate_opponent(ai_model_path: Option<&String>, verbosity: usize) -> Rc<RefCell<dyn TurnTaker>> {
-//     let opponent: Rc<RefCell<dyn TurnTaker>> = if let Some(ai_model_path) = ai_model_path {
-
-//         let path = Path::new(ai_model_path.as_str());
-
-//         if path.is_dir() {
-//             // A TensorFlow model
-//             let rl_dnn_ai: DNN = DNN::load(path).unwrap();
-//             Rc::new(RefCell::new(rl_dnn_ai))
-//         } else {
-//             let f = File::open(path).unwrap();
-//             let rl_ai: RL_AI<LFA_> = bincode::deserialize_from(f).unwrap();
-//             Rc::new(RefCell::new(rl_ai))
-//         }
-//     } else {
-//         Rc::new(RefCell::new(RandomAI::new(verbosity)))
-//     };
-//     opponent
-// }
-
-// pub fn instantiate_no_default(ai_model_path: &Path) -> RL_AI<Box<dyn EnumerableStateActionFunction<Game>>> {
-//     if ai_model_path.is_dir() {
-//         // A TensorFlow model
-//         let dnn = DNN::load(ai_model_path).unwrap();
-//         let rl_ai = RL_AI::new(Box::new(dnn), true);//NOTE assuming avoid_skip
-//         rl_ai
-//     } else {
-//         let f = File::open(ai_model_path).unwrap();
-//         let rl_ai: RL_AI<LFA_> = bincode::deserialize_from(f).unwrap();
-//         rl_ai
-//     }
-// }
-
-
-
-// /// Instantiate an RL AI from a path
-// /// 
-// /// If a file is given, deserialize it using serde's bincode
-// /// 
-// /// If a directory is given, load it as a TensorFlow SavedModel
-// pub fn instantiate_opponent_no_default<F:Loadable>(ai_model_path: &Path) -> Result<RL_AI<F>,Box<dyn std::error::Error>> {
-//     F::load(ai_model_path).map(|)
-//     // if ai_model_path.is_dir() {
-//     //     // A TensorFlow model
-//     //     let dnn = DNN::load(ai_model_path).unwrap();
-//     //     let rl_ai: RL_AI<F> = RL_AI::new(dnn, true);//NOTE assuming avoid_skip
-//     //     rl_ai
-//     // } else {
-//     //     let f = File::open(ai_model_path).unwrap();
-//     //     let rl_ai: RL_AI<LFA_> = bincode::deserialize_from(f).unwrap();
-//     //     rl_ai
-//     // }
-// }
-
 #[cfg(test)]
 mod test {
     use std::{
@@ -1111,11 +915,11 @@ mod test {
     fn test_ai_movement() {
         let n = 10_000;
 
-        let opponent: Rc<RefCell<AI>> = Rc::new(RefCell::new(AI::random(0)));
+        let opponent: Rc<RefCell<AI>> = Rc::new(RefCell::new(AI::random(0, false)));
 
         // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
-        let agent = trained_agent(AI::random(0), false,
-            vec![AISpec::Random], vec![Dims::new(10,10)], 10, 50, 0.05, 0.90, false, false, true, 0).unwrap();
+        let agent = trained_agent(AI::random(0, false), false,
+            vec![AISpec::Random], vec![Dims::new(10,10)], 10, 50, 0.05, 0.90, 0.05, 0.001, false, false, true, 0).unwrap();
 
 
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);

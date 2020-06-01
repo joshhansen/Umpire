@@ -45,7 +45,6 @@ use umpire::{
         ai::{
             AI,
             AISpec,
-            Loadable,
             Storable,
             rl::{
                 trained_agent,
@@ -63,6 +62,18 @@ use umpire::{
         Wrap2d,
     },
 };
+
+fn f32_validator(s: String) -> Result<(),String> {
+    f64::from_str(s.as_str())
+        .map(|_| ())
+        .map_err(|err| format!("{}", err))
+}
+
+fn f64_validator(s: String) -> Result<(),String> {
+    f64::from_str(s.as_str())
+        .map(|_| ())
+        .map_err(|err| format!("{}", err))
+}
 
 fn parse_ai_spec<S:AsRef<str>>(spec: S) -> Result<Vec<AISpec>,String> {
     parse_spec(spec, "AI")
@@ -87,43 +98,6 @@ fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>,String> {
     Ok(ais)
 
 }
-
-// fn load_ais(matches: &ArgMatches, arg_name: &str) -> Vec<Rc<RefCell<dyn TurnTaker>>> {
-//     let ai_specs: Vec<&str> = matches.values_of(arg_name).unwrap().collect();
-
-//     let ai_results: Vec<Result<Rc<RefCell<dyn TurnTaker>>,String>> = ai_specs.iter().map(|ai_model| {
-//         let b: Rc<RefCell<dyn TurnTaker>> =
-//         if *ai_model == "r" || *ai_model == "random" {
-
-//             Rc::new(RefCell::new(RandomAI::new(verbosity)))
-
-//         } else {
-
-//             let f = File::open(Path::new(ai_model))
-//                     .map_err(|e| format!("Could not open model file {}: {}", ai_model, e))?;
-
-//             let ai: RL_AI<LFA<Basis,SGD,VectorFunction>> = bincode::deserialize_from(f)
-//                     .map_err(|e| format!("Could not deserialize model file {}: {}", ai_model, e.as_ref()))?;
-
-//             Rc::new(RefCell::new(ai))
-//         };
-//         Ok(b)
-//     }).collect();
-
-//     let mut ais: Vec<Rc<RefCell<dyn TurnTaker>>> = Vec::with_capacity(ai_results.len());
-
-//     for ai_result in ai_results {
-//         match ai_result {
-//             Err(e) => {
-//                 eprintln!("{}", e);
-//                 exit(-1);
-//             },
-//             Ok(ai) => ais.push(ai)
-//         }
-//     }
-
-//     ais
-// }
 
 static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
 
@@ -169,11 +143,7 @@ fn main() -> Result<(),String> {
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME).as_str())
         .arg(
             Arg::with_name("ai_models")
-                // .short("M")
-                // .long("models")
                 .help(AI_MODEL_SPECS_HELP)
-                // .takes_value(true)
-                // .number_of_values(1)
                 .multiple(true)
                 .required(true)
         )
@@ -196,11 +166,7 @@ fn main() -> Result<(),String> {
             .long("alpha")
             .help("The alpha parameter (learning rate) for the Q-Learning algorithm")
             .takes_value(true)
-            .validator(|s|
-                f64::from_str(s.as_str())
-                    .map(|_| ())
-                    .map_err(|err| format!("{}", err))
-            )
+            .validator(f64_validator)
             .default_value("0.01")
         )
         .arg(
@@ -209,12 +175,26 @@ fn main() -> Result<(),String> {
             .long("gamma")
             .help("The gamma parameter (discount rate) for the Q-Learning algorithm")
             .takes_value(true)
-            .validator(|s| 
-                f64::from_str(s.as_str())
-                    .map(|_| ())
-                    .map_err(|err| format!("{}", err))
-            )
+            .validator(f64_validator)
             .default_value("0.9")
+        )
+        .arg(
+            Arg::with_name("epsilon")
+            .short("-E")
+            .long("epsilon")
+            .help("The epsilon of the epsilon-greedy training policy. The probability of taking a random action rather the policy action")
+            .takes_value(true)
+            .validator(f64_validator)
+            .default_value("0.05")
+        )
+        .arg(
+            Arg::with_name("dnn_learning_rate")
+            .short("-D")
+            .long("dnnlr")
+            .help("The learning rate of the neural network (if any)")
+            .takes_value(true)
+            .validator(f32_validator)
+            .default_value("10e-3")
         )
         .arg(
             Arg::with_name("deep")
@@ -245,11 +225,7 @@ fn main() -> Result<(),String> {
         )
         .arg(
             Arg::with_name("opponent")
-                // .short("M")
-                // .long("models")
                 .help(AI_MODEL_SPECS_HELP)
-                // .takes_value(true)
-                // .number_of_values(1)
                 .multiple(true)
                 .required(true)
         )
@@ -262,8 +238,6 @@ fn main() -> Result<(),String> {
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
     let fix_output_loc: bool = matches.is_present("fix_output_loc");
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
-    // let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
-    // let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
 
     let map_heights: Vec<u16> = matches.values_of("map_height").unwrap().map(|h| h.parse().unwrap()).collect();
     let map_widths: Vec<u16> = matches.values_of("map_width").unwrap().map(|w| w.parse().unwrap()).collect();
@@ -302,10 +276,6 @@ fn main() -> Result<(),String> {
 
     println!("Verbosity: {}", verbosity);
 
-    
-
-
-
     if subcommand == "eval" {
 
         if dims.len() > 1 {
@@ -315,34 +285,9 @@ fn main() -> Result<(),String> {
         let map_width = dims[0].width;
         let map_height = dims[0].height;
 
-        // let ai_specs: Vec<&str> = sub_matches.values_of("ai_models").unwrap().collect();
-
-        // let mut ai_types: Vec<AISpec> = Vec::new();
-        // let mut ais: Vec<Rc<RefCell<AI>>> = Vec::new();
-        // for ai_spec in sub_matches.values_of("ai_models").unwrap() {
-        //     let ai_types_ = parse_ai_spec(ai_spec)?;
-        //     let ais_ = load_ais(&ai_types)?;
-        //     ai_types.extend(ai_types_);
-        //     ais.extend(ais_);
-        // }
-
         let ai_specs_s: Vec<&str> = sub_matches.values_of("ai_models").unwrap().collect();
         let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
         let mut ais: Vec<Rc<RefCell<AI>>> = load_ais(&ai_specs)?;
-
-        // let mut ais: Vec<Rc<RefCell<dyn EnumerableStateActionFunction<Game>>>> = Vec::new();
-
-        // for ai_spec in sub_matches.values_of("ai_models").unwrap() {
-
-        //     let these_ais: Vec<Rc<RefCell<dyn EnumerableStateActionFunction<Game>>>> = load_ais(ai_spec)?;
-
-        //     ais.extend(these_ais);
-        // }
-
-        // sub_matches.values_of("ai_models").flat_map(|ai_spec| load_ais
-
-        // // let ais = load_ais(sub_matches, "ai_models");
-        // let ais = load_ais()
 
         let num_ais = ais.len();
 
@@ -456,10 +401,11 @@ fn main() -> Result<(),String> {
         }
 
         let opponent_specs: Vec<AISpec> = parse_ai_specs(&opponent_specs_s)?;
-        // let opponents = load_ais(&opponent_specs)?;
 
         let alpha: f64 = f64::from_str( sub_matches.value_of("qlearning_alpha").unwrap() ).unwrap();
         let gamma: f64 = f64::from_str( sub_matches.value_of("qlearning_gamma").unwrap() ).unwrap();
+        let epsilon: f64 = f64::from_str( sub_matches.value_of("epsilon").unwrap() ).unwrap();
+        let dnn_learning_rate: f32 = f32::from_str( sub_matches.value_of("dnn_learning_rate").unwrap() ).unwrap();
 
         let avoid_skip = sub_matches.is_present("avoid_skip");
         let deep = sub_matches.is_present("deep");
@@ -480,62 +426,27 @@ fn main() -> Result<(),String> {
 
         let initialize_from: AI = initialize_from_spec.into();
 
-        // let ai: AI =
-        // if let Some(initial_model_path) = initial_model_path {
-
-        //     let path = Path::new(initial_model_path.as_str());
-        //     let ai = AI::load(path)?;
-        //     ai
-
-        // } else {
+        let qf = {
+            // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
     
-            let qf = {
-                // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
-        
-                let agent = trained_agent(initialize_from, deep, opponent_specs, dims, episodes, steps, alpha, gamma, avoid_skip, fix_output_loc, fog_of_war, verbosity)?;
-        
-                agent.q.q_func.0
-            };
-        
-            // Pry the q function loose
-            let qfd = Rc::try_unwrap(qf)
-                .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
-            ?.into_inner();
-
-            let ai: AI = Rc::try_unwrap(qfd.0)
-                .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
-            ?.into_inner();
-
-            // ai
-        // };
-
-
+            let agent = trained_agent(initialize_from, deep, opponent_specs, dims, episodes, steps, alpha, gamma, epsilon, dnn_learning_rate, avoid_skip, fix_output_loc, fog_of_war, verbosity)?;
     
-        // let rl_ai = RL_AI::new(qfdd, avoid_skip);
+            agent.q.q_func.0
+        };
+    
+        // Pry the q function loose
+        let qfd = Rc::try_unwrap(qf)
+            .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
+        ?.into_inner();
+
+        let ai: AI = Rc::try_unwrap(qfd.0)
+            .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))
+        ?.into_inner();
 
         let path = Path::new(output_path);
         ai.store(path)
           .map_err(|err| format!("Error storing model at path {}: {}", path.to_string_lossy(), err))?;
 
-        // if let Err(err) = ai.store(path) {
-        //     eprintln!("Error storing model at path {}; {}", path, err);
-        //     exit(-1);
-        // }
-    
-        // let data = bincode::serialize(&rl_ai).unwrap();
-    
-        
-        // let display = path.display();
-    
-        // let mut file = match File::create(&path) {
-        //     Err(why) => panic!("couldn't create {}: {}", display, why),
-        //     Ok(file) => file,
-        // };
-    
-        // match file.write_all(&data) {
-        //     Err(why) => panic!("couldn't write to {}: {}", display, why),
-        //     Ok(_) => println!("successfully wrote to {}", display),
-        // }
     } else {
         println!("{}", matches.usage());
     }

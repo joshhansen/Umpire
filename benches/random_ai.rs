@@ -15,7 +15,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut game = game_two_cities_two_infantry_big();
 
     let mut ctrl = game.player_turn_control(0);
-    let mut ai = RandomAI::new(0);
+    let mut ai = RandomAI::new(0, false);
     c.bench_function(
         "random_ai",
         |b| b.iter(|| {

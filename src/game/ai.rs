@@ -286,8 +286,8 @@ pub enum AI {
 }
 
 impl AI {
-    pub fn random(verbosity: usize) -> Self {
-        Self::Random(RandomAI::new(verbosity))
+    pub fn random(verbosity: usize, fix_output_loc: bool) -> Self {
+        Self::Random(RandomAI::new(verbosity, fix_output_loc))
     }
 }
 
@@ -352,7 +352,7 @@ impl EnumerableStateActionFunction<Game> for AI {
 impl From<AISpec> for AI {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
-            AISpec::Random => Self::Random(RandomAI::new(0)),//NOTE Assuming 0 verbosity
+            AISpec::Random => Self::Random(RandomAI::new(0, false)),//NOTE Assuming 0 verbosity
             AISpec::FromPath(path) => Self::load(Path::new(path.as_str())).unwrap(),
             AISpec::FromLevel(level) => {
                 let lfa: LFA_ = match level {
@@ -415,7 +415,9 @@ impl AI {
                 Ok(find_legal_max(fa, game, true).0)
             },
             Self::DNN(fa) => {
-                Ok(find_legal_max(fa, game, false).0)
+                let action = find_legal_max(fa, game, false).0;
+                // println!("ACTION: {:?}", UmpireAction::from_idx(action));
+                Ok(action)
             },
         }
     }

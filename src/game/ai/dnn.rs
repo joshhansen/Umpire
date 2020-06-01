@@ -22,10 +22,6 @@ use rsrl::{
 };
 
 use serde::{
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
     de::{self,Visitor},
 };
 
@@ -44,14 +40,13 @@ use crate::{
     game::{
         Game,
         ai::UmpireAction,
-        fX,
         unit::UnitType,
     },
 };
 
 use super::{Storable, Loadable, rl::POSSIBLE_ACTIONS};
 
-const LEARNING_RATE: f64 = 1e-4;
+// const LEARNING_RATE: f64 = 1e-4;
 
 const ADDED_WIDE_FEATURES: i64 = 4;
 const UNIT_TYPE_WRIT_LARGE_LEN: i64 = UnitType::values().len() as i64 + 1;// what sort of unit is being considered, including
@@ -64,7 +59,7 @@ const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
 const DEEP_FEATS: i64 = 4;
 pub(crate) const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
-const BASE_CONV_FEATS: i64 = 16;
+const BASE_CONV_FEATS: i64 = 8;
 
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
@@ -86,7 +81,7 @@ pub struct DNN {
     convs: Vec<nn::Conv2D>,
     dense0: nn::Linear,
     dense1: nn::Linear,
-    // dense2: nn::Linear,
+    dense2: nn::Linear,
     optimizer: Optimizer<nn::Adam>,
 }
 
@@ -102,31 +97,42 @@ impl DNN {
         Tensor::try_from(features).unwrap().to_device(Device::cuda_if_available())
     }
 
-    pub fn new() -> Result<Self,String> {
+    pub fn new(learning_rate: f32) -> Result<Self,String> {
         let device = Device::cuda_if_available();
         println!("Device: {:?}", device);
         let vars = nn::VarStore::new(device);
+
+
+        let mut lr = vars.root().zeros_no_train("learning_rate", &[1]);
+        lr.copy_(
+            &Tensor::try_from(vec![learning_rate])
+            .map_err(|err| format!("Cant' create DNN because the learning rate could not be encoded as a tensor: {}", err))?
+        );
+        
         Self::with_varstore(vars)
     }
 
     fn with_varstore(vars: nn::VarStore) -> Result<Self,String> {
         let path = vars.root();
+
+        let learning_rate: f64 = path
+            .get("learning_rate")
+            .ok_or(format!("Learning rate not set in VarStore"))?
+            .double_value(&[0]);
+        
+
         let conv0 = nn::conv2d(&path, 1, BASE_CONV_FEATS, 3, Default::default());// -> 9x9
         let conv1 = nn::conv2d(&path, BASE_CONV_FEATS, BASE_CONV_FEATS*2, 3, Default::default());// -> 7x7
         let conv2 = nn::conv2d(&path, BASE_CONV_FEATS*2, BASE_CONV_FEATS*4, 3, Default::default());// -> 5x5
         let conv3 = nn::conv2d(&path, BASE_CONV_FEATS*4, BASE_CONV_FEATS*8, 3, Default::default());// -> 3x3
 
-        // println!("conv3 size: {:?}", conv3.size());
-
         let convs = vec![conv0, conv1, conv2, conv3];
 
-        // let deep_feats = 3 * conv1.ws.size()[conv1.ws.dim()-1];
+        let dense0 = nn::linear(&path, 2329, 256, Default::default());
+        let dense1 = nn::linear(&path, 256, 128, Default::default());
+        let dense2 = nn::linear(&path, 128, POSSIBLE_ACTIONS as i64, Default::default());
 
-        let dense0 = nn::linear(&path, 3481, 128, Default::default());
-        let dense1 = nn::linear(&path, 128, POSSIBLE_ACTIONS as i64, Default::default());
-        // let dense2 = nn::linear(&path, 256, POSSIBLE_ACTIONS as i64, Default::default());
-
-        let optimizer = nn::Adam::default().build(&vars, LEARNING_RATE)
+        let optimizer = nn::Adam::default().build(&vars, learning_rate)
             .map_err(|err| err.to_string())
         ?;
 
@@ -135,7 +141,7 @@ impl DNN {
             convs,
             dense0,
             dense1,
-            // dense2,
+            dense2,
             optimizer,
         })
     }
@@ -163,10 +169,6 @@ impl StateActionFunction<Game, usize> for DNN {
         let actual_estimate: Tensor = self.forward_t(&features, true).slice(0, *action as i64, *action as i64+1, 1);
 
         let loss: Tensor = (value - actual_estimate).pow(2.0f64);// we're doing mean squared error
-
-        // println!("Requires grad: {}", loss.requires_grad());
-        // println!("Dims: {}", loss.dim());
-        // println!("Shape: {:?}", loss.size());
 
         self.optimizer.backward_step(&loss);
 
@@ -248,11 +250,8 @@ impl Loadable for DNN {
 
 impl nn::ModuleT for DNN {
     fn forward_t(&self, xs: &Tensor, _train: bool) -> Tensor {
-        // println!("X shape: {:?}", xs.size());
 
         let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN, DEEP_LEN, DEEP_LEN, DEEP_LEN], 0);
-
-        // println!("Split shapes: {:?}", split.iter().map(|x| x.size()).collect::<Vec<Vec<i64>>>());
 
         // Wide features
         let wide = &split[0];
@@ -270,20 +269,6 @@ impl nn::ModuleT for DNN {
             is_city = is_city.apply(conv).relu();
         }
 
-        // println!("Deep shapes: {:?} {:?} {:?}", is_enemy_belligerent.size(), is_observed.size(), is_neutral.size());
-
-        // let enemy_conv0 = is_enemy_belligerent.apply(&self.conv0).relu();
-        // let observed_conv0 = is_observed.apply(&self.conv0).relu();
-        // let neutral_conv0 = is_neutral.apply(&self.conv0).relu();
-
-        // // println!("Conv 0 shapes: {:?} {:?} {:?}", enemy_conv0.size(), observed_conv0.size(), neutral_conv0.size());
-
-        // let enemy_conv1 = enemy_conv0.apply(&self.conv1).relu();
-        // let observed_conv1 = observed_conv0.apply(&self.conv1).relu();
-        // let neutral_conv1 = neutral_conv0.apply(&self.conv1).relu();
-
-        // println!("Conv 1 shapes: {:?} {:?} {:?}", enemy_conv1.size(), observed_conv1.size(), neutral_conv1.size());
-
         let enemy_feats = is_enemy_belligerent.view([-1]);
         let observed_feats = is_observed.view([-1]);
         let neutral_feats = is_neutral.view([-1]);
@@ -296,7 +281,7 @@ impl nn::ModuleT for DNN {
             &enemy_feats,
             &observed_feats,
             &neutral_feats,
-            // &city_feats
+            &city_feats
         ], 0);
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
@@ -319,8 +304,8 @@ impl nn::ModuleT for DNN {
             .apply(&self.dense1)
             .relu()
             // .dropout_(0.1, train)
-            // .apply(&self.dense2)
-            // .relu()
+            .apply(&self.dense2)
+            .relu()
             // .dropout_(0.1, train)
     }
 }

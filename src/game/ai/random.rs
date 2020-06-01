@@ -1,3 +1,17 @@
+use std::io::{
+    stdout,
+    Write,
+};
+
+use crossterm::{
+    execute,
+    cursor::MoveTo,
+    terminal::{
+        Clear,
+        ClearType,
+    },
+};
+
 use rand::{
     Rng,
     seq::SliceRandom,
@@ -22,11 +36,13 @@ const P_DISBAND: f64 = 0.01;
 
 pub struct RandomAI {
     verbosity: usize,
+    fix_output_loc: bool,
 }
 impl RandomAI {
-    pub fn new(verbosity: usize) -> Self {
+    pub fn new(verbosity: usize, fix_output_loc: bool) -> Self {
         Self {
             verbosity,
+            fix_output_loc,
         }
     }
 }
@@ -34,9 +50,24 @@ impl LimitedTurnTaker for RandomAI {
     fn take_turn(&mut self, game: &mut PlayerTurnControl) {
         let mut rng = rand::thread_rng();
 
+        let mut stdout = stdout();
+
         if self.verbosity > 1 {
+            if self.fix_output_loc {
+                execute!(stdout, MoveTo(60,0)).unwrap();
+            }
             println!("Random:\n{:?}", game.current_player_observations());
+
+            if self.fix_output_loc {
+                execute!(stdout, MoveTo(60,1)).unwrap();
+            }
+
             println!("Random cities: {}", game.current_player_cities().count());
+
+            if self.fix_output_loc {
+                execute!(stdout, MoveTo(60,2)).unwrap();
+            }
+
             println!("Random units: {}", game.current_player_units().count());
         }
 
@@ -88,6 +119,10 @@ impl LimitedTurnTaker for RandomAI {
 
             let x: f64 = rng.gen();
 
+            if self.fix_output_loc {
+                execute!(stdout, MoveTo(60,3)).unwrap();
+            }
+
             if x <= move_prob {
                 let dest = possible.choose(&mut rng).unwrap();
 
@@ -98,6 +133,7 @@ impl LimitedTurnTaker for RandomAI {
                 }
                 let result = game.move_unit_by_id(unit_id, *dest).unwrap();
                 if self.verbosity > 1 && !result.moved_successfully() {
+                    
                     println!("Random's unit destroyed: {:?}", unit_id);
                 }
 
@@ -151,7 +187,7 @@ mod test {
     #[test]
     pub fn test_random_ai() {
         {
-            let mut ai = RandomAI::new(0);
+            let mut ai = RandomAI::new(0, false);
 
             let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
             // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
@@ -165,7 +201,7 @@ mod test {
             }
         }
 
-        let mut ai = RandomAI::new(2);
+        let mut ai = RandomAI::new(2, false);
 
         for r in 0..100 {
             let players = 2;
@@ -213,7 +249,7 @@ mod test {
 
         let game = Game::new_with_map(map, 2, true, None, Wrap2d::BOTH);
 
-        let mut ai = RandomAI::new(0);
+        let mut ai = RandomAI::new(0, false);
 
         for _ in 0..1000 {
             let mut game = game.clone();
