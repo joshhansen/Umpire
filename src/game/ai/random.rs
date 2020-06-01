@@ -21,13 +21,11 @@ use crate::{
 const P_DISBAND: f64 = 0.01;
 
 pub struct RandomAI {
-    unit_type_vec: Vec<UnitType>,
     verbosity: usize,
 }
 impl RandomAI {
     pub fn new(verbosity: usize) -> Self {
         Self {
-            unit_type_vec: UnitType::values().to_vec(),
             verbosity,
         }
     }
@@ -44,7 +42,9 @@ impl LimitedTurnTaker for RandomAI {
 
         let production_set_requests: Vec<Location> = game.production_set_requests().collect();
         for city_loc in production_set_requests {
-            let unit_type = self.unit_type_vec.choose(&mut rng).unwrap();
+            let valid_productions: Vec<UnitType> = game.valid_productions_conservative(city_loc).collect();
+
+            let unit_type = valid_productions.choose(&mut rng).unwrap();
 
             if self.verbosity > 2 {
                 println!("{:?} -> {:?}", city_loc, unit_type);

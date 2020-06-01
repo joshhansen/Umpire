@@ -358,6 +358,12 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.valid_productions(loc)
     }
 
+    /// Units that could be produced by a city located at the given location, allowing only those which can actually
+    /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
+    pub fn valid_productions_conservative<'b>(&'b self, loc: Location) -> impl Iterator<Item=UnitType> + 'b {
+        self.game.valid_productions_conservative(loc)
+    }
+
     /// If the current player controls a unit with ID `id`, order it to sentry
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_sentry(unit_id)
