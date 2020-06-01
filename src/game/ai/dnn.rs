@@ -64,6 +64,8 @@ const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
 const DEEP_FEATS: i64 = 4;
 pub(crate) const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
+const BASE_CONV_FEATS: i64 = 16;
+
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
     type Value = Vec<u8>;
@@ -81,6 +83,7 @@ impl<'de> Visitor<'de> for BytesVisitor {
 pub struct DNN {
     // path: nn::Path<'a>,
     vars: nn::VarStore,
+    convs: Vec<nn::Conv2D>,
     dense0: nn::Linear,
     dense1: nn::Linear,
     // dense2: nn::Linear,
@@ -89,8 +92,14 @@ pub struct DNN {
 
 impl DNN {
     fn tensor_for(&self, state: &Game) -> Tensor {
-        let x: Vec<f32> = state.features().iter().map(|x| *x as f32).collect();
-        Tensor::try_from(x).unwrap().to_device(Device::cuda_if_available())
+        //NOTE We could avoid this extra allocation if we could figure out how to use 64-bit weights in PyTorch
+        //     or 32-bit weights in `rsrl`
+        let features_f64 = state.features();
+        let mut features: Vec<f32> = Vec::with_capacity(features_f64.len());
+        for feat in features_f64 {
+            features.push(feat as f32);
+        }
+        Tensor::try_from(features).unwrap().to_device(Device::cuda_if_available())
     }
 
     pub fn new() -> Result<Self,String> {
@@ -102,8 +111,18 @@ impl DNN {
 
     fn with_varstore(vars: nn::VarStore) -> Result<Self,String> {
         let path = vars.root();
-        let dense0 = nn::linear(&path, FEATS_LEN, 128, Default::default());
-        // let dense1 = nn::linear(&path, 512, 256, Default::default());
+        let conv0 = nn::conv2d(&path, 1, BASE_CONV_FEATS, 3, Default::default());// -> 9x9
+        let conv1 = nn::conv2d(&path, BASE_CONV_FEATS, BASE_CONV_FEATS*2, 3, Default::default());// -> 7x7
+        let conv2 = nn::conv2d(&path, BASE_CONV_FEATS*2, BASE_CONV_FEATS*4, 3, Default::default());// -> 5x5
+        let conv3 = nn::conv2d(&path, BASE_CONV_FEATS*4, BASE_CONV_FEATS*8, 3, Default::default());// -> 3x3
+
+        // println!("conv3 size: {:?}", conv3.size());
+
+        let convs = vec![conv0, conv1, conv2, conv3];
+
+        // let deep_feats = 3 * conv1.ws.size()[conv1.ws.dim()-1];
+
+        let dense0 = nn::linear(&path, 3481, 128, Default::default());
         let dense1 = nn::linear(&path, 128, POSSIBLE_ACTIONS as i64, Default::default());
         // let dense2 = nn::linear(&path, 256, POSSIBLE_ACTIONS as i64, Default::default());
 
@@ -113,6 +132,7 @@ impl DNN {
 
         Ok(Self {
             vars,
+            convs,
             dense0,
             dense1,
             // dense2,
@@ -135,8 +155,8 @@ impl StateActionFunction<Game, usize> for DNN {
 
     }
 
-    fn update_with_error(&mut self, state: &Game, action: &usize, value: Self::Output, estimate: Self::Output,
-            error: Self::Output, raw_error: Self::Output, learning_rate: Self::Output) {
+    fn update_with_error(&mut self, state: &Game, action: &usize, value: Self::Output, _estimate: Self::Output,
+            _error: Self::Output, _raw_error: Self::Output, _learning_rate: Self::Output) {
     
         let features = self.tensor_for(state);
 
@@ -222,25 +242,64 @@ impl Loadable for DNN {
         vars.load(path)
             .map_err(|err| err.to_string())?;
 
-        // let path = vars.root();
-
         Self::with_varstore(vars)
     }
 }
 
 impl nn::ModuleT for DNN {
-    fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
-        // let split: Vec<Tensor> = xs.split_with_sizes(&[14, 121, 121, 121], 1);
+    fn forward_t(&self, xs: &Tensor, _train: bool) -> Tensor {
+        // println!("X shape: {:?}", xs.size());
 
-        // // Wide features
-        // let wide = split[0];
+        let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN, DEEP_LEN, DEEP_LEN, DEEP_LEN], 0);
 
-        // // Deep features
-        // let is_enemy_belligerent = split[1].view([-1, 11, 11, 1]);
-        // let is_observed = split[2].view([-1, 11, 11, 1]);
-        // let is_neutral = split[3].view([-1, 11, 11, 1]);
+        // println!("Split shapes: {:?}", split.iter().map(|x| x.size()).collect::<Vec<Vec<i64>>>());
 
-        
+        // Wide features
+        let wide = &split[0];
+
+        // Deep features
+        let mut is_enemy_belligerent = split[1].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
+        let mut is_observed = split[2].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
+        let mut is_neutral = split[3].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
+        let mut is_city = split[4].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
+
+        for conv in &self.convs {
+            is_enemy_belligerent = is_enemy_belligerent.apply(conv).relu();
+            is_observed = is_observed.apply(conv).relu();
+            is_neutral = is_neutral.apply(conv).relu();
+            is_city = is_city.apply(conv).relu();
+        }
+
+        // println!("Deep shapes: {:?} {:?} {:?}", is_enemy_belligerent.size(), is_observed.size(), is_neutral.size());
+
+        // let enemy_conv0 = is_enemy_belligerent.apply(&self.conv0).relu();
+        // let observed_conv0 = is_observed.apply(&self.conv0).relu();
+        // let neutral_conv0 = is_neutral.apply(&self.conv0).relu();
+
+        // // println!("Conv 0 shapes: {:?} {:?} {:?}", enemy_conv0.size(), observed_conv0.size(), neutral_conv0.size());
+
+        // let enemy_conv1 = enemy_conv0.apply(&self.conv1).relu();
+        // let observed_conv1 = observed_conv0.apply(&self.conv1).relu();
+        // let neutral_conv1 = neutral_conv0.apply(&self.conv1).relu();
+
+        // println!("Conv 1 shapes: {:?} {:?} {:?}", enemy_conv1.size(), observed_conv1.size(), neutral_conv1.size());
+
+        let enemy_feats = is_enemy_belligerent.view([-1]);
+        let observed_feats = is_observed.view([-1]);
+        let neutral_feats = is_neutral.view([-1]);
+        let city_feats = is_city.view([-1]);
+
+        // println!("Deep feats shapes: {:?} {:?} {:?}", enemy_feats.size(), observed_feats.size(), neutral_feats.size());
+
+        let wide_and_deep = Tensor::cat(&[
+            wide,
+            &enemy_feats,
+            &observed_feats,
+            &neutral_feats,
+            // &city_feats
+        ], 0);
+
+        // println!("Wide and deep shape: {:?}", wide_and_deep.size());
 
         // xs.view([-1, 1, 28, 28])
         //     .apply(&self.conv1)
@@ -253,13 +312,13 @@ impl nn::ModuleT for DNN {
         //     .dropout_(0.5, train)
         //     .apply(&self.fc2)
 
-        xs
+        wide_and_deep
             .apply(&self.dense0)
             .relu()
-            .dropout_(0.1, train)
+            // .dropout_(0.1, train)
             .apply(&self.dense1)
             .relu()
-            .dropout_(0.1, train)
+            // .dropout_(0.1, train)
             // .apply(&self.dense2)
             // .relu()
             // .dropout_(0.1, train)
