@@ -45,20 +45,23 @@ use crate::{
         Game,
         ai::UmpireAction,
         fX,
+        unit::UnitType,
     },
 };
 
 use super::{Storable, Loadable, rl::POSSIBLE_ACTIONS};
 
-const ITS: usize = 1000;
 const LEARNING_RATE: f64 = 1e-4;
-static TAG: &'static str = "serve";
 
-const WIDE_LEN: i64 = 14;
+const ADDED_WIDE_FEATURES: i64 = 4;
+const UNIT_TYPE_WRIT_LARGE_LEN: i64 = UnitType::values().len() as i64 + 1;// what sort of unit is being considered, including
+                                                                    // "city" as a unit type (thus the +1)
+
+const WIDE_LEN: i64 = UNIT_TYPE_WRIT_LARGE_LEN + UnitType::values().len() as i64 + ADDED_WIDE_FEATURES;
 const DEEP_WIDTH: i64 = 11;
 const DEEP_HEIGHT: i64 = 11;
 const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
-const DEEP_FEATS: i64 = 3;
+const DEEP_FEATS: i64 = 4;
 pub(crate) const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
 struct BytesVisitor;

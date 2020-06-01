@@ -1462,11 +1462,12 @@ impl Game {
     /// 
     /// Map of the output vector:
     /// 
-    /// # 14: 1d features
+    /// # 15: 1d features
     /// * 1: current turn
     /// * 1: current player city count
     /// * 1: number of tiles observed by current player
     /// * 1: percentage of tiles observed by current player
+    /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
     /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
     ///                                                     submarines, cruisers, battleships, carriers)
     /// # 363: 2d features, three layers
@@ -1484,27 +1485,47 @@ impl Game {
         //   what is the unit type? (one hot encoded, could be none---all zeros)
         // 
 
+        let unit_id = self.unit_orders_requests().next();
+        let city_loc = self.production_set_requests().next();
+
+        let unit_type = unit_id.and_then(|unit_id| self.current_player_unit_by_id(unit_id).map(|unit| unit.type_));
+
         // We also add a context around the currently active unit (if any)
         let mut x = Vec::with_capacity(FEATS_LEN as usize);
 
         // General statistics
 
+        // NOTE Update dnn::ADDED_WIDE_FEATURES to reflect the number of generic features added here
+
         // - current turn
         x.push(self.turn as fX);
 
         // - number of cities player controls
-
         x.push(self.current_player_city_count() as fX);
 
         // - number of tiles observed
         let num_observed: fX = self.current_player_observations().num_observed() as fX;
-        
         x.push(num_observed);
-        
 
         // - percentage of tiles observed
         x.push(num_observed / self.dims().area() as fX);
 
+        // - unit type writ large
+        for unit_type_ in &UnitType::values() {
+            x.push(if let Some(unit_type) = unit_type {
+                if unit_type == *unit_type_ {
+                    1.0
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            });
+        }
+        // Also includes whether it's a city or not
+        x.push(if city_loc.is_some() { 1.0 } else { 0.0 });
+
+        // NOTE The unit counts are not included in dnn::ADDED_WIDE_FEATURES
         // - number of each type of unit controlled by player
         let empty_map = HashMap::new();
         let type_counts = self.current_player_unit_type_counts().unwrap_or(&empty_map);
@@ -1516,16 +1537,16 @@ impl Game {
 
         let observations = self.player_observations.get(&0).unwrap();
 
-        // Relatively positioned around next unit (if any)
-        let unit_id = self.unit_orders_requests().next();
-        let unit_loc = unit_id.map(|unit_id| {
+        // Relatively positioned around next unit (if any) or city
+        
+        let loc = unit_id.map(|unit_id| {
             match self.current_player_unit_loc(unit_id) {
                 Some(loc) => loc,
                 None => {
                     panic!("Unit was in orders requests but not in current player observations")
                 },
             }
-        });
+        }).or(city_loc);
 
 
 
@@ -1585,14 +1606,15 @@ impl Game {
         let mut is_enemy_belligerent = Vec::new();
         let mut is_observed = Vec::new();
         let mut is_neutral = Vec::new();
+        let mut is_city = Vec::new();
 
         // 2d features
         for inc_x in -5..=5 {
             for inc_y in -5..=5 {
                 let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
-                let obs = if let Some(unit_loc) = unit_loc {
-                    self.wrapping.wrapped_add(self.dims(), unit_loc, inc)
+                let obs = if let Some(origin) = loc {
+                    self.wrapping.wrapped_add(self.dims(), origin, inc)
                                  .map_or(&Obs::Unobserved, |loc| observations.get(loc))
                 } else {
                     &Obs::Unobserved
@@ -1604,9 +1626,14 @@ impl Game {
                 let mut enemy = 0.0;
                 let mut observed = 0.0;
                 let mut neutral = 0.0;
+                let mut city = 0.0;
 
                 if let Obs::Observed{tile, ..} = obs {
                     observed = 1.0;
+
+                    if tile.city.is_some() {
+                        city = 1.0;
+                    }
 
                     if let Some(alignment) = tile.alignment_maybe() {
                         if alignment.is_neutral() {
@@ -1620,6 +1647,7 @@ impl Game {
                 is_enemy_belligerent.push(enemy);
                 is_observed.push(observed);
                 is_neutral.push(neutral);
+                is_city.push(city);
 
             }
         }
@@ -1627,6 +1655,7 @@ impl Game {
         x.extend(is_enemy_belligerent);
         x.extend(is_observed);
         x.extend(is_neutral);
+        x.extend(is_city);
 
         x
     }
@@ -2541,8 +2570,6 @@ mod test {
         
         let l1 = Location::new(1,0);
         let l2 = Location::new(2,0);
-
-        
 
         let mut map = MapData::try_from(".tt.").unwrap();
 
