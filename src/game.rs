@@ -106,10 +106,13 @@ const CITY_INTRINSIC_SCORE: f64 = 1000.0;
 const TILE_OBSERVED_BASE_SCORE: f64 = 10.0;
 
 /// How much is each turn taken penalized?
-const TURN_PENALTY: f64 = 1000.0;
+const TURN_PENALTY: f64 = 0.0;//1000.0;
+
+/// How much is each action penalized?
+const ACTION_PENALTY: f64 = 100.0;
 
 /// How much is each point of controlled unit production cost (downweighted for reduced HP) worth?
-const UNIT_MULTIPLIER: f64 = 10.0;
+const UNIT_MULTIPLIER: f64 = 100.0;
 
 /// How much is victory worth?
 const VICTORY_SCORE: f64 = 1_000_000.0;
@@ -353,6 +356,13 @@ pub struct Game {
 
     /// Whether players have full information about the map, or have their knowledge obscured by the "fog of war".
     fog_of_war: bool,
+
+    /// Action counts
+    ///
+    /// How many actions has each player taken? Used for score calculation.
+    ///
+    /// An action is basically every city production request and unit orders request taken.
+    action_counts: Vec<u64>,
 }
 impl Game {
     /// Creates a new game instance
@@ -397,6 +407,7 @@ impl Game {
             wrapping,
             unit_namer: unit_namer.unwrap_or(Rc::new(RwLock::new(IntNamer::new("unit")))),
             fog_of_war,
+            action_counts: vec![0; num_players],
         };
 
         game.begin_turn();
@@ -494,6 +505,11 @@ impl Game {
     fn refresh_moves_remaining(&mut self) {
         // self.current_player_units_mut(|unit: &mut Unit| unit.refresh_moves_remaining());
         self.map.refresh_player_unit_moves_remaining(self.current_player());
+    }
+
+    /// Mark for accounting purposes that the current player took an action
+    fn action_taken(&mut self) {
+        self.action_counts[self.current_player] += 1;
     }
 
     fn begin_turn(&mut self) -> TurnStart {
@@ -1217,6 +1233,8 @@ impl Game {
             }
         }
 
+        self.action_taken();
+
         Move::new(unit, src, moves)
     }
 
@@ -1228,6 +1246,9 @@ impl Game {
         // Make a fresh observation with the disbanding unit so that its absence is noted.
         let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
         unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+
+        self.action_taken();
+        
         Ok(unit)
     }
 
@@ -1235,14 +1256,22 @@ impl Game {
     /// 
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
     pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<Option<UnitType>,GameError> {
-        self.map.set_player_city_production_by_loc(self.current_player, loc, production)
+        let result = self.map.set_player_city_production_by_loc(self.current_player, loc, production);
+        if result.is_ok() {
+            self.action_taken();
+        }
+        result
     }
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
     /// 
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
     pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<Option<UnitType>,GameError> {
-        self.map.set_player_city_production_by_id(self.current_player(), city_id, production)
+        let result = self.map.set_player_city_production_by_id(self.current_player(), city_id, production);
+        if result.is_ok() {
+            self.action_taken();
+        }
+        result
     }
 
     //FIXME Restrict to current player cities
@@ -1319,13 +1348,19 @@ impl Game {
 
         let ordered_unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
 
+        self.action_taken();
+
         Ok(OrdersOutcome::completed_without_move(ordered_unit, orders))
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Skip;
         let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
-        self.set_orders(unit_id, orders).map(|_| OrdersOutcome::in_progress_without_move(unit, orders))
+        let result = self.set_orders(unit_id, orders).map(|_| OrdersOutcome::in_progress_without_move(unit, orders));
+        if result.is_ok() {
+            self.action_taken();
+        }
+        result
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
@@ -1413,7 +1448,14 @@ impl Game {
     fn set_and_follow_orders(&mut self, id: UnitID, orders: Orders) -> OrdersResult {
         self.set_orders(id, orders)?;
 
-        self.follow_unit_orders(id)
+        let result = self.follow_unit_orders(id);
+
+        if result.is_ok() {
+            self.action_taken();
+        }
+
+        result
+
     }
 
     fn player_score(&self, player: PlayerNum) -> Result<f64,GameError> {
@@ -1440,6 +1482,9 @@ impl Game {
 
         // Turn penalty to discourage sitting around
         score -= TURN_PENALTY * self.turn as f64;
+
+        // Penalty for each action taken
+        score -= ACTION_PENALTY * self.action_counts[self.current_player] as f64;
     
         // Victory
         if let Some(victor) = self.victor() {
