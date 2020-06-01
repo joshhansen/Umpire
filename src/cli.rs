@@ -108,7 +108,7 @@ pub fn parse_spec<S1:AsRef<str>, S2:AsRef<str>, T:Specified>(spec: S1, spec_name
             Ok(item) => items.push(item),
             Err(_) => {
                 // char by char
-                for spec3 in spec2.split("") {
+                for spec3 in spec2.split_terminator("").skip(1) {
                     items.push(
                         T::try_from(spec3.to_string())
                         .map_err(|_| format!("{} is not a valid {} specification", spec2, spec_name.as_ref()))?
