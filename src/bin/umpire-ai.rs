@@ -29,6 +29,7 @@ use crossterm::{
     execute,
     cursor::MoveTo,
     terminal::{
+        size,
         Clear,
         ClearType,
     },
@@ -57,10 +58,15 @@ use umpire::{
         },
     },
     name::IntNamer,
+    ui::{Draw,Map,},
     util::{
         Dims,
-        Wrap2d,
-    },
+        Wrap2d, Rect, Vec2d,
+    }, color::palette16,
+};
+use rand::{
+    thread_rng,
+    prelude::SliceRandom,
 };
 
 fn f32_validator(s: String) -> Result<(),String> {
@@ -188,6 +194,30 @@ fn main() -> Result<(),String> {
             .default_value("0.05")
         )
         .arg(
+            Arg::with_name("epsilon_decay")
+            .long("epsilon-decay")
+            .help("A factor to multiply the epsilon by with some probability.")
+            .takes_value(true)
+            .validator(f64_validator)
+            .default_value("1.0")
+        )
+        .arg(
+            Arg::with_name("epsilon_decay_prob")
+            .long("epsilon-decay-prob")
+            .help("The probability, when sampling from the epsilon-greedy policy, of decaying the epsilon")
+            .takes_value(true)
+            .validator(f64_validator)
+            .default_value("10e-4")
+        )
+        .arg(
+            Arg::with_name("min_epsilon")
+            .long("min-epsilon")
+            .help("The lowest value that epsilon should decay to")
+            .takes_value(true)
+            .validator(f64_validator)
+            .default_value("0.0")
+        )
+        .arg(
             Arg::with_name("dnn_learning_rate")
             .short("-D")
             .long("dnnlr")
@@ -223,16 +253,19 @@ fn main() -> Result<(),String> {
             .multiple(false)
             .required(true)
         )
-        .arg(
-            Arg::with_name("opponent")
-                .help(AI_MODEL_SPECS_HELP)
-                .multiple(true)
-                .required(true)
-        )
+        // .arg(
+        //     Arg::with_name("opponent")
+        //         .help(AI_MODEL_SPECS_HELP)
+        //         .multiple(true)
+        //         .required(true)
+        // )
         
     )
 
     .get_matches();
+
+    let (_term_width, term_height) = size()
+                                  .map_err(|kind| format!("Could not get terminal size: {}", kind))?;
 
     // Arguments common across subcommands:
     let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
@@ -250,7 +283,11 @@ fn main() -> Result<(),String> {
 
     let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
     let verbosity = matches.occurrences_of("verbose") as usize;
-    let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
+    // let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
+
+    let wrappings: Vec<Wrap2d> = matches.values_of("wrapping").unwrap().map(|wrapping_s| {
+        Wrap2d::try_from(wrapping_s).unwrap()
+    }).collect();
 
     let (subcommand, sub_matches) = matches.subcommand();
 
@@ -266,6 +303,7 @@ fn main() -> Result<(),String> {
 
     if fix_output_loc {
         execute!(stdout, Clear(ClearType::All)).unwrap();
+        execute!(stdout, MoveTo(0,term_height - 7)).unwrap();
     }
 
     println!("Dimensions: {}", dims.iter().map(|dims| format!("{}", dims)).collect::<Vec<String>>().join(", "));
@@ -278,9 +316,9 @@ fn main() -> Result<(),String> {
 
     if subcommand == "eval" {
 
-        if dims.len() > 1 {
-            return Err(String::from("Only one set of dimensions can be given for evaluation"));
-        }
+        // if dims.len() > 1 {
+        //     return Err(String::from("Only one set of dimensions can be given for evaluation"));
+        // }
 
         let map_width = dims[0].width;
         let map_height = dims[0].height;
@@ -291,134 +329,239 @@ fn main() -> Result<(),String> {
 
         let num_ais = ais.len();
 
-        for i in 0..num_ais {
-            // let spec1 = (*ais[i]).borrow().spec();
-            let spec1 = ai_specs[i].clone();
-            let ai1 = Rc::clone(ais.get_mut(i).unwrap());
+        let mut map = if fix_output_loc {
+            let mut map = Map::new(
+                Rect::new(0, 2, map_width, map_height),
+                Dims::new(map_width, map_height),
+                false
+            );
+            map.set_viewport_offset(Vec2d::new(0, 0));
+            Some(map)
+        } else {
+            None
+        };
 
-            for j in 0..num_ais {
-                if i < j {
-                    // let spec2 = ai_specs[j];
-                    let spec2 = ai_specs[j].clone();
-                    let ai2 = ais.get_mut(j).unwrap();
+        let palette = palette16(num_ais).unwrap();
 
-                    if fix_output_loc {
-                        execute!(stdout, MoveTo(0,0)).unwrap();
+
+        let mut victory_counts: HashMap<Option<PlayerNum>,usize> = HashMap::new();
+        for _ in 0..episodes {
+            let city_namer = IntNamer::new("city");
+
+            let mut rng = thread_rng();
+
+            let map_dims = dims.choose(&mut rng).cloned().unwrap();
+            let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
+
+            let mut game = Game::new(
+                map_dims,
+                city_namer,
+                num_ais,
+                fog_of_war,
+                None,
+                wrapping,
+            );
+
+            if fix_output_loc {
+                execute!(stdout, MoveTo(0,0)).unwrap();
+            }
+
+            println!("Evaluating: {:?} {:?} {:?}", ai_specs_s, wrapping, dims);
+
+            if verbosity > 1 {
+                if fix_output_loc {
+                    let ctrl = game.player_turn_control_nonending(0);
+
+                    map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
+                } else {
+                    println!("{:?}", game);
+                }
+            }
+
+            'steps: for _ in 0..steps {
+                for i in 0..num_ais {
+
+                    if game.victor().is_some() {
+                        break 'steps;
                     }
 
-                    println!("{} vs. {}", spec1, spec2);
+                    let ai = ais.get_mut(i).unwrap();
+                    ai.borrow_mut().take_turn_clearing(&mut game);
 
-                    let mut victory_counts: HashMap<Option<PlayerNum>,usize> = HashMap::new();
+                    if verbosity > 1 {
+                        if fix_output_loc {
+                            let ctrl = game.player_turn_control_nonending(i);
 
-                    for _ in 0..episodes {
-
-                        let city_namer = IntNamer::new("city");
-
-                        let mut game = Game::new(
-                            Dims::new(map_width, map_height),
-                            city_namer,
-                            2,
-                            fog_of_war,
-                            None,
-                            wrapping,
-                        );
-
-                        if verbosity > 1 {
-                            if fix_output_loc {
-                                execute!(stdout, MoveTo(0,1)).unwrap();
-                            }
+                            map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
+                            execute!(stdout, MoveTo(0,map_height+2)).unwrap();
+                        } else {
                             println!("{:?}", game);
                         }
-
-                        for _ in 0..steps {
-                            // if verbosity > 1 {
-                            //     if fix_output_loc {
-                            //         execute!(stdout, MoveTo(0,1)).unwrap();
-                            //     }
-                            //     println!("{:?}", game);
-                            // }
-
-                            if game.victor().is_some() {
-                                break;
-                            }
-
-                            ai1.borrow_mut().take_turn_clearing(&mut game);
-
-                            if verbosity > 1 {
-                                if fix_output_loc {
-                                    execute!(stdout, MoveTo(0,1)).unwrap();
-                                }
-                                println!("{:?}", game);
-                            }
-
-                            if game.victor().is_some() {
-                                break;
-                            }
-
-                            ai2.borrow_mut().take_turn_clearing(&mut game);
-                        }
-
-                        * victory_counts.entry(game.victor()).or_insert(0) += 1;
-
-                        if verbosity > 0 {
-                            if let Some(victor) = game.victor() {
-                                println!("Victory: {}", match victor {
-                                    0 => &spec1,
-                                    1 => &spec2,
-                                    v => panic!("Unrecognized victor {}", v)
-                                });
-                            } else {
-                                println!("Draw");
-                            }
-                        
-
-                            if verbosity > 1 {
-                                let scores = game.player_scores();
-                                println!("{} score: {}", spec1, scores.get(0).unwrap());
-                                println!("{} score: {}", spec2, scores.get(1).unwrap());
-                                println!("Turn: {}", game.turn());
-                                println!();
-                            }
-                        }
-
+                        println!("Turn: {}", game.turn());
                     }
-
-                    println!("{} wins: {}", spec1, victory_counts.get(&Some(0)).unwrap_or(&0));
-                    println!("{} wins: {}", spec2, victory_counts.get(&Some(1)).unwrap_or(&0));
-                    println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
 
                 }
             }
+
+            * victory_counts.entry(game.victor()).or_insert(0) += 1;
+
+            println!();
+            for i in 0..num_ais {
+                let spec = ai_specs_s[i];
+                println!("{} wins: {}", spec, victory_counts.get(&Some(i)).unwrap_or(&0));
+            }
+            println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
         }
+
+
+
+        // for i in 0..num_ais {
+        //     // let spec1 = (*ais[i]).borrow().spec();
+        //     let spec1 = ai_specs[i].clone();
+        //     let ai1 = Rc::clone(ais.get_mut(i).unwrap());
+
+            
+
+        //     for j in 0..num_ais {
+        //         if i < j {
+        //             // let spec2 = ai_specs[j];
+        //             let spec2 = ai_specs[j].clone();
+        //             let ai2 = ais.get_mut(j).unwrap();
+
+        //             if fix_output_loc {
+        //                 execute!(stdout, MoveTo(0,0)).unwrap();
+        //             }
+
+        //             println!("{} vs. {}", spec1, spec2);
+
+        //             let mut victory_counts: HashMap<Option<PlayerNum>,usize> = HashMap::new();
+
+        //             for _ in 0..episodes {
+
+        //                 let city_namer = IntNamer::new("city");
+
+        //                 let mut game = Game::new(
+        //                     Dims::new(map_width, map_height),
+        //                     city_namer,
+        //                     2,
+        //                     fog_of_war,
+        //                     None,
+        //                     wrapping,
+        //                 );
+
+        //                 if verbosity > 1 {
+        //                     if fix_output_loc {
+        //                         execute!(stdout, MoveTo(0,1)).unwrap();
+        //                     }
+        //                     println!("{:?}", game);
+        //                 }
+
+        //                 for _ in 0..steps {
+        //                     // if verbosity > 1 {
+        //                     //     if fix_output_loc {
+        //                     //         execute!(stdout, MoveTo(0,1)).unwrap();
+        //                     //     }
+        //                     //     println!("{:?}", game);
+        //                     // }
+
+        //                     if game.victor().is_some() {
+        //                         break;
+        //                     }
+
+        //                     ai1.borrow_mut().take_turn_clearing(&mut game);
+
+        //                     if verbosity > 1 {
+        //                         if fix_output_loc {
+        //                             execute!(stdout, MoveTo(0,1)).unwrap();
+        //                         }
+        //                         println!("{:?}", game);
+        //                     }
+
+        //                     if game.victor().is_some() {
+        //                         break;
+        //                     }
+
+        //                     if verbosity > 1 {
+        //                         let scores = game.player_scores();
+        //                         println!("{} score: {}", spec1, scores.get(0).unwrap());
+        //                         println!("{} score: {}", spec2, scores.get(1).unwrap());
+        //                         println!("Turn: {}", game.turn());
+        //                         println!("{} wins: {}", spec1, victory_counts.get(&Some(0)).unwrap_or(&0));
+        //                         println!("{} wins: {}", spec2, victory_counts.get(&Some(1)).unwrap_or(&0));
+        //                         println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
+        //                         println!();
+        //                     }
+
+        //                     ai2.borrow_mut().take_turn_clearing(&mut game);
+        //                 }
+
+        //                 * victory_counts.entry(game.victor()).or_insert(0) += 1;
+
+        //                 if verbosity > 0 {
+        //                     if let Some(victor) = game.victor() {
+        //                         println!("Victory: {}", match victor {
+        //                             0 => &spec1,
+        //                             1 => &spec2,
+        //                             v => panic!("Unrecognized victor {}", v)
+        //                         });
+        //                     } else {
+        //                         println!("Draw");
+        //                     }
+                        
+
+        //                     if verbosity > 1 {
+        //                         let scores = game.player_scores();
+        //                         println!("{} score: {}", spec1, scores.get(0).unwrap());
+        //                         println!("{} score: {}", spec2, scores.get(1).unwrap());
+        //                         println!("Turn: {}", game.turn());
+        //                         println!();
+        //                     }
+        //                 }
+
+        //             }
+
+        //             println!("{} wins: {}", spec1, victory_counts.get(&Some(0)).unwrap_or(&0));
+        //             println!("{} wins: {}", spec2, victory_counts.get(&Some(1)).unwrap_or(&0));
+        //             println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
+
+        //         }
+        //     }
+        // }
 
 
     } else if subcommand == "train" {
 
-        let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
+        // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
 
-        if opponent_specs_s.is_empty() {
-            opponent_specs_s.push("random");
-        }
+        // if opponent_specs_s.is_empty() {
+        //     opponent_specs_s.push("random");
+        // }
 
-        let opponent_specs: Vec<AISpec> = parse_ai_specs(&opponent_specs_s)?;
+        // let opponent_specs: Vec<AISpec> = parse_ai_specs(&opponent_specs_s)?;
 
         let alpha: f64 = f64::from_str( sub_matches.value_of("qlearning_alpha").unwrap() ).unwrap();
         let gamma: f64 = f64::from_str( sub_matches.value_of("qlearning_gamma").unwrap() ).unwrap();
         let epsilon: f64 = f64::from_str( sub_matches.value_of("epsilon").unwrap() ).unwrap();
+        let epsilon_decay: f64 = f64::from_str( sub_matches.value_of("epsilon_decay").unwrap() ).unwrap();
+        let decay_prob: f64 = f64::from_str( sub_matches.value_of("epsilon_decay_prob").unwrap() ).unwrap();
+        let min_epsilon: f64 = f64::from_str( sub_matches.value_of("min_epsilon").unwrap() ).unwrap();
         let dnn_learning_rate: f32 = f32::from_str( sub_matches.value_of("dnn_learning_rate").unwrap() ).unwrap();
 
         let avoid_skip = sub_matches.is_present("avoid_skip");
         let deep = sub_matches.is_present("deep");
         let initial_model_path = sub_matches.value_of("initial_model_path").map(String::from);
         let output_path = sub_matches.value_of("out").unwrap();
-    
+
         let initialize_from_spec_s = initial_model_path.unwrap_or(String::from("random"));
 
         println!("Initialize From: {}", initialize_from_spec_s);
-        
-        println!("Opponents: {}", opponent_specs_s.join(", "));
+
+        // println!("Opponents: {}", opponent_specs_s.join(", "));
     
         println!("Output path: {}", output_path);
+        println!("alpha: {} gamma: {} epsilon: {} lr: {} avoid_skip: {} deep: {}",
+            alpha, gamma, epsilon, dnn_learning_rate, avoid_skip, deep
+        );
 
         // let initialize_from_spec_s = initial_model_path.unwrap_or("random");
         let initialize_from_spec = AISpec::try_from(initialize_from_spec_s)
@@ -428,8 +571,14 @@ fn main() -> Result<(),String> {
 
         let qf = {
             // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
-    
-            let agent = trained_agent(initialize_from, deep, opponent_specs, dims, episodes, steps, alpha, gamma, epsilon, dnn_learning_rate, avoid_skip, fix_output_loc, fog_of_war, verbosity)?;
+
+            let agent = trained_agent(
+                initialize_from, deep, 2, dims,
+                wrappings, episodes, steps, alpha, gamma, epsilon, epsilon_decay, decay_prob, min_epsilon,
+                dnn_learning_rate, avoid_skip, fix_output_loc,
+                fog_of_war,
+                verbosity, Some(Path::new("./memory.dat")), 0.01
+            )?;
     
             agent.q.q_func.0
         };

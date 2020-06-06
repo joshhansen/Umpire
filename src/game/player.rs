@@ -151,16 +151,18 @@ pub struct PlayerTurnControl<'a> {
     pub player: PlayerNum,
 
     clear_completed_productions: bool,
+
+    end_turn_on_drop: bool,
 }
 impl <'a> PlayerTurnControl<'a> {
-    pub fn new(game: &'a mut Game) -> Self {
+    pub fn new(game: &'a mut Game, end_turn_on_drop: bool, clear_completed_productions: bool) -> Self {
         let player = game.current_player();
-        Self { game, player, clear_completed_productions: false }
+        Self { game, player, clear_completed_productions, end_turn_on_drop }
     }
 
     pub fn new_clearing(game: &'a mut Game) -> Self {
         let player = game.current_player();
-        Self { game, player, clear_completed_productions: true }
+        Self { game, player, clear_completed_productions: true, end_turn_on_drop: true }
     }
 
     pub fn num_players(&self) -> PlayerNum {
@@ -417,10 +419,12 @@ impl <'a> PlayerTurnControl<'a> {
 /// This forces the turn to end regardless of the state of production and orders requests.
 impl <'a> Drop for PlayerTurnControl<'a> {
     fn drop(&mut self) {
-        if self.clear_completed_productions {
-            self.game.force_end_turn_clearing();
-        } else {
-            self.game.force_end_turn();
+        if self.end_turn_on_drop {
+            if self.clear_completed_productions {
+                self.game.force_end_turn_clearing();
+            } else {
+                self.game.force_end_turn();
+            }
         }
     }
 }

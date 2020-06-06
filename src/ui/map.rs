@@ -1,6 +1,5 @@
 use std::{
     io::{Stdout,Write},
-    rc::Rc,
 };
 
 use crossterm::{
@@ -166,18 +165,17 @@ fn map_to_viewport_coords(map_loc: Location, viewport_offset: Vec2d<u16>, viewpo
 }
 
 /// The map widget
-pub(in crate::ui) struct Map {
+pub struct Map {
     rect: Rect,
     map_dims: Dims,
     old_viewport_offset: Vec2d<u16>,
     viewport_offset: Vec2d<u16>,
     displayed_tiles: LocationGrid<Option<Tile>>,
     displayed_tile_currentness: LocationGrid<Option<bool>>,
-    palette: Rc<Palette>,
     unicode: bool,
 }
 impl Map {
-    pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
+    pub fn new(rect: Rect, map_dims: Dims, unicode: bool) -> Self {
         let displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
         let displayed_tile_currentness = LocationGrid::new(rect.dims(), |_loc| None);
         Map{
@@ -187,7 +185,6 @@ impl Map {
             viewport_offset: Vec2d::new(rect.width / 2, rect.height / 2),
             displayed_tiles,
             displayed_tile_currentness,
-            palette,
             unicode,
         }
     }
@@ -218,7 +215,7 @@ impl Map {
         self.set_viewport_offset(new_viewport_offset);
     }
 
-    fn set_viewport_offset(&mut self, new_viewport_offset: Vec2d<u16>) {
+    pub fn set_viewport_offset(&mut self, new_viewport_offset: Vec2d<u16>) {
         self.old_viewport_offset = self.viewport_offset;
         self.viewport_offset = new_viewport_offset;
     }
@@ -293,9 +290,11 @@ impl Map {
             // Override the entire observation that would be at this location, instead of using the current player's
             // observations.
             obs_override: Option<&Obs>,
+
+            palette: &Palette,
         ) {
         self.draw_tile_no_flush(game, stdout, viewport_loc, highlight, unit_active, city_override, unit_override,
-                                symbol_override, obs_override);
+                                symbol_override, obs_override, palette);
         stdout.flush().unwrap();
     }
 
@@ -319,12 +318,14 @@ impl Map {
             // Override the entire observation that would be at this location, instead of using the current player's
             // observations.
             obs_override: Option<&Obs>,
+
+            palette: &Palette
         ) {
 
 
 
         stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
-        stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
+        stdout.queue(SetBackgroundColor(palette.get_single(Colors::Background))).unwrap();
 
 
         stdout.queue(self.goto(viewport_loc.x, viewport_loc.y)).unwrap();
@@ -388,10 +389,10 @@ impl Map {
                 };
 
                 if let Some(fg_color) = fg_color {
-                    stdout.queue(SetForegroundColor(self.palette.get(fg_color, *current))).unwrap();
+                    stdout.queue(SetForegroundColor(palette.get(fg_color, *current))).unwrap();
                 }
                 if let Some(bg_color) = bg_color {
-                    stdout.queue(SetBackgroundColor(self.palette.get(bg_color, *current))).unwrap();
+                    stdout.queue(SetBackgroundColor(palette.get(bg_color, *current))).unwrap();
                 }
                 stdout.queue(Print(String::from(symbol_override.unwrap_or(sym)))).unwrap();
 
@@ -410,7 +411,7 @@ impl Map {
 
         if should_clear {
             if highlight {
-                stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Cursor))).unwrap();
+                stdout.queue(SetBackgroundColor(palette.get_single(Colors::Cursor))).unwrap();
             }
             stdout.queue(Print(String::from(" "))).unwrap();
             self.displayed_tiles[viewport_loc] = None;
@@ -419,7 +420,7 @@ impl Map {
 
         // write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
         stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
-        stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
+        stdout.queue(SetBackgroundColor(palette.get_single(Colors::Background))).unwrap();
         // stdout.flush().unwrap();
     }
 
@@ -451,7 +452,7 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
         
         for viewport_loc in self.viewport_dims().iter_locs() {
 
@@ -522,14 +523,17 @@ impl Draw for Map {
             };
 
             if should_draw_tile {
-                self.draw_tile_no_flush(game, stdout, viewport_loc, false, false,
-                     None, None, None, None);
+                self.draw_tile_no_flush(
+                    game, stdout, viewport_loc, false, false,
+                    None, None, None, None,
+                    palette
+                );
             }
         }
 
         // write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
         stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
-        stdout.queue(SetBackgroundColor(self.palette.get_single(Colors::Background))).unwrap();
+        stdout.queue(SetBackgroundColor(palette.get_single(Colors::Background))).unwrap();
         stdout.queue(Hide).unwrap();
     }
 }
@@ -537,13 +541,7 @@ impl Draw for Map {
 
 #[cfg(test)]
 mod test {
-    use std::rc::Rc;
-
     use crate::{
-        color::{
-            Palette,
-            palette16,
-        },
         test_support::game1,
         ui::map::map_to_viewport_coord,
         util::{
@@ -587,12 +585,11 @@ mod test {
 
     #[test]
     fn test_viewport_to_map_coords_by_offset() {
-        let palette = Rc::new(palette16(2).unwrap());
-        _test_viewport_to_map_coords(Dims::new(20, 20), palette.clone());
+        _test_viewport_to_map_coords(Dims::new(20, 20));
 
     }
 
-    fn _test_viewport_to_map_coords(map_dims: Dims, palette: Rc<Palette>) {
+    fn _test_viewport_to_map_coords(map_dims: Dims) {
         // pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
 
         let mut game = game1();
@@ -604,7 +601,7 @@ mod test {
             width: map_dims.width,
             height: map_dims.height,
         };
-        let mut map = Map::new(rect, map_dims, palette, false);// offset 0,0
+        let mut map = Map::new(rect, map_dims, false);// offset 0,0
 
         // fn viewport_to_map_coords_by_offset(&self, game: &Game, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
 

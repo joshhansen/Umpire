@@ -1,16 +1,11 @@
-
-
 use std::{
-    cell::RefCell,
     convert::{
         TryFrom,
-        TryInto,
     },
     fmt,
     fs::File,
     io::Write,
     path::Path,
-    rc::Rc,
 };
 
 use rand::{
@@ -61,57 +56,6 @@ pub enum AISpec {
     FromLevel(usize),
 }
 
-impl AISpec {
-    // /// The text description of this type of AI
-    // pub fn desc(&self) -> String {
-    //     match self {
-    //         Self::Random => String::from("random"),
-    //         Self::FromPath(path) => format!("AI from path {}", path),
-    //         Self::FromLevel(level) => format!("level {} AI", level),
-    //     }
-    // }
-
-    // pub fn spec(&self) -> String {
-    //     match self {
-    //         Self::Random => "r".to_string(),
-    //         Self::FromPath(path) => path.clone(),
-    //         Self::FromLevel(level) => format!("{}", level),
-    //     }
-    // }
-
-    // pub fn as_fa(self) -> Result<FunctionApproximator,String> {
-    //     Ok(match self {
-    //         Self::Random => FunctionApproximator::Random,
-    //         Self::FromPath(path) => {
-    //             let path = Path::new(path.as_str());
-    //             if path.is_file() {
-    //                 let f = File::open(path).unwrap();//NOTE unwrap on file open
-    //                 let lfa: LFA_ = bincode::deserialize_from(f).unwrap();
-    //                 FunctionApproximator::LFA(lfa)
-    //             } else {
-    //                 let dnn_fa: DNN = DNN::load(path).unwrap();
-    //                 FunctionApproximator::DNN(dnn_fa)
-    //             }
-    //         },
-    //         Self::FromLevel(level) => {
-    //             let lfa: LFA_ = match level {
-    //                 1 => bincode::deserialize(include_bytes!("../../ai/10x10_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-    //                 2 => bincode::deserialize(include_bytes!("../../ai/20x20_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-    //                 3 => bincode::deserialize(include_bytes!("../../ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-    //                 4 => bincode::deserialize(include_bytes!("../../ai/10-40+full_e100_s100000_a.ai")).unwrap(),
-    //                 level => unreachable!("Unsupported AI level: {}", level)
-    //             };
-    //             FunctionApproximator::LFA(lfa)
-    //         }
-    //     })
-    // }
-
-    // pub fn as_rl_ai(self) -> Result<RL_AI,String> {
-    //     let fa = self.as_fa()?;
-    //     Ok(RL_AI::new(fa, true))
-    // }
-}
-
 impl fmt::Display for AISpec {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.desc().fmt(f)
@@ -134,24 +78,6 @@ impl TryFrom<String> for AISpec {
                 }
             }
         }
-
-        // if value.len() == 1 {
-        //     let c: char = value.chars().next().unwrap();
-        //     return TryFrom::try_from(c);
-        // }
-
-
-        // if value == "rand" || value == "random" {
-        //     return Ok(Self::Random);
-        // }
-
-
-
-        // if Path::new(&value).exists() {
-        //     Ok(Self::FromPath(value))
-        // } else {
-        //     Err(format!("AI can't be loaded from path {} because it doesn't exist", value))
-        // }
     }
 }
 
@@ -195,86 +121,9 @@ impl Into<PlayerType> for AISpec {
     }
 }
 
-// impl Into<Rc<RefCell<dyn TurnTaker>>> for AIType {
-//     fn into(self) -> Rc<RefCell<dyn TurnTaker>> {
-//         // if let Self::Random = &self {
-//         //     return Rc::new(RefCell::new( RandomAI::new(0) ));
-//         // }
-
-//         // //Unwrap should be OK since the conversion only fails on AIType::Random which we've already handled
-//         // let fa: Rc<RefCell<dyn EnumerableStateActionFunction<Game>>> = self.try_into().unwrap();
-//         // let refcell = Rc::try_unwrap(fa).unwrap().into_inner();
-
-//         // Rc::new(RefCell::new())
-
-
-//         match self {
-//             Self::Random => Rc::new(RefCell::new(RandomAI::new(0))),
-//             Self::FromPath(path) => {
-//                 let path = Path::new(path.as_str());
-//                 if path.is_file() {
-//                     let f = File::open(path).unwrap();//NOTE unwrap on file open
-//                     let lfa: LFA_ = bincode::deserialize_from(f).unwrap();
-//                     Rc::new(RefCell::new(RL_AI::new(lfa, true)))
-//                 } else {
-//                     let rl_dnn_ai: DNN = DNN::load(path).unwrap();
-//                     Rc::new(RefCell::new(RL_AI::new(rl_dnn_ai, true)))
-
-//                 }
-//             },
-//             Self::FromLevel(level) => {
-//                 let lfa: LFA_ = match level {
-//                     1 => bincode::deserialize(include_bytes!("../../ai/10x10_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-//                     2 => bincode::deserialize(include_bytes!("../../ai/20x20_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-//                     3 => bincode::deserialize(include_bytes!("../../ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-//                     4 => bincode::deserialize(include_bytes!("../../ai/10-40+full_e100_s100000_a.ai")).unwrap(),
-//                     level => unreachable!("Unsupported AI level: {}", level)
-//                 };
-//                 Rc::new(RefCell::new(RL_AI::new(lfa, true)))
-//             }
-//         }
-//     }
-// }
-
-// impl TryInto<Rc<RefCell<dyn EnumerableStateActionFunction<Game>>>> for AIType {
-//     type Error = String;
-
-//     fn try_into(self) -> Result<Rc<RefCell<dyn EnumerableStateActionFunction<Game>>>,String> {
-//         Ok(match self {
-//             Self::Random => return Err(String::from("Cannot get state action function for random AI")),
-//             Self::FromPath(path) => {
-//                 let path = Path::new(path.as_str());
-//                 if path.is_file() {
-//                     let f = File::open(path).unwrap();//NOTE unwrap on file open
-//                     let lfa: LFA_ = bincode::deserialize_from(f).unwrap();
-//                     Rc::new(RefCell::new(lfa))
-//                 } else {
-//                     let dnn_fa: DNN = DNN::load(path).unwrap();
-//                     Rc::new(RefCell::new(dnn_fa))
-//                 }
-//             },
-//             Self::FromLevel(level) => {
-//                 let lfa: LFA_ = match level {
-//                     1 => bincode::deserialize(include_bytes!("../../ai/10x10_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-//                     2 => bincode::deserialize(include_bytes!("../../ai/20x20_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-//                     3 => bincode::deserialize(include_bytes!("../../ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai")).unwrap(),
-//                     4 => bincode::deserialize(include_bytes!("../../ai/10-40+full_e100_s100000_a.ai")).unwrap(),
-//                     level => unreachable!("Unsupported AI level: {}", level)
-//                 };
-//                 Rc::new(RefCell::new(lfa))
-//             }
-//         })
-//     }
-// }
-
 impl Into<String> for AISpec {
     fn into(self) -> String {
         String::from(self.spec())
-        // match self {
-        //     Self::Random => "r".to_string(),
-        //     Self::FromPath(path) => path,
-        //     Self::FromLevel(level) => format!("{}", level),
-        // }
     }
 }
 
@@ -468,32 +317,6 @@ impl TurnTaker for AI {
         }
     }
 }
-
-// impl TryFrom<char> for AIType {
-//     type Error = String;
-
-//     fn try_from(value: char) -> Result<Self, Self::Error> {
-//         match value {
-//             'r' => Ok(Self::Random),
-//             '1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => Ok(Self::FromLevel(value.to_digit(10).unwrap() as usize)),
-//             c => Err(format!("Unrecognized AI specification '{}'", c))
-//         }
-//     }
-// }
-
-// impl TryInto<char> for AIType {
-//     type Error = String;
-
-//     fn try_into(self) -> Result<char,Self::Error> {
-//         match self {
-//             Self::Random => Ok('r'),
-//             Self::FromPath => Err("")
-//         }
-//     }
-// }
-
-
-
 
 // Exports
 pub use random::RandomAI;

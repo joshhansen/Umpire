@@ -42,6 +42,7 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
                 .short("w")
                 .long("wrapping")
                 .help("Whether to wrap horizontally ('h'), vertically ('v'), both ('b'), or neither ('n')")
+                .multiple(true)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
                 .takes_value(true)
                 .default_value("b")
                 .validator(|s| {

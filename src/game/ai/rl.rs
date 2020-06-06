@@ -1,13 +1,13 @@
 //! Reinforcement learning-based AI
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{
         HashMap,
         HashSet,
     },
     fmt,
-    fs::File,
+    fs::{OpenOptions, File},
     io::{
         stdout,
         Write,
@@ -24,6 +24,7 @@ use std::{
 use crossterm::{
     execute,
     cursor::MoveTo,
+    terminal::{size, ClearType, Clear},
 };
 
 use rsrl::{
@@ -66,6 +67,8 @@ use rsrl::{
     },
 };
 
+use serde::{Serialize, Deserialize};
+
 use crate::{
     game::{
         Game,
@@ -75,14 +78,15 @@ use crate::{
         },
         unit::{
             UnitType,
-        },
+        }, PlayerNum, fX,
     },
     name::IntNamer,
+    ui::{Component,Draw,Map,},
     util::{
         Dims,
         Direction,
-        Wrap2d,
-    },
+        Wrap2d, Rect, Vec2d,
+    }, color::{Palette, palette16},
 };
 
 use rand::{
@@ -312,68 +316,91 @@ impl Space for UmpireActionSpace {
     }
 }
 
+/// Basically a light form of `Transition` to serialize to disk as part of the memory pool
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+struct Memory {
+    from: Vec<fX>,
+    action: usize,
+    reward: f64,
+    to: Vec<fX>,
+}
+
 /// The domain of the game of Umpire being played by player 0 against an AI opponent
 pub struct UmpireDomain {
     /// The game state
     game: Game,
 
-    /// Our formidable foes
-    opponents: Vec<Rc<RefCell<AI>>>,
-
     verbosity: usize,
 
     fix_output_loc: bool,
+
+    memory_file: Option<File>,
+
+    memory_prob: f64,
+
+    map: Map,
+
+    palette: Palette,
 }
 
 impl UmpireDomain {
-    // fn new(game: Game, opponent: Rc<RefCell<dyn TurnTaker>>, verbose: bool) -> Self {
-    //     Self { game, opponent, verbose }
-    // }
 
-    fn new_from_path(map_dims: Dims, opponents: Vec<Rc<RefCell<AI>>>, fix_output_loc: bool, fog_of_war: bool, verbosity: usize) -> Self {
+    fn new(map_dims: Dims, num_players: PlayerNum, fix_output_loc: bool, fog_of_war: bool, wrapping: Wrap2d, verbosity: usize,
+        memory_path: Option<&Path>, memory_prob: f64) -> Result<Self,std::io::Error> {
+    
         let city_namer = IntNamer::new("city");
     
         let game = Game::new(
             map_dims,
             city_namer,
-            2,
+            num_players,
             fog_of_war,
             None,
-            Wrap2d::BOTH,
+            wrapping,
         );
 
-        // let opponent = instantiate_opponent(ai_model_path, fix_output_loc, verbosity)?;
-
-        Self {
-            game,
-            opponents,
-            fix_output_loc,
-            verbosity,
-        }
+        Self::from_game(game, fix_output_loc, verbosity, memory_path, memory_prob)
     }
 
-    #[cfg(test)]
-    fn from_game(game: Game, opponents: Vec<Rc<RefCell<AI>>>, fix_output_loc: bool, verbosity: usize) -> Self {
-        // let opponent = instantiate_opponent(ai_model_path, fix_output_loc, verbosity)?;
-        Self {
+    fn from_game(game: Game, fix_output_loc: bool, verbosity: usize, memory_path: Option<&Path>, memory_prob: f64) -> Result<Self,std::io::Error> {
+        let memory_file =
+        if let Some(memory_path) = memory_path {
+            let memory_file = OpenOptions::new().append(true).create(true).open(memory_path)?;
+            Some(memory_file)
+        } else {
+            None
+        };
+
+
+        // Color palette is needed for terminal output when verbosity > 1
+        let palette = palette16(game.num_players).unwrap();
+
+        let mut map = Map::new(
+            Rect::new(0, 0, game.dims().width, game.dims().height),
+            game.dims(),
+            false
+        );
+        map.set_viewport_offset(Vec2d::new(0,0));
+
+        Ok(Self {
             game,
-            opponents,
             fix_output_loc,
             verbosity,
-        }
+            memory_file,
+            memory_prob,
+            map,
+            palette,
+        })
     }
 
     fn update_state(&mut self, action: UmpireAction) {
 
-        debug_assert_eq!(self.game.current_player(), 0);
         debug_assert!(!self.game.turn_is_done());
 
         action.take(&mut self.game);
 
         if self.verbosity > 1 {
-            if self.fix_output_loc {
-                execute!(stdout(), MoveTo(0,0)).unwrap();
-            }
+            
 
             let loc = if let Some(unit_id) = self.game.unit_orders_requests().next() {
                 self.game.current_player_unit_loc(unit_id)
@@ -381,14 +408,22 @@ impl UmpireDomain {
                 self.game.production_set_requests().next()
             };
 
-            println!("{:?}", self.game.current_player_observations());
-            
             if self.fix_output_loc {
-
+                let mut stdout = stdout();
+                {
+                    let ctrl = self.game.player_turn_control_nonending(self.game.current_player());
+                    self.map.draw(&ctrl, &mut stdout, &self.palette);
+                }
+                execute!(stdout, MoveTo(0, self.map.rect().bottom() + 1)).unwrap();
+            } else {
+                println!("{:?}", self.game.current_player_observations());
             }
-            println!("AI Cities: {}     ", self.game.current_player_cities().count());
-            println!("AI Units: {}     ", self.game.current_player_units().count());
-            println!("AI Score: {}     ", self.current_player_score());
+            
+            println!("Player: {} | Turn: {} | Score: {}     ", self.game.current_player(), self.game.turn(), self.game.current_player_score());
+            println!("Cities: {} | Units: {}     ",
+                self.game.current_player_cities().count(),
+                self.game.current_player_units().count()
+            );
             println!("Considering move for: {}     ", loc.map_or(String::from(""), |loc| format!("{:?}", loc)));
             println!("Action taken: {:?}                         ", action);
         }
@@ -398,76 +433,27 @@ impl UmpireDomain {
         while self.game.victor().is_none() && self.game.turn_is_done() {
             // End this user's turn
             self.game.end_turn_clearing().unwrap();
-
-            // Play the other player's turn to completion
-            // let mut ctrl = self.game.player_turn_control_clearing(1);
-            // while ctrl.victor().is_none() && !ctrl.turn_is_done() {
-            //     // LimitedTurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
-            //     TurnTaker::take_turn_clearing(self.opponent.as_mut(), &mut ctrl);
-            // }
-
-            for opponent in &mut self.opponents {
-                (*opponent).borrow_mut().take_turn_clearing(&mut self.game);
-            }
-
-            // TurnTaker::take_turn_clearing(self.opponent.borrow_mut(), &mut self.game);
-
-            debug_assert_eq!(self.game.current_player(), 0);
-
-            // while self.game.victor().is_none() && !self.game.turn_is_done() {
-            //     TurnTaker::take_turn_clearing(self.opponent.as_mut(), &mut self.game);
-            // }
         }
-
-        
-
-        
-
-        // // Run AI turns until the human player has something to do
-        // while self.game.victor().is_none() && self.game.turn_is_done() {
-
-        //     // Clear productions for cities that complete units so the AI can update---keeps it from getting stuck
-        //     // in a state where it could never win the game (e.g. producing only fighters)
-        //     let result = self.game.end_turn().unwrap().unwrap();
-
-        //     for prod in result.production_outcomes {
-        //         if let UnitProductionOutcome::UnitProduced{city, ..} = prod {
-        //             self.game.clear_production_without_ignoring(city.loc).unrwap();
-        //         }
-        //     }
-
-        //     let mut ctrl = self.game.player_turn_control(1);
-        //     LimitedTurnTaker::take_turn(&mut self.random_ai, &mut ctrl);
-
-        //     if ctrl.turn_is_done() {
-        //         let result = ctrl.end_turn().unwrap().unwrap();
-
-        //         for prod in result.production_outcomes {
-        //             if let UnitProductionOutcome::UnitProduced{city, ..} = prod {
-        //                 productions_to_clear.push(city.loc);
-        //             }
-        //         }
-        //     }
-        //     // Turn gets ended when ctrl goes out of scope
-        // }
     }
 
     /// For our purposes, the player's score is their own inherent score minus all other players' scores.
-    fn current_player_score(&self) -> f64 {
-        let scores = self.game.player_scores();
-        scores[self.game.current_player()]
+    fn player_score(&self, player: PlayerNum) -> f64 {
+        // let scores = self.game.player_scores();
+        // // scores[self.game.current_player()]
 
         // let mut score = 0.0;
 
-        // for player in 0..self.game.num_players() {
-        //     if player == self.game.current_player() {
-        //         score += scores[player];
+        // for player_ in 0..self.game.num_players() {
+        //     if player_ == player {
+        //         score += scores[player_];
         //     } else {
-        //         score -= scores[player];
+        //         score -= scores[player_];
         //     }
         // }
 
         // score
+
+        self.game.player_score(player).unwrap()
     }
 }
 
@@ -498,28 +484,39 @@ impl Domain for UmpireDomain {
     /// Transition the environment forward a single step given an action, `a`.
     fn step(&mut self, action_idx: usize) -> Transition<State<Self>, Action<Self>> {
 
-        debug_assert_eq!(self.game.current_player(), 0);
-
-        let start_score = self.current_player_score();
+        let current_player = self.game.current_player();
+        let start_score = self.player_score(current_player);
         let from = self.emit();
 
         let action = UmpireAction::from_idx(action_idx).unwrap();
 
-        // println!("Action: {:?}", action);
-
-        
-
         self.update_state(action);
 
-        debug_assert_eq!(self.game.current_player(), 0);
-
-        let end_score = self.current_player_score();
+        let end_score = self.player_score(current_player);
         let to = self.emit();
 
         let reward = end_score - start_score;
 
         if self.verbosity > 1 {
             println!("AI Reward: {}     ", reward);
+        }
+
+        if let Some(ref mut memory_file) = self.memory_file {
+            // With a specified probability, serialize this transition to the memory
+            let x: f64 = thread_rng().gen();
+            if x <= self.memory_prob {
+
+                let memory = Memory {
+                    from: from.state().player_features(current_player),
+                    action: action_idx,
+                    reward,
+                    to: to.state().player_features(current_player)
+                };
+
+                let bytes = bincode::serialize(&memory).unwrap();
+                memory_file.write_all(&bytes[..]).unwrap();
+                memory_file.flush().unwrap();
+            }
         }
 
         Transition {
@@ -605,7 +602,6 @@ impl<Q> UmpireGreedy<Q> {
 
         let argmaxima = legal_argmaxima(qs, &legal).1;
 
-        // debug_assert!(!argmaxima.is_empty());
         if argmaxima.is_empty() {
             println!("No argmaximum in qs {:?} legal {:?}; choosing randomly", qs, legal);
             let mut rand = thread_rng();
@@ -650,16 +646,23 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGr
 pub struct UmpireEpsilonGreedy<Q> {
     greedy: UmpireGreedy<Q>,
     random: UmpireRandom,
-    pub epsilon: f64,
+    epsilon: Cell<f64>,
+    epsilon_decay: f64,
+    decay_prob: f64,
+    min_epsilon: f64,
 }
 
 impl<Q> UmpireEpsilonGreedy<Q> {
-    pub fn new(greedy: UmpireGreedy<Q>, random: UmpireRandom, epsilon: f64) -> Self {
+    pub fn new(greedy: UmpireGreedy<Q>, random: UmpireRandom, epsilon: f64, epsilon_decay: f64, decay_prob: f64,
+                min_epsilon: f64) -> Self {
         Self {
             greedy,
             random,
 
-            epsilon,
+            epsilon: Cell::new(epsilon),
+            epsilon_decay,
+            decay_prob,
+            min_epsilon,
         }
     }
 }
@@ -668,13 +671,22 @@ impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireEpsilonGreed
     type Action = usize;
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> Self::Action {
-        if rng.gen_bool(self.epsilon) {
+        let epsilon = self.epsilon.get();
+        let action = if rng.gen_bool(epsilon) {
             // println!("RANDOM");
             self.random.sample(rng, state)
         } else {
             // println!("GREEDY");
             self.greedy.sample(rng, state)
+        };
+
+        if epsilon > self.min_epsilon && rng.gen_bool(self.decay_prob) {
+            let epsilon = (epsilon * self.epsilon_decay).max(self.min_epsilon);
+            self.epsilon.set(epsilon);
+            println!("Epsilon: {}", epsilon);
         }
+
+        action
     }
 
     fn mpa(&self, s: &Game) -> Self::Action { self.greedy.mpa(s) }
@@ -687,9 +699,10 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireEp
 
     fn probabilities(&self, s: &Game) -> Vec<f64> {
         let prs = self.greedy.probabilities(s);
-        let pr = self.epsilon / prs.len() as f64;
+        let epsilon = self.epsilon.get();
+        let pr = epsilon / prs.len() as f64;
 
-        prs.into_iter().map(|p| pr + p * (1.0 - self.epsilon)).collect()
+        prs.into_iter().map(|p| pr + p * (1.0 - epsilon)).collect()
     }
 }
 
@@ -729,19 +742,15 @@ where
     }
 }
 
-fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, epsilon: f64, dnn_learning_rate: f32, avoid_skip: bool) -> Result<Agent,String> {
+fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, epsilon: f64, epsilon_decay: f64, decay_prob: f64,
+    min_epsilon: f64, dnn_learning_rate: f32, avoid_skip: bool) -> Result<Agent,String> {
 
     let n_actions = UmpireAction::possible_actions().len();
 
     let q_func = match initialize_from {
         AI::Random(_) => {
             let fa_ai = if deep {
-                // let fa = DNN::load(Path::new("ai/umpire_regressor"))?;
-                // let fa = DNN::load(Path::new("ai/simple_graph"))?;
-                // AI::DNN(fa)
-        
-                let fa = DNN::new(dnn_learning_rate)?;
-                AI::DNN(fa)
+                AI::DNN(DNN::new(dnn_learning_rate)?)
             } else {
                 // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
                 let basis = Constant::new(5.0);
@@ -760,6 +769,9 @@ fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, epsilon: f64, 
         UmpireGreedy::new(q_func.clone()),
         UmpireRandom::new(),
         epsilon,
+        epsilon_decay,
+        decay_prob,
+        min_epsilon,
     );
 
     Ok(UmpireAgent{q:QLearning::new(q_func, policy, alpha, gamma), avoid_skip})
@@ -768,59 +780,79 @@ fn agent(initialize_from: AI, deep: bool, alpha: f64, gamma: f64, epsilon: f64, 
 pub fn trained_agent(
     initialize_from: AI,
     deep: bool,
-    opponent_specs: Vec<AISpec>,
+    training_players: PlayerNum,
     dims: Vec<Dims>,
+    wrappings: Vec<Wrap2d>,
     episodes: usize,
     steps: u64,
     alpha: f64,
     gamma: f64,
     epsilon: f64,
+    epsilon_decay: f64,
+    decay_prob: f64,
+    min_epsilon: f64,
     dnn_learning_rate: f32,
     avoid_skip: bool,
     fix_output_loc: bool,
     fog_of_war: bool,
     verbosity: usize,
+    memory_path: Option<&'static Path>,
+    memory_prob: f64,
 ) -> Result<Agent,String> {
 
-    if opponent_specs.len() > 3 {
-        return Err(format!("Cannot train agent against {} opponents; max is 3", opponent_specs.len()));
+
+
+    if training_players > 4 {
+        return Err(format!("Max players in training game is 4 but {} was specified", training_players));
     }
 
-    let mut agent = agent(initialize_from, deep, alpha, gamma, epsilon, dnn_learning_rate, avoid_skip)?;
+    let mut agent = agent(initialize_from, deep, alpha, gamma, epsilon, epsilon_decay,
+        decay_prob, min_epsilon, dnn_learning_rate, avoid_skip)?;
 
-    for dims in dims {
+    
+    let episode = Arc::new(RefCell::new(1_usize));
+    let domain_builder = Box::new(move || {
 
-        // let opponent_model_path = opponent_model_path.clone();
+        
 
-        if verbosity > 0 {
-            println!("Training {}", dims);
+        let mut rng = thread_rng();
+
+        let dims = dims.choose(&mut rng).unwrap();
+        let wrapping = wrappings.choose(&mut rng).unwrap();
+
+        if fix_output_loc {
+            let (term_width, term_height) = size().unwrap();
+            let mut stdout = stdout();
+            execute!(stdout, MoveTo(term_width,term_height - 8)).unwrap();
+            execute!(stdout, Clear(ClearType::FromCursorUp)).unwrap();
+
+            execute!(stdout, MoveTo(0,term_height - 13)).unwrap();
+            println!("Episode: {}", episode.borrow());
+            println!("Map Dimensions: {:?}", dims);
+            println!("Wrapping: {:?}", wrapping);
+            println!("Fog of War: {}", if fog_of_war { "on" } else { "off" });
+            *episode.borrow_mut() += 1;
         }
 
-        // let opponent_ai = Rc::new(RefCell::new(AI::from(opponent_spec.clone())));
-        let opponents: Vec<Rc<RefCell<AI>>> = opponent_specs.iter()
-                                                            .cloned()
-                                                            .map(AI::from)
-                                                            .map(RefCell::new)
-                                                            .map(Rc::new)
-                                                            .collect();
+        UmpireDomain::new(
+            *dims, training_players, fix_output_loc, fog_of_war, *wrapping,
+            verbosity, memory_path, memory_prob
+        )
+        .unwrap()
+    });
 
-        let domain_builder = Box::new(move || {
-            UmpireDomain::new_from_path(dims, opponents.clone(), fix_output_loc, fog_of_war, verbosity)
-        });
+    // Start a serial learning experiment up to 1000 steps per episode.
+    let e = SerialExperiment::new(&mut agent, domain_builder, steps);
 
-        // Start a serial learning experiment up to 1000 steps per episode.
-        let e = SerialExperiment::new(&mut agent, domain_builder, steps);
-
-        // Realise 1000 episodes of the experiment generator.
-        run(e, episodes,
-            if verbosity > 0 {
-                let logger = logging::root(logging::stdout());
-                Some(logger)
-            } else {
-                None
-            }
-        );
-    }
+    // Realise 1000 episodes of the experiment generator.
+    run(e, episodes,
+        if verbosity > 0 {
+            let logger = logging::root(logging::stdout());
+            Some(logger)
+        } else {
+            None
+        }
+    );
 
     Ok(agent)
 }
@@ -915,11 +947,10 @@ mod test {
     fn test_ai_movement() {
         let n = 10_000;
 
-        let opponent: Rc<RefCell<AI>> = Rc::new(RefCell::new(AI::random(0, false)));
-
-        // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(10, 10), None, false));
         let agent = trained_agent(AI::random(0, false), false,
-            vec![AISpec::Random], vec![Dims::new(10,10)], 10, 50, 0.05, 0.90, 0.05, 0.001, false, false, true, 0).unwrap();
+            2, vec![Dims::new(10,10)], vec![Wrap2d::BOTH], 10, 50, 0.05, 0.90,
+            0.05, 0.999, 0.0001, 0.2, 0.001, false, false, true,
+            0, None, std::f64::NAN).unwrap();
 
 
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
@@ -934,14 +965,14 @@ mod test {
 
         let game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
         
-        let mut domain = UmpireDomain::from_game(game.clone(), vec![opponent.clone()], false, 0);
+        let mut domain = UmpireDomain::from_game(game.clone(), false, 0, None, std::f64::NAN).unwrap();
 
         let mut rng = thread_rng();
         for _ in 0..n {
 
             // Reinitialize when somebody wins
             if domain.game.victor().is_some() {
-                domain = UmpireDomain::from_game(game.clone(), vec![opponent.clone()], false, 0);
+                domain = UmpireDomain::from_game(game.clone(), false, 0, None, std::f64::NAN).unwrap();
             }
 
             let idx = agent.sample_behaviour(&mut rng, domain.emit().state());

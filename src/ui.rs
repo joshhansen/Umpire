@@ -89,6 +89,9 @@ use self::{
     sym::Sym,
 };
 
+// Public so AI training can have a nice output
+pub use self::map::Map;
+
 pub trait MoveAnimator {
     fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move);
 }
@@ -352,7 +355,7 @@ impl UI for DefaultUI {
     }
 }
 
-trait Draw {
+pub trait Draw {
     fn draw(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
         self.draw_no_flush(game, stdout, palette);
         stdout.flush().unwrap();
@@ -360,7 +363,7 @@ trait Draw {
     fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette);
 }
 
-trait Component : Draw {
+pub trait Component : Draw {
     fn set_rect(&mut self, rect: Rect);
 
     fn rect(&self) -> Rect;
@@ -403,7 +406,6 @@ mod sym;
 use self::scroll::Scroller;
 use self::indicators::{CurrentPlayer,Turn};
 use self::log::LogArea;
-use self::map::Map;
 use self::mode::Mode;
 
 enum ViewportSize {
@@ -536,7 +538,7 @@ impl TermUI {
 
         let palette = Rc::new(palette);
 
-        let map = Map::new(viewport_rect, map_dims, palette.clone(), unicode);
+        let map = Map::new(viewport_rect, map_dims, unicode);
 
         let map_scroller_rect = Rect {
             left: viewport_rect.left,
@@ -668,8 +670,12 @@ impl TermUI {
                 //     (Some(None),Some(None))
                 // };
 
-                self.map_scroller.scrollable.draw_tile_no_flush(game, &mut self.stdout, viewport_loc, false, 
-                    false, None, None, None, Some(&located_obs.obs));
+                self.map_scroller.scrollable.draw_tile_no_flush(
+                    game, &mut self.stdout, viewport_loc, false, 
+                    false, None, None, None,
+                    Some(&located_obs.obs),
+                    &self.palette
+                );
             }
         }
     }
@@ -699,9 +705,17 @@ impl TermUI {
             };
 
             if let Some(viewport_loc) = viewport_loc {
-                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, true, false, None, None, Some(sym), None);
+                map.draw_tile_and_flush(
+                    game, &mut self.stdout, viewport_loc, true, false, None,
+                    None, Some(sym), None,
+                    &self.palette
+                );
                 sleep_millis(100);
-                map.draw_tile_and_flush(game, &mut self.stdout, viewport_loc, false, false, None, None, Some(sym), None);
+                map.draw_tile_and_flush(
+                    game, &mut self.stdout, viewport_loc, false, false, None,
+                    None, Some(sym), None,
+                    &self.palette
+                );
             } else {
                 sleep_millis(100);
             }
@@ -874,7 +888,7 @@ impl UI for TermUI {
     ) {
         self.map_scroller.scrollable.draw_tile_and_flush(
             game, &mut self.stdout, viewport_loc, highlight, unit_active, city_override, unit_override, symbol_override,
-            obs_override
+            obs_override, &self.palette
         )
     }
     
@@ -899,7 +913,7 @@ impl UI for TermUI {
     ) {
         self.map_scroller.scrollable.draw_tile_no_flush(
             game, &mut self.stdout, viewport_loc, highlight, unit_active, city_override, unit_override, symbol_override,
-            obs_override
+            obs_override, &self.palette
         )
     }
 

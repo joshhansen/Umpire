@@ -115,10 +115,12 @@ impl DNN {
     fn with_varstore(vars: nn::VarStore) -> Result<Self,String> {
         let path = vars.root();
 
-        let learning_rate: f64 = path
-            .get("learning_rate")
-            .ok_or(format!("Learning rate not set in VarStore"))?
-            .double_value(&[0]);
+        let learning_rate = 10e-3_f64;
+
+        // let learning_rate: f64 = path
+        //     .get("learning_rate")
+        //     .ok_or(format!("Learning rate not set in VarStore"))?
+        //     .double_value(&[0]);
         
 
         let conv0 = nn::conv2d(&path, 1, BASE_CONV_FEATS, 3, Default::default());// -> 9x9

@@ -518,6 +518,10 @@ impl Unit {
     pub fn transport_mode(&self) -> TransportMode {
         self.type_.transport_mode()
     }
+
+    pub fn max_hp(&self) -> u16 {
+        self.max_hp
+    }
 }
 
 impl Aligned for Unit {

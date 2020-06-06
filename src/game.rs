@@ -363,6 +363,11 @@ pub struct Game {
     ///
     /// An action is basically every city production request and unit orders request taken.
     action_counts: Vec<u64>,
+
+    /// The total hitpoints of all enemy units defeated by each player
+    ///
+    /// Stored for use in the score calculation.
+    defeated_unit_hitpoints: Vec<u64>,
 }
 impl Game {
     /// Creates a new game instance
@@ -408,6 +413,7 @@ impl Game {
             unit_namer: unit_namer.unwrap_or(Rc::new(RwLock::new(IntNamer::new("unit")))),
             fog_of_war,
             action_counts: vec![0; num_players],
+            defeated_unit_hitpoints: vec![0; num_players],
         };
 
         game.begin_turn();
@@ -421,13 +427,17 @@ impl Game {
     pub fn player_turn_control(&mut self, player: PlayerNum) -> PlayerTurnControl {
         debug_assert_eq!(player, self.current_player);
 
-        PlayerTurnControl::new(self)
+        PlayerTurnControl::new(self, true, false)
     }
 
     pub fn player_turn_control_clearing(&mut self, player: PlayerNum) -> PlayerTurnControl {
         debug_assert_eq!(player, self.current_player);
 
         PlayerTurnControl::new_clearing(self)
+    }
+
+    pub fn player_turn_control_nonending(&mut self, player: PlayerNum) -> PlayerTurnControl {
+        PlayerTurnControl::new(self, false, false)
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
@@ -512,6 +522,12 @@ impl Game {
         self.action_counts[self.current_player] += 1;
     }
 
+    /// Mark for accounting purposes that the current player defeated an enemy unit with 
+    /// the specified maximum number of hitpoints
+    fn unit_defeated(&mut self, max_hp: u16) {
+        self.defeated_unit_hitpoints[self.current_player] += max_hp as u64;
+    }
+
     fn begin_turn(&mut self) -> TurnStart {
         let production_outcomes = self.produce_units();
 
@@ -549,6 +565,8 @@ impl Game {
     /// 
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
+    ///
+    /// Defeat is defined as having no cities and having no units that can capture cities
     pub fn victor(&self) -> Option<PlayerNum> {
         let mut represented: HashSet<PlayerNum> = HashSet::new();
 
@@ -563,7 +581,9 @@ impl Game {
 
         for unit in self.map.units() {
             if let Alignment::Belligerent{player} = unit.alignment {
-                represented.insert(player);
+                if unit.type_.can_occupy_cities() {
+                    represented.insert(player);
+                }
             }
             if represented.len() > 1 {
                 return None;
@@ -703,7 +723,11 @@ impl Game {
     }
 
     pub fn current_player_observations(&self) -> &ObsTracker {
-        self.player_observations.get(&self.current_player()).unwrap()
+        self.player_observations(self.current_player)
+    }
+
+    pub fn player_observations(&self, player: PlayerNum) -> &ObsTracker {
+        self.player_observations.get(&player).unwrap()
     }
 
     // fn current_player_observations_mut(&mut self) -> &mut ObsTracker {
@@ -726,7 +750,12 @@ impl Game {
 
     /// How many cities does the current player control?
     pub fn current_player_city_count(&self) -> usize {
-        self.map.player_city_count(self.current_player()).unwrap_or_default()
+        self.player_city_count(self.current_player)
+    }
+
+    /// How many cities does the specified player control?
+    pub fn player_city_count(&self, player: PlayerNum) -> usize {
+        self.map.player_city_count(player).unwrap_or_default()
     }
 
     // /// All cities controlled by the current player which have a production target set, mutably
@@ -760,14 +789,12 @@ impl Game {
 
     /// The counts of unit types controlled by the current player
     pub fn current_player_unit_type_counts(&self) -> Result<&HashMap<UnitType,usize>,GameError> {
-        // let mut map = HashMap::new();
+        self.player_unit_type_counts(self.current_player)
+    }
 
-        // for unit in self.current_player_units() {
-        //     *(map.entry(unit.type_).or_insert(0)) += 1;
-        // }
-
-        // map
-        self.map.player_unit_type_counts(self.current_player())
+    /// The counts of unit types controlled by the specified player
+    pub fn player_unit_type_counts(&self, player: PlayerNum) -> Result<&HashMap<UnitType,usize>,GameError> {
+        self.map.player_unit_type_counts(player)
     }
 
     /// Every enemy unit known to the current player (as of most recent observations)
@@ -809,12 +836,22 @@ impl Game {
 
     /// If the current player controls a unit with ID `id`, return it
     pub fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.map.player_unit_by_id(self.current_player, id)
+        self.player_unit_by_id(self.current_player, id)
+    }
+
+    /// If the specified player controls a unit with ID `id`, return it
+    pub fn player_unit_by_id(&self, player: PlayerNum, id: UnitID) -> Option<&Unit> {
+        self.map.player_unit_by_id(player, id)
     }
 
     /// If the current player controls a unit with ID `id`, return its location
     pub fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
-        self.current_player_unit_by_id(id).map(|unit| unit.loc)
+        self.player_unit_loc(self.current_player, id)
+    }
+
+    /// If the specified player controls a unit with ID `id`, return its location
+    pub fn player_unit_loc(&self, player: PlayerNum, id: UnitID) -> Option<Location> {
+        self.player_unit_by_id(player, id).map(|unit| unit.loc)
     }
 
     /// If the current player controls the top-level unit at location `loc`, return it
@@ -823,14 +860,22 @@ impl Game {
     }
 
     pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
-        self.map.player_cities_lacking_production_target(self.current_player()).map(|city| city.loc)
+        self.player_production_set_requests(self.current_player)
+    }
+
+    pub fn player_production_set_requests<'a>(&'a self, player: PlayerNum) -> impl Iterator<Item=Location> + 'a {
+        self.map.player_cities_lacking_production_target(player).map(|city| city.loc)
     }
 
     /// Which if the current player's units need orders?
     /// 
     /// In other words, which of the current player's units have no orders and have moves remaining?
     pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
-        self.map.player_units(self.current_player())
+        self.player_unit_orders_requests(self.current_player)
+    }
+
+    pub fn player_unit_orders_requests<'a>(&'a self, player: PlayerNum) -> impl Iterator<Item=UnitID> + 'a {
+        self.map.player_units(player)
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
             .map(|unit| unit.id)
     }
@@ -1106,6 +1151,9 @@ impl Game {
                         move_.unit_combat = Some(unit.fight(other_unit));
                         if move_.unit_combat.as_ref().unwrap().victorious() {
                             // We were victorious over the unit
+
+                            // Record the victory for score calculation purposes
+                            self.defeated_unit_hitpoints[self.current_player] += other_unit.max_hp() as u64;
 
                             // Destroy the conquered unit
                             self.map.pop_unit_by_loc_and_id(loc, other_unit.id).unwrap();
@@ -1458,6 +1506,10 @@ impl Game {
 
     }
 
+    pub fn current_player_score(&self) -> f64 {
+        self.player_score(self.current_player).unwrap()
+    }
+
     fn player_score(&self, player: PlayerNum) -> Result<f64,GameError> {
         let mut score = 0.0;
 
@@ -1473,6 +1525,9 @@ impl Game {
             // The cost of the unit scaled by the unit's current hitpoints relative to maximum
             score += UNIT_MULTIPLIER * (unit.type_.cost() as f64) * (unit.hp() as f64) / (unit.max_hp() as f64);
         }
+
+        // Defeated units
+        score += UNIT_MULTIPLIER * self.defeated_unit_hitpoints[self.current_player] as f64;
     
         // Controlled cities
         for city in self.player_cities(player) {
@@ -1503,7 +1558,7 @@ impl Game {
         .collect()
     }
 
-    /// Feature vector for use in AI training
+    /// Feature vector for use in AI training; the specified player's current state
     /// 
     /// Map of the output vector:
     /// 
@@ -1520,7 +1575,7 @@ impl Game {
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
     /// 
-    fn features(&self) -> Vec<fX> {
+    pub fn player_features(&self, player: PlayerNum) -> Vec<fX> {
         // For every tile we add these f64's:
         // is the tile observed or not?
         // which player controls the tile (one hot encoded)
@@ -1530,10 +1585,10 @@ impl Game {
         //   what is the unit type? (one hot encoded, could be none---all zeros)
         // 
 
-        let unit_id = self.unit_orders_requests().next();
-        let city_loc = self.production_set_requests().next();
+        let unit_id = self.player_unit_orders_requests(player).next();
+        let city_loc = self.player_production_set_requests(player).next();
 
-        let unit_type = unit_id.and_then(|unit_id| self.current_player_unit_by_id(unit_id).map(|unit| unit.type_));
+        let unit_type = unit_id.and_then(|unit_id| self.player_unit_by_id(player, unit_id).map(|unit| unit.type_));
 
         // We also add a context around the currently active unit (if any)
         let mut x = Vec::with_capacity(FEATS_LEN as usize);
@@ -1546,10 +1601,12 @@ impl Game {
         x.push(self.turn as fX);
 
         // - number of cities player controls
-        x.push(self.current_player_city_count() as fX);
+        x.push(self.player_city_count(player) as fX);
+
+        let observations = self.player_observations(player);
 
         // - number of tiles observed
-        let num_observed: fX = self.current_player_observations().num_observed() as fX;
+        let num_observed: fX = observations.num_observed() as fX;
         x.push(num_observed);
 
         // - percentage of tiles observed
@@ -1573,80 +1630,26 @@ impl Game {
         // NOTE The unit counts are not included in dnn::ADDED_WIDE_FEATURES
         // - number of each type of unit controlled by player
         let empty_map = HashMap::new();
-        let type_counts = self.current_player_unit_type_counts().unwrap_or(&empty_map);
+        let type_counts = self.player_unit_type_counts(player).unwrap_or(&empty_map);
         let counts_vec: Vec<fX> = UnitType::values().iter()
                                     .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
                                     .collect();
 
         x.extend(counts_vec);
 
-        let observations = self.player_observations.get(&0).unwrap();
+        
+        
 
         // Relatively positioned around next unit (if any) or city
         
         let loc = unit_id.map(|unit_id| {
-            match self.current_player_unit_loc(unit_id) {
+            match self.player_unit_loc(player, unit_id) {
                 Some(loc) => loc,
                 None => {
                     panic!("Unit was in orders requests but not in current player observations")
                 },
             }
         }).or(city_loc);
-
-
-
-        // let max_dist = (self.map.dims().width as f64).max(self.map.dims().height as f64);
-
-        // // Get distance and direction to the nearest reachable enemy and the nearest reachable tile adjacent an
-        // // unobserved tile. The hope is to reward attacking enemy units and cities, and exploration.
-        // let (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir) = if let Some(unit_id) = unit_id {
-        //     let unit = self.current_player_unit_by_id(unit_id).unwrap();
-        //     let candidate_filter = UnitMovementFilter{unit};
-        //     let target_filter = UnitAttackFilter{unit};
-        //     let nearest_enemy_loc = bfs(
-        //         observations, unit.loc, self.wrapping, &candidate_filter, &target_filter
-        //     );
-
-        //     let nearest_adjacent_unobserved = nearest_adjacent_unobserved_reachable_without_attacking(
-        //         observations, unit.loc, unit, self.wrapping
-        //     );
-
-            
-        //     let nearest_enemy_dist = nearest_enemy_loc.map(|nearest_enemy_loc| {
-        //         unit_loc.unwrap().dist(nearest_enemy_loc)
-        //     });
-    
-        //     let nearest_adjacent_unobserved_dist = nearest_adjacent_unobserved.map(|nearest_adjacent_unobserved| {
-        //         unit_loc.unwrap().dist(nearest_adjacent_unobserved)
-        //     });
-
-
-        //     let path_search_filter = UnitMovementFilterXenophile{unit};
-        //     let shortest_paths = shortest_paths(observations, unit.loc, &path_search_filter, self.wrapping, std::u16::MAX);
-
-        //     let nearest_enemy_dir = nearest_enemy_loc.and_then(|nearest_enemy_loc| {
-        //         shortest_paths.direction_of(self.dims(), self.wrapping, nearest_enemy_loc)
-        //     });
-
-        //     let nearest_adjacent_unobserved_dir = nearest_adjacent_unobserved.and_then(|nearest_adjacent_unobserved| {
-        //         shortest_paths.direction_of(self.dims(), self.wrapping, nearest_adjacent_unobserved)
-        //     });
-
-        //     (nearest_enemy_dist, nearest_enemy_dir, nearest_adjacent_unobserved_dist, nearest_adjacent_unobserved_dir)
-        // } else {
-        //     (None, None, None, None)
-        // };
-
-
-        // x.push(nearest_enemy_dist.unwrap_or(max_dist));
-        // push_dir_to_vec(&mut x, nearest_enemy_dir);
-
-        // x.push(nearest_adjacent_unobserved_dist.unwrap_or(max_dist));
-        // push_dir_to_vec(&mut x, nearest_adjacent_unobserved_dir);
-
-
-        // let num_tiles = 121;
-        // let num_features: usize = 2;
 
         let mut is_enemy_belligerent = Vec::new();
         let mut is_observed = Vec::new();
@@ -1703,6 +1706,27 @@ impl Game {
         x.extend(is_city);
 
         x
+    }
+
+    /// Feature vector for use in AI training
+    /// 
+    /// Map of the output vector:
+    /// 
+    /// # 15: 1d features
+    /// * 1: current turn
+    /// * 1: current player city count
+    /// * 1: number of tiles observed by current player
+    /// * 1: percentage of tiles observed by current player
+    /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
+    /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
+    ///                                                     submarines, cruisers, battleships, carriers)
+    /// # 363: 2d features, three layers
+    /// * 121: is_enemy_belligerent (11x11)
+    /// * 121: is_observed (11x11)
+    /// * 121: is_neutral (11x11)
+    /// 
+    fn features(&self) -> Vec<fX> {
+        self.player_features(self.current_player)
     }
 }
 
