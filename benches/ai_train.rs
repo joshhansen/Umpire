@@ -21,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         .bench_function(
             format!("ai_train_{}", dims).as_str(),
             |b| b.iter(|| {
-                let _agent = trained_agent(AI::random(0, false), false, 2, vec![dims], vec![Wrap2d::BOTH], 1, 100, 0.01, 0.9, 0.05, 0.001, true, false, true, 0, None, 0.0);
+                let _agent = trained_agent(AI::random(0, false), false, 2, vec![dims], vec![Wrap2d::BOTH], 1, 100, 0.01, 0.9, 0.05, 0.001, 10e-4, 0.1, 10e-3, true, false, true, 0, None, 0.0);
             })
         );
     }

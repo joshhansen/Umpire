@@ -19,7 +19,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function(
         "random_ai",
         |b| b.iter(|| {
-            ai.take_turn(&mut ctrl);
+            ai.take_turn(&mut ctrl, false);
         })
     );
 }
