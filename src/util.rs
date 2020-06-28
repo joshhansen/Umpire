@@ -10,7 +10,7 @@ use std::{
         Sub,
     },
     thread::sleep,
-    time::Duration,
+    time::Duration, collections::HashMap,
 };
 
 use failure::Fail;
@@ -584,6 +584,16 @@ pub fn grapheme_substr(s: &str, len: usize) -> String {
 
 pub fn grapheme_len(s: &str) -> usize {
     UnicodeSegmentation::graphemes(s, true).count()
+}
+
+pub fn sparsify(v: Vec<f64>) -> (usize,HashMap<usize,f64>) {
+    let num_features = v.len();
+    let features: HashMap<usize,f64> = v.iter()
+                                                .cloned()
+                                                .enumerate()
+                                                .filter(|(i,f)| *f != 0.0)
+                                                .collect();
+    (num_features, features)
 }
 
 #[cfg(test)]

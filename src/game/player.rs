@@ -38,7 +38,7 @@ use crate::{
         Dims,
         Direction,
         Location,
-        Wrap2d,
+        Wrap2d, sparsify,
     }, cli::Specified,
 };
 use super::{fX, ai::{UmpireAction, AISpec}};
@@ -557,13 +557,15 @@ impl <T:ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
         let player = ctrl.current_player();
 
         loop {
-            let (features, pre_score) = if generate_data {
+            let (num_features, features, pre_score) = if generate_data {
+                let (num_features, features) = sparsify(ctrl.features());
                 (
-                    Some(ctrl.features()),
+                    Some(num_features),
+                    Some(features),
                     Some(ctrl.player_score(player).unwrap()),
                 )
             } else {
-                (None, None)
+                (None, None, None)
             };
 
             if let Some(action) = self.next_action(ctrl) {
@@ -577,6 +579,7 @@ impl <T:ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
                     training_instances.as_mut().map(|v| {
                         v.push(TrainingInstance::undetermined(
                             player,
+                            num_features.unwrap(),
                             features.unwrap(),
                             pre_score.unwrap(),
                             action,

@@ -5,7 +5,7 @@ use std::{
     fmt,
     fs::File,
     io::Write,
-    path::Path,
+    path::Path, collections::HashMap,
 };
 
 use rand::{
@@ -18,7 +18,7 @@ use serde::{Serialize, Deserialize};
 use crate::{
     game::{
         player::TurnTaker,
-    }, cli::Specified,
+    }, cli::Specified, util::sparsify,
 };
 
 use rsrl::fa::{
@@ -46,7 +46,8 @@ pub enum TrainingOutcome {
 #[derive(Serialize, Deserialize)]
 pub struct TrainingInstance {
     player: PlayerNum,// the player that took the action
-    features: Vec<f64>,// the view on the game state
+    num_features: usize,
+    features: HashMap<usize,f64>,
     pre_score: f64,// the player's score prior to the action
     action: UmpireAction,// the action taken
     post_score: f64,// the player's score after the action
@@ -54,10 +55,10 @@ pub struct TrainingInstance {
                                      // set as None until the outcome is determined
 }
 impl TrainingInstance {
-    pub fn undetermined(player: PlayerNum, features: Vec<f64>, pre_score: f64,
+    pub fn undetermined(player: PlayerNum, num_features: usize, features: HashMap<usize,f64>, pre_score: f64,
                         action: UmpireAction, post_score: f64) -> Self {
         Self {
-            player, features, pre_score, action, post_score, outcome: None
+            player, num_features, features, pre_score, action, post_score, outcome: None
         }
     }
 
@@ -334,13 +335,17 @@ impl AI {
             // outcome: TrainingOutcome,// how did things work out for the player?
 
 
-            let (features, pre_score) = if generate_data {
+            let (num_features, features, pre_score) = if generate_data {
+                let features = game.features();
+                let (num_features, features) = sparsify(features);
+
                 (
-                    Some(game.features()),
+                    Some(num_features),
+                    Some(features),
                     Some(game.player_score(player).unwrap()),
                 )
             } else {
-                (None, None)
+                (None, None, None)
             };
 
 
@@ -353,6 +358,7 @@ impl AI {
                 training_instances.as_mut().map(|v| {
                     v.push(TrainingInstance::undetermined(
                         player,
+                        num_features.unwrap(),
                         features.unwrap(),
                         pre_score.unwrap(),
                         action,
