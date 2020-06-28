@@ -20,6 +20,8 @@ use rand::{
     distributions::Distribution,
 };
 
+use serde::{Deserialize,Serialize};
+
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::conf;
@@ -175,7 +177,7 @@ impl <T:fmt::Display> fmt::Debug for Vec2d<T> {
     }
 }
 
-#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
+#[derive(Clone,Copy,Debug,Deserialize,Eq,Hash,Ord,PartialEq,PartialOrd,Serialize)]
 pub enum Direction {
     Up,
     Down,

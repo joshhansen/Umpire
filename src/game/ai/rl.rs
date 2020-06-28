@@ -78,7 +78,7 @@ use crate::{
         },
         unit::{
             UnitType,
-        }, PlayerNum, fX,
+        }, PlayerNum, fX, GameError,
     },
     name::IntNamer,
     ui::{Component,Draw,Map,},
@@ -107,7 +107,7 @@ type Agent = UmpireAgent<Shared<Shared<AI>>,UmpireEpsilonGreedy<Shared<AI>>>;
 //FIXME Someday compute this at compile time
 pub const POSSIBLE_ACTIONS: usize = UnitType::values().len() + Direction::values().len() + 2;
 
-#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
+#[derive(Clone,Copy,Debug,Deserialize,Eq,Hash,Ord,PartialEq,PartialOrd,Serialize)]
 pub enum UmpireAction {
     SetNextCityProduction{unit_type: UnitType},
     MoveNextUnit{direction: Direction},
@@ -203,11 +203,12 @@ impl UmpireAction {
         Self::possible_actions().into_iter().position(|a| self == a).unwrap()
     }
 
-    pub fn take(self, game: &mut Game) {
+    pub fn take(self, game: &mut Game) -> Result<(),GameError> {
         match self {
             UmpireAction::SetNextCityProduction{unit_type} => {
                 let city_loc = game.production_set_requests().next().unwrap();
-                game.set_production_by_loc(city_loc, unit_type).unwrap();
+                game.set_production_by_loc(city_loc, unit_type)
+                    .map(|_| ())
             },
             UmpireAction::MoveNextUnit{direction} => {
                 let unit_id = game.unit_orders_requests().next().unwrap();
@@ -220,15 +221,20 @@ impl UmpireAction {
                     legal.contains(&direction)
                 });
 
-                game.move_unit_by_id_in_direction(unit_id, direction).unwrap();
+                game.move_unit_by_id_in_direction(unit_id, direction)
+                    .map(|_| ())
+                    .map_err(GameError::MoveError)
             },
             UmpireAction::DisbandNextUnit => {
                 let unit_id = game.unit_orders_requests().next().unwrap();
-                game.disband_unit_by_id(unit_id).unwrap();
+                game.disband_unit_by_id(unit_id)
+                    .map(|_| ())
             },
             UmpireAction::SkipNextUnit => {
                 let unit_id = game.unit_orders_requests().next().unwrap();
-                game.order_unit_skip(unit_id).unwrap();
+                game.order_unit_skip(unit_id)
+                    .map(|_| ())
+
             }
         }
     }
@@ -397,7 +403,7 @@ impl UmpireDomain {
 
         debug_assert!(!self.game.turn_is_done());
 
-        action.take(&mut self.game);
+        action.take(&mut self.game).unwrap();
 
         if self.verbosity > 1 {
             

@@ -163,7 +163,7 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 
             let mut move_ = game.move_unit_by_id_using_filter(
                 unit.id, goal, &filter
-            ).map_err(|err| GameError::MoveError{id: unit_id, orders, move_error: err})?;
+            ).map_err(GameError::MoveError)?;
 
 
             if move_.moved_successfully() {
@@ -207,7 +207,7 @@ pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Prop
 /// orders.
 pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
     if !game.dims().contain(dest) {
-        return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::DestinationOutOfBounds {}});
+        return Err(GameError::MoveError(MoveError::DestinationOutOfBounds {}));
     }
 
     let (moves_remaining, shortest_paths, src) = {
@@ -231,7 +231,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
     };
 
     if src==dest {
-        return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::ZeroLengthMove});
+        return Err(GameError::MoveError(MoveError::ZeroLengthMove));
     }
 
     // Find the observed tile on the path from source to destination that is nearest to the
@@ -248,15 +248,13 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
 
         dest2 = shortest_paths
             .prev.get(dest2).cloned()
-            .ok_or(GameError::MoveError{
-                id: unit_id,
-                orders,
-                move_error: MoveError::NoRoute {
+            .ok_or(GameError::MoveError(
+                MoveError::NoRoute {
                     id: unit_id,
                     src,
                     dest,
                 }
-            })?;
+            ))?;
     }
     let dest2 = dest2;
 
@@ -265,11 +263,11 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         //FIXME I'm not sure why this situation arises---why does following the shortest path
         //     not actually lead us to the destination sometimes?
 
-        return Err(GameError::MoveError{ id: unit_id, orders, move_error: MoveError::NoRoute {
+        return Err(GameError::MoveError(MoveError::NoRoute {
             id: unit_id,
             src,
             dest,
-        }});
+        }));
     }
 
     game.move_unit_by_id(unit_id, dest2)
@@ -296,11 +294,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
                 status
             }
         })
-        .map_err(|err| GameError::MoveError {
-            id: unit_id,
-            orders,
-            move_error: err,
-        })
+        .map_err(GameError::MoveError)
 }
 pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Location) -> Proposed<OrdersResult> {
     let mut new = game.clone();
@@ -440,11 +434,11 @@ pub mod test {
 
         let dest = Location{x: 0, y: 0};
         let result1 = game.order_unit_go_to(id, dest);
-        assert_eq!(result1, Err(GameError::MoveError{id, orders: Orders::GoTo{dest}, move_error: MoveError::ZeroLengthMove}));
+        assert_eq!(result1, Err(GameError::MoveError(MoveError::ZeroLengthMove)));
 
         let dest2 = Location{x: 255, y: 255};
         let result2 = game.order_unit_go_to(id, dest2);
-        assert_eq!(result2, Err(GameError::MoveError{id, orders: Orders::GoTo{dest:dest2}, move_error: MoveError::DestinationOutOfBounds{}}));
+        assert_eq!(result2, Err(GameError::MoveError(MoveError::DestinationOutOfBounds{})));
 
         let dest3 = Location{x:5, y:0};
         let result3 = game.order_unit_go_to(id, dest3);

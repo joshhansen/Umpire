@@ -10,6 +10,7 @@ use crate::{
         Proposed,
         TurnNum,
         TurnStart,
+        ai::TrainingInstance,
         city::{
             City,
             CityID,
@@ -40,7 +41,7 @@ use crate::{
         Wrap2d,
     }, cli::Specified,
 };
-use super::ai::AISpec;
+use super::{fX, ai::{UmpireAction, AISpec}};
 
 
 pub type PlayerNum = usize;
@@ -183,6 +184,10 @@ impl <'a> PlayerTurnControl<'a> {
 
     pub fn current_player_unit_legal_one_step_destinations(&self, unit_id: UnitID) -> Result<HashSet<Location>,GameError> {
         self.game.current_player_unit_legal_one_step_destinations(unit_id)
+    }
+
+    pub fn current_player_unit_legal_directions<'b>(&'b self, unit_id: UnitID) -> Result<impl Iterator<Item=Direction>+'b,GameError> {
+        self.game.current_player_unit_legal_directions(unit_id)
     }
 
     /// The current player's most recent observation of the tile at location `loc`, if any
@@ -408,6 +413,35 @@ impl <'a> PlayerTurnControl<'a> {
         proposal.apply(self.game)
     }
 
+    /// Feature vector for use in AI training
+    /// 
+    /// Map of the output vector:
+    /// 
+    /// # 15: 1d features
+    /// * 1: current turn
+    /// * 1: current player city count
+    /// * 1: number of tiles observed by current player
+    /// * 1: percentage of tiles observed by current player
+    /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
+    /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
+    ///                                                     submarines, cruisers, battleships, carriers)
+    /// # 363: 2d features, three layers
+    /// * 121: is_enemy_belligerent (11x11)
+    /// * 121: is_observed (11x11)
+    /// * 121: is_neutral (11x11)
+    /// 
+    fn features(&self) -> Vec<fX> {
+        self.game.features()
+    }
+
+    fn player_score(&self, player: PlayerNum) -> Result<f64,GameError> {
+        self.game.player_score(player)
+    }
+
+    fn take_action(&mut self, action: UmpireAction) -> Result<(),GameError> {
+        self.game.take_action(action)
+    }
+
     // // ----- Consuming methods -----
     // fn end_turn(self) -> Result<TurnStart,PlayerNum> {
     //     self.game.end_turn()
@@ -431,8 +465,11 @@ impl <'a> Drop for PlayerTurnControl<'a> {
 
 /// Take a turn with only the knowledge of game state an individual player should have
 /// This is the main thing to use
+///
+/// # Arguments
+/// * generate_data: whether or not training data for a state-action-value model should be returned
 pub trait LimitedTurnTaker {
-    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl);
+    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl, generate_data: bool) -> Option<Vec<TrainingInstance>>;
 }
 
 /// Take a turn with full knowledge of the game state
@@ -441,39 +478,123 @@ pub trait LimitedTurnTaker {
 /// implementors to guarantee that the player's turn is ended (and only the player's turn---no further turns) by the
 /// end of the `take_turn` function call.
 pub trait TurnTaker {
-    fn take_turn_not_clearing(&mut self, game: &mut Game);
+    fn take_turn_not_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>>;
 
-    fn take_turn_clearing(&mut self, game: &mut Game);
+    fn take_turn_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>>;
 
-    fn take_turn(&mut self, game: &mut Game, clear_at_end_of_turn: bool) {
+    fn take_turn(&mut self, game: &mut Game, clear_at_end_of_turn: bool, generate_data: bool)
+                                                                                -> Option<Vec<TrainingInstance>> {
         if clear_at_end_of_turn {
-            self.take_turn_clearing(game);
+            self.take_turn_clearing(game, generate_data)
         } else {
-            self.take_turn_not_clearing(game);
+            self.take_turn_not_clearing(game, generate_data)
         }
     }
 }
 
 impl <T:LimitedTurnTaker> TurnTaker for T {
-    fn take_turn_not_clearing(&mut self, game: &mut Game) {
+    fn take_turn_not_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>> {
         let mut ctrl = game.player_turn_control(game.current_player());
+        let mut training_instances = if generate_data {
+            Some(Vec::new())
+        } else {
+            None
+        };
+
         loop {
-            <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl);
+            let result = <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data);
+            if let Some(mut instances) = result {
+                training_instances.as_mut()
+                                  .map(|v| v.append(&mut instances));
+            }
 
             if ctrl.turn_is_done() {
                 break;
             }
         }
+
+        training_instances
     }
 
-    fn take_turn_clearing(&mut self, game: &mut Game) {
+    fn take_turn_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>> {
         let mut ctrl = game.player_turn_control_clearing(game.current_player());
+        let mut training_instances = if generate_data {
+            Some(Vec::new())
+        } else {
+            None
+        };
+
         loop {
-            <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl);
+            let result = <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data);
+            if let Some(mut instances) = result {
+                training_instances.as_mut().map(|v| v.append(&mut instances));
+            }
 
             if ctrl.turn_is_done() {
                 break;
             }
         }
+
+        training_instances
     }
+}
+
+pub trait ActionwiseLimitedTurnTaker {
+    /// The next action that should be taken
+    ///
+    /// Return None if there are no actions that should be taken
+    fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<UmpireAction>;
+}
+
+impl <T:ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
+    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl, generate_data: bool) -> Option<Vec<TrainingInstance>> {
+        let mut training_instances = if generate_data {
+            Some(Vec::new())
+        } else {
+            None
+        };
+
+        let player = ctrl.current_player();
+
+        loop {
+            let (features, pre_score) = if generate_data {
+                (
+                    Some(ctrl.features()),
+                    Some(ctrl.player_score(player).unwrap()),
+                )
+            } else {
+                (None, None)
+            };
+
+            if let Some(action) = self.next_action(ctrl) {
+
+                // If an action was specified...
+
+                ctrl.take_action(action).unwrap();
+
+                if generate_data {
+                    let post_score = ctrl.player_score(player).unwrap();
+                    training_instances.as_mut().map(|v| {
+                        v.push(TrainingInstance::undetermined(
+                            player,
+                            features.unwrap(),
+                            pre_score.unwrap(),
+                            action,
+                            post_score
+                        ));
+                    });
+                }
+            }
+
+            if ctrl.turn_is_done() {
+                break;
+            }
+        }
+
+        training_instances
+    }
+}
+
+trait ActionwiseTurnTaker {
+    fn next_action(&self, game: &Game, generate_data: bool) -> Option<TrainingInstance>;
 }

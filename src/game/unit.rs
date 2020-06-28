@@ -5,6 +5,8 @@ pub mod orders;
 use std::cmp::Ordering;
 use std::fmt;
 
+use serde::{Deserialize,Serialize};
+
 use crate::{
     color::{Colorized,Colors},
     game::{
@@ -150,7 +152,7 @@ impl CarryingSpace {
     }
 }
 
-#[derive(Clone,Copy,Debug,Hash,PartialEq,Eq)]
+#[derive(Clone,Copy,Debug,Deserialize,Eq,Hash,PartialEq,Serialize)]
 pub enum UnitType {
     Infantry,
     Armor,

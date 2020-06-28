@@ -13,6 +13,8 @@ use rand::{
     Rng,
 };
 
+use serde::{Serialize, Deserialize};
+
 use crate::{
     game::{
         player::TurnTaker,
@@ -30,6 +32,50 @@ pub trait Loadable: Sized {
 
 pub trait Storable {
     fn store(self, path: &Path) -> Result<(),String>;
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum TrainingOutcome {
+    Victory,
+    Defeat,
+    Inconclusive,
+}
+
+/// An instance in which an action was taken in a game state and a reward was achieved; annotated with whether the
+/// player later went on to victory, defeat, or an inconclusive outcome
+#[derive(Serialize, Deserialize)]
+pub struct TrainingInstance {
+    player: PlayerNum,// the player that took the action
+    features: Vec<f64>,// the view on the game state
+    pre_score: f64,// the player's score prior to the action
+    action: UmpireAction,// the action taken
+    post_score: f64,// the player's score after the action
+    outcome: Option<TrainingOutcome>,// how did things work out for the player?
+                                     // set as None until the outcome is determined
+}
+impl TrainingInstance {
+    pub fn undetermined(player: PlayerNum, features: Vec<f64>, pre_score: f64,
+                        action: UmpireAction, post_score: f64) -> Self {
+        Self {
+            player, features, pre_score, action, post_score, outcome: None
+        }
+    }
+
+    pub fn determine(&mut self, outcome: TrainingOutcome) {
+        self.outcome = Some(outcome);
+    }
+
+    pub fn victory(&mut self) {
+        self.determine(TrainingOutcome::Victory);
+    }
+
+    pub fn defeat(&mut self) {
+        self.determine(TrainingOutcome::Defeat);
+    }
+
+    pub fn inconclusive(&mut self) {
+        self.determine(TrainingOutcome::Inconclusive);
+    }
 }
 
 // Sub-modules
@@ -271,48 +317,98 @@ impl AI {
         }
     }
 
-    fn _take_turn_unended(&mut self, game: &mut Game) {
+    fn _take_turn_unended(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>> {
+        let mut training_instances = if generate_data {
+            Some(Vec::new())
+        } else {
+            None
+        };
+
+        let player = game.current_player();
+
         while !game.turn_is_done() {
+            // features: Vec<f64>,// the view on the game state
+            // pre_score: f64,// the player's score prior to the action
+            // action_idx: usize,// the action taken
+            // post_score: f64,// the player's score after the action
+            // outcome: TrainingOutcome,// how did things work out for the player?
+
+
+            let (features, pre_score) = if generate_data {
+                (
+                    Some(game.features()),
+                    Some(game.player_score(player).unwrap()),
+                )
+            } else {
+                (None, None)
+            };
+
+
             let action_idx = self.best_action(game).unwrap();
             let action = UmpireAction::from_idx(action_idx).unwrap();
-            action.take(game);
+            action.take(game).unwrap();
+
+            if generate_data {
+                let post_score = game.player_score(player).unwrap();
+                training_instances.as_mut().map(|v| {
+                    v.push(TrainingInstance::undetermined(
+                        player,
+                        features.unwrap(),
+                        pre_score.unwrap(),
+                        action,
+                        post_score
+                    ));
+                });
+            }
+
+
         }
+
+        training_instances
     }
 }
 
 impl TurnTaker for AI {
-    fn take_turn_not_clearing(&mut self, game: &mut Game) {
+    fn take_turn_not_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>> {
         match self {
             Self::Random(ai) => {
-                ai.take_turn_not_clearing(game);
+                ai.take_turn_not_clearing(game, generate_data)
             },
             Self::LFA(_fa) => {
-                self._take_turn_unended(game);
+                let result = self._take_turn_unended(game, generate_data);
 
                 game.end_turn().unwrap();
+
+                result
             },
             Self::DNN(_fa) => {
-                self._take_turn_unended(game);
+                let result = self._take_turn_unended(game, generate_data);
 
                 game.end_turn().unwrap();
+
+                result
             }
         }
     }
 
-    fn take_turn_clearing(&mut self, game: &mut Game) {
+    fn take_turn_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>> {
         match self {
             Self::Random(ai) => {
-                ai.take_turn_clearing(game);
+                ai.take_turn_clearing(game, generate_data)
             },
             Self::LFA(_fa) => {
-                self._take_turn_unended(game);
+                let result = self._take_turn_unended(game, generate_data);
 
                 game.end_turn_clearing().unwrap();
+
+                result
             },
             Self::DNN(_fa) => {
-                self._take_turn_unended(game);
+                let result = self._take_turn_unended(game, generate_data);
 
                 game.end_turn_clearing().unwrap();
+
+                result
             }
         }
     }
@@ -324,4 +420,4 @@ pub use random::RandomAI;
 pub use rl::{
     UmpireAction, find_legal_max,
 };
-use super::{Game, PlayerType};
+use super::{Game, PlayerType, PlayerNum};

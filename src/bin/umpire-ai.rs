@@ -20,7 +20,7 @@ use std::{
     },
     rc::Rc,
     str::FromStr,
-    path::Path,
+    path::Path, fs::File,
 };
 
 use clap::{AppSettings, Arg, SubCommand};
@@ -50,7 +50,7 @@ use umpire::{
             rl::{
                 trained_agent,
 
-            },
+            }, TrainingInstance,
         },
         player::{
             PlayerNum,
@@ -105,6 +105,8 @@ fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>,String> {
 
 }
 
+
+
 static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
 
 fn main() -> Result<(),String> {
@@ -144,6 +146,17 @@ fn main() -> Result<(),String> {
         .help("Fix the location of output. Makes the output seem animated.")
     )
 
+    // .subcommand(
+    //     SubCommand::with_name("datagen")
+    //     .about("Generate data for direct modeling of state-action values")
+    //     .arg(
+    //         Arg::with_name("out")
+    //         .help("Output path for CSV formatted data")
+    //         .multiple(false)
+    //         .required(true)
+    //     )
+    // )
+
     .subcommand(
         SubCommand::with_name("eval")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME).as_str())
@@ -152,6 +165,19 @@ fn main() -> Result<(),String> {
                 .help(AI_MODEL_SPECS_HELP)
                 .multiple(true)
                 .required(true)
+        )
+        .arg(
+            Arg::with_name("datagenpath")
+            .short("P")
+            .long("datagenpath")
+            .help("Generate state-action value function training data based on the eval output, serializing to this path")
+            .takes_value(true)
+            .validator(|s| {
+                if !Path::new(&s).exists() {
+                    eprintln!("Warning: datagen path {} already exists; will overwrite", s)
+                }
+                Ok(())
+            })
         )
     )
 
@@ -314,7 +340,7 @@ fn main() -> Result<(),String> {
 
     println!("Verbosity: {}", verbosity);
 
-    if subcommand == "eval" {
+   if subcommand == "eval" {
 
         // if dims.len() > 1 {
         //     return Err(String::from("Only one set of dimensions can be given for evaluation"));
@@ -326,6 +352,26 @@ fn main() -> Result<(),String> {
         let ai_specs_s: Vec<&str> = sub_matches.values_of("ai_models").unwrap().collect();
         let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
         let mut ais: Vec<Rc<RefCell<AI>>> = load_ais(&ai_specs)?;
+
+        let datagenpath = sub_matches.value_of("datagenpath").map(Path::new);
+        if let Some(ref datagenpath) = datagenpath {
+            println!("Generating data to path: {}", datagenpath.display());
+        }
+        let generate_data = datagenpath.is_some();
+
+        let mut data_outfile = datagenpath.map(|datagenpath| {
+            File::create(datagenpath).unwrap()
+        });
+
+        // let data = bincode::serialize(&fa).unwrap();
+
+        // let display = path.display();
+    
+        // let mut file = File::create(&path).map_err(|err| {
+        //     format!("couldn't create {}: {}", display, err)
+        // })?;
+
+        // file.write_all(&data).map_err(|err| format!("Couldn't write to {}: {}", display, err))
 
         let num_ais = ais.len();
 
@@ -378,6 +424,8 @@ fn main() -> Result<(),String> {
                 }
             }
 
+            let mut player_partial_data: Option<HashMap<PlayerNum,Vec<TrainingInstance>>> = datagenpath.map(|_| HashMap::new());
+
             'steps: for _ in 0..steps {
                 for i in 0..num_ais {
 
@@ -385,8 +433,19 @@ fn main() -> Result<(),String> {
                         break 'steps;
                     }
 
+                    let player = game.current_player();
+
+
                     let ai = ais.get_mut(i).unwrap();
-                    ai.borrow_mut().take_turn_clearing(&mut game);
+                    let mut maybe_training_instances = ai.borrow_mut().take_turn_clearing(&mut game, generate_data);
+
+                    if let Some(player_partial_data) = player_partial_data.as_mut() {
+                        let partial_data = player_partial_data.entry(player).or_insert_with(Vec::new);
+                        partial_data.append(maybe_training_instances.as_mut().unwrap());
+                    }
+
+                    //TODO write the instance somewhere specific to the player so we can annotate it with
+                    //     victory/defeat/inconclusive after the game runs the specified episodes
 
                     if verbosity > 1 {
                         if fix_output_loc {
@@ -403,6 +462,45 @@ fn main() -> Result<(),String> {
                 }
             }
 
+            
+            if let Some(player_partial_data) = player_partial_data.as_mut() {
+                // Mark the training instances (if we've been tracking them) with the game's outcome
+
+                let players: Vec<usize> = player_partial_data.keys().cloned().collect();
+                if let Some(victor) = game.victor() {
+
+                    
+
+                    for player in players {
+                        let data = player_partial_data.get_mut(&player).unwrap();
+
+                        for instance in data {
+                            if player==victor {
+                                instance.victory();
+                            } else {
+                                instance.defeat();
+                            }
+                        }
+                    }
+                } else {
+                    for player in players {
+                        let data = player_partial_data.get_mut(&player).unwrap();
+                        for instance in data {
+                            instance.inconclusive();
+                        }
+                    }
+                }
+                
+                // Now write the resolved instances
+                for instances in player_partial_data.values() {
+                    for instance in instances {
+                        let data = bincode::serialize(instance).unwrap();
+                        data_outfile.as_mut().unwrap().write_all(&data).unwrap();
+                    }
+                }
+                
+            }
+
             * victory_counts.entry(game.victor()).or_insert(0) += 1;
 
             println!();
@@ -412,123 +510,6 @@ fn main() -> Result<(),String> {
             }
             println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
         }
-
-
-
-        // for i in 0..num_ais {
-        //     // let spec1 = (*ais[i]).borrow().spec();
-        //     let spec1 = ai_specs[i].clone();
-        //     let ai1 = Rc::clone(ais.get_mut(i).unwrap());
-
-            
-
-        //     for j in 0..num_ais {
-        //         if i < j {
-        //             // let spec2 = ai_specs[j];
-        //             let spec2 = ai_specs[j].clone();
-        //             let ai2 = ais.get_mut(j).unwrap();
-
-        //             if fix_output_loc {
-        //                 execute!(stdout, MoveTo(0,0)).unwrap();
-        //             }
-
-        //             println!("{} vs. {}", spec1, spec2);
-
-        //             let mut victory_counts: HashMap<Option<PlayerNum>,usize> = HashMap::new();
-
-        //             for _ in 0..episodes {
-
-        //                 let city_namer = IntNamer::new("city");
-
-        //                 let mut game = Game::new(
-        //                     Dims::new(map_width, map_height),
-        //                     city_namer,
-        //                     2,
-        //                     fog_of_war,
-        //                     None,
-        //                     wrapping,
-        //                 );
-
-        //                 if verbosity > 1 {
-        //                     if fix_output_loc {
-        //                         execute!(stdout, MoveTo(0,1)).unwrap();
-        //                     }
-        //                     println!("{:?}", game);
-        //                 }
-
-        //                 for _ in 0..steps {
-        //                     // if verbosity > 1 {
-        //                     //     if fix_output_loc {
-        //                     //         execute!(stdout, MoveTo(0,1)).unwrap();
-        //                     //     }
-        //                     //     println!("{:?}", game);
-        //                     // }
-
-        //                     if game.victor().is_some() {
-        //                         break;
-        //                     }
-
-        //                     ai1.borrow_mut().take_turn_clearing(&mut game);
-
-        //                     if verbosity > 1 {
-        //                         if fix_output_loc {
-        //                             execute!(stdout, MoveTo(0,1)).unwrap();
-        //                         }
-        //                         println!("{:?}", game);
-        //                     }
-
-        //                     if game.victor().is_some() {
-        //                         break;
-        //                     }
-
-        //                     if verbosity > 1 {
-        //                         let scores = game.player_scores();
-        //                         println!("{} score: {}", spec1, scores.get(0).unwrap());
-        //                         println!("{} score: {}", spec2, scores.get(1).unwrap());
-        //                         println!("Turn: {}", game.turn());
-        //                         println!("{} wins: {}", spec1, victory_counts.get(&Some(0)).unwrap_or(&0));
-        //                         println!("{} wins: {}", spec2, victory_counts.get(&Some(1)).unwrap_or(&0));
-        //                         println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
-        //                         println!();
-        //                     }
-
-        //                     ai2.borrow_mut().take_turn_clearing(&mut game);
-        //                 }
-
-        //                 * victory_counts.entry(game.victor()).or_insert(0) += 1;
-
-        //                 if verbosity > 0 {
-        //                     if let Some(victor) = game.victor() {
-        //                         println!("Victory: {}", match victor {
-        //                             0 => &spec1,
-        //                             1 => &spec2,
-        //                             v => panic!("Unrecognized victor {}", v)
-        //                         });
-        //                     } else {
-        //                         println!("Draw");
-        //                     }
-                        
-
-        //                     if verbosity > 1 {
-        //                         let scores = game.player_scores();
-        //                         println!("{} score: {}", spec1, scores.get(0).unwrap());
-        //                         println!("{} score: {}", spec2, scores.get(1).unwrap());
-        //                         println!("Turn: {}", game.turn());
-        //                         println!();
-        //                     }
-        //                 }
-
-        //             }
-
-        //             println!("{} wins: {}", spec1, victory_counts.get(&Some(0)).unwrap_or(&0));
-        //             println!("{} wins: {}", spec2, victory_counts.get(&Some(1)).unwrap_or(&0));
-        //             println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
-
-        //         }
-        //     }
-        // }
-
-
     } else if subcommand == "train" {
 
         // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();

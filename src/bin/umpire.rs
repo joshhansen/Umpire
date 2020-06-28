@@ -285,9 +285,13 @@ fn main() {
                 };
 
                 match ptype {
-                    PlayerType::Human => ui.take_turn(&mut game, clear_at_end_of_turn),
+                    PlayerType::Human => {
+                        ui.take_turn(&mut game, clear_at_end_of_turn, false).unwrap();
+                    },
                     PlayerType::AI(ai_type) => {
-                        ais.get_mut(ai_type).unwrap().borrow_mut().take_turn(&mut game, clear_at_end_of_turn);
+                        ais.get_mut(ai_type).unwrap().borrow_mut()
+                           .take_turn(&mut game, clear_at_end_of_turn, false)
+                           .unwrap();
                     },
                 }
             }

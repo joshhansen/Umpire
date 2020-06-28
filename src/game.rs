@@ -96,6 +96,7 @@ use self::{
         MoveResult,
     }
 };
+use ai::UmpireAction;
 
 static UNIT_TYPES: [UnitType;10] = UnitType::values();
 
@@ -298,12 +299,8 @@ pub enum GameError {
                     city_id, garrisoned_unit_id)]
     CannotOccupyGarrisonedCity { occupier_unit_id: UnitID, city_id: CityID, garrisoned_unit_id: UnitID },
 
-    #[fail(display="There was a problem moving the unit with ID {:?}: {}", id, move_error)]
-    MoveError {
-        id: UnitID,
-        orders: Orders,
-        move_error: MoveError,
-    }
+    #[fail(display="There was a problem moving the unit: {}", 0)]
+    MoveError(MoveError)
 }
 
 #[derive(Debug,PartialEq)]
@@ -1727,6 +1724,10 @@ impl Game {
     /// 
     fn features(&self) -> Vec<fX> {
         self.player_features(self.current_player)
+    }
+
+    fn take_action(&mut self, action: UmpireAction) -> Result<(),GameError> {
+        action.take(self)
     }
 }
 

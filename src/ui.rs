@@ -72,7 +72,7 @@ use crate::{
             LimitedTurnTaker,
             PlayerTurnControl,
         },
-        unit::Unit,
+        unit::Unit, ai::TrainingInstance,
     },
     log::{LogTarget,Message,MessageSource},
     util::{Dims,Rect,Location,Vec2d,sleep_millis}
@@ -1004,12 +1004,19 @@ impl UI for TermUI {
 }
 
 impl LimitedTurnTaker for TermUI {
-    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl) {
+    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl, generate_data: bool) -> Option<Vec<TrainingInstance>> {
+        if generate_data {
+            eprintln!("TermUI doesn't generate training data but generate_data was true");
+            //FIXME Code smell: refused bequest
+        }
+
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
         while mode.run(ctrl, self, &mut prev_mode) == ModeStatus::Continue {
             // nothing here
         }
+
+        None
     }
 }
 
