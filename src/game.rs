@@ -502,7 +502,7 @@ impl Game {
                         }
                     },
                     err => {
-                        panic!(format!("Error creating unit: {}", err))
+                        panic!("Error creating unit: {}", err)
                     }
                 }
             }

@@ -5,7 +5,7 @@ version = "0.5.0-pre"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
 license = "GPL-3.0-only"
 categories = ["games"]
-edition = "2018"
+edition = "2021"
 default-run = "umpire"
 include = [
     "src/*",
