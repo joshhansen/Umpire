@@ -145,7 +145,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                     println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
                 }
                 // ctrl.disband_unit_by_id(unit_id).unwrap();
-                return Some(UmpireAction::SkipNextUnit);
+                return Some(UmpireAction::SkipNextUnit);//FIXME? Should this be DisbandNextUnit?
             }
         }
 
