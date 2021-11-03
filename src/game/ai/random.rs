@@ -110,6 +110,10 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             }
 
             if x <= move_prob {
+                if (unit.type_ == UnitType::Infantry) {
+                    return Some(UmpireAction::SkipNextUnit);
+                }
+
                 let direction = possible.choose(&mut rng).unwrap();
 
                 if self.verbosity > 1 {
