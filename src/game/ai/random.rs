@@ -273,10 +273,6 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        convert::TryFrom,
-    };
-
     use crate::{
         game::{
             Alignment,

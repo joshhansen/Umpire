@@ -574,8 +574,6 @@ impl fmt::Display for Unit {
 #[cfg(test)]
 mod test {
     use std::collections::HashSet;
-    use std::convert::TryFrom;
-    use std::iter::FromIterator;
 
     use crate::{
         game::{

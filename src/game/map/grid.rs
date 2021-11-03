@@ -1,8 +1,6 @@
 use std::{
     collections::HashMap,
-    convert::TryFrom,
     fmt,
-    iter::FromIterator,
     ops::{
         Index,
         IndexMut,
@@ -407,8 +405,6 @@ impl <T:fmt::Debug> fmt::Debug for SparseLocationGrid<T> {
 
 #[cfg(test)]
 mod test {
-    use std::convert::TryFrom;
-
     use crate::{
         game::{
             obs::Obs,

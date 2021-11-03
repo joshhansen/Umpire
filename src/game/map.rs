@@ -17,7 +17,6 @@ use std::{
         HashMap,
         HashSet,
     },
-    convert::TryFrom,
     fmt::{
         Debug,
         Formatter,
@@ -958,8 +957,6 @@ impl TryFrom<String> for MapData {
 
 #[cfg(test)]
 mod test {
-    use std::convert::TryFrom;
-
     use rand::{thread_rng, distributions::Distribution};
 
     use crate::{

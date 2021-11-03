@@ -1,7 +1,3 @@
-use std::{
-    convert::TryFrom,
-};
-
 use crossterm::event::KeyCode;
 
 use crate::{

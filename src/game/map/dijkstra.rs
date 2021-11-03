@@ -6,7 +6,6 @@ use std::{
         HashSet,
         VecDeque,
     },
-    convert::TryFrom,
     fmt,
     marker::PhantomData,
     ops::{
@@ -712,7 +711,6 @@ mod test {
 
     use std::{
         collections::HashSet,
-        convert::TryFrom,
     };
 
     use crate::{

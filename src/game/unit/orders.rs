@@ -384,7 +384,6 @@ pub mod test_support {
 #[cfg(test)]
 pub mod test {
     use std::{
-        convert::TryFrom,
         rc::Rc,
         sync::{
             RwLock,

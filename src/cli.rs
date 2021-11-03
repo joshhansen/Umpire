@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use clap::{Arg, App};
 
 use crate::{
