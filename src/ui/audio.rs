@@ -10,6 +10,8 @@ use synth::{
     oscillator
 };
 
+use dasp;
+
 const CHANNELS: i32 = 2;
 const SAMPLE_HZ: f64 = 44_100.0;
 
@@ -166,25 +168,25 @@ pub(in crate::ui) fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> Result<
             cpal::StreamData::Output { buffer: cpal::UnknownTypeOutputBuffer::U16(ref mut buffer) } => {
                 let buffer: &mut [u16] = &mut *buffer;
 
-                let buffer: &mut [[u16; CHANNELS as usize]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
+                let buffer: &mut [[u16; CHANNELS as usize]] = dasp::slice::to_frame_slice_mut(buffer).unwrap();
 
-                sample::slice::equilibrium(buffer);
+                dasp::slice::equilibrium(buffer);
                 synth.fill_slice(buffer, SAMPLE_HZ as f64);
             },
             cpal::StreamData::Output { buffer: cpal::UnknownTypeOutputBuffer::I16(ref mut buffer) } => {
                 let buffer: &mut [i16] = &mut *buffer;
 
-                let buffer: &mut [[i16; CHANNELS as usize]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
+                let buffer: &mut [[i16; CHANNELS as usize]] = dasp::slice::to_frame_slice_mut(buffer).unwrap();
 
-                sample::slice::equilibrium(buffer);
+                dasp::slice::equilibrium(buffer);
                 synth.fill_slice(buffer, SAMPLE_HZ as f64);
             },
             cpal::StreamData::Output { buffer: cpal::UnknownTypeOutputBuffer::F32(ref mut buffer) } => {
                 let buffer: &mut [f32] = &mut *buffer;
 
-                let buffer: &mut [[f32; CHANNELS as usize]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
+                let buffer: &mut [[f32; CHANNELS as usize]] = dasp::slice::to_frame_slice_mut(buffer).unwrap();
 
-                sample::slice::equilibrium(buffer);
+                dasp::slice::equilibrium(buffer);
                 synth.fill_slice(buffer, SAMPLE_HZ as f64);
             },
             _ => {
