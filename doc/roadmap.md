@@ -15,6 +15,8 @@
 * TODO Make active unit blink---it's too hard to see right now.
 * FIXME Small maps aren't centered properly (e.g. 10x10)
 * FIXME Rendering issues if wrapping is off
+* FIXME Explore and go-to moves aren't animating visibly
+* FIXME Autoscale splashscreen to fit terminal dimensions
 
 ## 0.6 Milestones
 * TODO Make splash screen respect color palette
