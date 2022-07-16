@@ -2738,6 +2738,35 @@ mod test {
     }
 
     #[test]
+    fn test_valid_productions() {
+        let map = MapData::try_from("...\n.0.\n...").unwrap();
+        let game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+
+        let city_loc = game.production_set_requests().next().unwrap();
+
+        let prods: HashSet<UnitType> = game.valid_productions(city_loc).collect();
+
+        for t in UnitType::values().iter().cloned() {
+            if match t {
+                UnitType::Armor => true,
+                UnitType::Battleship => false,
+                UnitType::Bomber => true,
+                UnitType::Carrier => false,
+                UnitType::Cruiser => false,
+                UnitType::Destroyer => false,
+                UnitType::Fighter => true,
+                UnitType::Infantry => true,
+                UnitType::Submarine => false,
+                UnitType::Transport => false,
+            } {
+                assert!(prods.contains(&t));
+            } else {
+                assert!(!prods.contains(&t));
+            }
+        }
+    }
+
+    #[test]
     fn test_valid_productions_conservative() {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
         let game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
