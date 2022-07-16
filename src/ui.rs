@@ -5,6 +5,7 @@
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
 use std::{
+    cmp,
     io::{Stdout,Write,stdout},
     rc::{
         Rc,
@@ -408,6 +409,8 @@ use self::indicators::{CurrentPlayer,Turn};
 use self::log::LogArea;
 use self::mode::Mode;
 
+const MAX_MID_HEIGHT: u16 = 25;
+
 enum ViewportSize {
     REGULAR,
     THEATER,
@@ -416,18 +419,25 @@ enum ViewportSize {
 
 impl ViewportSize {
     fn rect(&self, term_dims: Dims) -> Rect {
+        let mid_y = match term_dims.height {
+            0 => 0,
+            1 | 2 => 1,
+            3 => 2,
+            4 | 5 => 3,
+            x => cmp::max(x - 2, MAX_MID_HEIGHT),
+        };
         match *self {
             ViewportSize::REGULAR => Rect {
                 left: 0,
                 top: HEADER_HEIGHT,
                 width: (term_dims.width - V_SCROLLBAR_WIDTH) / 2,
-                height: 25
+                height: mid_y
             },
             ViewportSize::THEATER => Rect {
                 left: 0,
                 top: HEADER_HEIGHT,
                 width: term_dims.width - V_SCROLLBAR_WIDTH,
-                height: 25
+                height: mid_y
             },
             ViewportSize::FULLSCREEN => Rect {
                 left: 0,
