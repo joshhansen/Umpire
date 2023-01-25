@@ -1,21 +1,16 @@
 //! Symbols used by the text UI
 
-use crate::{
-    game::{
-        map::{Terrain,Tile},
-        city::City,
-        unit::{
-            Unit,
-            UnitType,
-        },
-    },
+use crate::game::{
+    city::City,
+    map::{Terrain, Tile},
+    unit::{Unit, UnitType},
 };
 
 pub(in crate::ui) trait Sym {
     fn sym(&self, unicode: bool) -> &'static str;
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub(in crate::ui) enum Symbols {
     Land,
     Ocean,
@@ -71,14 +66,20 @@ impl Sym for UnitType {
         match self {
             UnitType::Infantry => "i",
             UnitType::Armor => "A",
-            UnitType::Fighter => if unicode{ "✈" } else {"f"},
+            UnitType::Fighter => {
+                if unicode {
+                    "✈"
+                } else {
+                    "f"
+                }
+            }
             UnitType::Bomber => "b",
             UnitType::Transport => "t",
             UnitType::Destroyer => "d",
             UnitType::Submarine => "─",
             UnitType::Cruiser => "c",
             UnitType::Battleship => "B",
-            UnitType::Carrier => "C"
+            UnitType::Carrier => "C",
         }
     }
 }

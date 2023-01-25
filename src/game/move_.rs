@@ -1,28 +1,21 @@
-use failure::{
-    Fail,
-};
+use failure::Fail;
 
 use crate::{
     game::{
         city::City,
         combat::CombatOutcome,
-        obs::{
-            LocatedObs,
-        },
-        unit::{
-            UnitID,Unit,
-        },
+        obs::LocatedObs,
+        unit::{Unit, UnitID},
     },
     util::Location,
 };
 
-pub type MoveResult = Result<Move,MoveError>;
-
+pub type MoveResult = Result<Move, MoveError>;
 
 /// A move.
-/// 
+///
 /// Returned by `ProposedMove::make`
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Move {
     /// The unit as it will be at the end of the proposed move
     pub unit: Unit,
@@ -31,7 +24,7 @@ pub struct Move {
     pub starting_loc: Location,
 
     /// The components of the proposed move
-    pub components: Vec<MoveComponent>
+    pub components: Vec<MoveComponent>,
 }
 impl Move {
     /// unit represents the unit _after_ the move is completed
@@ -39,13 +32,20 @@ impl Move {
         if components.is_empty() {
             Err(MoveError::ZeroLengthMove)
         } else {
-            Ok(Self{unit, starting_loc, components})
+            Ok(Self {
+                unit,
+                starting_loc,
+                components,
+            })
         }
     }
 
     /// Did the unit survive the move?
     pub fn moved_successfully(&self) -> bool {
-        self.components.iter().map(MoveComponent::moved_successfully).all(|success| success)
+        self.components
+            .iter()
+            .map(MoveComponent::moved_successfully)
+            .all(|success| success)
     }
 
     /// The city conquered at the end of this move, if any
@@ -98,14 +98,14 @@ impl Move {
 }
 
 //FIXME The name is a misnomer---UnitAction or something would be more accurate
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct MoveComponent {
     pub prev_loc: Location,
     pub loc: Location,
     /// Was the unit carried by another unit? If so, which one?
     pub carrier: Option<UnitID>,
-    pub unit_combat: Option<CombatOutcome<Unit,Unit>>,
-    pub city_combat: Option<CombatOutcome<Unit,City>>,
+    pub unit_combat: Option<CombatOutcome<Unit, Unit>>,
+    pub city_combat: Option<CombatOutcome<Unit, City>>,
     pub observations_after_move: Vec<LocatedObs>,
 }
 impl MoveComponent {
@@ -137,7 +137,7 @@ impl MoveComponent {
 
     /// How far did the unit move? Either 0 or 1---0 if it stayed in the same place,
     /// 1 otherwise.
-    /// 
+    ///
     /// NOTE: Assumes that all moves are of distance 1 or less
     pub fn distance_moved(&self) -> usize {
         if self.prev_loc == self.loc {
@@ -148,13 +148,15 @@ impl MoveComponent {
     }
 }
 
-#[derive(Debug,Fail,PartialEq)]
+#[derive(Debug, Fail, PartialEq)]
 pub enum MoveError {
-    #[fail(display="Cannot execute a move of length zero")]
+    #[fail(display = "Cannot execute a move of length zero")]
     ZeroLengthMove,
 
-    #[fail(display="Ordered move of unit with ID {:?} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
-                    id, src, dest, intended_distance, moves_remaining)]
+    #[fail(
+        display = "Ordered move of unit with ID {:?} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
+        id, src, dest, intended_distance, moves_remaining
+    )]
     RemainingMovesExceeded {
         id: UnitID,
         src: Location,
@@ -163,23 +165,25 @@ pub enum MoveError {
         moves_remaining: u16,
     },
 
-    #[fail(display="Cannot move unit at source location {} because there is no unit there", src)]
-    SourceUnitNotAtLocation {
-        src: Location,
-    },
+    #[fail(
+        display = "Cannot move unit at source location {} because there is no unit there",
+        src
+    )]
+    SourceUnitNotAtLocation { src: Location },
 
-    #[fail(display="Cannot move unit with ID {:?} because none exists", id)]
-    SourceUnitDoesNotExist {
-        id: UnitID,
-    },
+    #[fail(display = "Cannot move unit with ID {:?} because none exists", id)]
+    SourceUnitDoesNotExist { id: UnitID },
 
-    #[fail(display="Cannot move unit at source location {} with ID {:?} becuase no such unit exists", src, id)]
-    SourceUnitWithIdNotAtLocation {
-        id: UnitID,
-        src: Location,
-    },
+    #[fail(
+        display = "Cannot move unit at source location {} with ID {:?} becuase no such unit exists",
+        src, id
+    )]
+    SourceUnitWithIdNotAtLocation { id: UnitID, src: Location },
 
-    #[fail(display="No route from {} to {} for unit with ID {:?}", src, dest, id)]
+    #[fail(
+        display = "No route from {} to {} for unit with ID {:?}",
+        src, dest, id
+    )]
     NoRoute {
         id: UnitID,
         src: Location,
@@ -187,9 +191,9 @@ pub enum MoveError {
     },
 
     // #[fail(display="Destination {} lies outside of bounds {}", dest, bounds)]
-    #[fail(display="Destination out of bounds")]
+    #[fail(display = "Destination out of bounds")]
     DestinationOutOfBounds {
         // dest: Location,
         // bounds: Dims,
-    }
+    },
 }

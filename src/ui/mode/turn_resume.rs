@@ -1,17 +1,16 @@
-use crate::{
-    game::player::PlayerTurnControl,
-    ui::UI,
-};
+use crate::{game::player::PlayerTurnControl, ui::UI};
 
-use super::{
-    IMode,
-    Mode,
-    ModeStatus,
-};
+use super::{IMode, Mode, ModeStatus};
 
-pub(in crate::ui) struct TurnResumeMode{}
+pub(in crate::ui) struct TurnResumeMode {}
 impl IMode for TurnResumeMode {
-    fn run<U:UI>(&self, game: &mut PlayerTurnControl, _ui: &mut U, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+    fn run<U: UI>(
+        &self,
+        game: &mut PlayerTurnControl,
+        _ui: &mut U,
+        mode: &mut Mode,
+        _prev_mode: &Option<Mode>,
+    ) -> ModeStatus {
         if game.production_set_requests().next().is_some() {
             *mode = Mode::SetProductions;
             return ModeStatus::Continue;

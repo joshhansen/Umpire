@@ -1,35 +1,19 @@
-use std::io::{
-    stdout,
-    Write,
-};
+use std::io::{stdout, Write};
 
 use crossterm::{
-    execute,
     cursor::MoveTo,
-    terminal::{
-        Clear,
-        ClearType,
-    },
+    execute,
+    terminal::{Clear, ClearType},
 };
 
-use rand::{
-    Rng,
-    seq::SliceRandom,
-};
+use rand::{seq::SliceRandom, Rng};
 
 use crate::{
     game::{
-        player::{
-            PlayerTurnControl,
-            ActionwiseLimitedTurnTaker,
-        },
-        unit::{
-            UnitType,
-        },
+        player::{ActionwiseLimitedTurnTaker, PlayerTurnControl},
+        unit::UnitType,
     },
-    util::{
-        Direction,
-    },
+    util::Direction,
 };
 
 use super::UmpireAction;
@@ -56,7 +40,8 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
         let mut stdout = stdout();
 
         if let Some(city_loc) = ctrl.production_set_requests().next() {
-            let valid_productions: Vec<UnitType> = ctrl.valid_productions_conservative(city_loc).collect();
+            let valid_productions: Vec<UnitType> =
+                ctrl.valid_productions_conservative(city_loc).collect();
 
             let unit_type = valid_productions.choose(&mut rng).unwrap();
 
@@ -64,7 +49,9 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                 println!("{:?} -> {:?}", city_loc, unit_type);
             }
 
-            return Some(UmpireAction::SetNextCityProduction{unit_type: *unit_type});
+            return Some(UmpireAction::SetNextCityProduction {
+                unit_type: *unit_type,
+            });
         }
 
         if let Some(unit_id) = ctrl.unit_orders_requests().next() {
@@ -106,7 +93,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             let x: f64 = rng.gen();
 
             if self.fix_output_loc {
-                execute!(stdout, MoveTo(60,3)).unwrap();
+                execute!(stdout, MoveTo(60, 3)).unwrap();
             }
 
             if x <= move_prob {
@@ -120,8 +107,9 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                     println!("{:?} {} -> {:?}", unit_id, unit.loc, direction);
                 }
 
-
-                return Some(UmpireAction::MoveNextUnit{direction: *direction});
+                return Some(UmpireAction::MoveNextUnit {
+                    direction: *direction,
+                });
 
                 // // println!("dest: {:?}", dest);
                 // if self.verbosity > 1 {
@@ -130,7 +118,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                 // }
                 // let result = ctrl.move_unit_by_id(unit_id, *dest).unwrap();
                 // if self.verbosity > 1 && !result.moved_successfully() {
-                    
+
                 //     println!("Random's unit destroyed: {:?}", unit_id);
                 // }
 
@@ -149,7 +137,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                     println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
                 }
                 // ctrl.disband_unit_by_id(unit_id).unwrap();
-                return Some(UmpireAction::SkipNextUnit);//FIXME? Should this be DisbandNextUnit?
+                return Some(UmpireAction::SkipNextUnit); //FIXME? Should this be DisbandNextUnit?
             }
         }
 
@@ -205,7 +193,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
 //         // let units_with_orders_requests: Vec<Unit> = game.units_with_orders_requests().cloned().collect();
 //         // for unit_id in unit_orders_requests {
 //         // for unit in units_with_orders_requests {
-        
+
 //         while game.unit_orders_requests().next().is_some() {
 //             let unit_id = game.unit_orders_requests().next().unwrap();
 //             let unit = game.current_player_unit_by_id(unit_id).unwrap();
@@ -250,7 +238,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
 //                 }
 //                 let result = game.move_unit_by_id(unit_id, *dest).unwrap();
 //                 if self.verbosity > 1 && !result.moved_successfully() {
-                    
+
 //                     println!("Random's unit destroyed: {:?}", unit_id);
 //                 }
 
@@ -279,22 +267,12 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
 mod test {
     use crate::{
         game::{
-            Alignment,
-            Game,
-            UnitID,
-            map::{
-                MapData,
-                gen::generate_map,
-                terrain::Terrain,
-            },
+            map::{gen::generate_map, terrain::Terrain, MapData},
             player::LimitedTurnTaker,
+            Alignment, Game, UnitID,
         },
         name::IntNamer,
-        util::{
-            Dims,
-            Location,
-            Wrap2d,
-        },
+        util::{Dims, Location, Wrap2d},
     };
 
     use super::RandomAI;
@@ -306,7 +284,12 @@ mod test {
 
             let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
             // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
-            map.new_city(Location::new(0,0), Alignment::Belligerent{player:0}, "Hebevund").unwrap();
+            map.new_city(
+                Location::new(0, 0),
+                Alignment::Belligerent { player: 0 },
+                "Hebevund",
+            )
+            .unwrap();
 
             let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
             let mut ctrl = game.player_turn_control(0);
@@ -328,18 +311,18 @@ mod test {
                 for player in 0..=1 {
                     let mut ctrl = game.player_turn_control(player);
                     ai.take_turn(&mut ctrl, false);
-                
+
                     let orders_requests: Vec<UnitID> = ctrl.unit_orders_requests().collect();
 
                     for rqst_unit_id in orders_requests.iter().cloned() {
                         // Assert that all orders requests correspond to units still present and that the IDs still
                         // match
-                        let unit = ctrl.current_player_unit_by_id(rqst_unit_id)
-                                              .expect(format!("Unit not found in iteration {}, round {}", i, r).as_str());
+                        let unit = ctrl.current_player_unit_by_id(rqst_unit_id).expect(
+                            format!("Unit not found in iteration {}, round {}", i, r).as_str(),
+                        );
 
                         assert_eq!(unit.id, rqst_unit_id);
                     }
-
                 }
 
                 if game.victor().is_some() {
@@ -357,8 +340,8 @@ mod test {
 
         let mut map = MapData::try_from("Kti").unwrap();
 
-        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1,0)).unwrap();
-        let infantry_id = map.toplevel_unit_id_by_loc(Location::new(2,0)).unwrap();
+        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
+        let infantry_id = map.toplevel_unit_id_by_loc(Location::new(2, 0)).unwrap();
 
         map.carry_unit_by_id(transport_id, infantry_id).unwrap();
 

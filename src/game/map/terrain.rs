@@ -1,9 +1,8 @@
 use std::fmt;
 
-use crate::color::{Colors,Colorized};
+use crate::color::{Colorized, Colors};
 
-
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Terrain {
     Water,
     Land,
@@ -15,17 +14,21 @@ impl Colorized for Terrain {
     fn color(&self) -> Option<Colors> {
         Some(match *self {
             Terrain::Water => Colors::Ocean,
-            Terrain::Land => Colors::Land
+            Terrain::Land => Colors::Land,
         })
     }
 }
 
 impl fmt::Display for Terrain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match *self {
-            Terrain::Water => "Water",
-            Terrain::Land => "Land"
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Terrain::Water => "Water",
+                Terrain::Land => "Land",
+            }
+        )
     }
 }
 

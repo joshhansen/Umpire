@@ -65,18 +65,18 @@ pub const HEADER_HEIGHT: u16 = 1;
 // pub const FOOTER_HEIGHT: u16 = 5;
 
 /// The number of landmasses to seed during map generation
-pub const LANDMASSES:u16 = 150;
+pub const LANDMASSES: u16 = 150;
 
 /// The number of iterations to grow landmasses during map generation
-pub const GROWTH_ITERATIONS : u16 = 5;
+pub const GROWTH_ITERATIONS: u16 = 5;
 
 /// The degree to which cardinal-direction landmass growth should be discouraged
-pub const GROWTH_CARDINAL_LAMBDA : f32 = 2_f32;
+pub const GROWTH_CARDINAL_LAMBDA: f32 = 2_f32;
 
 /// The degree to which diagonal landmass growth should be discouraged
-pub const GROWTH_DIAGONAL_LAMBDA : f32 = 5_f32;
+pub const GROWTH_DIAGONAL_LAMBDA: f32 = 5_f32;
 
-pub const NEUTRAL_CITY_DENSITY : f32 = 0.05;
+pub const NEUTRAL_CITY_DENSITY: f32 = 0.05;
 
 /// The number of teams playing, including humans and AIs
 pub const NUM_PLAYERS: &str = "4";
@@ -88,14 +88,14 @@ pub const USE_ALTERNATE_SCREEN: &str = "on";
 // pub const HUMAN_PLAYER: PlayerNum = 0;
 
 // Key mappings
-pub const KEY_VIEWPORT_SIZE_ROTATE:      char = 'v';
-pub const KEY_LEFT:       char = 'h';
-pub const KEY_RIGHT:      char = 'l';
-pub const KEY_UP:         char = 'k';
-pub const KEY_DOWN:       char = 'j';
-pub const KEY_UP_LEFT:    char = 'y';
-pub const KEY_UP_RIGHT:   char = 'u';
-pub const KEY_DOWN_LEFT:  char = 'b';
+pub const KEY_VIEWPORT_SIZE_ROTATE: char = 'v';
+pub const KEY_LEFT: char = 'h';
+pub const KEY_RIGHT: char = 'l';
+pub const KEY_UP: char = 'k';
+pub const KEY_DOWN: char = 'j';
+pub const KEY_UP_LEFT: char = 'y';
+pub const KEY_UP_RIGHT: char = 'u';
+pub const KEY_DOWN_LEFT: char = 'b';
 pub const KEY_DOWN_RIGHT: char = 'n';
 pub const KEY_VIEWPORT_SHIFT_LEFT: char = 'H';
 pub const KEY_VIEWPORT_SHIFT_RIGHT: char = 'L';
@@ -106,13 +106,13 @@ pub const KEY_VIEWPORT_SHIFT_UP_RIGHT: char = 'U';
 pub const KEY_VIEWPORT_SHIFT_DOWN_LEFT: char = 'B';
 pub const KEY_VIEWPORT_SHIFT_DOWN_RIGHT: char = 'N';
 
-pub const KEY_NUMPAD_LEFT:       char = '4';
-pub const KEY_NUMPAD_RIGHT:      char = '6';
-pub const KEY_NUMPAD_UP:         char = '8';
-pub const KEY_NUMPAD_DOWN:       char = '2';
-pub const KEY_NUMPAD_UP_LEFT:    char = '7';
-pub const KEY_NUMPAD_UP_RIGHT:   char = '9';
-pub const KEY_NUMPAD_DOWN_LEFT:  char = '1';
+pub const KEY_NUMPAD_LEFT: char = '4';
+pub const KEY_NUMPAD_RIGHT: char = '6';
+pub const KEY_NUMPAD_UP: char = '8';
+pub const KEY_NUMPAD_DOWN: char = '2';
+pub const KEY_NUMPAD_UP_LEFT: char = '7';
+pub const KEY_NUMPAD_UP_RIGHT: char = '9';
+pub const KEY_NUMPAD_DOWN_LEFT: char = '1';
 pub const KEY_NUMPAD_DOWN_RIGHT: char = '3';
 
 pub const KEY_EXPLORE: char = 'o';
@@ -133,6 +133,6 @@ pub fn key_desc(key: char) -> String {
     match key {
         ' ' => String::from("Space"),
         '\n' => String::from("Enter"),
-        c => c.to_string()
+        c => c.to_string(),
     }
 }

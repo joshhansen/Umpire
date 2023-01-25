@@ -1,31 +1,14 @@
-use crossterm::event::{
-    KeyCode,
-};
+use crossterm::event::KeyCode;
 
 use crate::{
     conf,
-    game::{
-        player::PlayerTurnControl,
-        unit::UnitType,
-    },
-    log::{Message,MessageSource},
-    ui::{
-        audio::Sounds,
-        UI,
-        sym::Sym,
-    },
-    util::{Location,Rect},
+    game::{player::PlayerTurnControl, unit::UnitType},
+    log::{Message, MessageSource},
+    ui::{audio::Sounds, sym::Sym, UI},
+    util::{Location, Rect},
 };
 
-use super::{
-    IMode,
-    IVisibleMode,
-    KeyStatus,
-    Mode,
-    ModeStatus,
-    StateDisposition,
-    COL_WIDTH,
-};
+use super::{IMode, IVisibleMode, KeyStatus, Mode, ModeStatus, StateDisposition, COL_WIDTH};
 
 pub(in crate::ui) struct SetProductionMode {
     pub loc: Location,
@@ -51,7 +34,7 @@ impl SetProductionMode {
         row
     }
 
-    fn write_buf<U:UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
+    fn write_buf<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
         let tile = &game.current_player_tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
@@ -60,9 +43,14 @@ impl SetProductionMode {
 
         let mut highest_y = 0;
 
-        for (i,unit_type) in game.valid_productions(self.loc).enumerate() {
+        for (i, unit_type) in game.valid_productions(self.loc).enumerate() {
             let y = i + 2;
-            let row = self.row(unit_type.key(), unit_type.sym(self.unicode), unit_type.name(), Some(unit_type.cost()));
+            let row = self.row(
+                unit_type.key(),
+                unit_type.sym(self.unicode),
+                unit_type.name(),
+                Some(unit_type.cost()),
+            );
             ui.set_sidebar_row(y, row);
             highest_y = y;
         }
@@ -73,7 +61,13 @@ impl SetProductionMode {
 }
 
 impl IMode for SetProductionMode {
-    fn run<U:UI>(&self, game: &mut PlayerTurnControl, ui: &mut U, mode: &mut Mode, _prev_mode: &Option<Mode>) -> ModeStatus {
+    fn run<U: UI>(
+        &self,
+        game: &mut PlayerTurnControl,
+        ui: &mut U,
+        mode: &mut Mode,
+        _prev_mode: &Option<Mode>,
+    ) -> ModeStatus {
         ui.center_map(self.loc);
 
         ui.play_sound(Sounds::Silence);
@@ -81,18 +75,28 @@ impl IMode for SetProductionMode {
         self.write_buf(game, ui);
         ui.draw_no_flush(game);
 
-
         let city = {
             let city = game.current_player_city_by_loc(self.loc).unwrap();
-            ui.log_message(format!("Requesting production target for {}", city.short_desc() ));
+            ui.log_message(format!(
+                "Requesting production target for {}",
+                city.short_desc()
+            ));
             ui.draw_no_flush(game);
 
             city
         };
         // let city_viewport_loc = ui.map_scroller.scrollable.map_to_viewport_coords(city.loc).unwrap();
         let city_viewport_loc = ui.map_to_viewport_coords(city.loc).unwrap();
-        ui.draw_map_tile_and_flush(game, city_viewport_loc, false, true, 
-            Some(Some(city)), None, None, None);
+        ui.draw_map_tile_and_flush(
+            game,
+            city_viewport_loc,
+            false,
+            true,
+            Some(Some(city)),
+            None,
+            None,
+            None,
+        );
 
         loop {
             match self.get_key(game, ui, mode) {
@@ -103,14 +107,17 @@ impl IMode for SetProductionMode {
 
                             let city = game.current_player_city_by_loc(self.loc).unwrap();
                             ui.log_message(Message {
-                                text: format!("Set {}'s production to {}", city.short_desc(), unit_type),
+                                text: format!(
+                                    "Set {}'s production to {}",
+                                    city.short_desc(),
+                                    unit_type
+                                ),
                                 mark: Some('·'),
                                 bg_color: None,
                                 fg_color: None,
-                                source: Some(MessageSource::Mode)
+                                source: Some(MessageSource::Mode),
                             });
                             ui.draw_log(game);
-
 
                             Self::clear_buf(ui);
 
@@ -126,7 +133,6 @@ impl IMode for SetProductionMode {
                                 //     first: true,
                                 //     most_recently_active_unit_id: None,
                                 // };
-
                             } else {
                                 // game.set_production(self.loc, None).unwrap();
                                 game.clear_production_and_ignore(self.loc).unwrap();
@@ -136,21 +142,19 @@ impl IMode for SetProductionMode {
                             return ModeStatus::Continue;
                         }
                     }
-                },
-                KeyStatus::Handled(state_disposition) => {
-                    match state_disposition {
-                        StateDisposition::Quit => return ModeStatus::Quit,
-                        StateDisposition::Next => return ModeStatus::Continue,
-                        StateDisposition::Stay => {}
-                    }
                 }
+                KeyStatus::Handled(state_disposition) => match state_disposition {
+                    StateDisposition::Quit => return ModeStatus::Quit,
+                    StateDisposition::Next => return ModeStatus::Continue,
+                    StateDisposition::Stay => {}
+                },
             }
         }
     }
 }
 
 impl IVisibleMode for SetProductionMode {
-    fn clear_buf<U:UI>(ui: &mut U) {
+    fn clear_buf<U: UI>(ui: &mut U) {
         ui.clear_sidebar();
     }
 

@@ -1,16 +1,12 @@
-use clap::{Arg, App};
+use clap::{App, Arg};
 
 use crate::{
-    conf::{
-        FOG_OF_WAR,
-        MAP_HEIGHT,
-        MAP_WIDTH,
-    },
+    conf::{FOG_OF_WAR, MAP_HEIGHT, MAP_WIDTH},
     game::player::PlayerType,
 };
 
 /// A standardized `clap` `App`. Provides uniformity to command line interfaces across binaries.
-pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
+pub fn app<S: Into<String>>(name: S, included_flags: &'static str) -> App {
     let mut app = App::new(name);
 
     for c in included_flags.chars() {
@@ -82,8 +78,7 @@ pub fn app<S:Into<String>>(name: S, included_flags: &'static str) -> App {
 }
 
 /// An item specified by a string on the command line
-pub trait Specified : TryFrom<String> {
-
+pub trait Specified: TryFrom<String> {
     /// A description to show up in the command line help
     fn desc(&self) -> String;
 
@@ -92,15 +87,18 @@ pub trait Specified : TryFrom<String> {
 }
 
 /// Parse a our little specification sub-language
-/// 
+///
 /// Comma-separated and (for tokens that aren't file paths or otherwise already map to an item) split into individual
 /// characters.
-/// 
+///
 /// Examples:
 /// * r
 /// * r123
 /// * r123,ai/model.ai,ai/tf_model
-pub fn parse_spec<S1:AsRef<str>, S2:AsRef<str>, T:Specified>(spec: S1, spec_name: S2) -> Result<Vec<T>,String> {
+pub fn parse_spec<S1: AsRef<str>, S2: AsRef<str>, T: Specified>(
+    spec: S1,
+    spec_name: S2,
+) -> Result<Vec<T>, String> {
     let mut items: Vec<T> = Vec::new();
     for spec2 in spec.as_ref().split(",") {
         match T::try_from(spec2.to_string()) {
@@ -108,10 +106,13 @@ pub fn parse_spec<S1:AsRef<str>, S2:AsRef<str>, T:Specified>(spec: S1, spec_name
             Err(_) => {
                 // char by char
                 for spec3 in spec2.split_terminator("").skip(1) {
-                    items.push(
-                        T::try_from(spec3.to_string())
-                        .map_err(|_| format!("{} is not a valid {} specification", spec2, spec_name.as_ref()))?
-                    );
+                    items.push(T::try_from(spec3.to_string()).map_err(|_| {
+                        format!(
+                            "{} is not a valid {} specification",
+                            spec2,
+                            spec_name.as_ref()
+                        )
+                    })?);
                 }
             }
         }
@@ -120,12 +121,12 @@ pub fn parse_spec<S1:AsRef<str>, S2:AsRef<str>, T:Specified>(spec: S1, spec_name
 }
 
 /// Parse the player specification
-/// 
+///
 /// Examples:
 /// * hr
 /// * hr123
 /// * hhhh
 /// * hr123,ai/model.ai,ai/tf_model
-pub fn parse_player_spec<S:AsRef<str>>(spec: S) -> Result<Vec<PlayerType>,String> {
+pub fn parse_player_spec<S: AsRef<str>>(spec: S) -> Result<Vec<PlayerType>, String> {
     parse_spec(spec, "player")
 }

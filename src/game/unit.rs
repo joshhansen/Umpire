@@ -5,40 +5,32 @@ pub mod orders;
 use std::cmp::Ordering;
 use std::fmt;
 
-use serde::{Deserialize,Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    color::{Colorized,Colors},
+    color::{Colorized, Colors},
     game::{
-        Aligned,
-        Alignment,
-        GameError,
         combat::CombatCapable,
-        map::{
-            Terrain,
-            Tile,
-        },
+        map::{Terrain, Tile},
         obs::Observer,
+        Aligned, Alignment, GameError,
     },
     name::Named,
-    util::{
-        Location,
-        Located,
-    },
+    util::{Located, Location},
 };
 
 use self::orders::Orders;
 
-#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct UnitID {
-    id: u64
+    id: u64,
 }
 impl UnitID {
     pub fn new(id: u64) -> Self {
-        Self{ id }
+        Self { id }
     }
     pub fn next(self) -> Self {
-        UnitID{ id: self.id + 1 }
+        UnitID { id: self.id + 1 }
     }
 }
 
@@ -48,7 +40,7 @@ impl Default for UnitID {
     }
 }
 
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TransportMode {
     Land,
     Sea,
@@ -58,22 +50,22 @@ impl TransportMode {
     /// Determine whether a unit with this transport mode can operate on terrain of the given type
     pub fn can_traverse(&self, terrain: Terrain) -> bool {
         match self {
-            TransportMode::Land => terrain==Terrain::Land,
-            TransportMode::Sea  => terrain==Terrain::Water,
-            TransportMode::Air  => terrain==Terrain::Land || terrain==Terrain::Water,
+            TransportMode::Land => terrain == Terrain::Land,
+            TransportMode::Sea => terrain == Terrain::Water,
+            TransportMode::Air => terrain == Terrain::Land || terrain == Terrain::Water,
         }
     }
 
     pub fn default_terrain(&self) -> Terrain {
         match self {
             TransportMode::Land => Terrain::Land,
-            TransportMode::Sea  => Terrain::Water,
-            TransportMode::Air  => Terrain::Land,
+            TransportMode::Sea => Terrain::Water,
+            TransportMode::Air => Terrain::Land,
         }
     }
 }
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct CarryingSpace {
     owner: Alignment,
     accepted_transport_mode: TransportMode,
@@ -91,12 +83,12 @@ impl CarryingSpace {
     }
 
     /// Check for any problems that would prohibit us from carrying the unit
-    fn carry_status(&self, unit: &Unit) -> Result<(),GameError> {
+    fn carry_status(&self, unit: &Unit) -> Result<(), GameError> {
         if self.owner != unit.alignment {
-            return Err(GameError::OnlyAlliesCarry{
+            return Err(GameError::OnlyAlliesCarry {
                 carried_id: unit.id,
                 carrier_alignment: self.owner,
-                carried_alignment: unit.alignment
+                carried_alignment: unit.alignment,
             });
         }
 
@@ -104,14 +96,16 @@ impl CarryingSpace {
             return Err(GameError::WrongTransportMode {
                 carried_id: unit.id,
                 carrier_transport_mode: self.accepted_transport_mode,
-                carried_transport_mode: unit.type_.transport_mode()
+                carried_transport_mode: unit.type_.transport_mode(),
             });
         }
 
         debug_assert!(self.space.len() <= self.capacity);
 
         if self.space.len() == self.capacity {
-            return Err(GameError::InsufficientCarryingSpace{carried_id: unit.id});
+            return Err(GameError::InsufficientCarryingSpace {
+                carried_id: unit.id,
+            });
         }
 
         Ok(())
@@ -122,11 +116,11 @@ impl CarryingSpace {
     }
 
     /// Carry the given unit
-    /// 
+    ///
     /// Returns the number of carried units (including this new one) on success. A number of errors issue if there is
     /// a mismatch of unit alignment with carrier alignment, if the accepted transport mode doesn't match, and if the
     /// carrying space is already full.
-    fn carry(&mut self, unit: Unit) -> Result<usize,GameError> {
+    fn carry(&mut self, unit: Unit) -> Result<usize, GameError> {
         self.carry_status(&unit)?;
 
         self.space.push(unit);
@@ -134,8 +128,9 @@ impl CarryingSpace {
     }
 
     fn release_by_id(&mut self, id: UnitID) -> Option<Unit> {
-        self.space.iter()
-            .position(|carried_unit| carried_unit.id==id)
+        self.space
+            .iter()
+            .position(|carried_unit| carried_unit.id == id)
             .map(|carried_unit_idx| self.space.remove(carried_unit_idx))
     }
 
@@ -143,16 +138,16 @@ impl CarryingSpace {
         self.space.len()
     }
 
-    fn carried_units(&self) -> impl Iterator<Item=&Unit> {
+    fn carried_units(&self) -> impl Iterator<Item = &Unit> {
         self.space.iter()
     }
 
-    fn carried_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
+    fn carried_units_mut(&mut self) -> impl Iterator<Item = &mut Unit> {
         self.space.iter_mut()
     }
 }
 
-#[derive(Clone,Copy,Debug,Deserialize,Eq,Hash,PartialEq,Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum UnitType {
     Infantry,
     Armor,
@@ -163,11 +158,11 @@ pub enum UnitType {
     Submarine,
     Cruiser,
     Battleship,
-    Carrier
+    Carrier,
 }
 
 impl UnitType {
-    pub const fn values() -> [UnitType;10] {
+    pub const fn values() -> [UnitType; 10] {
         [
             UnitType::Infantry,
             UnitType::Armor,
@@ -178,7 +173,7 @@ impl UnitType {
             UnitType::Submarine,
             UnitType::Cruiser,
             UnitType::Battleship,
-            UnitType::Carrier
+            UnitType::Carrier,
         ]
     }
 
@@ -189,7 +184,7 @@ impl UnitType {
             UnitType::Transport => 3,
             UnitType::Cruiser => 4,
             UnitType::Battleship => 8,
-            UnitType::Carrier => 6
+            UnitType::Carrier => 6,
         }
     }
 
@@ -198,10 +193,10 @@ impl UnitType {
             UnitType::Infantry => 6,
             UnitType::Armor | UnitType::Fighter | UnitType::Bomber => 12,
             UnitType::Transport => 30,
-            UnitType::Destroyer | UnitType::Submarine=> 24,
+            UnitType::Destroyer | UnitType::Submarine => 24,
             UnitType::Cruiser => 36,
             UnitType::Battleship => 60,
-            UnitType::Carrier => 48
+            UnitType::Carrier => 48,
         }
     }
 
@@ -216,7 +211,7 @@ impl UnitType {
             UnitType::Submarine => 's',
             UnitType::Cruiser => 'c',
             UnitType::Battleship => 'p',
-            UnitType::Carrier => 'k'
+            UnitType::Carrier => 'k',
         }
     }
 
@@ -228,7 +223,7 @@ impl UnitType {
         }
     }
 
-    pub fn try_from_key(c: char) -> Result<UnitType,()> {
+    pub fn try_from_key(c: char) -> Result<UnitType, ()> {
         for unit_type in &UnitType::values() {
             if unit_type.key() == c {
                 return Ok(*unit_type);
@@ -239,7 +234,7 @@ impl UnitType {
 
     /// Determine whether a unit of this type could potentially move to a particular tile
     /// (maybe requiring combat to do so).
-    /// 
+    ///
     /// If a city is present, this will always be true. Otherwise, it will be determined by the match between
     /// the unit's capabilities and the terrain (e.g. planes over water, but not tanks over water).
     pub fn can_move_on_tile(self, tile: &Tile) -> bool {
@@ -266,7 +261,7 @@ impl UnitType {
             UnitType::Submarine => "Submarine",
             UnitType::Cruiser => "Cruiser",
             UnitType::Battleship => "Battleship",
-            UnitType::Carrier => "Carrier"
+            UnitType::Carrier => "Carrier",
         }
     }
 
@@ -274,8 +269,12 @@ impl UnitType {
         match self {
             UnitType::Infantry | UnitType::Armor => TransportMode::Land,
             UnitType::Fighter | UnitType::Bomber => TransportMode::Air,
-            UnitType::Transport | UnitType::Destroyer | UnitType::Submarine | UnitType::Cruiser |
-                UnitType::Battleship | UnitType::Carrier => TransportMode::Sea,
+            UnitType::Transport
+            | UnitType::Destroyer
+            | UnitType::Submarine
+            | UnitType::Cruiser
+            | UnitType::Battleship
+            | UnitType::Carrier => TransportMode::Sea,
         }
     }
 
@@ -318,8 +317,16 @@ impl UnitType {
 
     fn new_carrying_space_for(self, alignment: Alignment) -> Option<CarryingSpace> {
         match self {
-            UnitType::Transport => Some(CarryingSpace::new(alignment, TransportMode::Land, self.carrying_capacity())),
-            UnitType::Carrier => Some(CarryingSpace::new(alignment, TransportMode::Air, self.carrying_capacity())),
+            UnitType::Transport => Some(CarryingSpace::new(
+                alignment,
+                TransportMode::Land,
+                self.carrying_capacity(),
+            )),
+            UnitType::Carrier => Some(CarryingSpace::new(
+                alignment,
+                TransportMode::Air,
+                self.carrying_capacity(),
+            )),
             _ => None,
         }
     }
@@ -348,15 +355,13 @@ impl Ord for UnitType {
     }
 }
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Fuel {
     Unlimited,
-    Limited {
-        remaining: u16,
-    }
+    Limited { remaining: u16 },
 }
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Unit {
     pub id: UnitID,
     pub loc: Location,
@@ -372,8 +377,14 @@ pub struct Unit {
 }
 
 impl Unit {
-    pub fn new<S:Into<String>>(id: UnitID, loc: Location, type_: UnitType, alignment: Alignment, name: S) -> Self {
-        let max_hp =type_.max_hp();
+    pub fn new<S: Into<String>>(
+        id: UnitID,
+        loc: Location,
+        type_: UnitType,
+        alignment: Alignment,
+        name: S,
+    ) -> Self {
+        let max_hp = type_.max_hp();
         Unit {
             id,
             loc,
@@ -403,7 +414,7 @@ impl Unit {
     ///        if the unit has appropriate carrying space for this unit, then we can move on the tile
     ///        otherwise, we cannot move on the tile
     /// otherwise, defer to terrain features / city presence
-    /// 
+    ///
     /// NOTE: This method (and related) duplicate funcionality of the move methods themselves, but more efficiently.
     ///       Take care with the repetition to ensure consistency
     pub fn can_move_on_tile(&self, tile: &Tile) -> bool {
@@ -425,13 +436,14 @@ impl Unit {
     }
 
     /// Could this unit attack the given tile if it were adjacent?
-    /// 
+    ///
     /// This basically amounts to whether there is an enemy city or unit on the tile
     pub fn can_attack_tile(&self, tile: &Tile) -> bool {
-        tile.unit.as_ref().map(|_| true)
-                 .or_else(|| tile.city.as_ref().map(|_| true)
-        )
-        .unwrap_or(false)
+        tile.unit
+            .as_ref()
+            .map(|_| true)
+            .or_else(|| tile.city.as_ref().map(|_| true))
+            .unwrap_or(false)
     }
 
     pub fn moves_remaining(&self) -> u16 {
@@ -442,12 +454,15 @@ impl Unit {
         self.moves_remaining = 0;
     }
 
-    pub(in crate::game) fn record_movement(&mut self, moves: u16) -> Result<u16,String> {
+    pub(in crate::game) fn record_movement(&mut self, moves: u16) -> Result<u16, String> {
         if self.moves_remaining >= moves {
             self.moves_remaining -= moves;
             Ok(self.moves_remaining)
         } else {
-            Err(format!("Could not move {} moves because only {} remain", moves, self.moves_remaining))
+            Err(format!(
+                "Could not move {} moves because only {} remain",
+                moves, self.moves_remaining
+            ))
         }
     }
 
@@ -464,20 +479,22 @@ impl Unit {
     }
 
     /// Check for any error conditions we would encounter if we did try to carry the given unit
-    pub(in crate::game) fn carry_status(&self, unit: &Unit) -> Result<(),GameError> {
+    pub(in crate::game) fn carry_status(&self, unit: &Unit) -> Result<(), GameError> {
         if let Some(ref carrying_space) = self.carrying_space {
             carrying_space.carry_status(unit)
         } else {
-            Err(GameError::UnitHasNoCarryingSpace{carrier_id: self.id})
+            Err(GameError::UnitHasNoCarryingSpace {
+                carrier_id: self.id,
+            })
         }
     }
 
     /// Carry a unit in this unit's carrying space.
-    /// 
+    ///
     /// For example, make a Transport carry an Armor.
-    /// 
+    ///
     /// This method call should only be called by MapData's carry_unit method.
-    pub(in crate::game) fn carry(&mut self, mut unit: Unit) -> Result<usize,GameError> {
+    pub(in crate::game) fn carry(&mut self, mut unit: Unit) -> Result<usize, GameError> {
         self.carry_status(&unit)?;
 
         // We can set this before we've actually don the carry because we checked for any possible errors above
@@ -494,12 +511,16 @@ impl Unit {
         }
     }
 
-    pub fn carried_units(&self) -> impl Iterator<Item=&Unit> {
-        self.carrying_space.iter().flat_map(|carrying_space| carrying_space.carried_units())
+    pub fn carried_units(&self) -> impl Iterator<Item = &Unit> {
+        self.carrying_space
+            .iter()
+            .flat_map(|carrying_space| carrying_space.carried_units())
     }
 
-    pub(in crate::game) fn carried_units_mut(&mut self) -> impl Iterator<Item=&mut Unit> {
-        self.carrying_space.iter_mut().flat_map(|carrying_space| carrying_space.carried_units_mut())
+    pub(in crate::game) fn carried_units_mut(&mut self) -> impl Iterator<Item = &mut Unit> {
+        self.carrying_space
+            .iter_mut()
+            .flat_map(|carrying_space| carrying_space.carried_units_mut())
     }
 
     pub fn short_desc(&self) -> String {
@@ -550,8 +571,12 @@ impl Aligned for Unit {
 }
 
 impl CombatCapable for Unit {
-    fn hp(&self) -> u16 { self.hp }
-    fn max_hp(&self) -> u16 { self.max_hp }
+    fn hp(&self) -> u16 {
+        self.hp
+    }
+    fn max_hp(&self) -> u16 {
+        self.max_hp
+    }
 }
 
 impl Colorized for Unit {
@@ -594,22 +619,13 @@ mod test {
 
     use crate::{
         game::{
-            city::{
-                City,
-                CityID,
-            },
-            map::{
-                LocationGrid,
-                Terrain,
-                Tile,
-                dijkstra::Source,
-            },
-            obs::{Obs,ObsTracker},
-            unit::{Alignment,Observer,UnitID,Unit,UnitType},
+            city::{City, CityID},
+            map::{dijkstra::Source, LocationGrid, Terrain, Tile},
+            obs::{Obs, ObsTracker},
+            unit::{Alignment, Observer, Unit, UnitID, UnitType},
         },
-        util::{Dims,Dimensioned,Location,Wrap2d},
+        util::{Dimensioned, Dims, Location, Wrap2d},
     };
-
 
     #[test]
     fn test_observations() {
@@ -623,9 +639,15 @@ x   o    x";
         match LocationGrid::<Tile>::try_from(map_s) {
             Err(err) => {
                 panic!("Error parsing map: {}", err);
-            },
+            }
             Ok(map) => {
-                assert_eq!(map.dims(), Dims{width:10, height:5});
+                assert_eq!(
+                    map.dims(),
+                    Dims {
+                        width: 10,
+                        height: 5
+                    }
+                );
 
                 let width = map_s.lines().map(|line| line.len()).max();
                 let height = map_s.lines().count();
@@ -633,9 +655,15 @@ x   o    x";
                 assert_eq!(width, Some(10));
                 assert_eq!(height, 5);
 
-                let infantry_loc = Location{x:4, y:2};
+                let infantry_loc = Location { x: 4, y: 2 };
 
-                let infantry = Unit::new(UnitID::new(0), infantry_loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Lynn Stone");
+                let infantry = Unit::new(
+                    UnitID::new(0),
+                    infantry_loc,
+                    UnitType::Infantry,
+                    Alignment::Belligerent { player: 0 },
+                    "Lynn Stone",
+                );
 
                 // let mut obs_tracker: ObsTracker = ObsTracker::new_fog_of_war(map.dims());
                 let mut obs_tracker = ObsTracker::new(map.dims());
@@ -649,28 +677,36 @@ x   o    x";
                 infantry.observe(&map, turn, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr = [
-                    Location{x:4, y:0},
-                    Location{x:3, y:1},
-                    Location{x:4, y:1},
-                    Location{x:5, y:1},
-                    Location{x:2, y:2},
-                    Location{x:3, y:2},
-                    Location{x:4, y:2},
-                    Location{x:5, y:2},
-                    Location{x:6, y:2},
-                    Location{x:3, y:3},
-                    Location{x:4, y:3},
-                    Location{x:5, y:3},
-                    Location{x:4, y:4}
+                    Location { x: 4, y: 0 },
+                    Location { x: 3, y: 1 },
+                    Location { x: 4, y: 1 },
+                    Location { x: 5, y: 1 },
+                    Location { x: 2, y: 2 },
+                    Location { x: 3, y: 2 },
+                    Location { x: 4, y: 2 },
+                    Location { x: 5, y: 2 },
+                    Location { x: 6, y: 2 },
+                    Location { x: 3, y: 3 },
+                    Location { x: 4, y: 3 },
+                    Location { x: 5, y: 3 },
+                    Location { x: 4, y: 4 },
                 ];
-                let observed_locs: HashSet<&Location> = HashSet::from_iter(observed_locs_arr.iter());
+                let observed_locs: HashSet<&Location> =
+                    HashSet::from_iter(observed_locs_arr.iter());
 
                 for loc in map.iter_locs() {
-                    assert_eq!(*obs_tracker.get(loc), if observed_locs.contains(&loc) {
-                        Obs::Observed{ tile: map[loc].clone(), turn: turn, current: true }
-                    } else {
-                        Obs::Unobserved
-                    });
+                    assert_eq!(
+                        *obs_tracker.get(loc),
+                        if observed_locs.contains(&loc) {
+                            Obs::Observed {
+                                tile: map[loc].clone(),
+                                turn: turn,
+                                current: true,
+                            }
+                        } else {
+                            Obs::Unobserved
+                        }
+                    );
                 }
 
                 /*
@@ -681,35 +717,50 @@ x   o    x";
                 x   oo   x"
                 */
                 let mut infantry = infantry;
-                infantry.loc = Location{x:5, y:2};
+                infantry.loc = Location { x: 5, y: 2 };
 
                 infantry.observe(&map, turn, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr_2 = [
-                    Location{x:5, y:0},
-                    Location{x:6, y:1},
-                    Location{x:7, y:2},
-                    Location{x:6, y:3},
-                    Location{x:5, y:4}
+                    Location { x: 5, y: 0 },
+                    Location { x: 6, y: 1 },
+                    Location { x: 7, y: 2 },
+                    Location { x: 6, y: 3 },
+                    Location { x: 5, y: 4 },
                 ];
-                let observed_locs_2: HashSet<&Location> = HashSet::from_iter(observed_locs_arr_2.iter());
+                let observed_locs_2: HashSet<&Location> =
+                    HashSet::from_iter(observed_locs_arr_2.iter());
 
                 for loc in map.iter_locs() {
-                    assert_eq!(*obs_tracker.get(loc), if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
-                        Obs::Observed{ tile: map[loc].clone(), turn: turn, current: true }
-                    } else {
-                        Obs::Unobserved
-                    });
+                    assert_eq!(
+                        *obs_tracker.get(loc),
+                        if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
+                            Obs::Observed {
+                                tile: map[loc].clone(),
+                                turn: turn,
+                                current: true,
+                            }
+                        } else {
+                            Obs::Unobserved
+                        }
+                    );
                 }
 
                 obs_tracker.archive();
 
                 for loc in map.iter_locs() {
-                    assert_eq!(*obs_tracker.get(loc), if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
-                        Obs::Observed{ tile: map[loc].clone(), turn: turn, current: false }
-                    } else {
-                        Obs::Unobserved
-                    });
+                    assert_eq!(
+                        *obs_tracker.get(loc),
+                        if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
+                            Obs::Observed {
+                                tile: map[loc].clone(),
+                                turn: turn,
+                                current: false,
+                            }
+                        } else {
+                            Obs::Unobserved
+                        }
+                    );
                 }
             }
         }
@@ -717,13 +768,37 @@ x   o    x";
 
     #[test]
     fn test_mobility() {
-        let loc = Location{x:5, y:5};
+        let loc = Location { x: 5, y: 5 };
         let loc2 = Location::new(5, 6);
 
-        let infantry = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Belligerent{player:0}, "Isabel Nash");
-        let transport = Unit::new(UnitID::new(0), loc, UnitType::Transport, Alignment::Belligerent{player:0}, "Blah blah");
-        let friendly_unit = Unit::new(UnitID::new(1), loc, UnitType::Armor, Alignment::Belligerent{player:0}, "Lynn Stone");
-        let enemy_unit = Unit::new(UnitID::new(2), loc, UnitType::Armor, Alignment::Belligerent{player:1}, "James Lindsey");
+        let infantry = Unit::new(
+            UnitID::new(0),
+            loc,
+            UnitType::Infantry,
+            Alignment::Belligerent { player: 0 },
+            "Isabel Nash",
+        );
+        let transport = Unit::new(
+            UnitID::new(0),
+            loc,
+            UnitType::Transport,
+            Alignment::Belligerent { player: 0 },
+            "Blah blah",
+        );
+        let friendly_unit = Unit::new(
+            UnitID::new(1),
+            loc,
+            UnitType::Armor,
+            Alignment::Belligerent { player: 0 },
+            "Lynn Stone",
+        );
+        let enemy_unit = Unit::new(
+            UnitID::new(2),
+            loc,
+            UnitType::Armor,
+            Alignment::Belligerent { player: 1 },
+            "James Lindsey",
+        );
 
         let tile1 = Tile::new(Terrain::Land, loc);
         assert!(infantry.can_move_on_tile(&tile1));
@@ -741,7 +816,12 @@ x   o    x";
 
         {
             let mut tile = Tile::new(Terrain::Land, loc2);
-            tile.city = Some(City::new(CityID::new(0), Alignment::Belligerent{player: 1}, loc2, "Urbania"));
+            tile.city = Some(City::new(
+                CityID::new(0),
+                Alignment::Belligerent { player: 1 },
+                loc2,
+                "Urbania",
+            ));
             assert!(infantry.can_move_on_tile(&tile));
 
             assert!(!transport.can_move_on_tile(&tile));
@@ -753,7 +833,13 @@ x   o    x";
 
         {
             let mut tile = Tile::new(Terrain::Water, loc2);
-            let transport2 = Unit::new(UnitID::new(0), loc2, UnitType::Transport, Alignment::Belligerent{player:0}, "Blah blah");
+            let transport2 = Unit::new(
+                UnitID::new(0),
+                loc2,
+                UnitType::Transport,
+                Alignment::Belligerent { player: 0 },
+                "Blah blah",
+            );
             tile.unit = Some(transport2);
 
             assert!(!transport.can_move_on_tile(&tile));
@@ -761,8 +847,19 @@ x   o    x";
 
         {
             let mut tile = Tile::new(Terrain::Water, loc2);
-            tile.city = Some(City::new(CityID::new(0), Alignment::Belligerent{player: 0}, loc2, "Urbania"));
-            let transport2 = Unit::new(UnitID::new(0), loc2, UnitType::Transport, Alignment::Belligerent{player:0}, "Blah blah");
+            tile.city = Some(City::new(
+                CityID::new(0),
+                Alignment::Belligerent { player: 0 },
+                loc2,
+                "Urbania",
+            ));
+            let transport2 = Unit::new(
+                UnitID::new(0),
+                loc2,
+                UnitType::Transport,
+                Alignment::Belligerent { player: 0 },
+                "Blah blah",
+            );
             tile.unit = Some(transport2);
 
             assert!(!transport.can_move_on_tile(&tile));
@@ -771,10 +868,22 @@ x   o    x";
 
     #[test]
     pub fn test_can_carry_unit() {
-        let l1 = Location::new(0,0);
+        let l1 = Location::new(0, 0);
         let l2 = Location::new(1, 0);
-        let t1 = Unit::new(UnitID::new(0), l1, UnitType::Transport, Alignment::Belligerent{player:0}, "0");
-        let t2 = Unit::new(UnitID::new(0), l2, UnitType::Transport, Alignment::Belligerent{player:0}, "1");
+        let t1 = Unit::new(
+            UnitID::new(0),
+            l1,
+            UnitType::Transport,
+            Alignment::Belligerent { player: 0 },
+            "0",
+        );
+        let t2 = Unit::new(
+            UnitID::new(0),
+            l2,
+            UnitType::Transport,
+            Alignment::Belligerent { player: 0 },
+            "1",
+        );
 
         assert!(!t1.can_carry_unit(&t2));
     }

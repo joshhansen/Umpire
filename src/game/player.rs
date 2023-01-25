@@ -1,51 +1,26 @@
-use std::{
-    collections::HashSet,
-};
+use std::collections::HashSet;
 
+use super::{
+    ai::{AISpec, UmpireAction},
+    fX,
+};
 use crate::{
+    cli::Specified,
     game::{
-        Game,
-        GameError,
-        Proposed,
-        TurnNum,
-        TurnStart,
         ai::TrainingInstance,
-        city::{
-            City,
-            CityID,
-        },
+        city::{City, CityID},
         map::tile::Tile,
-        move_::{
-            Move,
-            MoveError,
-            MoveResult,
-        },
-        obs::{
-            Obs,
-            ObsTracker,
-        },
-        unit::{
-            Unit,
-            UnitID,
-            UnitType,
-            orders::{
-                OrdersResult,
-            },
-        },
+        move_::{Move, MoveError, MoveResult},
+        obs::{Obs, ObsTracker},
+        unit::{orders::OrdersResult, Unit, UnitID, UnitType},
+        Game, GameError, Proposed, TurnNum, TurnStart,
     },
-    util::{
-        Dims,
-        Direction,
-        Location,
-        Wrap2d, sparsify,
-    }, cli::Specified,
+    util::{sparsify, Dims, Direction, Location, Wrap2d},
 };
-use super::{fX, ai::{UmpireAction, AISpec}};
-
 
 pub type PlayerNum = usize;
 
-#[derive(Clone,Debug,Eq,Hash,PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum PlayerType {
     Human,
     AI(AISpec),
@@ -106,7 +81,7 @@ impl Specified for PlayerType {
     fn spec(&self) -> String {
         match self {
             Self::Human => String::from("h"),
-            Self::AI(ai_type) => ai_type.spec()
+            Self::AI(ai_type) => ai_type.spec(),
         }
     }
 }
@@ -117,7 +92,7 @@ impl TryFrom<String> for PlayerType {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
             "h" | "human" => Ok(Self::Human),
-            _ => AISpec::try_from(value).map(Self::AI)
+            _ => AISpec::try_from(value).map(Self::AI),
         }
     }
 }
@@ -126,7 +101,7 @@ impl Into<String> for PlayerType {
     fn into(self) -> String {
         match self {
             Self::Human => "h".to_string(),
-            Self::AI(ai_type) => ai_type.into()
+            Self::AI(ai_type) => ai_type.into(),
         }
     }
 }
@@ -154,15 +129,29 @@ pub struct PlayerTurnControl<'a> {
 
     end_turn_on_drop: bool,
 }
-impl <'a> PlayerTurnControl<'a> {
-    pub fn new(game: &'a mut Game, end_turn_on_drop: bool, clear_completed_productions: bool) -> Self {
+impl<'a> PlayerTurnControl<'a> {
+    pub fn new(
+        game: &'a mut Game,
+        end_turn_on_drop: bool,
+        clear_completed_productions: bool,
+    ) -> Self {
         let player = game.current_player();
-        Self { game, player, clear_completed_productions, end_turn_on_drop }
+        Self {
+            game,
+            player,
+            clear_completed_productions,
+            end_turn_on_drop,
+        }
     }
 
     pub fn new_clearing(game: &'a mut Game) -> Self {
         let player = game.current_player();
-        Self { game, player, clear_completed_productions: true, end_turn_on_drop: true }
+        Self {
+            game,
+            player,
+            clear_completed_productions: true,
+            end_turn_on_drop: true,
+        }
     }
 
     pub fn num_players(&self) -> PlayerNum {
@@ -174,18 +163,25 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
-    /// 
+    ///
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
     pub fn victor(&self) -> Option<PlayerNum> {
         self.game.victor()
     }
 
-    pub fn current_player_unit_legal_one_step_destinations(&self, unit_id: UnitID) -> Result<HashSet<Location>,GameError> {
-        self.game.current_player_unit_legal_one_step_destinations(unit_id)
+    pub fn current_player_unit_legal_one_step_destinations(
+        &self,
+        unit_id: UnitID,
+    ) -> Result<HashSet<Location>, GameError> {
+        self.game
+            .current_player_unit_legal_one_step_destinations(unit_id)
     }
 
-    pub fn current_player_unit_legal_directions<'b>(&'b self, unit_id: UnitID) -> Result<impl Iterator<Item=Direction>+'b,GameError> {
+    pub fn current_player_unit_legal_directions<'b>(
+        &'b self,
+        unit_id: UnitID,
+    ) -> Result<impl Iterator<Item = Direction> + 'b, GameError> {
         self.game.current_player_unit_legal_directions(unit_id)
     }
 
@@ -204,19 +200,19 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Every city controlled by the current player
-    pub fn current_player_cities(&self) -> impl Iterator<Item=&City> {
+    pub fn current_player_cities(&self) -> impl Iterator<Item = &City> {
         self.game.current_player_cities()
     }
 
     /// All cities controlled by the current player which have a production target set
-    pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item=&City> {
+    pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City> {
         self.game.current_player_cities_with_production_target()
     }
 
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
-    /// 
+    ///
     /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
-    /// 
+    ///
     /// FIXME Get rid of this and just make the UI smarter
     #[deprecated]
     pub fn player_cities_producing_or_not_ignored(&self) -> usize {
@@ -224,7 +220,7 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Every unit controlled by the current player
-    pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
+    pub fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
         self.game.current_player_units()
     }
 
@@ -253,28 +249,27 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.current_player_toplevel_unit_by_loc(loc)
     }
 
-    pub fn production_set_requests(&'a self) -> impl Iterator<Item=Location> + 'a {
+    pub fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a {
         self.game.production_set_requests()
     }
 
     /// Which if the current player's units need orders?
-    /// 
+    ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn unit_orders_requests(&'a self) -> impl Iterator<Item=UnitID> + 'a {
+    pub fn unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {
         self.game.unit_orders_requests()
     }
 
     /// Which if the current player's units need orders?
-    /// 
+    ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn units_with_orders_requests(&'a self) -> impl Iterator<Item=&Unit> + 'a {
+    pub fn units_with_orders_requests(&'a self) -> impl Iterator<Item = &Unit> + 'a {
         self.game.units_with_orders_requests()
     }
 
-    pub fn units_with_pending_orders(&'a self) -> impl Iterator<Item=UnitID> + 'a {
+    pub fn units_with_pending_orders(&'a self) -> impl Iterator<Item = UnitID> + 'a {
         self.game.units_with_pending_orders()
     }
-
 
     // Movement-related methods
 
@@ -282,16 +277,26 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.move_toplevel_unit_by_id(unit_id, dest)
     }
 
-    pub fn move_toplevel_unit_by_id_avoiding_combat(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
-        self.game.move_toplevel_unit_by_id_avoiding_combat(unit_id, dest)
+    pub fn move_toplevel_unit_by_id_avoiding_combat(
+        &mut self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> MoveResult {
+        self.game
+            .move_toplevel_unit_by_id_avoiding_combat(unit_id, dest)
     }
 
     pub fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> MoveResult {
         self.game.move_toplevel_unit_by_loc(src, dest)
     }
 
-    pub fn move_toplevel_unit_by_loc_avoiding_combat(&mut self, src: Location, dest: Location) -> MoveResult {
-        self.game.move_toplevel_unit_by_loc_avoiding_combat(src, dest)
+    pub fn move_toplevel_unit_by_loc_avoiding_combat(
+        &mut self,
+        src: Location,
+        dest: Location,
+    ) -> MoveResult {
+        self.game
+            .move_toplevel_unit_by_loc_avoiding_combat(src, dest)
     }
 
     pub fn move_unit_by_id_in_direction(&mut self, id: UnitID, direction: Direction) -> MoveResult {
@@ -302,7 +307,11 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.move_unit_by_id(unit_id, dest)
     }
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Proposed<Result<Move,MoveError>> {
+    pub fn propose_move_unit_by_id(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> Proposed<Result<Move, MoveError>> {
         self.game.propose_move_unit_by_id(id, dest)
     }
 
@@ -310,35 +319,47 @@ impl <'a> PlayerTurnControl<'a> {
         self.game.move_unit_by_id_avoiding_combat(id, dest)
     }
 
-    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
+    pub fn propose_move_unit_by_id_avoiding_combat(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> Proposed<MoveResult> {
         self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
     }
 
-    pub fn disband_unit_by_id(&mut self, id: UnitID) -> Result<Unit,GameError> {
+    pub fn disband_unit_by_id(&mut self, id: UnitID) -> Result<Unit, GameError> {
         self.game.disband_unit_by_id(id)
     }
 
     /// Sets the production of the current player's city at location `loc` to `production`.
-    /// 
+    ///
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
-    pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<Option<UnitType>,GameError> {
+    pub fn set_production_by_loc(
+        &mut self,
+        loc: Location,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError> {
         self.game.set_production_by_loc(loc, production)
     }
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
-    /// 
+    ///
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
-    pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<Option<UnitType>,GameError> {
+    pub fn set_production_by_id(
+        &mut self,
+        city_id: CityID,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError> {
         self.game.set_production_by_id(city_id, production)
     }
 
     //FIXME Restrict to current player cities
-    pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(),String> {
+    pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(), String> {
         self.game.clear_production_without_ignoring(loc)
     }
 
     //FIXME Restrict to current player cities
-    pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(),String> {
+    pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(), String> {
         self.game.clear_production_and_ignore(loc)
     }
 
@@ -360,13 +381,16 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Units that could be produced by a city located at the given location
-    pub fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item=UnitType> + 'a {
+    pub fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
         self.game.valid_productions(loc)
     }
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-    pub fn valid_productions_conservative<'b>(&'b self, loc: Location) -> impl Iterator<Item=UnitType> + 'b {
+    pub fn valid_productions_conservative<'b>(
+        &'b self,
+        loc: Location,
+    ) -> impl Iterator<Item = UnitType> + 'b {
         self.game.valid_productions_conservative(loc)
     }
 
@@ -384,7 +408,11 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    pub fn propose_order_unit_go_to(&self, unit_id: UnitID, dest: Location) -> Proposed<OrdersResult> {
+    pub fn propose_order_unit_go_to(
+        &self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> Proposed<OrdersResult> {
         self.game.propose_order_unit_go_to(unit_id, dest)
     }
 
@@ -398,11 +426,11 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
+    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(), GameError> {
         self.game.activate_unit_by_loc(loc)
     }
 
-    pub fn propose_end_turn(&self) -> (Game,Result<TurnStart,PlayerNum>) {
+    pub fn propose_end_turn(&self) -> (Game, Result<TurnStart, PlayerNum>) {
         let mut game = self.game.clone();
         let result = game.end_turn();
         (game, result)
@@ -413,9 +441,9 @@ impl <'a> PlayerTurnControl<'a> {
     }
 
     /// Feature vector for use in AI training
-    /// 
+    ///
     /// Map of the output vector:
-    /// 
+    ///
     /// # 15: 1d features
     /// * 1: current turn
     /// * 1: current player city count
@@ -428,16 +456,16 @@ impl <'a> PlayerTurnControl<'a> {
     /// * 121: is_enemy_belligerent (11x11)
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
-    /// 
+    ///
     fn features(&self) -> Vec<fX> {
         self.game.features()
     }
 
-    fn player_score(&self, player: PlayerNum) -> Result<f64,GameError> {
+    fn player_score(&self, player: PlayerNum) -> Result<f64, GameError> {
         self.game.player_score(player)
     }
 
-    fn take_action(&mut self, action: UmpireAction) -> Result<(),GameError> {
+    fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError> {
         self.game.take_action(action)
     }
 
@@ -448,9 +476,9 @@ impl <'a> PlayerTurnControl<'a> {
 }
 
 /// If for whatever reason a careless user fails to end the turn, we do it for them so the game continues to advance.
-/// 
+///
 /// This forces the turn to end regardless of the state of production and orders requests.
-impl <'a> Drop for PlayerTurnControl<'a> {
+impl<'a> Drop for PlayerTurnControl<'a> {
     fn drop(&mut self) {
         if self.end_turn_on_drop {
             if self.clear_completed_productions {
@@ -468,21 +496,37 @@ impl <'a> Drop for PlayerTurnControl<'a> {
 /// # Arguments
 /// * generate_data: whether or not training data for a state-action-value model should be returned
 pub trait LimitedTurnTaker {
-    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl, generate_data: bool) -> Option<Vec<TrainingInstance>>;
+    fn take_turn(
+        &mut self,
+        ctrl: &mut PlayerTurnControl,
+        generate_data: bool,
+    ) -> Option<Vec<TrainingInstance>>;
 }
 
 /// Take a turn with full knowledge of the game state
-/// 
+///
 /// This is a kludgey escape hatch for an issue in AI training where we need the whole state. It is crucial for
 /// implementors to guarantee that the player's turn is ended (and only the player's turn---no further turns) by the
 /// end of the `take_turn` function call.
 pub trait TurnTaker {
-    fn take_turn_not_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>>;
+    fn take_turn_not_clearing(
+        &mut self,
+        game: &mut Game,
+        generate_data: bool,
+    ) -> Option<Vec<TrainingInstance>>;
 
-    fn take_turn_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>>;
+    fn take_turn_clearing(
+        &mut self,
+        game: &mut Game,
+        generate_data: bool,
+    ) -> Option<Vec<TrainingInstance>>;
 
-    fn take_turn(&mut self, game: &mut Game, clear_at_end_of_turn: bool, generate_data: bool)
-                                                                                -> Option<Vec<TrainingInstance>> {
+    fn take_turn(
+        &mut self,
+        game: &mut Game,
+        clear_at_end_of_turn: bool,
+        generate_data: bool,
+    ) -> Option<Vec<TrainingInstance>> {
         if clear_at_end_of_turn {
             self.take_turn_clearing(game, generate_data)
         } else {
@@ -491,8 +535,12 @@ pub trait TurnTaker {
     }
 }
 
-impl <T:LimitedTurnTaker> TurnTaker for T {
-    fn take_turn_not_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>> {
+impl<T: LimitedTurnTaker> TurnTaker for T {
+    fn take_turn_not_clearing(
+        &mut self,
+        game: &mut Game,
+        generate_data: bool,
+    ) -> Option<Vec<TrainingInstance>> {
         let mut ctrl = game.player_turn_control(game.current_player());
         let mut training_instances = if generate_data {
             Some(Vec::new())
@@ -503,8 +551,9 @@ impl <T:LimitedTurnTaker> TurnTaker for T {
         loop {
             let result = <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data);
             if let Some(mut instances) = result {
-                training_instances.as_mut()
-                                  .map(|v| v.append(&mut instances));
+                training_instances
+                    .as_mut()
+                    .map(|v| v.append(&mut instances));
             }
 
             if ctrl.turn_is_done() {
@@ -515,7 +564,11 @@ impl <T:LimitedTurnTaker> TurnTaker for T {
         training_instances
     }
 
-    fn take_turn_clearing(&mut self, game: &mut Game, generate_data: bool) -> Option<Vec<TrainingInstance>> {
+    fn take_turn_clearing(
+        &mut self,
+        game: &mut Game,
+        generate_data: bool,
+    ) -> Option<Vec<TrainingInstance>> {
         let mut ctrl = game.player_turn_control_clearing(game.current_player());
         let mut training_instances = if generate_data {
             Some(Vec::new())
@@ -526,7 +579,9 @@ impl <T:LimitedTurnTaker> TurnTaker for T {
         loop {
             let result = <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data);
             if let Some(mut instances) = result {
-                training_instances.as_mut().map(|v| v.append(&mut instances));
+                training_instances
+                    .as_mut()
+                    .map(|v| v.append(&mut instances));
             }
 
             if ctrl.turn_is_done() {
@@ -545,8 +600,12 @@ pub trait ActionwiseLimitedTurnTaker {
     fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<UmpireAction>;
 }
 
-impl <T:ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
-    fn take_turn(&mut self, ctrl: &mut PlayerTurnControl, generate_data: bool) -> Option<Vec<TrainingInstance>> {
+impl<T: ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
+    fn take_turn(
+        &mut self,
+        ctrl: &mut PlayerTurnControl,
+        generate_data: bool,
+    ) -> Option<Vec<TrainingInstance>> {
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -568,7 +627,6 @@ impl <T:ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
             };
 
             if let Some(action) = self.next_action(ctrl) {
-
                 // If an action was specified...
 
                 ctrl.take_action(action).unwrap();
@@ -582,7 +640,7 @@ impl <T:ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
                             features.unwrap(),
                             pre_score.unwrap(),
                             action,
-                            post_score
+                            post_score,
                         ));
                     });
                 }

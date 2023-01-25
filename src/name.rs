@@ -8,19 +8,16 @@ use csv;
 use flate2::read::GzDecoder;
 
 use rand::{
-    thread_rng,
-    prelude::SliceRandom,
     distributions::{
+        uniform::{SampleUniform, Uniform},
         Distribution,
-        uniform::{
-            SampleUniform,
-            Uniform,
-        }
-    }
+    },
+    prelude::SliceRandom,
+    thread_rng,
 };
 
 /// Something that generates names.
-pub trait Namer: Send+Sync {
+pub trait Namer: Send + Sync {
     fn name(&mut self) -> String;
 }
 
@@ -35,8 +32,11 @@ pub struct IntNamer {
     prefix: String,
 }
 impl IntNamer {
-    pub fn new<S:ToString>(prefix: S) -> Self {
-        Self { prefix: prefix.to_string(), next: 0 }
+    pub fn new<S: ToString>(prefix: S) -> Self {
+        Self {
+            prefix: prefix.to_string(),
+            next: 0,
+        }
     }
 }
 impl Namer for IntNamer {
@@ -50,11 +50,14 @@ impl Namer for IntNamer {
 /// Generate names by drawing from a predefined list.
 pub struct ListNamer {
     names: Vec<String>,
-    next_name: usize
+    next_name: usize,
 }
 impl ListNamer {
     fn new(names: Vec<String>) -> Self {
-        ListNamer{names, next_name: 0}
+        ListNamer {
+            names,
+            next_name: 0,
+        }
     }
 }
 impl Namer for ListNamer {
@@ -66,13 +69,13 @@ impl Namer for ListNamer {
 }
 
 /// Generate names by sampling from a weighted distribution of names.
-pub struct WeightedNamer<N:Default+SampleUniform> {
-    cumulatively_weighted_names: Vec<CumWeight<String,N>>,
+pub struct WeightedNamer<N: Default + SampleUniform> {
+    cumulatively_weighted_names: Vec<CumWeight<String, N>>,
     // sample_range: Uniform<N>,
     // rng: ThreadRng
 }
-impl <N: Copy+Default+PartialOrd+SampleUniform> WeightedNamer<N> {
-    pub fn new(cumulatively_weighted_names: Vec<CumWeight<String,N>>) -> Self {
+impl<N: Copy + Default + PartialOrd + SampleUniform> WeightedNamer<N> {
+    pub fn new(cumulatively_weighted_names: Vec<CumWeight<String, N>>) -> Self {
         // let total_weight = weighted_names.iter().fold(0, |acc, &weighted| acc + weighted.weight);
         // let zero: N = Default::default();
         // let weight_range = Uniform::new_inclusive(zero, cumulatively_weighted_names[cumulatively_weighted_names.len()-1].cum_weight);
@@ -92,11 +95,14 @@ impl <N: Copy+Default+PartialOrd+SampleUniform> WeightedNamer<N> {
         }
     }
 }
-impl <N: Copy+Default+PartialOrd+SampleUniform+Send+Sync> Namer for WeightedNamer<N> {
+impl<N: Copy + Default + PartialOrd + SampleUniform + Send + Sync> Namer for WeightedNamer<N> {
     fn name(&mut self) -> String {
         // self.weighted_names_dist.ind_sample(&mut self.rng)
         let zero: N = Default::default();
-        let sample_range = Uniform::new_inclusive(zero, self.cumulatively_weighted_names[self.cumulatively_weighted_names.len()-1].cum_weight);
+        let sample_range = Uniform::new_inclusive(
+            zero,
+            self.cumulatively_weighted_names[self.cumulatively_weighted_names.len() - 1].cum_weight,
+        );
         let x = sample_range.sample(&mut rand::thread_rng());
         for cumulatively_weighted_name in &self.cumulatively_weighted_names {
             if cumulatively_weighted_name.cum_weight >= x {
@@ -125,18 +131,19 @@ fn shuffle(names: Vec<String>) -> Vec<String> {
 //     Ok(items)
 // }
 
-pub struct CumWeight<T,N> {
+pub struct CumWeight<T, N> {
     item: T,
-    cum_weight: N
+    cum_weight: N,
 }
 
 /// Load a CSV file with no header but the form $string,$weight
 /// The strings and _cumulative_ weights are loaded into a vector.
 /// Implemented generically to allow a variety of numeric types to be used for the weight
-fn load_cumulative_weights<N>(bytes: &[u8]) -> Vec<CumWeight<String,N>>
-    where N: AddAssign+Copy+Debug+Default+FromStr,
-          N::Err: Debug {
-
+fn load_cumulative_weights<N>(bytes: &[u8]) -> Vec<CumWeight<String, N>>
+where
+    N: AddAssign + Copy + Debug + Default + FromStr,
+    N::Err: Debug,
+{
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(false)
         .from_reader(bytes);
@@ -149,7 +156,7 @@ fn load_cumulative_weights<N>(bytes: &[u8]) -> Vec<CumWeight<String,N>>
         cumulative_weight += weight;
         weighted_names.push(CumWeight {
             cum_weight: cumulative_weight,
-            item: row[0].into()
+            item: row[0].into(),
         });
     }
     weighted_names
@@ -162,14 +169,15 @@ static CITY_NAME_COL: usize = 1;
 ///
 /// Loads city names from the geonames 1000 cities database and returns them randomly.
 pub fn city_namer() -> ListNamer {
-    let bytes_gz: &[u8] = include_bytes!("../data/geonames_cities1000_2017-02-27_0201__pop-and-name.tsv.gz");
+    let bytes_gz: &[u8] =
+        include_bytes!("../data/geonames_cities1000_2017-02-27_0201__pop-and-name.tsv.gz");
     let d = GzDecoder::new(bytes_gz);
 
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(false)
         .delimiter(b'\t')
         .from_reader(d);
-    
+
     let mut names = Vec::new();
     for row in reader.records() {
         let row = row.unwrap();
@@ -180,23 +188,28 @@ pub fn city_namer() -> ListNamer {
 }
 
 /// Generate names by deferring to two sub-namers and joining their output
-pub struct CompoundNamer<N1:Namer,N2:Namer> {
+pub struct CompoundNamer<N1: Namer, N2: Namer> {
     join_str: &'static str,
     namer1: N1,
-    namer2: N2
+    namer2: N2,
 }
-impl <N1:Namer,N2:Namer> CompoundNamer<N1,N2> {
+impl<N1: Namer, N2: Namer> CompoundNamer<N1, N2> {
     fn new(join_str: &'static str, namer1: N1, namer2: N2) -> Self {
-        CompoundNamer{
+        CompoundNamer {
             join_str,
             namer1,
-            namer2
+            namer2,
         }
     }
 }
-impl<N1:Namer,N2:Namer> Namer for CompoundNamer<N1,N2> {
+impl<N1: Namer, N2: Namer> Namer for CompoundNamer<N1, N2> {
     fn name(&mut self) -> String {
-        format!("{}{}{}", self.namer1.name(), self.join_str, self.namer2.name())
+        format!(
+            "{}{}{}",
+            self.namer1.name(),
+            self.join_str,
+            self.namer2.name()
+        )
     }
 }
 
@@ -204,7 +217,7 @@ impl<N1:Namer,N2:Namer> Namer for CompoundNamer<N1,N2> {
 ///
 /// Loads given names and surnames from census data and combines them randomly in accordance with
 /// their prevalence in the American population.
-pub fn unit_namer() -> CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>> {
+pub fn unit_namer() -> CompoundNamer<WeightedNamer<f64>, WeightedNamer<u32>> {
     let givenname_bytes: &[u8] = include_bytes!("../data/us-census/1990/givenname_rel_freqs.csv");
     let givennames = load_cumulative_weights(givenname_bytes);
 
@@ -213,6 +226,6 @@ pub fn unit_namer() -> CompoundNamer<WeightedNamer<f64>,WeightedNamer<u32>> {
     CompoundNamer::new(
         " ",
         WeightedNamer::new(givennames),
-        WeightedNamer::new(surnames)
+        WeightedNamer::new(surnames),
     )
 }

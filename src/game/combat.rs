@@ -1,26 +1,31 @@
-use rand::{thread_rng,Rng};
+use rand::{thread_rng, Rng};
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum CombatParticipant {
     Attacker,
-    Defender
+    Defender,
 }
 
-#[derive(Debug,PartialEq)]
-pub struct CombatOutcome<A:CombatCapable,D:CombatCapable> {
+#[derive(Debug, PartialEq)]
+pub struct CombatOutcome<A: CombatCapable, D: CombatCapable> {
     victor: CombatParticipant,
     attacker: A,
     defender: D,
-    received_damage_sequence: Vec<CombatParticipant>
+    received_damage_sequence: Vec<CombatParticipant>,
 }
 
-impl <A:CombatCapable,D:CombatCapable> CombatOutcome<A,D> {
-    fn new(victor: CombatParticipant, attacker: A, defender: D, received_damage_sequence: Vec<CombatParticipant>) -> Self {
+impl<A: CombatCapable, D: CombatCapable> CombatOutcome<A, D> {
+    fn new(
+        victor: CombatParticipant,
+        attacker: A,
+        defender: D,
+        received_damage_sequence: Vec<CombatParticipant>,
+    ) -> Self {
         CombatOutcome {
             victor,
             attacker,
             defender,
-            received_damage_sequence
+            received_damage_sequence,
         }
     }
 
@@ -55,9 +60,10 @@ pub trait CombatCapable {
     fn hp(&self) -> u16;
     fn max_hp(&self) -> u16;
 
-    fn fight<D:CombatCapable+Clone>(&self, defender: &D) -> CombatOutcome<Self,D>
-            where Self: Clone+Sized {
-
+    fn fight<D: CombatCapable + Clone>(&self, defender: &D) -> CombatOutcome<Self, D>
+    where
+        Self: Clone + Sized,
+    {
         let mut damage_received: Vec<CombatParticipant> = Vec::new();
 
         let attacker_initial_hp = self.hp();
@@ -78,7 +84,11 @@ pub trait CombatCapable {
             }
 
             if attacker_hp == 0 || defender_hp == 0 {
-                let victor = if attacker_hp == 0 { CombatParticipant::Defender } else { CombatParticipant::Attacker };
+                let victor = if attacker_hp == 0 {
+                    CombatParticipant::Defender
+                } else {
+                    CombatParticipant::Attacker
+                };
 
                 //FIXME These clones could be pretty expensive
                 return CombatOutcome::new(victor, self.clone(), defender.clone(), damage_received);

@@ -13,92 +13,50 @@ pub mod player;
 pub mod unit;
 
 use std::{
-    collections::{HashMap,HashSet},
+    collections::{HashMap, HashSet},
     fmt,
     rc::Rc,
-    sync::{
-        RwLock,
-    },
+    sync::RwLock,
 };
 
-use failure::{
-    Fail,
-};
+use failure::Fail;
 
 use rsrl::DerefVec;
 
 use crate::{
-    color::{Colors,Colorized},
+    color::{Colorized, Colors},
     game::{
-        city::{CityID,City},
+        city::{City, CityID},
         combat::CombatCapable,
         map::{
-            LocationGridI,
-            MapData,
-            NewUnitError,
-            Tile,
-            gen::generate_map,
             dijkstra::{
-                self,
-                AndFilter,
-                Filter,
-                NoCitiesButOursFilter,
-                NoUnitsFilter,
-                ShortestPaths,
-                Source,
-                UnitMovementFilter,
+                self, directions_unit_could_move_iter, neighbors_terrain_only,
+                neighbors_unit_could_move_to_iter, AndFilter, Filter, NoCitiesButOursFilter,
+                NoUnitsFilter, ShortestPaths, Source, UnitMovementFilter,
                 UnitMovementFilterXenophile,
-                directions_unit_could_move_iter,
-                neighbors_terrain_only,
-                neighbors_unit_could_move_to_iter,
             },
+            gen::generate_map,
+            LocationGridI, MapData, NewUnitError, Tile,
         },
-        obs::{Obs,Observer,ObsTracker,ObsTrackerI},
+        obs::{Obs, ObsTracker, ObsTrackerI, Observer},
         unit::{
-            TransportMode,
-            Unit,
-            UnitID,
-            UnitType,
-            orders::{
-                Orders,
-                OrdersStatus,
-                OrdersOutcome,
-                OrdersResult,
-            },
+            orders::{Orders, OrdersOutcome, OrdersResult, OrdersStatus},
+            TransportMode, Unit, UnitID, UnitType,
         },
     },
-    name::{
-        IntNamer,
-        Namer,
-    },
-    util::{
-        Dims,
-        Dimensioned,
-        Direction,
-        Location,
-        Vec2d,
-        Wrap2d,
-    },
+    name::{IntNamer, Namer},
+    util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
 };
 
-pub use self::player::{
-    PlayerNum,
-    PlayerTurnControl,
-    PlayerType,
-};
+pub use self::player::{PlayerNum, PlayerTurnControl, PlayerType};
 
 use self::{
     ai::dnn::FEATS_LEN,
-    move_::{
-        Move,
-        MoveComponent,
-        MoveError,
-        MoveResult,
-    }
+    move_::{Move, MoveComponent, MoveError, MoveResult},
 };
 use ai::UmpireAction;
 
-static UNIT_TYPES: [UnitType;10] = UnitType::values();
+static UNIT_TYPES: [UnitType; 10] = UnitType::values();
 
 /// How important is a city in and of itself?
 const CITY_INTRINSIC_SCORE: f64 = 1000.0;
@@ -107,7 +65,7 @@ const CITY_INTRINSIC_SCORE: f64 = 1000.0;
 const TILE_OBSERVED_BASE_SCORE: f64 = 10.0;
 
 /// How much is each turn taken penalized?
-const TURN_PENALTY: f64 = 0.0;//1000.0;
+const TURN_PENALTY: f64 = 0.0; //1000.0;
 
 /// How much is each action penalized?
 const ACTION_PENALTY: f64 = 100.0;
@@ -121,17 +79,15 @@ const VICTORY_SCORE: f64 = 1_000_000.0;
 type fX = f64;
 
 /// A proposed change to the game state.
-/// 
+///
 /// `delta` encapsulates the change, and `new_state` is the state as it will be after the change is applied.
 pub struct Proposed<T> {
     new_state: Game,
     pub delta: T,
 }
-impl <T> Proposed<T> {
+impl<T> Proposed<T> {
     pub fn new(new_state: Game, delta: T) -> Self {
-        Self {
-            new_state, delta,
-        }
+        Self { new_state, delta }
     }
 
     /// Apply the proposed change to the given game instance. This overwrites the game instance with `new_state`.
@@ -143,11 +99,10 @@ impl <T> Proposed<T> {
 
 pub type TurnNum = u32;
 
-#[derive(Copy,Clone,Debug,PartialEq,Hash,Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Alignment {
     Neutral,
-    Belligerent { player: PlayerNum }
-    // active neutral, chaotic, etc.
+    Belligerent { player: PlayerNum }, // active neutral, chaotic, etc.
 }
 
 impl Alignment {
@@ -156,7 +111,7 @@ impl Alignment {
     }
 
     fn is_friendly_to_player(self, player: PlayerNum) -> bool {
-        self == Alignment::Belligerent{player}
+        self == Alignment::Belligerent { player }
     }
 
     fn is_enemy_of(self, other: Alignment) -> bool {
@@ -172,7 +127,7 @@ impl Alignment {
     }
 
     fn is_belligerent(self) -> bool {
-        if let Alignment::Belligerent{..} = self {
+        if let Alignment::Belligerent { .. } = self {
             true
         } else {
             false
@@ -184,7 +139,7 @@ impl Colorized for Alignment {
     fn color(&self) -> Option<Colors> {
         Some(match self {
             Alignment::Neutral => Colors::Neutral,
-            Alignment::Belligerent{player} => Colors::Player(*player),
+            Alignment::Belligerent { player } => Colors::Player(*player),
         })
     }
 }
@@ -193,15 +148,15 @@ impl fmt::Display for Alignment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Alignment::Neutral => write!(f, "Neutral"),
-            Alignment::Belligerent{player} => write!(f, "Player {}", player),
+            Alignment::Belligerent { player } => write!(f, "Player {}", player),
         }
     }
 }
 
-pub trait Aligned : AlignedMaybe {
+pub trait Aligned: AlignedMaybe {
     fn alignment(&self) -> Alignment;
 
-    fn is_friendly_to<A:Aligned>(&self, other: &A) -> bool {
+    fn is_friendly_to<A: Aligned>(&self, other: &A) -> bool {
         self.alignment().is_friendly_to(other.alignment())
     }
 
@@ -209,7 +164,7 @@ pub trait Aligned : AlignedMaybe {
         self.alignment().is_friendly_to_player(player)
     }
 
-    fn is_enemy_of<A:Aligned>(&self, other: &A) -> bool {
+    fn is_enemy_of<A: Aligned>(&self, other: &A) -> bool {
         self.alignment().is_enemy_of(other.alignment())
     }
 
@@ -231,8 +186,8 @@ pub trait AlignedMaybe {
 
     fn belongs_to_player(&self, player: PlayerNum) -> bool {
         if let Some(alignment) = self.alignment_maybe() {
-            if let Alignment::Belligerent{player:player_} = alignment {
-                player==player_
+            if let Alignment::Belligerent { player: player_ } = alignment {
+                player == player_
             } else {
                 false
             }
@@ -242,13 +197,13 @@ pub trait AlignedMaybe {
     }
 }
 
-impl <T:Aligned> AlignedMaybe for T {
+impl<T: Aligned> AlignedMaybe for T {
     fn alignment_maybe(&self) -> Option<Alignment> {
         Some(self.alignment())
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TurnStart {
     pub turn: TurnNum,
     pub current_player: PlayerNum,
@@ -256,7 +211,7 @@ pub struct TurnStart {
     pub production_outcomes: Vec<UnitProductionOutcome>,
 }
 
-#[derive(Debug,Fail,PartialEq)]
+#[derive(Debug, Fail, PartialEq)]
 pub enum GameError {
     #[fail(display = "There is no player {}", player)]
     NoSuchPlayer { player: PlayerNum },
@@ -282,28 +237,50 @@ pub enum GameError {
     #[fail(display = "The unit with ID {:?} has no carrying space", carrier_id)]
     UnitHasNoCarryingSpace { carrier_id: UnitID },
 
-    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} because its transport mode {:?} is
-                      incompatible with the carrier's accepted transport mode {:?}", carried_id, carried_transport_mode,
-                      carrier_transport_mode)]
-    WrongTransportMode { carried_id: UnitID, carrier_transport_mode: TransportMode, carried_transport_mode: TransportMode },
+    #[fail(
+        display = "The relevant carrying space cannot carry the unit with ID {:?} because its transport mode {:?} is
+                      incompatible with the carrier's accepted transport mode {:?}",
+        carried_id, carried_transport_mode, carrier_transport_mode
+    )]
+    WrongTransportMode {
+        carried_id: UnitID,
+        carrier_transport_mode: TransportMode,
+        carried_transport_mode: TransportMode,
+    },
 
-    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} due insufficient space.", carried_id)]
+    #[fail(
+        display = "The relevant carrying space cannot carry the unit with ID {:?} due insufficient space.",
+        carried_id
+    )]
     InsufficientCarryingSpace { carried_id: UnitID },
 
-    #[fail(display = "The relevant carrying space cannot carry the unit with ID {:?} because its alignment {:?} differs
-                      from the space owner's alignment {:?}.", carried_id, carried_alignment, carrier_alignment)]
-    OnlyAlliesCarry { carried_id: UnitID, carrier_alignment: Alignment, carried_alignment: Alignment },
+    #[fail(
+        display = "The relevant carrying space cannot carry the unit with ID {:?} because its alignment {:?} differs
+                      from the space owner's alignment {:?}.",
+        carried_id, carried_alignment, carrier_alignment
+    )]
+    OnlyAlliesCarry {
+        carried_id: UnitID,
+        carrier_alignment: Alignment,
+        carried_alignment: Alignment,
+    },
 
-    #[fail(display = "The unit with ID {:?} cannot occupy the city with ID {:?} because the unit with ID {:?} is still
-                      garrisoned there. The garrison must be destroyed prior to occupation.", occupier_unit_id,
-                    city_id, garrisoned_unit_id)]
-    CannotOccupyGarrisonedCity { occupier_unit_id: UnitID, city_id: CityID, garrisoned_unit_id: UnitID },
+    #[fail(
+        display = "The unit with ID {:?} cannot occupy the city with ID {:?} because the unit with ID {:?} is still
+                      garrisoned there. The garrison must be destroyed prior to occupation.",
+        occupier_unit_id, city_id, garrisoned_unit_id
+    )]
+    CannotOccupyGarrisonedCity {
+        occupier_unit_id: UnitID,
+        city_id: CityID,
+        garrisoned_unit_id: UnitID,
+    },
 
-    #[fail(display="There was a problem moving the unit: {}", 0)]
-    MoveError(MoveError)
+    #[fail(display = "There was a problem moving the unit: {}", 0)]
+    MoveError(MoveError),
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum UnitProductionOutcome {
     UnitProduced {
         /// A copy of the unit that was produced
@@ -322,7 +299,7 @@ pub enum UnitProductionOutcome {
 
         /// A copy of the city that would have produced the unit if a unit weren't already present
         city: City,
-    }
+    },
 }
 
 /// The core engine that enforces Umpire's game rules
@@ -332,7 +309,7 @@ pub struct Game {
     map: MapData,
 
     /// The information that each player has about the state of the game
-    player_observations: HashMap<PlayerNum,ObsTracker>,
+    player_observations: HashMap<PlayerNum, ObsTracker>,
 
     /// The turn that it is right now
     turn: TurnNum,
@@ -341,7 +318,7 @@ pub struct Game {
     num_players: PlayerNum,
 
     /// The player that is currently the player right now
-    /// 
+    ///
     /// Stored in a mutex to facilitate shared control of the game state by the UI and any AIs
     current_player: PlayerNum,
 
@@ -370,31 +347,31 @@ impl Game {
     /// Creates a new game instance
     ///
     /// The Game that is returned will already have begun with the first player's turn.
-    /// 
+    ///
     /// A map with the specified dimensions will be generated. City names are taken from `city_namer`
-    /// 
+    ///
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observations growing stale over time.
-    pub fn new<N:Namer>(
-            map_dims: Dims,
-            mut city_namer: N,
-            num_players: PlayerNum,
-            fog_of_war: bool,
-            unit_namer: Option<Rc<RwLock<dyn Namer>>>,
-            wrapping: Wrap2d) -> Self {
-
+    pub fn new<N: Namer>(
+        map_dims: Dims,
+        mut city_namer: N,
+        num_players: PlayerNum,
+        fog_of_war: bool,
+        unit_namer: Option<Rc<RwLock<dyn Namer>>>,
+        wrapping: Wrap2d,
+    ) -> Self {
         let map = generate_map(&mut city_namer, map_dims, num_players);
         Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 
     /// Creates a new game instance from a pre-generated map
     pub fn new_with_map(
-            map: MapData,
-            num_players: PlayerNum,
-            fog_of_war: bool,
-            unit_namer: Option<Rc<RwLock<dyn Namer>>>,
-            wrapping: Wrap2d) -> Self {
-
+        map: MapData,
+        num_players: PlayerNum,
+        fog_of_war: bool,
+        unit_namer: Option<Rc<RwLock<dyn Namer>>>,
+        wrapping: Wrap2d,
+    ) -> Self {
         let mut player_observations = HashMap::new();
         for player_num in 0..num_players {
             player_observations.insert(player_num, ObsTracker::new(map.dims()));
@@ -448,70 +425,84 @@ impl Game {
         //     }
         // }
 
-        self.map.increment_player_city_production_targets(self.current_player());
+        self.map
+            .increment_player_city_production_targets(self.current_player());
 
-        let producing_city_locs: Vec<Location> = self.current_player_cities_with_production_target()
+        let producing_city_locs: Vec<Location> = self
+            .current_player_cities_with_production_target()
             .filter(|city| {
                 let unit_under_production = city.production().unwrap();
 
                 city.production_progress >= unit_under_production.cost()
             })
-            .map(|city| city.loc).collect()
-        ;
+            .map(|city| city.loc)
+            .collect();
 
-        producing_city_locs.iter().cloned().map(|city_loc| {
+        producing_city_locs
+            .iter()
+            .cloned()
+            .map(|city_loc| {
+                let (city_loc, city_alignment, unit_under_production) = {
+                    let city = self.map.city_by_loc(city_loc).unwrap();
+                    let unit_under_production = city.production().unwrap();
+                    (city.loc, city.alignment, unit_under_production)
+                };
 
-            let (city_loc, city_alignment, unit_under_production) = {
-                let city = self.map.city_by_loc(city_loc).unwrap();
-                let unit_under_production = city.production().unwrap();
-                (city.loc, city.alignment, unit_under_production)
-            };
+                let name = {
+                    let mut namer = self.unit_namer.write().unwrap();
+                    namer.name()
+                };
 
-            let name = {
-                let mut namer = self.unit_namer.write().unwrap();
-                namer.name()
-            };
+                // Attempt to create the new unit
 
-            // Attempt to create the new unit
+                let result =
+                    self.map
+                        .new_unit(city_loc, unit_under_production, city_alignment, name);
 
-            let result = self.map.new_unit(city_loc, unit_under_production, city_alignment, name);
+                match result {
+                    Ok(_new_unit_id) => {
+                        // We know the unit will be at top-level because that's where freshly-minted units go
 
-            match result {
-                Ok(_new_unit_id) => {
-                    // We know the unit will be at top-level because that's where freshly-minted units go
-                    
-                    // let city = self.map.city_by_loc_mut(city_loc).unwrap();
-                    // city.production_progress = 0;
+                        // let city = self.map.city_by_loc_mut(city_loc).unwrap();
+                        // city.production_progress = 0;
 
-                    self.map.clear_city_production_progress_by_loc(city_loc).unwrap();
-                    let city = self.map.city_by_loc(city_loc).unwrap().clone();
+                        self.map
+                            .clear_city_production_progress_by_loc(city_loc)
+                            .unwrap();
+                        let city = self.map.city_by_loc(city_loc).unwrap().clone();
 
-                    // let city = city.clone();
-                    let unit = self.map.toplevel_unit_by_loc(city_loc).unwrap().clone();
+                        // let city = city.clone();
+                        let unit = self.map.toplevel_unit_by_loc(city_loc).unwrap().clone();
 
-                    UnitProductionOutcome::UnitProduced {
-                        city, unit,
+                        UnitProductionOutcome::UnitProduced { city, unit }
                     }
-                },
-                Err(err) => match err {
-                    NewUnitError::UnitAlreadyPresent{ prior_unit, unit_type_under_production, .. } => {
-                        let city = self.map.city_by_loc(city_loc).unwrap();
+                    Err(err) => match err {
+                        NewUnitError::UnitAlreadyPresent {
+                            prior_unit,
+                            unit_type_under_production,
+                            ..
+                        } => {
+                            let city = self.map.city_by_loc(city_loc).unwrap();
 
-                        UnitProductionOutcome::UnitAlreadyPresent {
-                            prior_unit, unit_type_under_production, city: city.clone(),
+                            UnitProductionOutcome::UnitAlreadyPresent {
+                                prior_unit,
+                                unit_type_under_production,
+                                city: city.clone(),
+                            }
+                        }
+                        err => {
+                            panic!("Error creating unit: {}", err)
                         }
                     },
-                    err => {
-                        panic!("Error creating unit: {}", err)
-                    }
                 }
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     fn refresh_moves_remaining(&mut self) {
         // self.current_player_units_mut(|unit: &mut Unit| unit.refresh_moves_remaining());
-        self.map.refresh_player_unit_moves_remaining(self.current_player());
+        self.map
+            .refresh_player_unit_moves_remaining(self.current_player());
     }
 
     /// Mark for accounting purposes that the current player took an action
@@ -519,7 +510,7 @@ impl Game {
         self.action_counts[self.current_player] += 1;
     }
 
-    /// Mark for accounting purposes that the current player defeated an enemy unit with 
+    /// Mark for accounting purposes that the current player defeated an enemy unit with
     /// the specified maximum number of hitpoints
     fn unit_defeated(&mut self, max_hp: u16) {
         self.defeated_unit_hitpoints[self.current_player] += max_hp as u64;
@@ -546,7 +537,7 @@ impl Game {
         let result = self.begin_turn();
 
         for prod in result.production_outcomes.iter() {
-            if let UnitProductionOutcome::UnitProduced{city, ..} = prod {
+            if let UnitProductionOutcome::UnitProduced { city, .. } = prod {
                 self.clear_production_without_ignoring(city.loc).unwrap();
             }
         }
@@ -555,11 +546,12 @@ impl Game {
     }
 
     pub fn turn_is_done(&self) -> bool {
-        self.production_set_requests().next().is_none() && self.unit_orders_requests().next().is_none()
+        self.production_set_requests().next().is_none()
+            && self.unit_orders_requests().next().is_none()
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
-    /// 
+    ///
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
     ///
@@ -568,7 +560,7 @@ impl Game {
         let mut represented: HashSet<PlayerNum> = HashSet::new();
 
         for city in self.map.cities() {
-            if let Alignment::Belligerent{player} = city.alignment {
+            if let Alignment::Belligerent { player } = city.alignment {
                 represented.insert(player);
             }
             if represented.len() > 1 {
@@ -577,7 +569,7 @@ impl Game {
         }
 
         for unit in self.map.units() {
-            if let Alignment::Belligerent{player} = unit.alignment {
+            if let Alignment::Belligerent { player } = unit.alignment {
                 if unit.type_.can_occupy_cities() {
                     represented.insert(player);
                 }
@@ -588,7 +580,7 @@ impl Game {
         }
 
         if represented.len() == 1 {
-            return Some(*represented.iter().next().unwrap());// unwrap to assert something's there
+            return Some(*represented.iter().next().unwrap()); // unwrap to assert something's there
         }
 
         None
@@ -609,7 +601,7 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn(&mut self) -> Result<TurnStart,PlayerNum> {
+    pub fn end_turn(&mut self) -> Result<TurnStart, PlayerNum> {
         if self.turn_is_done() {
             Ok(self.force_end_turn())
         } else {
@@ -617,7 +609,7 @@ impl Game {
         }
     }
 
-    pub fn end_turn_clearing(&mut self) -> Result<TurnStart,PlayerNum> {
+    pub fn end_turn_clearing(&mut self) -> Result<TurnStart, PlayerNum> {
         if self.turn_is_done() {
             Ok(self.force_end_turn_clearing())
         } else {
@@ -634,7 +626,10 @@ impl Game {
 
     /// End the turn without checking that the player has filled all production and orders requests.
     fn force_end_turn(&mut self) -> TurnStart {
-        self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+        self.player_observations
+            .get_mut(&self.current_player())
+            .unwrap()
+            .archive();
 
         self._inc_current_player();
 
@@ -643,21 +638,24 @@ impl Game {
 
     /// End the turn without checking that the player has filled all production and orders requests.
     fn force_end_turn_clearing(&mut self) -> TurnStart {
-        self.player_observations.get_mut(&self.current_player()).unwrap().archive();
+        self.player_observations
+            .get_mut(&self.current_player())
+            .unwrap()
+            .archive();
 
         self._inc_current_player();
 
         self.begin_turn_clearing()
     }
 
-    pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart,PlayerNum>> {
+    pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart, PlayerNum>> {
         let mut new = self.clone();
         let result = new.end_turn();
         Proposed::new(new, result)
     }
 
     /// Register the current observations of current player units
-    /// 
+    ///
     /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
     fn update_current_player_observations(&mut self) {
         let current_player = self.current_player();
@@ -677,37 +675,46 @@ impl Game {
                 let tile = self.map.tile(loc).unwrap();
                 obs_tracker.track_observation(loc, tile, self.turn);
             }
-
         }
     }
 
     /// The set of destinations that the specified unit could actually attempt a move onto in exactly one movement step.
     /// This excludes the unit's original location
-    pub fn current_player_unit_legal_one_step_destinations(&self, unit_id: UnitID) -> Result<HashSet<Location>,GameError> {
-        let unit = self.current_player_unit_by_id(unit_id).ok_or_else(||
-            GameError::NoSuchUnit { id: unit_id }
-        )?;
+    pub fn current_player_unit_legal_one_step_destinations(
+        &self,
+        unit_id: UnitID,
+    ) -> Result<HashSet<Location>, GameError> {
+        let unit = self
+            .current_player_unit_by_id(unit_id)
+            .ok_or_else(|| GameError::NoSuchUnit { id: unit_id })?;
 
         Ok(
             neighbors_unit_could_move_to_iter(&self.map, &unit, self.wrapping)
-            .filter(|loc| *loc != unit.loc)// exclude the source location; needed because UnitMovementFilter inside of
-            .collect()                     // neighbors_unit_could_move_to_iter would allow a carried unit to "move"
-                                           // onto the carrier unit over again if it additional carrying space, thus
-                                           // resulting in zero-length moves
+                .filter(|loc| *loc != unit.loc) // exclude the source location; needed because UnitMovementFilter inside of
+                .collect(), // neighbors_unit_could_move_to_iter would allow a carried unit to "move"
+                            // onto the carrier unit over again if it additional carrying space, thus
+                            // resulting in zero-length moves
         )
     }
 
-    pub fn current_player_unit_legal_directions<'a>(&'a self, unit_id: UnitID) -> Result<impl Iterator<Item=Direction>+'a,GameError> {
-        let unit = self.current_player_unit_by_id(unit_id).ok_or_else(||
-            GameError::NoSuchUnit { id: unit_id }
-        )?;
+    pub fn current_player_unit_legal_directions<'a>(
+        &'a self,
+        unit_id: UnitID,
+    ) -> Result<impl Iterator<Item = Direction> + 'a, GameError> {
+        let unit = self
+            .current_player_unit_by_id(unit_id)
+            .ok_or_else(|| GameError::NoSuchUnit { id: unit_id })?;
 
-        Ok(directions_unit_could_move_iter(&self.map, &unit, self.wrapping))
+        Ok(directions_unit_could_move_iter(
+            &self.map,
+            &unit,
+            self.wrapping,
+        ))
     }
 
     /// The current player's most recent observation of the tile at location `loc`, if any
     pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
-        if let Obs::Observed{tile,..} = self.current_player_obs(loc) {
+        if let Obs::Observed { tile, .. } = self.current_player_obs(loc) {
             Some(tile)
         } else {
             None
@@ -731,18 +738,19 @@ impl Game {
     //     self.player_observations.get_mut(&self.current_player).unwrap()
     // }
 
-    fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item=&City> {
+    fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item = &City> {
         self.map.player_cities(player)
     }
 
     /// Every city controlled by the current player
-    pub fn current_player_cities(&self) -> impl Iterator<Item=&City> {
+    pub fn current_player_cities(&self) -> impl Iterator<Item = &City> {
         self.player_cities(self.current_player())
     }
 
     /// All cities controlled by the current player which have a production target set
-    pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item=&City> {
-        self.map.player_cities_with_production_target(self.current_player())
+    pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City> {
+        self.map
+            .player_cities_with_production_target(self.current_player())
     }
 
     /// How many cities does the current player control?
@@ -766,64 +774,74 @@ impl Game {
     // }
 
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
-    /// 
+    ///
     /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
-    /// 
+    ///
     /// FIXME Get rid of this and just make the UI smarter
     #[deprecated]
     pub fn player_cities_producing_or_not_ignored(&self) -> usize {
-        self.current_player_cities().filter(|city| city.production().is_some() || !city.ignore_cleared_production()).count()
+        self.current_player_cities()
+            .filter(|city| city.production().is_some() || !city.ignore_cleared_production())
+            .count()
     }
 
-    fn player_units(&self, player: PlayerNum) -> impl Iterator<Item=&Unit> {
+    fn player_units(&self, player: PlayerNum) -> impl Iterator<Item = &Unit> {
         self.map.player_units(player)
     }
 
     /// Every unit controlled by the current player
-    pub fn current_player_units(&self) -> impl Iterator<Item=&Unit> {
+    pub fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
         self.player_units(self.current_player())
     }
 
     /// The counts of unit types controlled by the current player
-    pub fn current_player_unit_type_counts(&self) -> Result<&HashMap<UnitType,usize>,GameError> {
+    pub fn current_player_unit_type_counts(&self) -> Result<&HashMap<UnitType, usize>, GameError> {
         self.player_unit_type_counts(self.current_player)
     }
 
     /// The counts of unit types controlled by the specified player
-    pub fn player_unit_type_counts(&self, player: PlayerNum) -> Result<&HashMap<UnitType,usize>,GameError> {
+    pub fn player_unit_type_counts(
+        &self,
+        player: PlayerNum,
+    ) -> Result<&HashMap<UnitType, usize>, GameError> {
         self.map.player_unit_type_counts(player)
     }
 
     /// Every enemy unit known to the current player (as of most recent observations)
-    pub fn observed_enemy_units<'a>(&'a self) -> impl Iterator<Item=&Unit> + 'a {
+    pub fn observed_enemy_units<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
         let current_player = self.current_player();
-        self.current_player_observations().iter().filter_map(move |obs| match obs {
-            Obs::Observed { tile, .. } => if let Some(ref unit) = tile.unit {
-                if let Alignment::Belligerent{player} = unit.alignment {
-                    if player != current_player {
-                        Some(unit)
+        self.current_player_observations()
+            .iter()
+            .filter_map(move |obs| match obs {
+                Obs::Observed { tile, .. } => {
+                    if let Some(ref unit) = tile.unit {
+                        if let Alignment::Belligerent { player } = unit.alignment {
+                            if player != current_player {
+                                Some(unit)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
-                } else {
-                    None
                 }
-            } else {
-                None
-            },
-            _ => None,
-        })
+                _ => None,
+            })
         // self.map.units().filter(move |unit| unit.alignment != Alignment::Belligerent{player:current_player})
     }
 
     /// If the current player controls a city at location `loc`, return it
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
-        self.current_player_tile(loc).and_then(|tile| tile.city.as_ref())
+        self.current_player_tile(loc)
+            .and_then(|tile| tile.city.as_ref())
     }
 
     /// If the current player controls a city with ID `city_id`, return it
     pub fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City> {
-        self.current_player_cities().find(|city| city.id==city_id)
+        self.current_player_cities().find(|city| city.id == city_id)
     }
 
     // /// If the current player controls a city with ID `city_id`, return it mutably
@@ -853,44 +871,58 @@ impl Game {
 
     /// If the current player controls the top-level unit at location `loc`, return it
     pub fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
-        self.current_player_tile(loc).and_then(|tile| tile.unit.as_ref())
+        self.current_player_tile(loc)
+            .and_then(|tile| tile.unit.as_ref())
     }
 
-    pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item=Location> + 'a {
+    pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item = Location> + 'a {
         self.player_production_set_requests(self.current_player)
     }
 
-    pub fn player_production_set_requests<'a>(&'a self, player: PlayerNum) -> impl Iterator<Item=Location> + 'a {
-        self.map.player_cities_lacking_production_target(player).map(|city| city.loc)
+    pub fn player_production_set_requests<'a>(
+        &'a self,
+        player: PlayerNum,
+    ) -> impl Iterator<Item = Location> + 'a {
+        self.map
+            .player_cities_lacking_production_target(player)
+            .map(|city| city.loc)
     }
 
     /// Which if the current player's units need orders?
-    /// 
+    ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
+    pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
         self.player_unit_orders_requests(self.current_player)
     }
 
-    pub fn player_unit_orders_requests<'a>(&'a self, player: PlayerNum) -> impl Iterator<Item=UnitID> + 'a {
-        self.map.player_units(player)
+    pub fn player_unit_orders_requests<'a>(
+        &'a self,
+        player: PlayerNum,
+    ) -> impl Iterator<Item = UnitID> + 'a {
+        self.map
+            .player_units(player)
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
             .map(|unit| unit.id)
     }
 
     /// Which if the current player's units need orders?
-    /// 
+    ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn units_with_orders_requests<'a>(&'a self) -> impl Iterator<Item=&Unit> + 'a {
-        self.map.player_units(self.current_player())
+    pub fn units_with_orders_requests<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
+        self.map
+            .player_units(self.current_player())
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
     }
 
-    pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item=UnitID> + 'a {
+    pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
         self.current_player_units()
-            .filter(|unit| unit.moves_remaining() > 0 && unit.orders.is_some() && *unit.orders.as_ref().unwrap() != Orders::Sentry)
+            .filter(|unit| {
+                unit.moves_remaining() > 0
+                    && unit.orders.is_some()
+                    && *unit.orders.as_ref().unwrap() != Orders::Sentry
+            })
             .map(|unit| unit.id)
     }
-
 
     // Movement-related methods
 
@@ -899,7 +931,11 @@ impl Game {
         self.move_toplevel_unit_by_loc(src, dest)
     }
 
-    pub fn move_toplevel_unit_by_id_avoiding_combat(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
+    pub fn move_toplevel_unit_by_id_avoiding_combat(
+        &mut self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> MoveResult {
         let src = self.map.unit_loc(unit_id).unwrap();
         self.move_toplevel_unit_by_loc_avoiding_combat(src, dest)
     }
@@ -915,31 +951,45 @@ impl Game {
         FIXME This function checks two separate times whether a unit exists at src
     */
     pub fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> MoveResult {
-        let unit = self.map.toplevel_unit_by_loc(src)
-                                  .ok_or(MoveError::SourceUnitNotAtLocation{src})?
-                                  .clone();
-        
+        let unit = self
+            .map
+            .toplevel_unit_by_loc(src)
+            .ok_or(MoveError::SourceUnitNotAtLocation { src })?
+            .clone();
+
         let filter = UnitMovementFilter::new(&unit);
         self.move_toplevel_unit_by_loc_using_filter(src, dest, &filter)
     }
 
-    pub fn move_toplevel_unit_by_loc_avoiding_combat(&mut self, src: Location, dest: Location) -> MoveResult {
+    pub fn move_toplevel_unit_by_loc_avoiding_combat(
+        &mut self,
+        src: Location,
+        dest: Location,
+    ) -> MoveResult {
         let unit = self.map.toplevel_unit_by_loc(src).unwrap().clone();
         let unit_filter = AndFilter::new(
             AndFilter::new(
-                NoUnitsFilter{},
-                NoCitiesButOursFilter{alignment: unit.alignment }
+                NoUnitsFilter {},
+                NoCitiesButOursFilter {
+                    alignment: unit.alignment,
+                },
             ),
-            UnitMovementFilter{unit: &unit}
+            UnitMovementFilter { unit: &unit },
         );
         self.move_toplevel_unit_by_loc_using_filter(src, dest, &unit_filter)
     }
 
-    fn move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&mut self, src: Location, dest: Location, filter: &F) -> MoveResult {
-        let unit_id = self.current_player_toplevel_unit_by_loc(src)
-                                          .map(|unit| unit.id)
-                                          .ok_or(MoveError::SourceUnitNotAtLocation{src})?;
-        
+    fn move_toplevel_unit_by_loc_using_filter<F: Filter<Obs>>(
+        &mut self,
+        src: Location,
+        dest: Location,
+        filter: &F,
+    ) -> MoveResult {
+        let unit_id = self
+            .current_player_toplevel_unit_by_loc(src)
+            .map(|unit| unit.id)
+            .ok_or(MoveError::SourceUnitNotAtLocation { src })?;
+
         self.move_unit_by_id_using_filter(unit_id, dest, filter)
     }
 
@@ -949,16 +999,24 @@ impl Game {
     // }
 
     /// Move a unit one step in a particular direction
-    pub fn move_unit_by_id_in_direction(&mut self, unit_id: UnitID, direction: Direction) -> MoveResult {
+    pub fn move_unit_by_id_in_direction(
+        &mut self,
+        unit_id: UnitID,
+        direction: Direction,
+    ) -> MoveResult {
         // let unit_loc = self.map.unit_by_id(id)
-            // .ok_or_else(|| MoveError::SourceUnitDoesNotExist {id})?.loc;
-        let unit = self.current_player_unit_by_id(unit_id)
-            .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
+        // .ok_or_else(|| MoveError::SourceUnitDoesNotExist {id})?.loc;
+        let unit = self
+            .current_player_unit_by_id(unit_id)
+            .ok_or(MoveError::SourceUnitDoesNotExist { id: unit_id })?
+            .clone();
 
         let filter = UnitMovementFilter::new(&unit);
 
-        let dest = unit.loc.shift_wrapped(direction, self.dims(), self.wrapping())
-            .ok_or_else(|| MoveError::DestinationOutOfBounds{})?;
+        let dest = unit
+            .loc
+            .shift_wrapped(direction, self.dims(), self.wrapping())
+            .ok_or_else(|| MoveError::DestinationOutOfBounds {})?;
 
         // self.move_unit_by_id(id, dest)
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
@@ -967,8 +1025,10 @@ impl Game {
     pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
         // self.propose_move_unit_by_id(unit_id, dest).map(|proposed_move| proposed_move.take(self))
         // let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
-        let unit = self.current_player_unit_by_id(unit_id)
-            .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
+        let unit = self
+            .current_player_unit_by_id(unit_id)
+            .ok_or(MoveError::SourceUnitDoesNotExist { id: unit_id })?
+            .clone();
 
         let filter = UnitMovementFilterXenophile::new(&unit);
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
@@ -984,15 +1044,21 @@ impl Game {
         let unit = self.map.unit_by_id(id).unwrap().clone();
         let unit_filter = AndFilter::new(
             AndFilter::new(
-                NoUnitsFilter{},
-                NoCitiesButOursFilter{alignment: unit.alignment }
+                NoUnitsFilter {},
+                NoCitiesButOursFilter {
+                    alignment: unit.alignment,
+                },
             ),
-            UnitMovementFilter{unit: &unit}
+            UnitMovementFilter { unit: &unit },
         );
         self.move_unit_by_id_using_filter(id, dest, &unit_filter)
     }
 
-    pub fn propose_move_unit_by_id_avoiding_combat(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
+    pub fn propose_move_unit_by_id_avoiding_combat(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> Proposed<MoveResult> {
         let mut new = self.clone();
         let result = new.move_unit_by_id_avoiding_combat(id, dest);
         Proposed::new(new, result)
@@ -1002,33 +1068,38 @@ impl Game {
     /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
     /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
     /// potentially other behaviors like unit carrying and combat.
-    fn move_unit_by_id_using_filter<F:Filter<Obs>>(
+    fn move_unit_by_id_using_filter<F: Filter<Obs>>(
         &mut self,
         unit_id: UnitID,
         dest: Location,
-        tile_filter: &F) -> MoveResult {
-
+        tile_filter: &F,
+    ) -> MoveResult {
         if !self.dims().contain(dest) {
             return Err(MoveError::DestinationOutOfBounds {});
         }
 
         // Grab a copy of the unit to work with
-        let mut unit = self.current_player_unit_by_id(unit_id)
-            .ok_or(MoveError::SourceUnitDoesNotExist{id: unit_id})?.clone();
+        let mut unit = self
+            .current_player_unit_by_id(unit_id)
+            .ok_or(MoveError::SourceUnitDoesNotExist { id: unit_id })?
+            .clone();
 
         if unit.loc == dest {
             return Err(MoveError::ZeroLengthMove);
         }
 
         // let obs_tracker = self.current_player_observations_mut();
-        let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+        let obs_tracker = self
+            .player_observations
+            .get_mut(&self.current_player)
+            .unwrap();
 
         // Keep a copy of the source location around
         let src = unit.loc;
 
         // The move components we will populate along the way
         let mut moves = Vec::new();
-        
+
         // If we occupy a city then we declare the move complete and set remaining moves to zero, so dispense with
         // piecewise recording of movements.
         let mut movement_complete = false;
@@ -1039,20 +1110,30 @@ impl Game {
         while unit.loc != dest {
             if shortest_paths.is_none() {
                 // Establish a new "baseline"---calculation of shortest paths from the unit's current location
-                shortest_paths = Some(dijkstra::shortest_paths(obs_tracker, unit.loc, tile_filter, self.wrapping, unit.moves_remaining()));
+                shortest_paths = Some(dijkstra::shortest_paths(
+                    obs_tracker,
+                    unit.loc,
+                    tile_filter,
+                    self.wrapping,
+                    unit.moves_remaining(),
+                ));
                 moves_remaining_on_last_shortest_paths_calculation = unit.moves_remaining();
             }
 
-            if let Some(distance_to_dest_on_last_shortest_paths_calculation) = shortest_paths.as_ref().unwrap().dist.get(dest).cloned() {
-                let movement_since_last_shortest_paths_calculation = moves_remaining_on_last_shortest_paths_calculation - unit.moves_remaining();
+            if let Some(distance_to_dest_on_last_shortest_paths_calculation) =
+                shortest_paths.as_ref().unwrap().dist.get(dest).cloned()
+            {
+                let movement_since_last_shortest_paths_calculation =
+                    moves_remaining_on_last_shortest_paths_calculation - unit.moves_remaining();
 
                 // Distance to destination from unit's current location
-                let distance = distance_to_dest_on_last_shortest_paths_calculation - movement_since_last_shortest_paths_calculation;
+                let distance = distance_to_dest_on_last_shortest_paths_calculation
+                    - movement_since_last_shortest_paths_calculation;
 
                 // if distance == 0 {// We might be able to just assert this
                 //     return Err(MoveError::ZeroLengthMove);
                 // }
-    
+
                 if distance > unit.moves_remaining() {
                     return Err(MoveError::RemainingMovesExceeded {
                         id: unit_id,
@@ -1063,11 +1144,16 @@ impl Game {
                     });
                 }
 
-                let shortest_path: Vec<Location> = shortest_paths.as_ref().unwrap().shortest_path(dest).unwrap();
+                let shortest_path: Vec<Location> = shortest_paths
+                    .as_ref()
+                    .unwrap()
+                    .shortest_path(dest)
+                    .unwrap();
 
                 // skip the source location and steps we've taken since "baseline"
-                let loc = shortest_path[1 + movement_since_last_shortest_paths_calculation as usize];
-                
+                let loc =
+                    shortest_path[1 + movement_since_last_shortest_paths_calculation as usize];
+
                 let prev_loc = unit.loc;
 
                 // Move our simulated unit along the path
@@ -1075,7 +1161,7 @@ impl Game {
 
                 moves.push(MoveComponent::new(prev_loc, loc));
                 let mut move_ = moves.last_mut().unwrap();
-                
+
                 // If there is a unit at the destination:
                 //   If it is a friendly unit:
                 //     If it has carrying capacity
@@ -1113,11 +1199,11 @@ impl Game {
                 //   Move this unit to the destination, free and easy
 
                 // If there is a unit at the destination:
-                if let Some(ref other_unit) = self.map.toplevel_unit_by_loc(loc).cloned() {// CLONE to dodge mutability
+                if let Some(ref other_unit) = self.map.toplevel_unit_by_loc(loc).cloned() {
+                    // CLONE to dodge mutability
 
                     // If it is a friendly unit:
                     if unit.is_friendly_to(other_unit) {
-
                         debug_assert_ne!(unit.id, other_unit.id);
                         debug_assert!(other_unit.can_carry_unit(&unit));
 
@@ -1128,7 +1214,8 @@ impl Game {
                             let src_tile = self.map.tile(prev_loc).unwrap();
                             let tile = self.map.tile(loc).unwrap();
 
-                            panic!("Could not carry unit for some weird reason: {:?}
+                            panic!(
+                                "Could not carry unit for some weird reason: {:?}
                                     tile: {:?}
                                     tile city: {:?}
                                     tile unit: {:?}
@@ -1136,12 +1223,17 @@ impl Game {
                                     src_tile: {:?}
                                     src_tile city: {:?}
                                     src_tile unit: {:?}",
-                                    e, tile, tile.city, tile.unit, unit,
-                                       src_tile, src_tile.city, src_tile.unit
+                                e,
+                                tile,
+                                tile.city,
+                                tile.unit,
+                                unit,
+                                src_tile,
+                                src_tile.city,
+                                src_tile.unit
                             );
                         }
                         unit.record_movement(1).unwrap();
-
                     } else {
                         // It is an enemy unit.
                         // Fight it.
@@ -1150,7 +1242,8 @@ impl Game {
                             // We were victorious over the unit
 
                             // Record the victory for score calculation purposes
-                            self.defeated_unit_hitpoints[self.current_player] += other_unit.max_hp() as u64;
+                            self.defeated_unit_hitpoints[self.current_player] +=
+                                other_unit.max_hp() as u64;
 
                             // Destroy the conquered unit
                             self.map.pop_unit_by_loc_and_id(loc, other_unit.id).unwrap();
@@ -1158,7 +1251,7 @@ impl Game {
                             // Deal with any city
                             if let Some(city) = self.map.city_by_loc(loc) {
                                 // It must be an enemy city or there wouldn't have been an enemy unit there
-                                
+
                                 // If this unit can occupy cities
                                 if unit.can_occupy_cities() {
                                     // Fight the enemy city
@@ -1172,7 +1265,6 @@ impl Game {
                                         // Destroy this unit
                                         self.map.pop_unit_by_id(unit_id).unwrap();
                                     }
-
                                 } else {
                                     // This unit can't occupy cities
                                     // Nerf this move since we didn't actually go anywhere and end the overall move
@@ -1187,11 +1279,11 @@ impl Game {
                                 break;
                             } else {
                                 // There was no city, we just defeated an enemy, move to the destination
-                                let prior_unit = self.map.relocate_unit_by_id(unit_id, loc).unwrap();
+                                let prior_unit =
+                                    self.map.relocate_unit_by_id(unit_id, loc).unwrap();
                                 debug_assert!(prior_unit.is_none());
                                 unit.record_movement(1).unwrap();
                             }
-
                         } else {
                             // We were not victorious against the enemy unit
                             // Destroy this unit and end the overall move
@@ -1199,7 +1291,6 @@ impl Game {
                             break;
                         }
                     }
-                
                 } else if let Some(city) = self.map.city_by_loc(loc) {
                     // If it is a friendly city
                     if unit.is_friendly_to(city) {
@@ -1207,7 +1298,6 @@ impl Game {
                         self.map.relocate_unit_by_id(unit_id, loc).unwrap();
                         // self.map.record_unit_movement(unit_id, 1).unwrap().unwrap();
                         unit.record_movement(1).unwrap();
-
                     } else {
                         // If the unit couldn't occupy cities then this location wouldn't be in the path, but let's
                         // check the assumption
@@ -1220,7 +1310,6 @@ impl Game {
                             self.map.occupy_city(unit_id, loc).unwrap();
                             movement_complete = true;
                         } else {
-
                             // Destroy this unit
                             self.map.pop_unit_by_id(unit_id).unwrap();
                         }
@@ -1240,31 +1329,36 @@ impl Game {
                 }
 
                 // ----- Make observations from the unit's new location -----
-                move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+                move_.observations_after_move =
+                    unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
 
                 // Inspect all observations besides at the unit's previous and current location to see if any changes in
                 // passability have occurred relevant to the unit's future moves.
                 // If so, request shortest_paths to be recalculated
-                let passability_changed = move_.observations_after_move
+                let passability_changed = move_
+                    .observations_after_move
                     .iter()
-                    .filter(|located_obs| located_obs.loc != unit.loc && located_obs.loc != prev_loc)
-                    .any(|located_obs| {
-                        located_obs.passability_changed(tile_filter)
-                    }
-                );
+                    .filter(|located_obs| {
+                        located_obs.loc != unit.loc && located_obs.loc != prev_loc
+                    })
+                    .any(|located_obs| located_obs.passability_changed(tile_filter));
                 if passability_changed {
                     // Mark the shortest_paths stale so it gets recomputed
                     shortest_paths = None;
                 }
-
             } else {
-                return Err(MoveError::NoRoute{src, dest, id: unit_id});
+                return Err(MoveError::NoRoute {
+                    src,
+                    dest,
+                    id: unit_id,
+                });
             }
-        }// while
+        } // while
 
         let move_ = moves.last_mut().unwrap();
         // ----- Make observations from the unit's new location -----
-        move_.observations_after_move = unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+        move_.observations_after_move =
+            unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
 
         // If the unit wasn't destroyed, register its movement in the map rather than just this clone
         if move_.moved_successfully() {
@@ -1272,9 +1366,14 @@ impl Game {
                 self.map.mark_unit_movement_complete(unit_id).unwrap();
                 unit.movement_complete();
             } else {
-                let distance_moved = moves.iter().map(|move_| move_.distance_moved() as u16)
-                                                                .sum();
-                self.map.record_unit_movement(unit_id, distance_moved).unwrap().unwrap();
+                let distance_moved = moves
+                    .iter()
+                    .map(|move_| move_.distance_moved() as u16)
+                    .sum();
+                self.map
+                    .record_unit_movement(unit_id, distance_moved)
+                    .unwrap()
+                    .unwrap();
             }
         }
 
@@ -1284,24 +1383,35 @@ impl Game {
     }
 
     /// Disbands
-    pub fn disband_unit_by_id(&mut self, unit_id: UnitID) -> Result<Unit,GameError> {
-        let unit = self.map.pop_player_unit_by_id(self.current_player, unit_id)
-            .ok_or(GameError::NoSuchUnit{id: unit_id})?;
+    pub fn disband_unit_by_id(&mut self, unit_id: UnitID) -> Result<Unit, GameError> {
+        let unit = self
+            .map
+            .pop_player_unit_by_id(self.current_player, unit_id)
+            .ok_or(GameError::NoSuchUnit { id: unit_id })?;
 
         // Make a fresh observation with the disbanding unit so that its absence is noted.
-        let obs_tracker = self.player_observations.get_mut(&self.current_player).unwrap();
+        let obs_tracker = self
+            .player_observations
+            .get_mut(&self.current_player)
+            .unwrap();
         unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
 
         self.action_taken();
-        
+
         Ok(unit)
     }
 
     /// Sets the production of the current player's city at location `loc` to `production`, returning the prior setting.
-    /// 
+    ///
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
-    pub fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> Result<Option<UnitType>,GameError> {
-        let result = self.map.set_player_city_production_by_loc(self.current_player, loc, production);
+    pub fn set_production_by_loc(
+        &mut self,
+        loc: Location,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError> {
+        let result =
+            self.map
+                .set_player_city_production_by_loc(self.current_player, loc, production);
         if result.is_ok() {
             self.action_taken();
         }
@@ -1309,10 +1419,16 @@ impl Game {
     }
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
-    /// 
+    ///
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
-    pub fn set_production_by_id(&mut self, city_id: CityID, production: UnitType) -> Result<Option<UnitType>,GameError> {
-        let result = self.map.set_player_city_production_by_id(self.current_player(), city_id, production);
+    pub fn set_production_by_id(
+        &mut self,
+        city_id: CityID,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError> {
+        let result =
+            self.map
+                .set_player_city_production_by_id(self.current_player(), city_id, production);
         if result.is_ok() {
             self.action_taken();
         }
@@ -1320,7 +1436,7 @@ impl Game {
     }
 
     //FIXME Restrict to current player cities
-    pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(),String> {
+    pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(), String> {
         self.map.clear_city_production_without_ignoring_by_loc(loc).map_err(|_| format!(
             "Attempted to clear production for city at location {} but there is no city at that location",
             loc
@@ -1328,7 +1444,7 @@ impl Game {
     }
 
     //FIXME Restrict to current player cities
-    pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(),String> {
+    pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(), String> {
         self.map.clear_city_production_and_ignore_by_loc(loc).map_err(|_|
             format!(
                 "Attempted to clear production for city at location {} but there is no city at that location",
@@ -1355,13 +1471,11 @@ impl Game {
     }
 
     /// Units that could be produced by a city located at the given location
-    pub fn valid_productions<'a>(&'a self, loc: Location) -> impl Iterator<Item=UnitType> + 'a {
-        UNIT_TYPES.iter()
-        .cloned()
-        .filter(move |unit_type| {
+    pub fn valid_productions<'a>(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
+        UNIT_TYPES.iter().cloned().filter(move |unit_type| {
             for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
                 let tile = self.map.tile(neighb_loc).unwrap();
-                if unit_type.can_move_on_tile( &tile ) {
+                if unit_type.can_move_on_tile(&tile) {
                     return true;
                 }
             }
@@ -1371,13 +1485,14 @@ impl Game {
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-    pub fn valid_productions_conservative<'a>(&'a self, loc: Location) -> impl Iterator<Item=UnitType> + 'a {
-        UNIT_TYPES.iter()
-        .cloned()
-        .filter(move |unit_type| {
+    pub fn valid_productions_conservative<'a>(
+        &'a self,
+        loc: Location,
+    ) -> impl Iterator<Item = UnitType> + 'a {
+        UNIT_TYPES.iter().cloned().filter(move |unit_type| {
             for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
                 let tile = self.map.tile(neighb_loc).unwrap();
-                if unit_type.can_occupy_tile( &tile ) {
+                if unit_type.can_occupy_tile(&tile) {
                     return true;
                 }
             }
@@ -1389,7 +1504,8 @@ impl Game {
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Sentry;
 
-        self.map.set_player_unit_orders(self.current_player(), unit_id, orders)?;
+        self.map
+            .set_player_unit_orders(self.current_player(), unit_id, orders)?;
 
         let ordered_unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
 
@@ -1401,7 +1517,9 @@ impl Game {
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
         let orders = Orders::Skip;
         let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
-        let result = self.set_orders(unit_id, orders).map(|_| OrdersOutcome::in_progress_without_move(unit, orders));
+        let result = self
+            .set_orders(unit_id, orders)
+            .map(|_| OrdersOutcome::in_progress_without_move(unit, orders));
         if result.is_ok() {
             self.action_taken();
         }
@@ -1410,12 +1528,16 @@ impl Game {
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
         // self.propose_order_unit_go_to(unit_id, dest).take(self)
-        self.set_and_follow_orders(unit_id, Orders::GoTo{dest})
+        self.set_and_follow_orders(unit_id, Orders::GoTo { dest })
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    pub fn propose_order_unit_go_to(&self, unit_id: UnitID, dest: Location) -> Proposed<OrdersResult> {
-        self.propose_set_and_follow_orders(unit_id, Orders::GoTo{dest})
+    pub fn propose_order_unit_go_to(
+        &self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> Proposed<OrdersResult> {
+        self.propose_set_and_follow_orders(unit_id, Orders::GoTo { dest })
     }
 
     pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
@@ -1429,57 +1551,72 @@ impl Game {
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(),GameError> {
+    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(), GameError> {
         let unit_id = {
-            let unit = self.map.toplevel_unit_by_loc(loc)
-                                    .ok_or(GameError::NoUnitAtLocation{loc})?;
+            let unit = self
+                .map
+                .toplevel_unit_by_loc(loc)
+                .ok_or(GameError::NoUnitAtLocation { loc })?;
 
             if !unit.belongs_to_player(self.current_player()) {
-                return Err(GameError::UnitNotControlledByCurrentPlayer{});
+                return Err(GameError::UnitNotControlledByCurrentPlayer {});
             }
 
             unit.id
         };
 
-        self.map.activate_player_unit(self.current_player(), unit_id)
+        self.map
+            .activate_player_unit(self.current_player(), unit_id)
     }
 
     /// If the current player controls a unit with ID `id`, set its orders to `orders`
-    /// 
+    ///
     /// # Errors
     /// `OrdersError::OrderedUnitDoesNotExist` if the order is not present under the control of the current player
-    fn set_orders(&mut self, id: UnitID, orders: Orders) -> Result<Option<Orders>,GameError> {
-        self.map.set_player_unit_orders(self.current_player(), id, orders)
+    fn set_orders(&mut self, id: UnitID, orders: Orders) -> Result<Option<Orders>, GameError> {
+        self.map
+            .set_player_unit_orders(self.current_player(), id, orders)
     }
 
     /// Clear the orders of the unit controlled by the current player with ID `id`.
-    fn clear_orders(&mut self, id: UnitID) -> Result<Option<Orders>,GameError> {
+    fn clear_orders(&mut self, id: UnitID) -> Result<Option<Orders>, GameError> {
         self.map.clear_player_unit_orders(self.current_player(), id)
     }
 
     fn follow_pending_orders(&mut self) -> Vec<OrdersResult> {
         let pending_orders: Vec<UnitID> = self.units_with_pending_orders().collect();
 
-        pending_orders.iter()
+        pending_orders
+            .iter()
             .map(|unit_id| self.follow_unit_orders(*unit_id))
             .collect()
     }
 
     /// Make the unit with ID `id` under the current player's control follow its orders
-    /// 
+    ///
     /// # Panics
     /// This will panic if the current player does not control such a unit.
-    /// 
+    ///
     fn follow_unit_orders(&mut self, id: UnitID) -> OrdersResult {
-        let orders = self.current_player_unit_by_id(id).unwrap().orders.as_ref().unwrap();
+        let orders = self
+            .current_player_unit_by_id(id)
+            .unwrap()
+            .orders
+            .as_ref()
+            .unwrap();
 
         let result = orders.carry_out(id, self);
 
         // If the orders are already complete, clear them out
-        if let Ok(OrdersOutcome{ status: OrdersStatus::Completed, .. }) = result {
-            self.map.clear_player_unit_orders(self.current_player(), id)?;
+        if let Ok(OrdersOutcome {
+            status: OrdersStatus::Completed,
+            ..
+        }) = result
+        {
+            self.map
+                .clear_player_unit_orders(self.current_player(), id)?;
         }
-        
+
         result
     }
 
@@ -1500,32 +1637,34 @@ impl Game {
         }
 
         result
-
     }
 
     pub fn current_player_score(&self) -> f64 {
         self.player_score(self.current_player).unwrap()
     }
 
-    fn player_score(&self, player: PlayerNum) -> Result<f64,GameError> {
+    fn player_score(&self, player: PlayerNum) -> Result<f64, GameError> {
         let mut score = 0.0;
 
         // Observations
-        let observed_tiles = self.player_observations.get(&player)
-                                 .ok_or(GameError::NoSuchPlayer{player})?
-                                 .num_observed();
+        let observed_tiles = self
+            .player_observations
+            .get(&player)
+            .ok_or(GameError::NoSuchPlayer { player })?
+            .num_observed();
 
         score += observed_tiles as f64 * TILE_OBSERVED_BASE_SCORE;
-    
+
         // Controlled units
         for unit in self.player_units(player) {
             // The cost of the unit scaled by the unit's current hitpoints relative to maximum
-            score += UNIT_MULTIPLIER * (unit.type_.cost() as f64) * (unit.hp() as f64) / (unit.max_hp() as f64);
+            score += UNIT_MULTIPLIER * (unit.type_.cost() as f64) * (unit.hp() as f64)
+                / (unit.max_hp() as f64);
         }
 
         // Defeated units
         score += UNIT_MULTIPLIER * self.defeated_unit_hitpoints[self.current_player] as f64;
-    
+
         // Controlled cities
         for city in self.player_cities(player) {
             // The city's intrinsic value plus any progress it's made toward producing its unit
@@ -1537,28 +1676,28 @@ impl Game {
 
         // Penalty for each action taken
         score -= ACTION_PENALTY * self.action_counts[self.current_player] as f64;
-    
+
         // Victory
         if let Some(victor) = self.victor() {
             if victor == player {
                 score += VICTORY_SCORE;
             }
         }
-    
+
         Ok(score)
     }
 
     /// Each player's current score, indexed by player number
     pub fn player_scores(&self) -> Vec<f64> {
         (0..self.num_players)
-        .map(|player| self.player_score(player).unwrap())
-        .collect()
+            .map(|player| self.player_score(player).unwrap())
+            .collect()
     }
 
     /// Feature vector for use in AI training; the specified player's current state
-    /// 
+    ///
     /// Map of the output vector:
-    /// 
+    ///
     /// # 15: 1d features
     /// * 1: current turn
     /// * 1: current player city count
@@ -1571,7 +1710,7 @@ impl Game {
     /// * 121: is_enemy_belligerent (11x11)
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
-    /// 
+    ///
     pub fn player_features(&self, player: PlayerNum) -> Vec<fX> {
         // For every tile we add these f64's:
         // is the tile observed or not?
@@ -1580,12 +1719,15 @@ impl Game {
         // what is the unit type? (one hot encoded, could be none---all zeros)
         // for each of the five potential carried units:
         //   what is the unit type? (one hot encoded, could be none---all zeros)
-        // 
+        //
 
         let unit_id = self.player_unit_orders_requests(player).next();
         let city_loc = self.player_production_set_requests(player).next();
 
-        let unit_type = unit_id.and_then(|unit_id| self.player_unit_by_id(player, unit_id).map(|unit| unit.type_));
+        let unit_type = unit_id.and_then(|unit_id| {
+            self.player_unit_by_id(player, unit_id)
+                .map(|unit| unit.type_)
+        });
 
         // We also add a context around the currently active unit (if any)
         let mut x = Vec::with_capacity(FEATS_LEN as usize);
@@ -1628,25 +1770,23 @@ impl Game {
         // - number of each type of unit controlled by player
         let empty_map = HashMap::new();
         let type_counts = self.player_unit_type_counts(player).unwrap_or(&empty_map);
-        let counts_vec: Vec<fX> = UnitType::values().iter()
-                                    .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
-                                    .collect();
+        let counts_vec: Vec<fX> = UnitType::values()
+            .iter()
+            .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
+            .collect();
 
         x.extend(counts_vec);
 
-        
-        
-
         // Relatively positioned around next unit (if any) or city
-        
-        let loc = unit_id.map(|unit_id| {
-            match self.player_unit_loc(player, unit_id) {
+
+        let loc = unit_id
+            .map(|unit_id| match self.player_unit_loc(player, unit_id) {
                 Some(loc) => loc,
                 None => {
                     panic!("Unit was in orders requests but not in current player observations")
-                },
-            }
-        }).or(city_loc);
+                }
+            })
+            .or(city_loc);
 
         let mut is_enemy_belligerent = Vec::new();
         let mut is_observed = Vec::new();
@@ -1659,8 +1799,9 @@ impl Game {
                 let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
                 let obs = if let Some(origin) = loc {
-                    self.wrapping.wrapped_add(self.dims(), origin, inc)
-                                 .map_or(&Obs::Unobserved, |loc| observations.get(loc))
+                    self.wrapping
+                        .wrapped_add(self.dims(), origin, inc)
+                        .map_or(&Obs::Unobserved, |loc| observations.get(loc))
                 } else {
                     &Obs::Unobserved
                 };
@@ -1673,7 +1814,7 @@ impl Game {
                 let mut neutral = 0.0;
                 let mut city = 0.0;
 
-                if let Obs::Observed{tile, ..} = obs {
+                if let Obs::Observed { tile, .. } = obs {
                     observed = 1.0;
 
                     if tile.city.is_some() {
@@ -1683,7 +1824,9 @@ impl Game {
                     if let Some(alignment) = tile.alignment_maybe() {
                         if alignment.is_neutral() {
                             neutral = 1.0;
-                        } else if alignment.is_belligerent() && alignment.is_enemy_of_player(self.current_player) {
+                        } else if alignment.is_belligerent()
+                            && alignment.is_enemy_of_player(self.current_player)
+                        {
                             enemy = 1.0;
                         }
                     }
@@ -1693,7 +1836,6 @@ impl Game {
                 is_observed.push(observed);
                 is_neutral.push(neutral);
                 is_city.push(city);
-
             }
         }
 
@@ -1706,9 +1848,9 @@ impl Game {
     }
 
     /// Feature vector for use in AI training
-    /// 
+    ///
     /// Map of the output vector:
-    /// 
+    ///
     /// # 15: 1d features
     /// * 1: current turn
     /// * 1: current player city count
@@ -1721,12 +1863,12 @@ impl Game {
     /// * 121: is_enemy_belligerent (11x11)
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
-    /// 
+    ///
     fn features(&self) -> Vec<fX> {
         self.player_features(self.current_player)
     }
 
-    fn take_action(&mut self, action: UmpireAction) -> Result<(),GameError> {
+    fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError> {
         action.take(self)
     }
 }
@@ -1761,25 +1903,27 @@ fn push_obs_to_vec(x: &mut Vec<f64>, obs: &Obs, num_players: PlayerNum) {
             // for _ in 0..n_zeros {
             //     x.push(0.0);
             // }
-        },
-        Obs::Observed{tile,..} => {
-
+        }
+        Obs::Observed { tile, .. } => {
             // let mut x = vec![1.0];// observed
-            x.push(1.0);// observed
+            x.push(1.0); // observed
 
-            for p in 0..num_players {// which player controls the tile (one hot encoded)
-                x.push(if let Some(Alignment::Belligerent{player}) = tile.alignment_maybe() {
-                    if player==p {
-                        1.0
+            for p in 0..num_players {
+                // which player controls the tile (one hot encoded)
+                x.push(
+                    if let Some(Alignment::Belligerent { player }) = tile.alignment_maybe() {
+                        if player == p {
+                            1.0
+                        } else {
+                            0.0
+                        }
                     } else {
                         0.0
-                    }
-                } else {
-                    0.0
-                });
+                    },
+                );
             }
 
-            x.push(if tile.city.is_some() { 1.0 } else { 0.0 });// city or not
+            x.push(if tile.city.is_some() { 1.0 } else { 0.0 }); // city or not
 
             let mut units_unaccounted_for = 6;
 
@@ -1805,12 +1949,11 @@ fn push_obs_to_vec(x: &mut Vec<f64>, obs: &Obs, num_players: PlayerNum) {
     }
 }
 
-
 /// Push a one-hot-encoded representation of a direction (or none at all) onto a vector
 fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
     if let Some(dir) = dir {
         for dir2 in Direction::values().iter() {
-            x.push(if dir==*dir2 { 1.0 } else { 0.0 } );
+            x.push(if dir == *dir2 { 1.0 } else { 0.0 });
         }
     } else {
         for _ in 0..Direction::values().len() {
@@ -1834,38 +1977,22 @@ impl fmt::Debug for Game {
 /// Test support functions
 pub mod test_support {
 
-    use std::{
-        rc::Rc,
-        sync::{
-            RwLock,
-        }
-    };
+    use std::{rc::Rc, sync::RwLock};
 
     use crate::{
         game::{
-            Alignment,
-            Game,
-            map::{
-                MapData,
-                Terrain,
-            },
+            map::{MapData, Terrain},
             obs::Obs,
-            unit::{
-                UnitID,
-                UnitType,
-            },
+            unit::{UnitID, UnitType},
+            Alignment, Game,
         },
         name::unit_namer,
-        util::{
-            Dims,
-            Location,
-            Wrap2d,
-        },
+        util::{Dims, Location, Wrap2d},
     };
 
     pub fn test_propose_move_unit_by_id() {
-        let src = Location{x:0, y:0};
-        let dest = Location{x:1, y:0};
+        let src = Location { x: 0, y: 0 };
+        let dest = Location { x: 1, y: 0 };
 
         let game = game_two_cities_two_infantry();
 
@@ -1884,7 +2011,11 @@ pub mod test_support {
         // are observed as containing it
         for located_obs in &component.observations_after_move {
             match located_obs.obs {
-                Obs::Observed{ref tile, turn, current} =>{
+                Obs::Observed {
+                    ref tile,
+                    turn,
+                    current,
+                } => {
                     if located_obs.loc == dest {
                         let unit = tile.unit.as_ref().unwrap();
                         assert_eq!(unit.id, unit_id);
@@ -1893,8 +2024,8 @@ pub mod test_support {
                     } else if let Some(unit) = tile.unit.as_ref() {
                         assert_ne!(unit.id, unit_id);
                     }
-                },
-                Obs::Unobserved => panic!("This should be observed")
+                }
+                Obs::Unobserved => panic!("This should be observed"),
             }
         }
     }
@@ -1904,8 +2035,18 @@ pub mod test_support {
     /// * Player 1's Zanzibar at 0,1
     fn map_two_cities(dims: Dims) -> MapData {
         let mut map = MapData::new(dims, |_loc| Terrain::Land);
-        map.new_city(Location{x:0,y:0}, Alignment::Belligerent{player:0}, "Machang").unwrap();
-        map.new_city(Location{x:0,y:1}, Alignment::Belligerent{player:1}, "Zanzibar").unwrap();
+        map.new_city(
+            Location { x: 0, y: 0 },
+            Alignment::Belligerent { player: 0 },
+            "Machang",
+        )
+        .unwrap();
+        map.new_city(
+            Location { x: 0, y: 1 },
+            Alignment::Belligerent { player: 1 },
+            "Zanzibar",
+        )
+        .unwrap();
         map
     }
 
@@ -1913,19 +2054,31 @@ pub mod test_support {
     pub(crate) fn game1() -> Game {
         let players = 2;
         let fog_of_war = true;
- 
+
         let map = map_two_cities(Dims::new(10, 10));
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Some(Rc::new(RwLock::new(unit_namer))), Wrap2d::BOTH)
+        Game::new_with_map(
+            map,
+            players,
+            fog_of_war,
+            Some(Rc::new(RwLock::new(unit_namer))),
+            Wrap2d::BOTH,
+        )
     }
 
     pub(crate) fn game_two_cities_dims(dims: Dims) -> Game {
         let players = 2;
         let fog_of_war = true;
- 
+
         let map = map_two_cities(dims);
         let unit_namer = unit_namer();
-        let mut game = Game::new_with_map(map, players, fog_of_war, Some(Rc::new(RwLock::new(unit_namer))), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(
+            map,
+            players,
+            fog_of_war,
+            Some(Rc::new(RwLock::new(unit_namer))),
+            Wrap2d::BOTH,
+        );
 
         let loc: Location = game.production_set_requests().next().unwrap();
 
@@ -1947,8 +2100,18 @@ pub mod test_support {
 
     fn map_tunnel(dims: Dims) -> MapData {
         let mut map = MapData::new(dims, |_loc| Terrain::Land);
-        map.new_city(Location::new(0, dims.height / 2), Alignment::Belligerent{player:0}, "City 0").unwrap();
-        map.new_city(Location::new(dims.width - 1, dims.height / 2), Alignment::Belligerent{player:1}, "City 1").unwrap();
+        map.new_city(
+            Location::new(0, dims.height / 2),
+            Alignment::Belligerent { player: 0 },
+            "City 0",
+        )
+        .unwrap();
+        map.new_city(
+            Location::new(dims.width - 1, dims.height / 2),
+            Alignment::Belligerent { player: 1 },
+            "City 1",
+        )
+        .unwrap();
         map
     }
 
@@ -1957,7 +2120,13 @@ pub mod test_support {
         let fog_of_war = false;
         let map = map_tunnel(dims);
         let unit_namer = unit_namer();
-        Game::new_with_map(map, players, fog_of_war, Some(Rc::new(RwLock::new(unit_namer))), Wrap2d::NEITHER)
+        Game::new_with_map(
+            map,
+            players,
+            fog_of_war,
+            Some(Rc::new(RwLock::new(unit_namer))),
+            Wrap2d::NEITHER,
+        )
     }
 
     // pub(crate) fn game_two_cities() -> Game {
@@ -1996,49 +2165,26 @@ pub mod test_support {
 #[cfg(test)]
 mod test {
     use std::{
-        collections::{
-            HashMap,
-            HashSet,
-        },
+        collections::{HashMap, HashSet},
         rc::Rc,
-        sync::{
-            RwLock,
-        },
+        sync::RwLock,
     };
 
-    use rand::{
-        Rng,
-        thread_rng,
-    };
+    use rand::{thread_rng, Rng};
 
     use crate::{
         game::{
-            Alignment,
-            Game,
-            GameError,
-            map::{
-                MapData,
-                Terrain,
-            },
+            map::{MapData, Terrain},
             move_::MoveError,
-            test_support::{game_two_cities_two_infantry},
+            test_support::game_two_cities_two_infantry,
             unit::{
-                TransportMode,
-                Unit,
-                UnitID,
-                UnitType,
-                orders::{
-                    Orders,
-                    OrdersStatus,
-                },
+                orders::{Orders, OrdersStatus},
+                TransportMode, Unit, UnitID, UnitType,
             },
+            Alignment, Game, GameError,
         },
-        name::{
-            Named,
-            unit_namer,
-        },
-        
-        util::{Dimensioned,Dims,Direction,Location,Vec2d,Wrap2d},
+        name::{unit_namer, Named},
+        util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
     };
 
     #[test]
@@ -2050,44 +2196,51 @@ mod test {
             let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
             let loc = game.current_player_unit_loc(unit_id).unwrap();
             let new_x = (loc.x + 1) % game.dims().width;
-            let new_loc = Location{x:new_x, y:loc.y};
+            let new_loc = Location { x: new_x, y: loc.y };
             println!("Moving unit from {} to {}", loc, new_loc);
 
             match game.move_toplevel_unit_by_loc(loc, new_loc) {
                 Ok(move_result) => {
                     println!("{:?}", move_result);
-                },
+                }
                 Err(msg) => {
                     panic!("Error during move: {}", msg);
                 }
             }
-            
+
             let result = game.end_turn();
             assert!(result.is_ok());
-            assert_eq!(result.unwrap().current_player, 1-player);
+            assert_eq!(result.unwrap().current_player, 1 - player);
         }
     }
 
     #[test]
     fn test_move_unit_by_id_far() {
         let mut map = MapData::new(Dims::new(180, 90), |_| Terrain::Water);
-        let unit_id = map.new_unit(Location::new(0,0), UnitType::Fighter, Alignment::Belligerent{player:0}, "Han Solo").unwrap();
+        let unit_id = map
+            .new_unit(
+                Location::new(0, 0),
+                UnitType::Fighter,
+                Alignment::Belligerent { player: 0 },
+                "Han Solo",
+            )
+            .unwrap();
 
         let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
         let mut rand = thread_rng();
         for _ in 0..10 {
-            let mut delta = Vec2d::new(0,0);
+            let mut delta = Vec2d::new(0, 0);
 
-            while delta.x==0 && delta.y==0 {
-                delta = Vec2d::new(
-                    rand.gen_range(-5, 6),
-                    rand.gen_range(-5, 6),
-                );
+            while delta.x == 0 && delta.y == 0 {
+                delta = Vec2d::new(rand.gen_range(-5, 6), rand.gen_range(-5, 6));
             }
 
             let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
-            let dest = game.wrapping().wrapped_add(game.dims(), unit_loc, delta).unwrap();
+            let dest = game
+                .wrapping()
+                .wrapped_add(game.dims(), unit_loc, delta)
+                .unwrap();
             let result = game.move_unit_by_id(unit_id, dest).unwrap();
             assert!(result.moved_successfully());
             assert_eq!(result.ending_loc(), Some(dest));
@@ -2100,8 +2253,8 @@ mod test {
     fn test_move_unit() {
         let map = MapData::try_from("--0-+-+-1--").unwrap();
         {
-            let loc1 = Location{x:2, y:0};
-            let loc2 = Location{x:8, y:0};
+            let loc1 = Location { x: 2, y: 0 };
+            let loc2 = Location { x: 8, y: 0 };
 
             let city1tile = map.tile(loc1).unwrap();
             let city2tile = map.tile(loc2).unwrap();
@@ -2110,13 +2263,19 @@ mod test {
 
             let city1 = city1tile.city.as_ref().unwrap();
             let city2 = city2tile.city.as_ref().unwrap();
-            assert_eq!(city1.alignment, Alignment::Belligerent{player:0});
-            assert_eq!(city2.alignment, Alignment::Belligerent{player:1});
+            assert_eq!(city1.alignment, Alignment::Belligerent { player: 0 });
+            assert_eq!(city2.alignment, Alignment::Belligerent { player: 1 });
             assert_eq!(city1.loc, loc1);
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(map, 2, false, Some(Rc::new(RwLock::new(unit_namer()))), Wrap2d::BOTH);
+        let mut game = Game::new_with_map(
+            map,
+            2,
+            false,
+            Some(Rc::new(RwLock::new(unit_namer()))),
+            Wrap2d::BOTH,
+        );
         assert_eq!(game.current_player(), 0);
 
         let productions = vec![UnitType::Armor, UnitType::Carrier];
@@ -2151,24 +2310,33 @@ mod test {
                 assert_eq!(unit.type_, productions[0]);
                 unit.loc
             };
-            
-            let dest_loc = Location{x: loc.x+2, y:loc.y};
+
+            let dest_loc = Location {
+                x: loc.x + 2,
+                y: loc.y,
+            };
             println!("Moving from {} to {}", loc, dest_loc);
             let move_result = game.move_toplevel_unit_by_loc(loc, dest_loc).unwrap();
             println!("Result: {:?}", move_result);
-            
-            assert_eq!(move_result.unit.type_, UnitType::Armor);
-            assert_eq!(move_result.unit.alignment, Alignment::Belligerent{player:0});
-            
 
+            assert_eq!(move_result.unit.type_, UnitType::Armor);
+            assert_eq!(
+                move_result.unit.alignment,
+                Alignment::Belligerent { player: 0 }
+            );
 
             // Check the first move component
             assert_eq!(move_result.components.len(), 2);
             let move1 = move_result.components.get(0).unwrap();
-            assert_eq!(move1.loc, Location{x:loc.x+1, y:loc.y});
+            assert_eq!(
+                move1.loc,
+                Location {
+                    x: loc.x + 1,
+                    y: loc.y
+                }
+            );
             assert_eq!(move1.unit_combat, None);
             assert_eq!(move1.city_combat, None);
-
 
             if move_result.moved_successfully() {
                 // the unit conquered the city
@@ -2189,10 +2357,10 @@ mod test {
 
                     // Since the armor defeated the city, set its production so we can end the turn
                     let conquered_city = move_result.conquered_city().unwrap();
-                    let production_set_result = game.set_production_by_loc(conquered_city.loc, UnitType::Fighter);
+                    let production_set_result =
+                        game.set_production_by_loc(conquered_city.loc, UnitType::Fighter);
                     assert_eq!(production_set_result, Ok(productions.get(1).cloned()));
                 }
-
             } else {
                 // The unit was destroyed
                 assert_eq!(move_result.unit.moves_remaining(), 1);
@@ -2211,32 +2379,40 @@ mod test {
     #[test]
     fn test_terrainwise_movement() {
         let mut map = MapData::try_from(" t-").unwrap();
-        map.set_terrain(Location::new(1, 0), Terrain::Water).unwrap();
+        map.set_terrain(Location::new(1, 0), Terrain::Water)
+            .unwrap();
 
-        let transport_id = map.toplevel_unit_by_loc(Location::new(1,0)).unwrap().id;
+        let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
 
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
-        game.move_unit_by_id_in_direction(transport_id, Direction::Left).unwrap();
-        game.move_unit_by_id_in_direction(transport_id, Direction::Right).unwrap();
+        game.move_unit_by_id_in_direction(transport_id, Direction::Left)
+            .unwrap();
+        game.move_unit_by_id_in_direction(transport_id, Direction::Right)
+            .unwrap();
 
-        assert_eq!(game.move_unit_by_id_in_direction(transport_id, Direction::Right), Err(MoveError::NoRoute {
-            id: transport_id,
-            src: Location::new(1, 0),
-            dest: Location::new(2, 0),
-        }));
+        assert_eq!(
+            game.move_unit_by_id_in_direction(transport_id, Direction::Right),
+            Err(MoveError::NoRoute {
+                id: transport_id,
+                src: Location::new(1, 0),
+                dest: Location::new(2, 0),
+            })
+        );
     }
 
     #[test]
     fn test_unit_moves_onto_transport() {
         let map = MapData::try_from("---it   ").unwrap();
-        let infantry_loc = Location{x: 3, y: 0};
-        let transport_loc = Location{x: 4, y: 0};
+        let infantry_loc = Location { x: 3, y: 0 };
+        let transport_loc = Location { x: 4, y: 0 };
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
-        let move_result = game.move_toplevel_unit_by_loc(infantry_loc, transport_loc).unwrap();
+        let move_result = game
+            .move_toplevel_unit_by_loc(infantry_loc, transport_loc)
+            .unwrap();
         assert_eq!(move_result.starting_loc, infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
         assert!(move_result.moved_successfully());
@@ -2253,58 +2429,124 @@ mod test {
             let infantry_id = map.toplevel_unit_by_loc(Location::new(0, 0)).unwrap().id;
             let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
             let battleship_id = map.toplevel_unit_by_loc(Location::new(2, 0)).unwrap().id;
-            
+
             let mut game = Game::new_with_map(map, 2, false, None, Wrap2d::NEITHER);
-            
+
             // Load the infantry onto the transport
-            let inf_move = game.move_unit_by_id_in_direction(infantry_id, Direction::Right).unwrap();
+            let inf_move = game
+                .move_unit_by_id_in_direction(infantry_id, Direction::Right)
+                .unwrap();
             assert!(inf_move.moved_successfully());
-            assert_eq!(inf_move.ending_loc(), game.current_player_unit_loc(transport_id));
+            assert_eq!(
+                inf_move.ending_loc(),
+                game.current_player_unit_loc(transport_id)
+            );
             assert_eq!(inf_move.ending_carrier(), Some(transport_id));
 
             // Attack the battleship with the transport
-            let move_ = game.move_unit_by_id_in_direction(transport_id, Direction::Right).unwrap();
+            let move_ = game
+                .move_unit_by_id_in_direction(transport_id, Direction::Right)
+                .unwrap();
             if move_.moved_successfully() {
                 victorious = true;
 
-                assert!(game.current_player_units().any(|unit| unit.id==infantry_id));
-                assert!(game.current_player_units().any(|unit| unit.id==transport_id));
+                assert!(game
+                    .current_player_units()
+                    .any(|unit| unit.id == infantry_id));
+                assert!(game
+                    .current_player_units()
+                    .any(|unit| unit.id == transport_id));
 
-                assert_eq!(game.current_player_unit_by_id(infantry_id).unwrap().loc, Location::new(2, 0));
-                assert_eq!(game.current_player_unit_by_id(transport_id).unwrap().loc, Location::new(2, 0));
+                assert_eq!(
+                    game.current_player_unit_by_id(infantry_id).unwrap().loc,
+                    Location::new(2, 0)
+                );
+                assert_eq!(
+                    game.current_player_unit_by_id(transport_id).unwrap().loc,
+                    Location::new(2, 0)
+                );
 
-                assert_eq!(game.current_player_tile(Location::new(0, 0)).unwrap().unit.as_ref(), None);
-                assert_eq!(game.current_player_tile(Location::new(1, 0)).unwrap().unit.as_ref(), None);
+                assert_eq!(
+                    game.current_player_tile(Location::new(0, 0))
+                        .unwrap()
+                        .unit
+                        .as_ref(),
+                    None
+                );
+                assert_eq!(
+                    game.current_player_tile(Location::new(1, 0))
+                        .unwrap()
+                        .unit
+                        .as_ref(),
+                    None
+                );
                 {
-                    let unit = game.current_player_tile(Location::new(2, 0)).unwrap().unit.as_ref().unwrap();
+                    let unit = game
+                        .current_player_tile(Location::new(2, 0))
+                        .unwrap()
+                        .unit
+                        .as_ref()
+                        .unwrap();
                     assert_eq!(unit.type_, UnitType::Transport);
                     assert_eq!(unit.id, transport_id);
-                    assert!(unit.carried_units().any(|carried_unit| carried_unit.id == infantry_id));
+                    assert!(unit
+                        .carried_units()
+                        .any(|carried_unit| carried_unit.id == infantry_id));
                 }
 
-                game.force_end_turn();// ignore remaining moves
+                game.force_end_turn(); // ignore remaining moves
 
-                assert!(!game.current_player_units().any(|unit| unit.id==battleship_id));
-                assert!(!game.unit_orders_requests().any(|unit_id| unit_id==battleship_id));
-
-
+                assert!(!game
+                    .current_player_units()
+                    .any(|unit| unit.id == battleship_id));
+                assert!(!game
+                    .unit_orders_requests()
+                    .any(|unit_id| unit_id == battleship_id));
             } else {
                 defeated = true;
 
-                assert!(!game.current_player_units().any(|unit| unit.id==infantry_id));
-                assert!(!game.current_player_units().any(|unit| unit.id==transport_id));
+                assert!(!game
+                    .current_player_units()
+                    .any(|unit| unit.id == infantry_id));
+                assert!(!game
+                    .current_player_units()
+                    .any(|unit| unit.id == transport_id));
 
                 assert_eq!(game.current_player_unit_by_id(infantry_id), None);
                 assert_eq!(game.current_player_unit_by_id(transport_id), None);
 
-                assert_eq!(game.current_player_tile(Location::new(0, 0)).unwrap().unit.as_ref(), None);
-                assert_eq!(game.current_player_tile(Location::new(1, 0)).unwrap().unit.as_ref(), None);
-                assert_eq!(game.current_player_tile(Location::new(2, 0)).unwrap().unit.as_ref().unwrap().id, battleship_id);
+                assert_eq!(
+                    game.current_player_tile(Location::new(0, 0))
+                        .unwrap()
+                        .unit
+                        .as_ref(),
+                    None
+                );
+                assert_eq!(
+                    game.current_player_tile(Location::new(1, 0))
+                        .unwrap()
+                        .unit
+                        .as_ref(),
+                    None
+                );
+                assert_eq!(
+                    game.current_player_tile(Location::new(2, 0))
+                        .unwrap()
+                        .unit
+                        .as_ref()
+                        .unwrap()
+                        .id,
+                    battleship_id
+                );
 
                 game.end_turn().unwrap();
 
-                assert!(game.current_player_units().any(|unit| unit.id==battleship_id));
-                assert!(game.unit_orders_requests().any(|unit_id| unit_id==battleship_id));
+                assert!(game
+                    .current_player_units()
+                    .any(|unit| unit.id == battleship_id));
+                assert!(game
+                    .unit_orders_requests()
+                    .any(|unit_id| unit_id == battleship_id));
             }
         }
     }
@@ -2315,27 +2557,35 @@ mod test {
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
-        assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, None);
-        assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().name(), &String::from("Unit_0_0"));
+        assert_eq!(
+            game.current_player_unit_by_id(unit_id).unwrap().orders,
+            None
+        );
+        assert_eq!(
+            game.current_player_unit_by_id(unit_id).unwrap().name(),
+            &String::from("Unit_0_0")
+        );
 
         game.set_orders(unit_id, Orders::Sentry).unwrap();
 
-        assert_eq!(game.current_player_unit_by_id(unit_id).unwrap().orders, Some(Orders::Sentry));
+        assert_eq!(
+            game.current_player_unit_by_id(unit_id).unwrap().orders,
+            Some(Orders::Sentry)
+        );
     }
 
-     #[test]
+    #[test]
     pub fn test_order_unit_explore() {
         let map = MapData::try_from("i--------------------").unwrap();
         let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
-        
+
         let outcome = game.order_unit_explore(unit_id).unwrap();
         assert_eq!(outcome.ordered_unit.id, unit_id);
         assert_eq!(outcome.orders, Orders::Explore);
         assert_eq!(outcome.status, OrdersStatus::InProgress);
     }
-
 
     #[test]
     pub fn test_propose_move_unit_by_id() {
@@ -2356,12 +2606,12 @@ mod test {
         ];
 
         let possible: Vec<char> = " 01iI".chars().collect();
-        let mut traversable: HashMap<char,bool> = HashMap::new();
-        traversable.insert(' ', false);//water
-        traversable.insert('0', true);//friendly city
-        traversable.insert('1', true);//enemy city
-        traversable.insert('i', false);//friendly unit
-        traversable.insert('I', true);//enemy unit
+        let mut traversable: HashMap<char, bool> = HashMap::new();
+        traversable.insert(' ', false); //water
+        traversable.insert('0', true); //friendly city
+        traversable.insert('1', true); //enemy city
+        traversable.insert('i', false); //friendly unit
+        traversable.insert('I', true); //enemy unit
 
         for up_left in &possible {
             for up in &possible {
@@ -2371,58 +2621,89 @@ mod test {
                             for down_left in &possible {
                                 for down in &possible {
                                     for down_right in &possible {
+                                        let cs: Vec<char> = dirs
+                                            .iter()
+                                            .map(|dir| match dir {
+                                                Direction::UpLeft => up_left,
+                                                Direction::Up => up,
+                                                Direction::UpRight => up_right,
+                                                Direction::Left => left,
+                                                Direction::Right => right,
+                                                Direction::DownLeft => down_left,
+                                                Direction::Down => down,
+                                                Direction::DownRight => down_right,
+                                            })
+                                            .cloned()
+                                            .collect();
 
-                                        let cs: Vec<char> = dirs.iter().map(|dir| match dir {
-                                            Direction::UpLeft => up_left,
-                                            Direction::Up => up,
-                                            Direction::UpRight => up_right,
-                                            Direction::Left => left,
-                                            Direction::Right => right,
-                                            Direction::DownLeft => down_left,
-                                            Direction::Down => down,
-                                            Direction::DownRight => down_right,
-                                        }).cloned().collect();
-
-                                        let s = format!("{}{}{}\n{}i{}\n{}{}{}",
+                                        let s = format!(
+                                            "{}{}{}\n{}i{}\n{}{}{}",
                                             cs[0], cs[1], cs[2], cs[3], cs[4], cs[5], cs[6], cs[7]
                                         );
 
                                         let map = MapData::try_from(s.clone()).unwrap();
                                         assert_eq!(map.dims(), Dims::new(3, 3));
 
-                                        let game = Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
+                                        let game =
+                                            Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
 
-                                        let id = game.current_player_toplevel_unit_by_loc(Location{x:1,y:1}).unwrap().id;
+                                        let id = game
+                                            .current_player_toplevel_unit_by_loc(Location {
+                                                x: 1,
+                                                y: 1,
+                                            })
+                                            .unwrap()
+                                            .id;
 
-                                        let inclusions: Vec<bool> = cs.iter().map(|c| traversable.get(&c).unwrap()).cloned().collect();
+                                        let inclusions: Vec<bool> = cs
+                                            .iter()
+                                            .map(|c| traversable.get(&c).unwrap())
+                                            .cloned()
+                                            .collect();
 
                                         assert_eq!(cs.len(), inclusions.len());
                                         assert_eq!(cs.len(), dirs.len());
 
                                         let src = Location::new(1, 1);
-                                        let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(id).unwrap();
+                                        let dests: HashSet<Location> = game
+                                            .current_player_unit_legal_one_step_destinations(id)
+                                            .unwrap();
 
-                                        for (i, loc) in dirs.iter().map(|dir| {
-                                            let v: Vec2d<i32> = (*dir).into();
-                                            Location {
-                                                x: ((src.x as i32) + v.x) as u16,
-                                                y: ((src.y as i32) + v.y) as u16,
-                                            }
-                                        }).enumerate() {
+                                        for (i, loc) in dirs
+                                            .iter()
+                                            .map(|dir| {
+                                                let v: Vec2d<i32> = (*dir).into();
+                                                Location {
+                                                    x: ((src.x as i32) + v.x) as u16,
+                                                    y: ((src.y as i32) + v.y) as u16,
+                                                }
+                                            })
+                                            .enumerate()
+                                        {
                                             if inclusions[i] {
-                                                assert!(dests.contains(&loc), "Erroneously omitted {:?} on \"{}\"", loc, s.replace("\n","\\n"));
+                                                assert!(
+                                                    dests.contains(&loc),
+                                                    "Erroneously omitted {:?} on \"{}\"",
+                                                    loc,
+                                                    s.replace("\n", "\\n")
+                                                );
                                             } else {
-                                                assert!(!dests.contains(&loc), "Erroneously included {:?} on \"{}\"", loc, s.replace("\n","\\n"));
+                                                assert!(
+                                                    !dests.contains(&loc),
+                                                    "Erroneously included {:?} on \"{}\"",
+                                                    loc,
+                                                    s.replace("\n", "\\n")
+                                                );
                                             }
                                         }
-                                    }// down_right
-                                }// down
-                            }// down_left
-                        }// right
-                    }// left
-                }// up_right
-            }// up
-        }// up_left
+                                    } // down_right
+                                } // down
+                            } // down_left
+                        } // right
+                    } // left
+                } // up_right
+            } // up
+        } // up_left
     }
 
     #[test]
@@ -2431,34 +2712,72 @@ mod test {
         for wrapping in Wrap2d::values().iter().cloned() {
             {
                 // 1x1
-                let mut map = MapData::new(Dims::new(1,1), |_loc| Terrain::Land);
-                let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
+                let mut map = MapData::new(Dims::new(1, 1), |_loc| Terrain::Land);
+                let unit_id = map
+                    .new_unit(
+                        Location::new(0, 0),
+                        UnitType::Infantry,
+                        Alignment::Belligerent { player: 0 },
+                        "Eunice",
+                    )
+                    .unwrap();
                 let game = Game::new_with_map(map, 1, false, None, wrapping);
 
-                assert!(
-                    game.current_player_unit_legal_one_step_destinations(unit_id).unwrap().is_empty()
-                );
+                assert!(game
+                    .current_player_unit_legal_one_step_destinations(unit_id)
+                    .unwrap()
+                    .is_empty());
             }
 
             {
                 // 2x1
                 let mut map = MapData::new(Dims::new(2, 1), |_loc| Terrain::Land);
-                let unit_id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
-                                let game = Game::new_with_map(map, 1, false, None, wrapping);
+                let unit_id = map
+                    .new_unit(
+                        Location::new(0, 0),
+                        UnitType::Infantry,
+                        Alignment::Belligerent { player: 0 },
+                        "Eunice",
+                    )
+                    .unwrap();
+                let game = Game::new_with_map(map, 1, false, None, wrapping);
 
-                let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
-                assert_eq!(dests.len(), 1, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
+                let dests: HashSet<Location> = game
+                    .current_player_unit_legal_one_step_destinations(unit_id)
+                    .unwrap();
+                assert_eq!(
+                    dests.len(),
+                    1,
+                    "Bad dests: {:?} with wrapping {:?}",
+                    dests,
+                    wrapping
+                );
                 assert!(dests.contains(&Location::new(1, 0)));
             }
 
             {
                 // 3x1
                 let mut map = MapData::new(Dims::new(3, 1), |_loc| Terrain::Land);
-                let unit_id = map.new_unit(Location::new(1,0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Eunice").unwrap();
-                                let game = Game::new_with_map(map, 1, false, None, wrapping);
+                let unit_id = map
+                    .new_unit(
+                        Location::new(1, 0),
+                        UnitType::Infantry,
+                        Alignment::Belligerent { player: 0 },
+                        "Eunice",
+                    )
+                    .unwrap();
+                let game = Game::new_with_map(map, 1, false, None, wrapping);
 
-                let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(unit_id).unwrap();
-                assert_eq!(dests.len(), 2, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
+                let dests: HashSet<Location> = game
+                    .current_player_unit_legal_one_step_destinations(unit_id)
+                    .unwrap();
+                assert_eq!(
+                    dests.len(),
+                    2,
+                    "Bad dests: {:?} with wrapping {:?}",
+                    dests,
+                    wrapping
+                );
                 assert!(dests.contains(&Location::new(0, 0)));
                 assert!(dests.contains(&Location::new(2, 0)));
             }
@@ -2472,8 +2791,16 @@ mod test {
 
                 let game = Game::new_with_map(map, 1, false, None, wrapping);
 
-                let dests: HashSet<Location> = game.current_player_unit_legal_one_step_destinations(inf_id).unwrap();
-                assert_eq!(dests.len(), 2, "Bad dests: {:?} with wrapping {:?}", dests, wrapping);
+                let dests: HashSet<Location> = game
+                    .current_player_unit_legal_one_step_destinations(inf_id)
+                    .unwrap();
+                assert_eq!(
+                    dests.len(),
+                    2,
+                    "Bad dests: {:?} with wrapping {:?}",
+                    dests,
+                    wrapping
+                );
                 assert!(dests.contains(&Location::new(0, 0)));
                 assert!(dests.contains(&Location::new(2, 0)));
             }
@@ -2483,15 +2810,22 @@ mod test {
     #[test]
     pub fn test_one_step_routes() {
         let mut map = MapData::new(Dims::new(10, 10), |_loc| Terrain::Land);
-        let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
+        let unit_id = map
+            .new_unit(
+                Location::new(0, 0),
+                UnitType::Armor,
+                Alignment::Belligerent { player: 0 },
+                "Forest Gump",
+            )
+            .unwrap();
 
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         // let mut rand = thread_rng();
 
         for (i, src) in game.dims().iter_locs().enumerate() {
-        // for _ in 0..1000 {
-        //     let src = game.dims().sample(&mut rand);
+            // for _ in 0..1000 {
+            //     let src = game.dims().sample(&mut rand);
 
             // // Recenter the unit on `src`
             // game.map.relocate_unit_by_id(unit_id, src).unwrap();
@@ -2505,18 +2839,48 @@ mod test {
 
             for dir in Direction::values().iter().cloned() {
                 let src = game.current_player_unit_loc(unit_id).unwrap();
-                let dest = game.wrapping.wrapped_add(game.dims(), src, dir.into()).unwrap();
+                let dest = game
+                    .wrapping
+                    .wrapped_add(game.dims(), src, dir.into())
+                    .unwrap();
 
-                game.move_unit_by_id(unit_id, dest).expect(format!("Error moving unit with ID {:?} from {} to {}", unit_id, src, dest).as_str());
-                assert_eq!(game.current_player_unit_loc(unit_id), Some(dest), "Wrong location after moving {:?} from {:?} to {:?}", dir, src, dest);
+                game.move_unit_by_id(unit_id, dest).expect(
+                    format!(
+                        "Error moving unit with ID {:?} from {} to {}",
+                        unit_id, src, dest
+                    )
+                    .as_str(),
+                );
+                assert_eq!(
+                    game.current_player_unit_loc(unit_id),
+                    Some(dest),
+                    "Wrong location after moving {:?} from {:?} to {:?}",
+                    dir,
+                    src,
+                    dest
+                );
 
-                game.move_unit_by_id(unit_id, src).expect(format!("Error moving unit with ID {:?} from {} to {}", unit_id, dest, src).as_str());
+                game.move_unit_by_id(unit_id, src).expect(
+                    format!(
+                        "Error moving unit with ID {:?} from {} to {}",
+                        unit_id, dest, src
+                    )
+                    .as_str(),
+                );
                 game.end_turn().unwrap();
 
                 game.move_unit_by_id_in_direction(unit_id, dir).unwrap();
-                assert_eq!(game.current_player_unit_loc(unit_id), Some(dest), "Wrong location after moving {:?} from {:?} to {:?}", dir, src, dest);
+                assert_eq!(
+                    game.current_player_unit_loc(unit_id),
+                    Some(dest),
+                    "Wrong location after moving {:?} from {:?} to {:?}",
+                    dir,
+                    src,
+                    dest
+                );
 
-                game.move_unit_by_id_in_direction(unit_id, dir.opposite()).unwrap();
+                game.move_unit_by_id_in_direction(unit_id, dir.opposite())
+                    .unwrap();
                 game.end_turn().unwrap();
             }
         }
@@ -2525,10 +2889,18 @@ mod test {
     #[test]
     pub fn test_order_unit_skip() {
         let mut map = MapData::new(Dims::new(10, 10), |_loc| Terrain::Land);
-        let unit_id = map.new_unit(Location::new(0, 0), UnitType::Infantry, Alignment::Belligerent{player:0}, "Skipper").unwrap();
+        let unit_id = map
+            .new_unit(
+                Location::new(0, 0),
+                UnitType::Infantry,
+                Alignment::Belligerent { player: 0 },
+                "Skipper",
+            )
+            .unwrap();
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
-        game.move_unit_by_id_in_direction(unit_id, Direction::Right).unwrap();
+        game.move_unit_by_id_in_direction(unit_id, Direction::Right)
+            .unwrap();
         game.end_turn().unwrap();
 
         game.order_unit_skip(unit_id).unwrap();
@@ -2542,18 +2914,16 @@ mod test {
     #[test]
     pub fn test_movement_matches_carry_status() {
         let l1 = Location::new(0, 0);
-        let l2 = Location::new(1,0);
-        let a = Alignment::Belligerent{player:0};
+        let l2 = Location::new(1, 0);
+        let a = Alignment::Belligerent { player: 0 };
 
         for type1 in UnitType::values().iter().cloned() {
-            
             let u1 = Unit::new(UnitID::new(0), l2, type1, a, "u1");
 
             for type2 in UnitType::values().iter().cloned() {
-
                 let u2 = Unit::new(UnitID::new(1), l2, type2, a, "u2");
 
-                let mut map = MapData::new(Dims::new(2,1), |loc| {
+                let mut map = MapData::new(Dims::new(2, 1), |loc| {
                     let mode = if loc == l1 {
                         u1.transport_mode()
                     } else {
@@ -2572,13 +2942,12 @@ mod test {
 
                 let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
                 let result = game.move_unit_by_id_in_direction(u1.id, Direction::Right);
-                
+
                 if u2.can_carry_unit(&u1) {
                     assert!(result.is_ok());
                 } else {
                     assert!(result.is_err());
                 }
-
             }
         }
     }
@@ -2588,30 +2957,35 @@ mod test {
         let mut loc = Location::new(0, 0);
 
         let mut map = MapData::new(Dims::new(10, 1), |_| Terrain::Water);
-        let unit_id = map.new_unit(loc, UnitType::Submarine,
-            Alignment::Belligerent{player:0}, "K-19").unwrap();
+        let unit_id = map
+            .new_unit(
+                loc,
+                UnitType::Submarine,
+                Alignment::Belligerent { player: 0 },
+                "K-19",
+            )
+            .unwrap();
 
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
-        
-        
 
         for _ in 0..9 {
-            game.move_unit_by_id_in_direction(unit_id, Direction::Right).unwrap();
-            loc = loc.shift_wrapped(Direction::Right, game.dims(), game.wrapping()).unwrap();
+            game.move_unit_by_id_in_direction(unit_id, Direction::Right)
+                .unwrap();
+            loc = loc
+                .shift_wrapped(Direction::Right, game.dims(), game.wrapping())
+                .unwrap();
 
             let unit = game.current_player_toplevel_unit_by_loc(loc).unwrap();
             assert_eq!(unit.id, unit_id);
 
             game.force_end_turn();
         }
-
     }
 
     #[test]
     fn test_transport_moves_on_transport_unloaded() {
-        
-        let l1 = Location::new(0,0);
-        let l2 = Location::new(1,0);
+        let l1 = Location::new(0, 0);
+        let l2 = Location::new(1, 0);
 
         let map = MapData::try_from("tt").unwrap();
 
@@ -2624,9 +2998,9 @@ mod test {
                 .expect_err("Transport should not be able to move onto transport");
         }
 
-
         let mut map2 = map.clone();
-        map2.new_city(l2, Alignment::Belligerent{player:0}, "city").unwrap();
+        map2.new_city(l2, Alignment::Belligerent { player: 0 }, "city")
+            .unwrap();
 
         let mut game = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
@@ -2636,9 +3010,8 @@ mod test {
 
     #[test]
     fn test_transport_moves_on_transport_loaded() {
-        
-        let l1 = Location::new(1,0);
-        let l2 = Location::new(2,0);
+        let l1 = Location::new(1, 0);
+        let l2 = Location::new(2, 0);
 
         let mut map = MapData::try_from(".tt.").unwrap();
 
@@ -2647,18 +3020,28 @@ mod test {
 
         for i in 0..3 {
             println!("{}", i);
-            let id = map.new_unit(Location::new(0,0), UnitType::Infantry, Alignment::Belligerent{player:0},
-            format!("inf{}", i)).unwrap();
+            let id = map
+                .new_unit(
+                    Location::new(0, 0),
+                    UnitType::Infantry,
+                    Alignment::Belligerent { player: 0 },
+                    format!("inf{}", i),
+                )
+                .unwrap();
             map.carry_unit_by_id(t1_id, id).unwrap();
         }
 
         for i in 0..3 {
-            let id = map.new_unit(Location::new(3,0), UnitType::Infantry, Alignment::Belligerent{player:0},
-            format!("inf{}", i+100)).unwrap();
+            let id = map
+                .new_unit(
+                    Location::new(3, 0),
+                    UnitType::Infantry,
+                    Alignment::Belligerent { player: 0 },
+                    format!("inf{}", i + 100),
+                )
+                .unwrap();
             map.carry_unit_by_id(t2_id, id).unwrap();
         }
-
-        
 
         {
             let mut game = Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
@@ -2668,12 +3051,11 @@ mod test {
 
             game.move_unit_by_id_in_direction(t2_id, Direction::Left)
                 .expect_err("Transport should not be able to move onto transport");
-
         }
 
-
         let mut map2 = map.clone();
-        map2.new_city(l2, Alignment::Belligerent{player:0}, "city").unwrap();
+        map2.new_city(l2, Alignment::Belligerent { player: 0 }, "city")
+            .unwrap();
 
         let mut game = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
@@ -2684,47 +3066,89 @@ mod test {
     #[test]
     fn test_embark_disembark() {
         let map = MapData::try_from("at -").unwrap();
-        let armor_id = map.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
-        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1,0)).unwrap();
+        let armor_id = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
+        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         // Embark
-        game.move_unit_by_id_in_direction(armor_id, Direction::Right).unwrap();
-        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(1,0)));
-        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(1,0)));
+        game.move_unit_by_id_in_direction(armor_id, Direction::Right)
+            .unwrap();
+        assert_eq!(
+            game.current_player_unit_loc(armor_id),
+            Some(Location::new(1, 0))
+        );
+        assert_eq!(
+            game.current_player_unit_loc(transport_id),
+            Some(Location::new(1, 0))
+        );
 
         // Move transport
-        game.move_unit_by_id_in_direction(transport_id, Direction::Right).unwrap();
-        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(2,0)));
-        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(2,0)));
-        
+        game.move_unit_by_id_in_direction(transport_id, Direction::Right)
+            .unwrap();
+        assert_eq!(
+            game.current_player_unit_loc(armor_id),
+            Some(Location::new(2, 0))
+        );
+        assert_eq!(
+            game.current_player_unit_loc(transport_id),
+            Some(Location::new(2, 0))
+        );
+
         // Disembark
-        game.move_unit_by_id_in_direction(armor_id, Direction::Right).unwrap();
-        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(3,0)));
-        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(2,0)));
+        game.move_unit_by_id_in_direction(armor_id, Direction::Right)
+            .unwrap();
+        assert_eq!(
+            game.current_player_unit_loc(armor_id),
+            Some(Location::new(3, 0))
+        );
+        assert_eq!(
+            game.current_player_unit_loc(transport_id),
+            Some(Location::new(2, 0))
+        );
     }
 
     #[test]
     fn test_embark_disembark_via_goto() {
         let map = MapData::try_from("at -").unwrap();
-        let armor_id = map.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
-        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1,0)).unwrap();
+        let armor_id = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
+        let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         // Embark
-        game.order_unit_go_to(armor_id, Location::new(1,0)).unwrap();
-        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(1,0)));
-        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(1,0)));
+        game.order_unit_go_to(armor_id, Location::new(1, 0))
+            .unwrap();
+        assert_eq!(
+            game.current_player_unit_loc(armor_id),
+            Some(Location::new(1, 0))
+        );
+        assert_eq!(
+            game.current_player_unit_loc(transport_id),
+            Some(Location::new(1, 0))
+        );
 
         // Move transport
-        game.order_unit_go_to(transport_id, Location::new(2, 0)).unwrap();
-        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(2,0)));
-        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(2,0)));
-        
+        game.order_unit_go_to(transport_id, Location::new(2, 0))
+            .unwrap();
+        assert_eq!(
+            game.current_player_unit_loc(armor_id),
+            Some(Location::new(2, 0))
+        );
+        assert_eq!(
+            game.current_player_unit_loc(transport_id),
+            Some(Location::new(2, 0))
+        );
+
         // Disembark
-        game.order_unit_go_to(armor_id, Location::new(3, 0)).unwrap();
-        assert_eq!(game.current_player_unit_loc(armor_id), Some(Location::new(3,0)));
-        assert_eq!(game.current_player_unit_loc(transport_id), Some(Location::new(2,0)));
+        game.order_unit_go_to(armor_id, Location::new(3, 0))
+            .unwrap();
+        assert_eq!(
+            game.current_player_unit_loc(armor_id),
+            Some(Location::new(3, 0))
+        );
+        assert_eq!(
+            game.current_player_unit_loc(transport_id),
+            Some(Location::new(2, 0))
+        );
     }
 
     #[test]
@@ -2733,7 +3157,7 @@ mod test {
 
         let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
-        game.move_toplevel_unit_by_loc(Location::new(0,0), Location::new(4, 0))
+        game.move_toplevel_unit_by_loc(Location::new(0, 0), Location::new(4, 0))
             .expect_err("Transports shouldn't traverse transports on their way somewhere");
     }
 
@@ -2798,12 +3222,22 @@ mod test {
     #[test]
     fn test_move_fighter_over_water() {
         let mut map = MapData::new(Dims::new(180, 90), |_| Terrain::Water);
-        let unit_id = map.new_unit(Location::new(0,0), UnitType::Fighter, Alignment::Belligerent{player:0}, "Han Solo").unwrap();
+        let unit_id = map
+            .new_unit(
+                Location::new(0, 0),
+                UnitType::Fighter,
+                Alignment::Belligerent { player: 0 },
+                "Han Solo",
+            )
+            .unwrap();
 
         let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
         let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
-        let dest = game.wrapping().wrapped_add(game.dims(), unit_loc, Vec2d::new(5, 5)).unwrap();
+        let dest = game
+            .wrapping()
+            .wrapped_add(game.dims(), unit_loc, Vec2d::new(5, 5))
+            .unwrap();
         game.move_unit_by_id(unit_id, dest).unwrap();
     }
 
@@ -2816,53 +3250,93 @@ mod test {
 
             let unit = game.current_player_unit_by_id(id).cloned().unwrap();
 
-            assert!(game.unit_orders_requests().find(|unit_id| *unit_id == id ).is_some());
+            assert!(game
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == id)
+                .is_some());
 
             assert_eq!(game.disband_unit_by_id(id), Ok(unit));
 
             let id2 = UnitID::new(1);
 
-            assert_eq!(game.disband_unit_by_id(id2), Err(GameError::NoSuchUnit{id:id2}));
+            assert_eq!(
+                game.disband_unit_by_id(id2),
+                Err(GameError::NoSuchUnit { id: id2 })
+            );
 
-            assert!(game.unit_orders_requests().find(|unit_id| *unit_id == id ).is_none());
+            assert!(game
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == id)
+                .is_none());
         }
 
         {
             let map2 = MapData::try_from("it ").unwrap();
-            let infantry_id = map2.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
+            let infantry_id = map2.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
             let transport_id = map2.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
             let mut game2 = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
 
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_some());
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_some());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == infantry_id)
+                .is_some());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == transport_id)
+                .is_some());
 
-            game2.move_unit_by_id_in_direction(infantry_id, Direction::Right).unwrap();
+            game2
+                .move_unit_by_id_in_direction(infantry_id, Direction::Right)
+                .unwrap();
 
             game2.force_end_turn();
 
-            let infantry = game2.current_player_unit_by_id(infantry_id).cloned().unwrap();
+            let infantry = game2
+                .current_player_unit_by_id(infantry_id)
+                .cloned()
+                .unwrap();
 
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_some());
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_some());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == infantry_id)
+                .is_some());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == transport_id)
+                .is_some());
 
             assert_eq!(game2.disband_unit_by_id(infantry_id), Ok(infantry));
 
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_none());
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_some());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == infantry_id)
+                .is_none());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == transport_id)
+                .is_some());
 
-            let transport = game2.current_player_unit_by_id(transport_id).cloned().unwrap();
+            let transport = game2
+                .current_player_unit_by_id(transport_id)
+                .cloned()
+                .unwrap();
 
             assert_eq!(game2.disband_unit_by_id(transport_id), Ok(transport));
 
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==infantry_id).is_none());
-            assert!(game2.unit_orders_requests().find(|unit_id| *unit_id==transport_id).is_none());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == infantry_id)
+                .is_none());
+            assert!(game2
+                .unit_orders_requests()
+                .find(|unit_id| *unit_id == transport_id)
+                .is_none());
         }
 
         {
-
             let map = MapData::try_from("ii").unwrap();
-            let a = map.toplevel_unit_id_by_loc(Location::new(0,0)).unwrap();
+            let a = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
             let b = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
             let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
@@ -2871,8 +3345,9 @@ mod test {
 
             assert!(game.current_player_unit_by_id(a).is_none());
 
-            assert!(game.move_unit_by_id_in_direction(b, Direction::Left).is_ok());
-
+            assert!(game
+                .move_unit_by_id_in_direction(b, Direction::Left)
+                .is_ok());
         }
     }
 }

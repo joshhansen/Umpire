@@ -1,52 +1,53 @@
-use std::io::{Stdout,Write};
+use std::io::{Stdout, Write};
 
 use crossterm::{
     queue,
-    style::{
-        Attribute,
-        Print,
-        SetAttribute,
-        SetBackgroundColor,
-        SetForegroundColor,
-    },
+    style::{Attribute, Print, SetAttribute, SetBackgroundColor, SetForegroundColor},
 };
 
-use crate::color::{Colors,Palette};
+use crate::color::{Colors, Palette};
 use crate::game::player::PlayerTurnControl;
-use crate::ui::{Component,Draw};
-use crate::util::{Rect,Vec2d};
+use crate::ui::{Component, Draw};
+use crate::util::{Rect, Vec2d};
 
-pub(in crate::ui) trait ScrollableComponent : Component {
+pub(in crate::ui) trait ScrollableComponent: Component {
     fn offset(&self) -> Vec2d<u16>;
-    fn scroll_relative<V:Into<Vec2d<i32>>>(&mut self, offset: V);
+    fn scroll_relative<V: Into<Vec2d<i32>>>(&mut self, offset: V);
 }
 
-pub(in crate::ui) struct Scroller<S:ScrollableComponent> {
+pub(in crate::ui) struct Scroller<S: ScrollableComponent> {
     rect: Rect,
     pub scrollable: S,
     old_h_scroll_x: Option<u16>,
     old_v_scroll_y: Option<u16>,
 }
 
-impl<S:ScrollableComponent> Scroller<S> {
+impl<S: ScrollableComponent> Scroller<S> {
     pub fn new(rect: Rect, scrollable: S) -> Self {
         Scroller {
             rect,
             scrollable,
             old_h_scroll_x: None,
-            old_v_scroll_y: None
+            old_v_scroll_y: None,
         }
     }
 
     fn h_scroll_x(&self, map_width: u16) -> u16 {
-        (f32::from(self.rect.width-1) * (f32::from(self.scrollable.offset().x) / f32::from(map_width))) as u16
+        (f32::from(self.rect.width - 1)
+            * (f32::from(self.scrollable.offset().x) / f32::from(map_width))) as u16
     }
 
     fn v_scroll_y(&self, map_height: u16) -> u16 {
-        (f32::from(self.rect.height)  * (f32::from(self.scrollable.offset().y) / f32::from(map_height))) as u16
+        (f32::from(self.rect.height)
+            * (f32::from(self.scrollable.offset().y) / f32::from(map_height))) as u16
     }
 
-    fn draw_scroll_bars(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
+    fn draw_scroll_bars(
+        &mut self,
+        game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        palette: &Palette,
+    ) {
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(game.dims().width);
         let h_scroll_y = viewport_rect.bottom();
@@ -81,13 +82,15 @@ impl<S:ScrollableComponent> Scroller<S> {
         //     Fg(palette.get_single(Colors::ScrollMarks)),
         //     sym
         // ).unwrap();
-        queue!(*stdout,
-            self.goto(x,y),
+        queue!(
+            *stdout,
+            self.goto(x, y),
             SetAttribute(Attribute::Reset),
             SetBackgroundColor(palette.get_single(Colors::Background)),
             SetForegroundColor(palette.get_single(Colors::ScrollMarks)),
             Print(sym.to_string())
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     /// Utility method
@@ -96,12 +99,14 @@ impl<S:ScrollableComponent> Scroller<S> {
         //     StrongReset::new(palette),
         //     self.goto(x,y)
         // ).unwrap();
-        queue!(*stdout,
-            self.goto(x,y),
+        queue!(
+            *stdout,
+            self.goto(x, y),
             SetAttribute(Attribute::Reset),
             SetBackgroundColor(palette.get_single(Colors::Background)),
             Print(String::from(" "))
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     // pub fn viewport_dims(&self) -> Dims {
@@ -112,20 +117,24 @@ impl<S:ScrollableComponent> Scroller<S> {
     // }
 }
 
-impl<S:ScrollableComponent> Draw for Scroller<S> {
+impl<S: ScrollableComponent> Draw for Scroller<S> {
     fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
         self.draw_scroll_bars(game, stdout, palette);
         self.scrollable.draw_no_flush(game, stdout, palette);
     }
 }
 
-impl<S:ScrollableComponent> Component for Scroller<S> {
+impl<S: ScrollableComponent> Component for Scroller<S> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
         self.scrollable.set_rect(rect);
     }
 
-    fn rect(&self) -> Rect { self.rect }
+    fn rect(&self) -> Rect {
+        self.rect
+    }
 
-    fn is_done(&self) -> bool { false }
+    fn is_done(&self) -> bool {
+        false
+    }
 }

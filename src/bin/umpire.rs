@@ -9,13 +9,11 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
-    io::{BufRead,BufReader,Write,stdout},
+    io::{stdout, BufRead, BufReader, Write},
     rc::Rc,
-    sync::{
-        RwLock,
-    },
+    sync::RwLock,
     thread,
-    time::{Duration,SystemTime},
+    time::{Duration, SystemTime},
 };
 
 use clap::Arg;
@@ -30,33 +28,21 @@ use clap::Arg;
 //     },
 // };
 
+use cli::parse_player_spec;
 use umpire::{
-    cli::{
-        self,
-        Specified,
-    },
-    color::{palette16, palette256, palette24},
+    cli::{self, Specified},
+    color::{palette16, palette24, palette256},
     conf,
     game::{
-        Game,
-        PlayerNum,
-        PlayerType,
-        ai::{
-            AI,
-            AISpec,
-        },
-        player::{
-            TurnTaker,
-        },
+        ai::{AISpec, AI},
+        player::TurnTaker,
+        Game, PlayerNum, PlayerType,
     },
-    name::{city_namer,unit_namer},
+    log::LogTarget,
+    name::{city_namer, unit_namer},
     ui::TermUI,
-    util::{
-        Dims,
-        Wrap2d,
-    }, log::LogTarget,
+    util::{Dims, Wrap2d},
 };
-use cli::parse_player_spec;
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
 
@@ -74,93 +60,106 @@ fn print_loading_screen() {
     stdout().flush().unwrap();
 }
 
-
-
-
-
 fn main() {
     let matches = cli::app(conf::APP_NAME, "fwWH")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
-
-        .arg(Arg::with_name("use_alt_screen")
-            .short("a")
-            .long("altscreen")
-            .help("Use alternate screen")
-            .takes_value(true)
-            .default_value(conf::USE_ALTERNATE_SCREEN)
-            .possible_values(&["on","off"])
+        .arg(
+            Arg::with_name("use_alt_screen")
+                .short("a")
+                .long("altscreen")
+                .help("Use alternate screen")
+                .takes_value(true)
+                .default_value(conf::USE_ALTERNATE_SCREEN)
+                .possible_values(&["on", "off"]),
         )
-        .arg(Arg::with_name("colors")
-            .short("c")
-            .long("colors")
-            .help("Colors supported. 16=16 colors, 256=256 colors, 24=24-bit color")
-            .takes_value(true)
-            .default_value("256")
-            .possible_values(&["16","256","24"])
-            .validator(|s| {
-                let width: Result<u16,_> = s.trim().parse();
-                width.map(|_n| ()).map_err(|_e| format!("Invalid colors '{}'", s))
-            })
+        .arg(
+            Arg::with_name("colors")
+                .short("c")
+                .long("colors")
+                .help("Colors supported. 16=16 colors, 256=256 colors, 24=24-bit color")
+                .takes_value(true)
+                .default_value("256")
+                .possible_values(&["16", "256", "24"])
+                .validator(|s| {
+                    let width: Result<u16, _> = s.trim().parse();
+                    width
+                        .map(|_n| ())
+                        .map_err(|_e| format!("Invalid colors '{}'", s))
+                }),
         )
-        .arg(Arg::with_name("fog_darkness")
-            .short("d")
-            .long("fogdarkness")
-            .help("Number between 0.0 and 1.0 indicating how dark the fog effect should be")
-            .takes_value(true)
-            .default_value("0.1")
-            .validator(|s| {
-                let width: Result<f64,_> = s.trim().parse();
-                width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
-            })
+        .arg(
+            Arg::with_name("fog_darkness")
+                .short("d")
+                .long("fogdarkness")
+                .help("Number between 0.0 and 1.0 indicating how dark the fog effect should be")
+                .takes_value(true)
+                .default_value("0.1")
+                .validator(|s| {
+                    let width: Result<f64, _> = s.trim().parse();
+                    width
+                        .map(|_n| ())
+                        .map_err(|_e| format!("Invalid map height '{}'", s))
+                }),
         )
-        .arg(Arg::with_name("nosplash")
-            .short("n")
-            .long("nosplash")
-            .help("Don't show the splash screen")
+        .arg(
+            Arg::with_name("nosplash")
+                .short("n")
+                .long("nosplash")
+                .help("Don't show the splash screen"),
         )
-        .arg(Arg::with_name("players")
-            .short("p")
-            .long("players")
-            .takes_value(true)
-            .required(true)
-            .default_value("h1233")
-            .help(
-                format!("Player type specification string, {}", 
-                    PlayerType::values().iter()
-                    .map(|player_type| format!("'{}' for {}", player_type.spec(), player_type.desc()))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                ).as_str()
-            )
-            .validator(|s| {
-                parse_player_spec(s.as_str()).map(|_| ())
-                // for spec_char in s.chars() {
-                //     PlayerType::from_spec_char(spec_char)
-                //     .map(|_| ())
-                //     .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
-                // }
-                // Ok(())
-            })
+        .arg(
+            Arg::with_name("players")
+                .short("p")
+                .long("players")
+                .takes_value(true)
+                .required(true)
+                .default_value("h1233")
+                .help(
+                    format!(
+                        "Player type specification string, {}",
+                        PlayerType::values()
+                            .iter()
+                            .map(|player_type| format!(
+                                "'{}' for {}",
+                                player_type.spec(),
+                                player_type.desc()
+                            ))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                    .as_str(),
+                )
+                .validator(|s| {
+                    parse_player_spec(s.as_str()).map(|_| ())
+                    // for spec_char in s.chars() {
+                    //     PlayerType::from_spec_char(spec_char)
+                    //     .map(|_| ())
+                    //     .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
+                    // }
+                    // Ok(())
+                }),
         )
-        .arg(Arg::with_name("quiet")
-            .short("q")
-            .long("quiet")
-            .help("Don't produce sound")
+        .arg(
+            Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .help("Don't produce sound"),
         )
-        .arg(Arg::with_name("unicode")
-            .short("u")
-            .long("unicode")
-            .help("Enable Unicode support")
+        .arg(
+            Arg::with_name("unicode")
+                .short("u")
+                .long("unicode")
+                .help("Enable Unicode support"),
         )
-        .arg(Arg::with_name("confirm_turn_end")
-            .short("C")
-            .long("confirm")
-            .help("Wait for explicit confirmation of turn end.")
+        .arg(
+            Arg::with_name("confirm_turn_end")
+                .short("C")
+                .long("confirm")
+                .help("Wait for explicit confirmation of turn end."),
         )
-
-    .get_matches();
+        .get_matches();
 
     // let ai_model_path = matches.value_of("ai_model");
     let fog_of_war = matches.value_of("fog").unwrap() == "on";
@@ -173,7 +172,8 @@ fn main() {
     //     .collect()
     // ;
 
-    let player_types: Vec<PlayerType> = parse_player_spec(matches.value_of("players").unwrap()).unwrap();
+    let player_types: Vec<PlayerType> =
+        parse_player_spec(matches.value_of("players").unwrap()).unwrap();
 
     let num_players: PlayerNum = player_types.len();
     let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
@@ -220,12 +220,12 @@ fn main() {
     }
 
     let palette = match color_depth {
-        16 | 256 => {
-            match color_depth {
-                16 => palette16(num_players).expect(format!("Error loading 16-color palette").as_str()),
-                256 => palette256(num_players).expect(format!("Error loading 256-color palette").as_str()),
-                x => panic!("Unsupported color depth {}", x)
+        16 | 256 => match color_depth {
+            16 => palette16(num_players).expect(format!("Error loading 16-color palette").as_str()),
+            256 => {
+                palette256(num_players).expect(format!("Error loading 256-color palette").as_str())
             }
+            x => panic!("Unsupported color depth {}", x),
         },
         24 => {
             palette24(num_players, fog_darkness)
@@ -233,14 +233,14 @@ fn main() {
             //     Ok(palette) => run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
             //     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
             // }
-        },
-        x => panic!("Unsupported color depth {}", x)
+        }
+        x => panic!("Unsupported color depth {}", x),
     };
-
 
     let map_dims = game.dims();
 
-    {// Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
+    {
+        // Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
 
         let mut ui = TermUI::new(
             map_dims,
@@ -249,14 +249,15 @@ fn main() {
             confirm_turn_end,
             quiet,
             use_alt_screen,
-        ).unwrap();
+        )
+        .unwrap();
 
         // We can share one instance of RandomAI across players since it's stateless
         // let mut random_ai = RandomAI::new(0);
 
         // AIs indexed by spec
         // let mut ais: HashMap<String,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
-        let mut ais: HashMap<AISpec,Rc<RefCell<AI>>> = HashMap::new();
+        let mut ais: HashMap<AISpec, Rc<RefCell<AI>>> = HashMap::new();
 
         for ptype in player_types.iter() {
             if let PlayerType::AI(ai_type) = ptype {
@@ -277,7 +278,7 @@ fn main() {
                     break 'outer;
                 }
 
-                let next_player = &player_types[(i+1) % player_types.len()];
+                let next_player = &player_types[(i + 1) % player_types.len()];
                 let clear_at_end_of_turn = match next_player {
                     PlayerType::Human => false,
                     _ => true,
@@ -285,22 +286,25 @@ fn main() {
 
                 match ptype {
                     PlayerType::Human => {
-                        let training_instances = ui.take_turn(&mut game, clear_at_end_of_turn, false);
+                        let training_instances =
+                            ui.take_turn(&mut game, clear_at_end_of_turn, false);
                         assert!(training_instances.is_none());
-                    },
+                    }
                     PlayerType::AI(ai_type) => {
-                        let training_instances = ais.get_mut(ai_type).unwrap().borrow_mut()
-                           .take_turn(&mut game, clear_at_end_of_turn, false)
-                        ;
+                        let training_instances = ais
+                            .get_mut(ai_type)
+                            .unwrap()
+                            .borrow_mut()
+                            .take_turn(&mut game, clear_at_end_of_turn, false);
                         assert!(training_instances.is_none());
-                    },
+                    }
                 }
             }
         }
+    } // UI drops here, deinitializing the user interface
 
-    }// UI drops here, deinitializing the user interface
-
-    println!("\n\n\tHe rules a moment: Chaos umpire sits,
+    println!(
+        "\n\n\tHe rules a moment: Chaos umpire sits,
     \tAnd by decision more embroils the fray
     \tBy which he reigns: next him, high arbiter,
     \tChance governs all.

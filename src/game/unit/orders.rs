@@ -1,38 +1,28 @@
+use super::Unit;
 use crate::{
     game::{
-        Game,
-        Proposed,
-        
         map::{
-            LocationGridI,
             dijkstra::{
-                ObservedReachableByPacifistUnit,
-                PacifistXenophileUnitMovementFilter,
-                nearest_adjacent_unobserved_reachable_without_attacking,
-                shortest_paths
+                nearest_adjacent_unobserved_reachable_without_attacking, shortest_paths,
+                ObservedReachableByPacifistUnit, PacifistXenophileUnitMovementFilter,
             },
+            LocationGridI,
         },
-        move_::{
-            Move,
-            MoveComponent,
-            MoveError,
-        },
-        unit::UnitID, GameError,
+        move_::{Move, MoveComponent, MoveError},
+        unit::UnitID,
+        Game, GameError, Proposed,
     },
-    util::{
-        Location,
-    },
+    util::Location,
 };
-use super::Unit;
 
-#[derive(Copy,Clone,Debug,PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum OrdersStatus {
     InProgress,
-    Completed
+    Completed,
 }
 
 /// The outcome of a unit following its orders
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct OrdersOutcome {
     /// The ID of the ordered unit
     pub ordered_unit: Unit,
@@ -48,38 +38,58 @@ pub struct OrdersOutcome {
 }
 impl OrdersOutcome {
     pub fn completed_without_move(ordered_unit: Unit, orders: Orders) -> Self {
-        Self { ordered_unit, orders, move_: None, status: OrdersStatus::Completed }
+        Self {
+            ordered_unit,
+            orders,
+            move_: None,
+            status: OrdersStatus::Completed,
+        }
     }
 
     pub fn in_progress_without_move(ordered_unit: Unit, orders: Orders) -> Self {
-        Self { ordered_unit, orders, move_: None, status: OrdersStatus::InProgress }
+        Self {
+            ordered_unit,
+            orders,
+            move_: None,
+            status: OrdersStatus::InProgress,
+        }
     }
 
     pub fn in_progress_with_move(ordered_unit: Unit, orders: Orders, move_: Move) -> Self {
-        Self { ordered_unit, orders, move_: Some(move_), status: OrdersStatus::InProgress }
+        Self {
+            ordered_unit,
+            orders,
+            move_: Some(move_),
+            status: OrdersStatus::InProgress,
+        }
     }
 
     pub fn completed_with_move(ordered_unit: Unit, orders: Orders, move_: Move) -> Self {
-        Self { ordered_unit, orders, move_: Some(move_), status: OrdersStatus::Completed }
+        Self {
+            ordered_unit,
+            orders,
+            move_: Some(move_),
+            status: OrdersStatus::Completed,
+        }
     }
 
     pub fn move_(&self) -> Option<&Move> {
         self.move_.as_ref()
     }
 
-    pub fn status(&self) -> OrdersStatus  {
+    pub fn status(&self) -> OrdersStatus {
         self.status
     }
 }
 
-pub type OrdersResult = Result<OrdersOutcome,GameError>;
+pub type OrdersResult = Result<OrdersOutcome, GameError>;
 
-#[derive(Copy,Clone,Debug,PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Orders {
     Skip,
     Sentry,
-    GoTo{dest:Location},
-    Explore
+    GoTo { dest: Location },
+    Explore,
 }
 
 impl Orders {
@@ -87,20 +97,16 @@ impl Orders {
         match self {
             Orders::Skip => {
                 let unit = game.map.unit_by_id(unit_id).unwrap().clone();
-                game.clear_orders(unit_id).map(|_| OrdersOutcome::completed_without_move(unit, self))
-            },
+                game.clear_orders(unit_id)
+                    .map(|_| OrdersOutcome::completed_without_move(unit, self))
+            }
             Orders::Sentry => {
                 // do nothing---sentry is implemented as a reaction to approaching enemies
                 let unit = game.map.unit_by_id(unit_id).unwrap().clone();
                 Ok(OrdersOutcome::in_progress_without_move(unit, self))
-
-            },
-            Orders::GoTo{dest} => {
-                go_to(self, game, unit_id, dest)
-            },
-            Orders::Explore => {
-                explore(self, game, unit_id)
             }
+            Orders::GoTo { dest } => go_to(self, game, unit_id, dest),
+            Orders::Explore => explore(self, game, unit_id),
         }
     }
 
@@ -114,18 +120,12 @@ impl Orders {
     /// Example: "standing sentry" for a sentry unit.
     pub fn present_progressive_description(self) -> String {
         match self {
-            Orders::Skip => {
-                String::from("skipping its turn")
-            },
-            Orders::Sentry => {
-                String::from("standing sentry")
-            },
-            Orders::GoTo{dest} => {
+            Orders::Skip => String::from("skipping its turn"),
+            Orders::Sentry => String::from("standing sentry"),
+            Orders::GoTo { dest } => {
                 format!("going to {}", dest)
-            },
-            Orders::Explore => {
-                String::from("exploring")
             }
+            Orders::Explore => String::from("exploring"),
         }
     }
 }
@@ -135,24 +135,39 @@ impl Orders {
 /// If there are no such tiles then set the unit's orders to None
 pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
     // Clone the unit and simulate exploration using the clone
-    let mut unit: Unit = game.current_player_unit_by_id(unit_id)
-        .ok_or(GameError::NoSuchUnit{id:unit_id})?
+    let mut unit: Unit = game
+        .current_player_unit_by_id(unit_id)
+        .ok_or(GameError::NoSuchUnit { id: unit_id })?
         .clone();
 
     let starting_loc = unit.loc;
 
     let mut move_components: Vec<MoveComponent> = Vec::new();
-    
+
     loop {
         if unit.moves_remaining() == 0 {
-            return Ok(OrdersOutcome::in_progress_with_move(unit.clone(), orders, Move::new(unit, starting_loc, move_components).unwrap()));
+            return Ok(OrdersOutcome::in_progress_with_move(
+                unit.clone(),
+                orders,
+                Move::new(unit, starting_loc, move_components).unwrap(),
+            ));
         }
 
         let observations = game.current_player_observations();
-        if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(observations, unit.loc, &unit, game.wrapping()) {
-
-            let filter = ObservedReachableByPacifistUnit{unit: &unit};
-            let shortest_paths = shortest_paths(observations, unit.loc, &filter, game.wrapping(), std::u16::MAX);
+        if let Some(mut goal) = nearest_adjacent_unobserved_reachable_without_attacking(
+            observations,
+            unit.loc,
+            &unit,
+            game.wrapping(),
+        ) {
+            let filter = ObservedReachableByPacifistUnit { unit: &unit };
+            let shortest_paths = shortest_paths(
+                observations,
+                unit.loc,
+                &filter,
+                game.wrapping(),
+                std::u16::MAX,
+            );
 
             // Find the proximate goal that the unit can reach on this turn
             let mut dist_to_real_goal = shortest_paths.dist[goal];
@@ -161,10 +176,9 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
                 dist_to_real_goal -= 1;
             }
 
-            let mut move_ = game.move_unit_by_id_using_filter(
-                unit.id, goal, &filter
-            ).map_err(GameError::MoveError)?;
-
+            let mut move_ = game
+                .move_unit_by_id_using_filter(unit.id, goal, &filter)
+                .map_err(GameError::MoveError)?;
 
             if move_.moved_successfully() {
                 unit = move_.unit;
@@ -180,7 +194,7 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
                 OrdersOutcome::completed_with_move(
                     unit.clone(),
                     orders,
-                    Move::new(unit, starting_loc, move_components).unwrap()
+                    Move::new(unit, starting_loc, move_components).unwrap(),
                 )
             });
         }
@@ -211,26 +225,22 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
     }
 
     let (moves_remaining, shortest_paths, src) = {
-        let unit = game.current_player_unit_by_id(unit_id)
-            .ok_or(GameError::NoSuchUnit{id:unit_id})?;
+        let unit = game
+            .current_player_unit_by_id(unit_id)
+            .ok_or(GameError::NoSuchUnit { id: unit_id })?;
 
         let moves_remaining = unit.moves_remaining;
 
-        let filter = PacifistXenophileUnitMovementFilter{unit: &unit};
+        let filter = PacifistXenophileUnitMovementFilter { unit: &unit };
 
         // Shortest paths emanating from the unit's location, allowing inclusion of unobserved tiles.
-        let shortest_paths = shortest_paths(
-            game,
-            unit.loc,
-            &filter,
-            game.wrapping(),
-            std::u16::MAX
-        );
+        let shortest_paths =
+            shortest_paths(game, unit.loc, &filter, game.wrapping(), std::u16::MAX);
 
         (moves_remaining, shortest_paths, unit.loc)
     };
 
-    if src==dest {
+    if src == dest {
         return Err(GameError::MoveError(MoveError::ZeroLengthMove));
     }
 
@@ -247,14 +257,14 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         }
 
         dest2 = shortest_paths
-            .prev.get(dest2).cloned()
-            .ok_or(GameError::MoveError(
-                MoveError::NoRoute {
-                    id: unit_id,
-                    src,
-                    dest,
-                }
-            ))?;
+            .prev
+            .get(dest2)
+            .cloned()
+            .ok_or(GameError::MoveError(MoveError::NoRoute {
+                id: unit_id,
+                src,
+                dest,
+            }))?;
     }
     let dest2 = dest2;
 
@@ -282,7 +292,6 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
                 } else {
                     OrdersStatus::InProgress
                 }
-
             } else {
                 OrdersStatus::InProgress
             };
@@ -291,12 +300,17 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
                 ordered_unit: game.current_player_unit_by_id(unit_id).unwrap().clone(),
                 orders,
                 move_: Some(move_),
-                status
+                status,
             }
         })
         .map_err(GameError::MoveError)
 }
-pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Location) -> Proposed<OrdersResult> {
+pub fn propose_go_to(
+    orders: Orders,
+    game: &Game,
+    unit_id: UnitID,
+    dest: Location,
+) -> Proposed<OrdersResult> {
     let mut new = game.clone();
     let delta = go_to(orders, &mut new, unit_id, dest);
     Proposed::new(new, delta)
@@ -305,27 +319,15 @@ pub fn propose_go_to(orders: Orders, game: &Game, unit_id: UnitID, dest: Locatio
 pub mod test_support {
     use crate::{
         game::{
-            Game,
-            PlayerNum,
-            map::{
-                gen::generate_map,
-            },
-            unit::{
-                UnitType,
-                orders::Orders,
-            },
+            map::gen::generate_map,
+            unit::{orders::Orders, UnitType},
+            Game, PlayerNum,
         },
-        name::{
-            IntNamer,
-        },
-        util::{
-            Dims,
-            Wrap2d,
-        },
+        name::IntNamer,
+        util::{Dims, Wrap2d},
     };
 
     use super::OrdersStatus;
-
 
     // We keep this out of cfg(test) so it can be used in a benchmark
     pub fn test_explore(dims: Dims) {
@@ -337,7 +339,8 @@ pub mod test_support {
 
         // Request a fighter to be produced
         let city_loc = game.production_set_requests().next().unwrap();
-        game.set_production_by_loc(city_loc, UnitType::Fighter).unwrap();
+        game.set_production_by_loc(city_loc, UnitType::Fighter)
+            .unwrap();
 
         // Wait until the fighter is produced
         while game.unit_orders_requests().count() == 0 {
@@ -353,14 +356,13 @@ pub mod test_support {
         assert!(outcome.move_.is_some());
         assert!(!outcome.move_.as_ref().unwrap().components.is_empty());
 
-
         let fighter = game.current_player_unit_by_id(fighter_id).unwrap();
         assert_eq!(fighter.orders, Some(Orders::Explore));
 
         // Wait until the fighter has explored everything
 
         let mut done = false;
-        
+
         while game.unit_orders_requests().count() == 0 {
             let turn_start = game.end_turn().unwrap();
             assert_eq!(turn_start.orders_results.len(), 1);
@@ -374,7 +376,7 @@ pub mod test_support {
                     } else {
                         assert!(!orders_outcome.move_.as_ref().unwrap().components.is_empty());
                     }
-                },
+                }
                 Err(orders_err) => panic!("Orders error: {}", orders_err),
             }
         }
@@ -383,63 +385,54 @@ pub mod test_support {
 
 #[cfg(test)]
 pub mod test {
-    use std::{
-        rc::Rc,
-        sync::{
-            RwLock,
-        },
-    };
+    use std::{rc::Rc, sync::RwLock};
 
     use crate::{
         game::{
-            AlignedMaybe,
-            Game,
-            GameError,
-            MoveError,
-            Proposed,
-            map::{
-                MapData,
-            },
+            map::MapData,
             unit::{
-                orders::{
-                    Orders,
-                    propose_exploration,
-                    test_support,
-                },
+                orders::{propose_exploration, test_support, Orders},
                 UnitID,
             },
+            AlignedMaybe, Game, GameError, MoveError, Proposed,
         },
-        name::{
-            unit_namer,
-        },
-        util::{
-            Dims,
-            Location,
-            Wrap2d,
-        },
+        name::unit_namer,
+        util::{Dims, Location, Wrap2d},
     };
 
-    use super::{
-        OrdersStatus,
-        OrdersResult,
-    };
+    use super::{OrdersResult, OrdersStatus};
 
     #[test]
     fn test_go_to() {
         let map = MapData::try_from("i----------").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, Some(Rc::new(RwLock::new(unit_namer()))), Wrap2d::BOTH);
-        
-        let id = game.current_player_toplevel_unit_by_loc(Location{x:0,y:0}).unwrap().id;
+        let mut game = Game::new_with_map(
+            map,
+            1,
+            false,
+            Some(Rc::new(RwLock::new(unit_namer()))),
+            Wrap2d::BOTH,
+        );
 
-        let dest = Location{x: 0, y: 0};
+        let id = game
+            .current_player_toplevel_unit_by_loc(Location { x: 0, y: 0 })
+            .unwrap()
+            .id;
+
+        let dest = Location { x: 0, y: 0 };
         let result1 = game.order_unit_go_to(id, dest);
-        assert_eq!(result1, Err(GameError::MoveError(MoveError::ZeroLengthMove)));
+        assert_eq!(
+            result1,
+            Err(GameError::MoveError(MoveError::ZeroLengthMove))
+        );
 
-        let dest2 = Location{x: 255, y: 255};
+        let dest2 = Location { x: 255, y: 255 };
         let result2 = game.order_unit_go_to(id, dest2);
-        assert_eq!(result2, Err(GameError::MoveError(MoveError::DestinationOutOfBounds{})));
+        assert_eq!(
+            result2,
+            Err(GameError::MoveError(MoveError::DestinationOutOfBounds {}))
+        );
 
-        let dest3 = Location{x:5, y:0};
+        let dest3 = Location { x: 5, y: 0 };
         let result3 = game.order_unit_go_to(id, dest3);
         assert!(result3.is_ok());
         assert_eq!(result3.unwrap().status, OrdersStatus::InProgress);
@@ -450,8 +443,8 @@ pub mod test {
             assert_eq!(turn_start.current_player, 0);
 
             match turn_start.orders_results.len() {
-                0|1 => {/* do nothing */},
-                _ => panic!("Infantry shouldn't move more than 1 per turn")
+                0 | 1 => { /* do nothing */ }
+                _ => panic!("Infantry shouldn't move more than 1 per turn"),
             }
 
             // Make sure we don't go on too long
@@ -478,27 +471,28 @@ pub mod test {
         test_support::test_explore(Dims::new(100, 100));
     }
 
-   #[test]
-   fn test_propose_exploration() {
+    #[test]
+    fn test_propose_exploration() {
         let map = MapData::try_from("i--------------------").unwrap();
         let game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
-        let proposed_outcome: Proposed<OrdersResult> = propose_exploration(Orders::Explore, &game, unit_id);
+        let proposed_outcome: Proposed<OrdersResult> =
+            propose_exploration(Orders::Explore, &game, unit_id);
         let outcome = proposed_outcome.delta.unwrap();
 
-    //         /// The ID of the ordered unit
-    // pub ordered_unit_id: UnitID,
+        //         /// The ID of the ordered unit
+        // pub ordered_unit_id: UnitID,
 
-    // /// The orders that were given / carried out
-    // pub orders: Orders,
+        // /// The orders that were given / carried out
+        // pub orders: Orders,
 
-    // /// Any movement that would be undertaken by the unit as part of its orders
-    // pub proposed_move: Option<ProposedMove>,
+        // /// Any movement that would be undertaken by the unit as part of its orders
+        // pub proposed_move: Option<ProposedMove>,
 
-    // /// A summary of the status of the orders, whether in progress or completed
-    // pub status: OrdersStatus,
+        // /// A summary of the status of the orders, whether in progress or completed
+        // pub status: OrdersStatus,
 
         assert_eq!(outcome.ordered_unit.id, unit_id);
         assert_eq!(outcome.orders, Orders::Explore);
@@ -508,19 +502,17 @@ pub mod test {
         assert_eq!(proposed_move.unit.loc, Location::new(1, 0));
         assert_eq!(proposed_move.starting_loc, Location::new(0, 0));
 
-    // pub loc: Location,
-    // /// Was the unit carried by another unit? If so, which one?
-    // pub carrier: Option<UnitID>,
-    // pub unit_combat: Option<CombatOutcome<Unit,Unit>>,
-    // pub city_combat: Option<CombatOutcome<Unit,City>>,
-    // pub observations_after_move: Vec<LocatedObs>,
-
+        // pub loc: Location,
+        // /// Was the unit carried by another unit? If so, which one?
+        // pub carrier: Option<UnitID>,
+        // pub unit_combat: Option<CombatOutcome<Unit,Unit>>,
+        // pub city_combat: Option<CombatOutcome<Unit,City>>,
+        // pub observations_after_move: Vec<LocatedObs>,
 
         let component = &proposed_move.components[0];
         assert_eq!(component.loc, Location::new(1, 0));
         assert_eq!(component.carrier, None);
         assert_eq!(component.unit_combat, None);
         assert_eq!(component.city_combat, None);
-
-   }
+    }
 }

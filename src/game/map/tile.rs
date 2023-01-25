@@ -3,34 +3,33 @@ use std::fmt;
 // Use crossterm to colorize the debug output
 use crossterm::{
     queue,
-    style::{SetForegroundColor, ResetColor, Color},
+    style::{Color, ResetColor, SetForegroundColor},
 };
 
 use crate::{
-    color::{Colors,Colorized},
-    game::{
-        Aligned,
-        AlignedMaybe,
-        Alignment,
-        city::City,
-        unit::Unit,
-    },
+    color::{Colorized, Colors},
+    game::{city::City, unit::Unit, Aligned, AlignedMaybe, Alignment},
     util::Location,
 };
 
 use super::Terrain;
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Tile {
     pub terrain: Terrain,
     pub unit: Option<Unit>,
     pub city: Option<City>,
-    pub loc: Location
+    pub loc: Location,
 }
 
 impl Tile {
     pub fn new(terrain: Terrain, loc: Location) -> Tile {
-        Tile{ terrain, unit: None, city: None, loc }
+        Tile {
+            terrain,
+            unit: None,
+            city: None,
+            loc,
+        }
     }
 
     pub fn pop_unit(&mut self) -> Option<Unit> {
@@ -99,7 +98,6 @@ impl fmt::Display for Tile {
 
 impl fmt::Debug for Tile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
         // If there's a unit, show the unit
         if let Some(ref unit) = self.unit {
             // Capitalize if it belongs to player 1
@@ -133,11 +131,11 @@ impl fmt::Debug for Tile {
             Terrain::Land => {
                 queue!(f, SetForegroundColor(Color::Green)).unwrap();
                 write!(f, "·")
-            },
+            }
             Terrain::Water => {
                 queue!(f, SetForegroundColor(Color::Blue)).unwrap();
                 write!(f, "~")
-            },
+            }
         };
 
         queue!(f, ResetColor).unwrap();
@@ -150,19 +148,16 @@ impl fmt::Debug for Tile {
 mod test {
     use crate::{
         game::{
+            map::{Terrain, Tile},
+            unit::{Unit, UnitID, UnitType},
             Alignment,
-            map::{
-                Terrain,
-                Tile,
-            },
-            unit::{UnitID,Unit,UnitType},
         },
-        util::Location
+        util::Location,
     };
 
     #[test]
     fn test_tile() {
-        let loc = Location{x: 10, y: 10};
+        let loc = Location { x: 10, y: 10 };
         let terrain = Terrain::Land;
 
         let tile = Tile::new(terrain, loc);
@@ -171,10 +166,15 @@ mod test {
 
         let mut tile = tile;
 
-        let unit = Unit::new(UnitID::new(0), loc, UnitType::Infantry, Alignment::Neutral, "Mordai Nowhere");
+        let unit = Unit::new(
+            UnitID::new(0),
+            loc,
+            UnitType::Infantry,
+            Alignment::Neutral,
+            "Mordai Nowhere",
+        );
         let unit2 = unit.clone();
         tile.set_unit(unit);
         assert_eq!(tile.unit, Some(unit2));
     }
-
 }

@@ -12,12 +12,7 @@ pub mod name;
 pub mod ui;
 pub mod util;
 
-
 #[cfg(test)]
 pub(crate) mod test_support {
-    pub(crate) use crate::game::test_support::{
-        game1,
-        game_tunnel,
-        game_two_cities_two_infantry,
-    };
+    pub(crate) use crate::game::test_support::{game1, game_tunnel, game_two_cities_two_infantry};
 }

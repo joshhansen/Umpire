@@ -1,28 +1,20 @@
 use std::fmt;
 
 use crate::{
-    game::{
-        Alignment,
-        Aligned,
-        combat::CombatCapable,
-        obs::Observer,
-        unit::{
-            UnitType,
-        },
-    },
-    util::{Location,Located},
+    game::{combat::CombatCapable, obs::Observer, unit::UnitType, Aligned, Alignment},
+    util::{Located, Location},
 };
 
-#[derive(Clone,Copy,Debug,Eq,Hash,Ord,PartialEq,PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct CityID {
-    id: u64
+    id: u64,
 }
 impl CityID {
     pub fn new(id: u64) -> Self {
-        Self{ id }
+        Self { id }
     }
     pub fn next(self) -> Self {
-        Self{ id: self.id + 1 }
+        Self { id: self.id + 1 }
     }
 }
 impl Default for CityID {
@@ -33,11 +25,11 @@ impl Default for CityID {
 
 pub const CITY_MAX_HP: u16 = 1;
 
-#[derive(Clone,Hash,PartialEq,Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct City {
     pub id: CityID,
     pub alignment: Alignment,
-    pub loc: Location,//NOTE City location is also reflected in the Game::grid matrix, so this could be stale
+    pub loc: Location, //NOTE City location is also reflected in the Game::grid matrix, so this could be stale
     hp: u16,
     production: Option<UnitType>,
     pub production_progress: u16,
@@ -47,7 +39,7 @@ pub struct City {
     ignore_cleared_production: bool,
 }
 impl City {
-    pub fn new<S:Into<String>>(id: CityID, alignment: Alignment, loc: Location, name: S) -> City {
+    pub fn new<S: Into<String>>(id: CityID, alignment: Alignment, loc: Location, name: S) -> City {
         City {
             id,
             loc,
@@ -74,7 +66,7 @@ impl City {
     }
 
     /// Clear the city's production but ignore it when looking for un-set productions in the future.
-    /// 
+    ///
     /// The user must manually activate it in Examine Mode after this.
     pub fn clear_production_and_ignore(&mut self) {
         self.production = None;
@@ -102,15 +94,25 @@ impl City {
 }
 
 impl CombatCapable for City {
-    fn hp(&self) -> u16 { self.hp }
-    fn max_hp(&self) -> u16 { CITY_MAX_HP }
+    fn hp(&self) -> u16 {
+        self.hp
+    }
+    fn max_hp(&self) -> u16 {
+        CITY_MAX_HP
+    }
 }
 
 impl fmt::Display for City {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut result = write!(f, "{} {}", self.alignment, self.short_desc());
         if let Some(ref produced_unit) = self.production {
-            result = result.and(write!(f, ", producing {} ({}/{})", produced_unit, self.production_progress, produced_unit.cost()));
+            result = result.and(write!(
+                f,
+                ", producing {} ({}/{})",
+                produced_unit,
+                self.production_progress,
+                produced_unit.cost()
+            ));
         }
         result
     }
@@ -123,7 +125,9 @@ impl fmt::Debug for City {
 }
 
 impl Located for City {
-    fn loc(&self) -> Location { self.loc }
+    fn loc(&self) -> Location {
+        self.loc
+    }
 }
 
 impl Aligned for City {
