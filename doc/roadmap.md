@@ -5,6 +5,8 @@
 * ~~TODO Deploy to crates.io~~
 
 ## 0.5 Milestones
+* TODO Client/server architecture
+ - what's the implication for testing? Requires a network connection?
 * TODO Fuel limits for aircraft
 * TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
 * TODO Wake up sentried units when an enemy comes within their sight.
