@@ -20,6 +20,9 @@ include = [
 repository = "https://github.com/joshhansen/Umpire"
 homepage = "https://github.com/joshhansen/Umpire"
 
+[workspace]
+members = ["common", "client", "server"]
+
 [badges]
 travis-ci = { repository = "joshhansen/Umpire" }
 
