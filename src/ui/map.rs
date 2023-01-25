@@ -1,4 +1,4 @@
-use std::io::{Stdout, Write};
+use std::io::{Result as IoResult, Stdout, Write};
 
 use crossterm::{
     cursor::Hide,
@@ -318,7 +318,7 @@ impl Map {
         obs_override: Option<&Obs>,
 
         palette: &Palette,
-    ) {
+    ) -> IoResult<()> {
         self.draw_tile_no_flush(
             game,
             stdout,
@@ -330,8 +330,8 @@ impl Map {
             symbol_override,
             obs_override,
             palette,
-        );
-        stdout.flush().unwrap();
+        )?;
+        stdout.flush()
     }
 
     /// Renders a particular location in the viewport
@@ -357,15 +357,11 @@ impl Map {
         obs_override: Option<&Obs>,
 
         palette: &Palette,
-    ) {
-        stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
-        stdout
-            .queue(SetBackgroundColor(palette.get_single(Colors::Background)))
-            .unwrap();
+    ) -> IoResult<()> {
+        stdout.queue(SetAttribute(Attribute::Reset))?;
+        stdout.queue(SetBackgroundColor(palette.get_single(Colors::Background)))?;
 
-        stdout
-            .queue(self.goto(viewport_loc.x, viewport_loc.y))
-            .unwrap();
+        stdout.queue(self.goto(viewport_loc.x, viewport_loc.y))?;
 
         let should_clear = if let Some(tile_loc) = self.viewport_to_map_coords(game, viewport_loc) {
             if tile_loc.y == game.dims().height - 1 {
@@ -454,20 +450,18 @@ impl Map {
 
         if should_clear {
             if highlight {
-                stdout
-                    .queue(SetBackgroundColor(palette.get_single(Colors::Cursor)))
-                    .unwrap();
+                stdout.queue(SetBackgroundColor(palette.get_single(Colors::Cursor)))?;
             }
-            stdout.queue(Print(String::from(" "))).unwrap();
+            stdout.queue(Print(String::from(" ")))?;
             self.displayed_tiles[viewport_loc] = None;
             self.displayed_tile_currentness[viewport_loc] = None;
         }
 
         // write!(stdout, "{}", StrongReset::new(&self.palette)).unwrap();
-        stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
-        stdout
-            .queue(SetBackgroundColor(palette.get_single(Colors::Background)))
-            .unwrap();
+        stdout.queue(SetAttribute(Attribute::Reset))?;
+        stdout.queue(SetBackgroundColor(palette.get_single(Colors::Background)))?;
+
+        Ok(())
         // stdout.flush().unwrap();
     }
 
@@ -508,7 +502,12 @@ impl Component for Map {
 }
 
 impl Draw for Map {
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
+    fn draw_no_flush(
+        &mut self,
+        game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        palette: &Palette,
+    ) -> IoResult<()> {
         for viewport_loc in self.viewport_dims().iter_locs() {
             let should_draw_tile = {
                 // let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
@@ -587,16 +586,16 @@ impl Draw for Map {
                     None,
                     None,
                     palette,
-                );
+                )?;
             }
         }
 
         // write!(stdout, "{}{}", StrongReset::new(&self.palette), Hide).unwrap();
-        stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
-        stdout
-            .queue(SetBackgroundColor(palette.get_single(Colors::Background)))
-            .unwrap();
-        stdout.queue(Hide).unwrap();
+        stdout.queue(SetAttribute(Attribute::Reset))?;
+        stdout.queue(SetBackgroundColor(palette.get_single(Colors::Background)))?;
+        stdout.queue(Hide)?;
+
+        Ok(())
     }
 }
 

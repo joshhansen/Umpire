@@ -1,20 +1,25 @@
-use std::fmt;
+use std::{
+    fmt,
+    io::{Result as IoResult, Write},
+};
 
 // Use crossterm to colorize the debug output
 use crossterm::{
-    queue,
     style::{Color, ResetColor, SetForegroundColor},
+    QueueableCommand,
 };
 
 use crate::{
     color::{Colorized, Colors},
     game::{city::City, unit::Unit, Aligned, AlignedMaybe, Alignment},
+    ui::Draw,
     util::Location,
 };
 
 use super::Terrain;
 
-#[derive(Clone, PartialEq)]
+//FIXME Cleaner Debug impl
+#[derive(Clone, Debug, PartialEq)]
 pub struct Tile {
     pub terrain: Terrain,
     pub unit: Option<Unit>,
@@ -96,49 +101,54 @@ impl fmt::Display for Tile {
     }
 }
 
-impl fmt::Debug for Tile {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Draw for Tile {
+    fn draw_no_flush(
+        &mut self,
+        game: &crate::game::PlayerTurnControl,
+        stdout: &mut std::io::Stdout,
+        palette: &crate::color::Palette,
+    ) -> IoResult<()> {
         // If there's a unit, show the unit
         if let Some(ref unit) = self.unit {
             // Capitalize if it belongs to player 1
             if unit.belongs_to_player(1) {
-                queue!(f, SetForegroundColor(Color::Red)).unwrap();
+                stdout.queue(SetForegroundColor(Color::Red)).unwrap();
             } else {
-                queue!(f, SetForegroundColor(Color::White)).unwrap();
+                stdout.queue(SetForegroundColor(Color::White)).unwrap();
             };
 
-            let result = write!(f, "{}", unit.type_.key());
-            queue!(f, ResetColor).unwrap();
+            let result = write!(stdout, "{}", unit.type_.key());
+            stdout.queue(ResetColor).unwrap();
             return result;
         }
 
         // If there's a city, show the city
         if let Some(ref city) = self.city {
             if city.is_neutral() {
-                queue!(f, SetForegroundColor(Color::DarkGrey)).unwrap();
+                stdout.queue(SetForegroundColor(Color::DarkGrey)).unwrap();
             } else if city.belongs_to_player(1) {
-                queue!(f, SetForegroundColor(Color::Red)).unwrap();
+                stdout.queue(SetForegroundColor(Color::Red)).unwrap();
             } else {
-                queue!(f, SetForegroundColor(Color::White)).unwrap();
+                stdout.queue(SetForegroundColor(Color::White)).unwrap();
             }
-            let result = write!(f, "#");
-            queue!(f, ResetColor).unwrap();
+            let result = write!(stdout, "#");
+            stdout.queue(ResetColor).unwrap();
             return result;
         }
 
         // Otherwise, show the terrain
         let result = match self.terrain {
             Terrain::Land => {
-                queue!(f, SetForegroundColor(Color::Green)).unwrap();
-                write!(f, "·")
+                stdout.queue(SetForegroundColor(Color::Green)).unwrap();
+                write!(stdout, "·")
             }
             Terrain::Water => {
-                queue!(f, SetForegroundColor(Color::Blue)).unwrap();
-                write!(f, "~")
+                stdout.queue(SetForegroundColor(Color::Blue)).unwrap();
+                write!(stdout, "~")
             }
         };
 
-        queue!(f, ResetColor).unwrap();
+        stdout.queue(ResetColor).unwrap();
 
         result
     }

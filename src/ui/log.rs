@@ -1,6 +1,6 @@
 use std::{
     collections::VecDeque,
-    io::{Stdout, Write},
+    io::{Result as IoResult, Stdout},
 };
 
 use crossterm::{
@@ -36,7 +36,12 @@ impl LogArea {
         self.rect.height - 1
     }
 
-    fn draw_log_line_no_flush(&self, stdout: &mut Stdout, palette: &Palette, i: usize) {
+    fn draw_log_line_no_flush(
+        &self,
+        stdout: &mut Stdout,
+        palette: &Palette,
+        i: usize,
+    ) -> IoResult<()> {
         let message: &Message = self.messages.get(i as usize).unwrap_or(&self.empty_message);
 
         let mut text = grapheme_substr(&message.text, self.rect.width as usize);
@@ -65,7 +70,6 @@ impl LogArea {
             Print(format!("|{}", mark)),
             Print(text)
         )
-        .unwrap();
     }
 
     pub fn pop_message(&mut self) -> Option<Message> {
@@ -105,7 +109,12 @@ impl LogTarget for LogArea {
 }
 
 impl Draw for LogArea {
-    fn draw_no_flush(&mut self, _game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
+    fn draw_no_flush(
+        &mut self,
+        _game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        palette: &Palette,
+    ) -> IoResult<()> {
         // write!(*stdout,
         //     "{}{}Message Log{}",
         //     self.goto(0, 0),
@@ -120,12 +129,13 @@ impl Draw for LogArea {
             Print(String::from("Message Log")),
             SetAttribute(Attribute::Reset),
             SetBackgroundColor(palette.get_single(Colors::Background))
-        )
-        .unwrap();
+        )?;
 
         for i in 0..self.rect.height {
-            self.draw_log_line_no_flush(stdout, palette, i as usize);
+            self.draw_log_line_no_flush(stdout, palette, i as usize)?;
         }
+
+        Ok(())
     }
 }
 

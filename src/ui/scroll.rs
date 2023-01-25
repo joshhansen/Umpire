@@ -1,4 +1,4 @@
-use std::io::{Stdout, Write};
+use std::io::{Result as IoResult, Stdout};
 
 use crossterm::{
     queue,
@@ -47,7 +47,7 @@ impl<S: ScrollableComponent> Scroller<S> {
         game: &PlayerTurnControl,
         stdout: &mut Stdout,
         palette: &Palette,
-    ) {
+    ) -> IoResult<()> {
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(game.dims().width);
         let h_scroll_y = viewport_rect.bottom();
@@ -56,7 +56,7 @@ impl<S: ScrollableComponent> Scroller<S> {
             if let Some(old_h_scroll_x) = self.old_h_scroll_x {
                 self.erase(stdout, old_h_scroll_x, h_scroll_y, palette);
             }
-            self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^', palette);
+            self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^', palette)?;
 
             self.old_h_scroll_x = Some(h_scroll_x);
         }
@@ -68,14 +68,23 @@ impl<S: ScrollableComponent> Scroller<S> {
             if let Some(old_v_scroll_y) = self.old_v_scroll_y {
                 self.erase(stdout, v_scroll_x, old_v_scroll_y, palette);
             }
-            self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<', palette);
+            self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<', palette)?;
 
             self.old_v_scroll_y = Some(v_scroll_y);
         }
+
+        Ok(())
     }
 
     /// Utility method
-    fn draw_scroll_mark(&self, stdout: &mut Stdout, x: u16, y: u16, sym: char, palette: &Palette) {
+    fn draw_scroll_mark(
+        &self,
+        stdout: &mut Stdout,
+        x: u16,
+        y: u16,
+        sym: char,
+        palette: &Palette,
+    ) -> IoResult<()> {
         // write!(*stdout, "{}{}{}{}",
         //     StrongReset::new(palette),
         //     self.goto(x,y),
@@ -90,11 +99,10 @@ impl<S: ScrollableComponent> Scroller<S> {
             SetForegroundColor(palette.get_single(Colors::ScrollMarks)),
             Print(sym.to_string())
         )
-        .unwrap();
     }
 
     /// Utility method
-    fn erase(&self, stdout: &mut Stdout, x: u16, y: u16, palette: &Palette) {
+    fn erase(&self, stdout: &mut Stdout, x: u16, y: u16, palette: &Palette) -> IoResult<()> {
         // write!(*stdout, "{}{} ",
         //     StrongReset::new(palette),
         //     self.goto(x,y)
@@ -106,7 +114,6 @@ impl<S: ScrollableComponent> Scroller<S> {
             SetBackgroundColor(palette.get_single(Colors::Background)),
             Print(String::from(" "))
         )
-        .unwrap();
     }
 
     // pub fn viewport_dims(&self) -> Dims {
@@ -118,9 +125,14 @@ impl<S: ScrollableComponent> Scroller<S> {
 }
 
 impl<S: ScrollableComponent> Draw for Scroller<S> {
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
-        self.draw_scroll_bars(game, stdout, palette);
-        self.scrollable.draw_no_flush(game, stdout, palette);
+    fn draw_no_flush(
+        &mut self,
+        game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        palette: &Palette,
+    ) -> IoResult<()> {
+        self.draw_scroll_bars(game, stdout, palette)?;
+        self.scrollable.draw_no_flush(game, stdout, palette)
     }
 }
 

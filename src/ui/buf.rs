@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    io::{Stdout, Write},
+    io::{Result as IoResult, Stdout},
 };
 
 use crossterm::{
@@ -59,7 +59,7 @@ impl RectBuffer {
     //     }
     // }
 
-    fn _draw_row(&self, row_idx: usize, stdout: &mut Stdout) {
+    fn _draw_row(&self, row_idx: usize, stdout: &mut Stdout) -> IoResult<()> {
         queue!(
             stdout,
             MoveTo(self.rect.left, self.rect.top + row_idx as u16),
@@ -69,7 +69,6 @@ impl RectBuffer {
                 self.blank_row.clone()
             }))
         )
-        .unwrap();
     }
 
     fn set(&mut self, row_idx: usize, maybe_row: Option<String>) {
@@ -91,9 +90,9 @@ impl Draw for RectBuffer {
         _game: &PlayerTurnControl,
         stdout: &mut Stdout,
         _palette: &Palette,
-    ) {
+    ) -> IoResult<()> {
         for dirty_row_idx in &self.dirty_rows {
-            self._draw_row(*dirty_row_idx, stdout);
+            self._draw_row(*dirty_row_idx, stdout)?;
         }
         self.dirty_rows.clear();
         // if self.dirty {
@@ -113,5 +112,6 @@ impl Draw for RectBuffer {
 
         //     self.dirty = false;
         // }
+        Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, io::Write};
 
 use super::map::dijkstra::Filter;
 use crate::{
@@ -10,11 +10,13 @@ use crate::{
         },
         TurnNum,
     },
+    ui::Draw,
     util::{Dimensioned, Dims, Located, LocatedItem, Location, Vec2d, Wrap2d},
 };
 
 /// What a particular player knows about a tile
-#[derive(Clone, PartialEq)]
+/// FIXME Cleaner Debug impl
+#[derive(Clone, Debug, PartialEq)]
 pub enum Obs {
     Observed {
         tile: Tile,
@@ -34,11 +36,16 @@ impl Obs {
     }
 }
 
-impl fmt::Debug for Obs {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Draw for Obs {
+    fn draw_no_flush(
+        &mut self,
+        game: &super::PlayerTurnControl,
+        stdout: &mut std::io::Stdout,
+        palette: &crate::color::Palette,
+    ) -> std::io::Result<()> {
         match self {
-            Obs::Observed { tile, .. } => tile.fmt(f),
-            Obs::Unobserved => write!(f, "?"),
+            Obs::Observed { tile, .. } => tile.draw(game, stdout, palette),
+            Obs::Unobserved => write!(stdout, "?"),
         }
     }
 }

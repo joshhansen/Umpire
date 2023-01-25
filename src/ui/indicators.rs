@@ -1,4 +1,4 @@
-use std::io::{Stdout, Write};
+use std::io::{Result as IoResult, Stdout};
 
 use crossterm::{
     queue,
@@ -23,7 +23,12 @@ impl CurrentPlayer {
 }
 
 impl Draw for CurrentPlayer {
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(
+        &mut self,
+        game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        _palette: &Palette,
+    ) -> IoResult<()> {
         // write!(*stdout,
         //     "{}Current Player: {}  ",
         //     self.goto(0, 0),
@@ -37,7 +42,6 @@ impl Draw for CurrentPlayer {
                 game.current_player()
             )))
         )
-        .unwrap();
     }
 }
 
@@ -66,14 +70,18 @@ impl Turn {
 }
 
 impl Draw for Turn {
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, _palette: &Palette) {
+    fn draw_no_flush(
+        &mut self,
+        game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        _palette: &Palette,
+    ) -> IoResult<()> {
         // write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
         queue!(
             *stdout,
             self.goto(0, 0),
             PrintStyledContent(style(format!("Turn: {}", game.turn())))
         )
-        .unwrap();
     }
 }
 

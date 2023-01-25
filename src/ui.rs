@@ -6,7 +6,7 @@
 
 use std::{
     cmp,
-    io::{stdout, Stdout, Write},
+    io::{stdout, Result as IoResult, Stdout, Write},
     rc::Rc,
     sync::mpsc::{channel, Receiver, Sender},
     thread::{self, JoinHandle},
@@ -112,7 +112,7 @@ pub(in crate::ui) trait UI: LogTarget + MoveAnimator {
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         obs_override: Option<&Obs>,
-    );
+    ) -> IoResult<()>;
 
     /// Renders a particular location in the map viewport
     fn draw_map_tile_no_flush(
@@ -134,7 +134,7 @@ pub(in crate::ui) trait UI: LogTarget + MoveAnimator {
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         obs_override: Option<&Obs>,
-    );
+    ) -> IoResult<()>;
 
     /// Block until a key is pressed; return that key
     fn get_key(&self) -> KeyEvent;
@@ -270,8 +270,9 @@ impl UI for DefaultUI {
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         _obs_override: Option<&Obs>,
-    ) {
+    ) -> IoResult<()> {
         // do nothing
+        Ok(())
     }
 
     /// Renders a particular location in the map viewport
@@ -294,8 +295,9 @@ impl UI for DefaultUI {
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         _obs_override: Option<&Obs>,
-    ) {
+    ) -> IoResult<()> {
         // do nothing
+        Ok(())
     }
 
     /// Block until a key is pressed; return that key
@@ -341,11 +343,21 @@ impl UI for DefaultUI {
 }
 
 pub trait Draw {
-    fn draw(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette) {
-        self.draw_no_flush(game, stdout, palette);
-        stdout.flush().unwrap();
+    fn draw(
+        &mut self,
+        game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        palette: &Palette,
+    ) -> IoResult<()> {
+        self.draw_no_flush(game, stdout, palette)?;
+        stdout.flush()
     }
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl, stdout: &mut Stdout, palette: &Palette);
+    fn draw_no_flush(
+        &mut self,
+        game: &PlayerTurnControl,
+        stdout: &mut Stdout,
+        palette: &Palette,
+    ) -> IoResult<()>;
 }
 
 pub trait Component: Draw {
@@ -561,6 +573,9 @@ impl TermUI {
                     match read_event() {
                         Ok(event) => {
                             match event {
+                                Event::FocusGained => {}
+                                Event::FocusLost => {}
+                                Event::Paste(_) => {}
                                 Event::Key(key_event) => {
                                     let will_return =
                                         key_event.code == KeyCode::Char(conf::KEY_QUIT);
@@ -941,7 +956,7 @@ impl UI for TermUI {
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         obs_override: Option<&Obs>,
-    ) {
+    ) -> IoResult<()> {
         self.map_scroller.scrollable.draw_tile_and_flush(
             game,
             &mut self.stdout,
@@ -975,7 +990,7 @@ impl UI for TermUI {
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         obs_override: Option<&Obs>,
-    ) {
+    ) -> IoResult<()> {
         self.map_scroller.scrollable.draw_tile_no_flush(
             game,
             &mut self.stdout,
