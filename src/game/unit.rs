@@ -301,6 +301,13 @@ impl UnitType {
         }
     }
 
+    pub fn fuel(&self) -> Fuel {
+        match self {
+            UnitType::Fighter => Fuel::Limited { remaining: 20 },
+            _ => Fuel::Unlimited,
+        }
+    }
+
     pub fn can_traverse(&self, terrain: Terrain) -> bool {
         self.transport_mode().can_traverse(terrain)
     }
@@ -342,6 +349,14 @@ impl Ord for UnitType {
 }
 
 #[derive(Clone,Debug,PartialEq)]
+pub enum Fuel {
+    Unlimited,
+    Limited {
+        remaining: u16,
+    }
+}
+
+#[derive(Clone,Debug,PartialEq)]
 pub struct Unit {
     pub id: UnitID,
     pub loc: Location,
@@ -353,6 +368,7 @@ pub struct Unit {
     name: String,
     pub orders: Option<Orders>,
     carrying_space: Option<CarryingSpace>,
+    fuel: Fuel,
 }
 
 impl Unit {
@@ -369,6 +385,7 @@ impl Unit {
             name: name.into(),
             orders: None,
             carrying_space: type_.new_carrying_space_for(alignment),
+            fuel: type_.fuel(),
         }
     }
 
