@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+common = { path = "../common" }
 futures = "0.3"
 tarpc = { version = "0.31", features = ["tokio1"] }
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }

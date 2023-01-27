@@ -306,6 +306,14 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
+dependencies = [
+ "csv",
+ "failure",
+ "flate2",
+ "rand 0.7.3",
+ "serde",
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "core-foundation-sys"
@@ -2497,40 +2505,41 @@ dependencies = [
 name = "umpire"
 version = "0.5.0-pre"
 dependencies = [
- "bincode",
  "blas-src 0.2.1",
- "clap",
- "cpal",
  "criterion",
- "crossterm",
- "csv",
- "dasp",
- "failure",
- "flate2",
  "half",
  "lfa",
  "ndarray 0.12.1",
  "openblas-src",
- "pastel",
- "pitch_calc 0.11.1",
- "rand 0.7.3",
- "rsrl",
- "serde",
  "spaces",
- "synth",
- "tch",
- "unicode-segmentation",
 ]
 
 [[package]]
 name = "umpire-client"
 version = "0.5.0-pre"
+dependencies = [
+ "bincode",
+ "clap",
+ "common",
+ "cpal",
+ "crossterm",
+ "dasp",
+ "failure",
+ "pastel",
+ "pitch_calc 0.11.1",
+ "rand 0.7.3",
+ "rsrl",
+ "serde",
+ "synth",
+ "tch",
+]
 
 [[package]]
 name = "umpire-server"
 version = "0.5.0-pre"
 dependencies = [
  "anyhow",
+ "common",
  "futures",
  "tarpc",
  "tokio",

@@ -3,10 +3,9 @@ extern crate criterion;
 
 use criterion::Criterion;
 
-use umpire::{
-    game::ai::{rl::trained_agent, AI},
-    util::{Dims, Wrap2d},
-};
+use common::util::{Dims, Wrap2d};
+
+use client::game::ai::{rl::trained_agent, AI};
 
 fn criterion_benchmark(c: &mut Criterion) {
     for dims in vec![Dims::new(10, 10), Dims::new(20, 20), Dims::new(30, 30)] {

@@ -3,10 +3,7 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 
-pub mod cli;
-pub mod colors;
-pub mod conf;
+pub mod color;
 pub mod game;
-pub mod log;
-pub mod name;
-pub mod util;
+pub mod tile;
+pub mod ui;

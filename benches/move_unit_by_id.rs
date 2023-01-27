@@ -3,7 +3,7 @@ extern crate criterion;
 
 use criterion::{BatchSize, Criterion};
 
-use umpire::{
+use common::{
     game::{
         map::{terrain::Terrain, MapData},
         unit::UnitType,

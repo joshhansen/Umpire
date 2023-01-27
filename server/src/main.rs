@@ -1,3 +1,4 @@
+use common::game::{Game, PlayerNum};
 use futures::{
     future::{self, Ready},
     prelude::*,
@@ -10,24 +11,566 @@ use tarpc::{
 // This is the service definition. It looks a lot like a trait definition.
 // It defines one RPC, hello, which takes one arg, name, and returns a String.
 #[tarpc::service]
-trait UmpireRpc {
-    /// Returns a greeting for name.
-    async fn hello(name: String) -> String;
+trait UmpirePlayerRpc {
+    /// The number of the player connected over this RPC channel
+    async fn player_num() -> PlayerNum;
+
+    /// The number of players in the game
+    async fn num_players(&self) -> PlayerNum;
+
+    async fn turn_is_done(&self) -> bool;
+
+    /// The victor---if any---meaning the player who has defeated all other players.
+    ///
+    /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
+    /// has won.
+    async fn victor(&self) -> Option<PlayerNum>;
+
+    async fn current_player_unit_legal_one_step_destinations(
+        &self,
+        unit_id: UnitID,
+    ) -> Result<HashSet<Location>, GameError>;
+
+    async fn current_player_unit_legal_directions<'b>(
+        &'b self,
+        unit_id: UnitID,
+    ) -> Result<impl Iterator<Item = Direction> + 'b, GameError>;
+
+    /// The current player's most recent observation of the tile at location `loc`, if any
+    async fn current_player_tile(&self, loc: Location) -> Option<&Tile>;
+
+    /// The current player's observation at location `loc`
+    async fn current_player_obs(&self, loc: Location) -> &Obs;
+
+    async fn current_player_observations(&self) -> &ObsTracker;
+
+    /// Every city controlled by the current player
+    async fn current_player_cities(&self) -> impl Iterator<Item = &City>;
+
+    /// All cities controlled by the current player which have a production target set
+    async fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City>;
+
+    /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
+    ///
+    /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
+    ///
+    /// FIXME Get rid of this and just make the UI smarter
+    #[deprecated]
+    async fn player_cities_producing_or_not_ignored(&self) -> usize;
+
+    /// Every unit controlled by the current player
+    async fn current_player_units(&self) -> impl Iterator<Item = &Unit>;
+
+    /// If the current player controls a city at location `loc`, return it
+    async fn current_player_city_by_loc(&self, loc: Location) -> Option<&City>;
+
+    /// If the current player controls a city with ID `city_id`, return it
+    async fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City>;
+
+    /// If the current player controls a unit with ID `id`, return it
+    async fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit>;
+
+    /// If the current player controls a unit with ID `id`, return its location
+    async fn current_player_unit_loc(&self, id: UnitID) -> Option<Location>;
+
+    /// If the current player controls the top-level unit at location `loc`, return it
+    async fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit>;
+
+    async fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a;
+
+    /// Which if the current player's units need orders?
+    ///
+    /// In other words, which of the current player's units have no orders and have moves remaining?
+    async fn unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a;
+
+    /// Which if the current player's units need orders?
+    ///
+    /// In other words, which of the current player's units have no orders and have moves remaining?
+    async fn units_with_orders_requests(&'a self) -> impl Iterator<Item = &Unit> + 'a;
+
+    async fn units_with_pending_orders(&'a self) -> impl Iterator<Item = UnitID> + 'a;
+
+    // Movement-related methods
+
+    async fn move_toplevel_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult;
+
+    async fn move_toplevel_unit_by_id_avoiding_combat(
+        &mut self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> MoveResult;
+
+    async fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> MoveResult;
+
+    async fn move_toplevel_unit_by_loc_avoiding_combat(
+        &mut self,
+        src: Location,
+        dest: Location,
+    ) -> MoveResult;
+
+    async fn move_unit_by_id_in_direction(
+        &mut self,
+        id: UnitID,
+        direction: Direction,
+    ) -> MoveResult;
+
+    async fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult;
+
+    async fn propose_move_unit_by_id(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> Proposed<Result<Move, MoveError>>;
+
+    async fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult;
+
+    async fn propose_move_unit_by_id_avoiding_combat(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> Proposed<MoveResult>;
+
+    async fn disband_unit_by_id(&mut self, id: UnitID) -> Result<Unit, GameError>;
+
+    /// Sets the production of the current player's city at location `loc` to `production`.
+    ///
+    /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
+    async fn set_production_by_loc(
+        &mut self,
+        loc: Location,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError>;
+
+    /// Sets the production of the current player's city with ID `city_id` to `production`.
+    ///
+    /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
+    async fn set_production_by_id(
+        &mut self,
+        city_id: CityID,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError>;
+
+    //FIXME Restrict to current player cities
+    async fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(), String>;
+
+    //FIXME Restrict to current player cities
+    async fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(), String>;
+
+    async fn turn(&self) -> TurnNum;
+
+    async fn current_player(&self) -> PlayerNum;
+
+    /// The logical dimensions of the game map
+    async fn dims(&self) -> Dims;
+
+    async fn wrapping(&self) -> Wrap2d;
+
+    /// Units that could be produced by a city located at the given location
+    async fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a;
+
+    /// Units that could be produced by a city located at the given location, allowing only those which can actually
+    /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
+    async fn valid_productions_conservative<'b>(
+        &'b self,
+        loc: Location,
+    ) -> impl Iterator<Item = UnitType> + 'b;
+
+    /// If the current player controls a unit with ID `id`, order it to sentry
+    async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult;
+
+    async fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult;
+
+    async fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult;
+
+    /// Simulate ordering the specified unit to go to the given location
+    async fn propose_order_unit_go_to(
+        &self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> Proposed<OrdersResult>;
+
+    async fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult;
+
+    /// Simulate ordering the specified unit to explore.
+    async fn propose_order_unit_explore(&self, unit_id: UnitID) -> Proposed<OrdersResult>;
+
+    /// If a unit at the location owned by the current player exists, activate it and any units it carries
+    async fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(), GameError>;
+
+    async fn propose_end_turn(&self) -> (Game, Result<TurnStart, PlayerNum>);
+
+    async fn apply_proposal<T>(&mut self, proposal: Proposed<T>) -> T;
+
+    /// Feature vector for use in AI training
+    ///
+    /// Map of the output vector:
+    ///
+    /// # 15: 1d features
+    /// * 1: current turn
+    /// * 1: current player city count
+    /// * 1: number of tiles observed by current player
+    /// * 1: percentage of tiles observed by current player
+    /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
+    /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
+    ///                                                     submarines, cruisers, battleships, carriers)
+    /// # 363: 2d features, three layers
+    /// * 121: is_enemy_belligerent (11x11)
+    /// * 121: is_observed (11x11)
+    /// * 121: is_neutral (11x11)
+    ///
+    async fn features(&self) -> Vec<fX>;
+
+    async fn player_score(&self, player: PlayerNum) -> Result<f64, GameError>;
+
+    async fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError>;
 }
 
 // This is the type that implements the generated World trait. It is the business logic
 // and is used to start the server.
 #[derive(Clone)]
-struct HelloServer;
+struct UmpireServer<'a> {
+    game: &'a mut Game,
+    /// Which player is this control shim representing? A copy of `Game::current_player`'s result. Shouldn't get stale
+    /// since we lock down anything that would change who the current player is. We do this for convenience.
+    pub player: PlayerNum,
 
-impl UmpireRpc for HelloServer {
+    clear_completed_productions: bool,
+
+    end_turn_on_drop: bool,
+}
+
+impl UmpireRpc for UmpireServer {
     // Each defined rpc generates two items in the trait, a fn that serves the RPC, and
     // an associated type representing the future output by the fn.
 
-    type HelloFut = Ready<String>;
+    // type HelloFut = Ready<String>;
 
-    fn hello(self, _: context::Context, name: String) -> Self::HelloFut {
-        future::ready(format!("Hello, {name}!"))
+    // fn hello(self, _: context::Context, name: String) -> Self::HelloFut {
+    //     future::ready(format!("Hello, {name}!"))
+    // }
+
+    async fn player_num(self, _: Context) -> PlayerNum {
+        self.player
+    }
+
+    async fn num_players(self, _: Context) -> PlayerNum {
+        self.game.num_players()
+    }
+
+    async fn turn_is_done(self, _: Context) -> bool {
+        self.game.turn_is_done()
+    }
+
+    /// The victor---if any---meaning the player who has defeated all other players.
+    ///
+    /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
+    /// has won.
+    async fn victor(self, _: Context) -> Option<PlayerNum> {
+        self.game.victor()
+    }
+
+    async fn current_player_unit_legal_one_step_destinations(
+        self,
+        _: Context,
+        unit_id: UnitID,
+    ) -> Result<HashSet<Location>, GameError> {
+        self.game
+            .current_player_unit_legal_one_step_destinations(unit_id)
+    }
+
+    async fn current_player_unit_legal_directions<'b>(
+        &'b self,
+        unit_id: UnitID,
+    ) -> Result<impl Iterator<Item = Direction> + 'b, GameError> {
+        self.game.current_player_unit_legal_directions(unit_id)
+    }
+
+    /// The current player's most recent observation of the tile at location `loc`, if any
+    async fn current_player_tile(self, _: Context, loc: Location) -> Option<&Tile> {
+        self.game.current_player_tile(loc)
+    }
+
+    /// The current player's observation at location `loc`
+    async fn current_player_obs(self, _: Context, loc: Location) -> &Obs {
+        self.game.current_player_obs(loc)
+    }
+
+    async fn current_player_observations(self, _: Context) -> &ObsTracker {
+        self.game.current_player_observations()
+    }
+
+    /// Every city controlled by the current player
+    async fn current_player_cities(self, _: Context) -> impl Iterator<Item = &City> {
+        self.game.current_player_cities()
+    }
+
+    /// All cities controlled by the current player which have a production target set
+    async fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City> {
+        self.game.current_player_cities_with_production_target()
+    }
+
+    /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
+    ///
+    /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
+    ///
+    /// FIXME Get rid of this and just make the UI smarter
+    #[deprecated]
+    async fn player_cities_producing_or_not_ignored(&self) -> usize {
+        self.game.player_cities_producing_or_not_ignored()
+    }
+
+    /// Every unit controlled by the current player
+    async fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
+        self.game.current_player_units()
+    }
+
+    /// If the current player controls a city at location `loc`, return it
+    async fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
+        self.game.current_player_city_by_loc(loc)
+    }
+
+    /// If the current player controls a city with ID `city_id`, return it
+    async fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City> {
+        self.game.current_player_city_by_id(city_id)
+    }
+
+    /// If the current player controls a unit with ID `id`, return it
+    async fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
+        self.game.current_player_unit_by_id(id)
+    }
+
+    /// If the current player controls a unit with ID `id`, return its location
+    async fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
+        self.game.current_player_unit_loc(id)
+    }
+
+    /// If the current player controls the top-level unit at location `loc`, return it
+    async fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
+        self.game.current_player_toplevel_unit_by_loc(loc)
+    }
+
+    async fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a {
+        self.game.production_set_requests()
+    }
+
+    /// Which if the current player's units need orders?
+    ///
+    /// In other words, which of the current player's units have no orders and have moves remaining?
+    async fn unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+        self.game.unit_orders_requests()
+    }
+
+    /// Which if the current player's units need orders?
+    ///
+    /// In other words, which of the current player's units have no orders and have moves remaining?
+    async fn units_with_orders_requests(&'a self) -> impl Iterator<Item = &Unit> + 'a {
+        self.game.units_with_orders_requests()
+    }
+
+    async fn units_with_pending_orders(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+        self.game.units_with_pending_orders()
+    }
+
+    // Movement-related methods
+
+    async fn move_toplevel_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
+        self.game.move_toplevel_unit_by_id(unit_id, dest)
+    }
+
+    async fn move_toplevel_unit_by_id_avoiding_combat(
+        &mut self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> MoveResult {
+        self.game
+            .move_toplevel_unit_by_id_avoiding_combat(unit_id, dest)
+    }
+
+    async fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> MoveResult {
+        self.game.move_toplevel_unit_by_loc(src, dest)
+    }
+
+    async fn move_toplevel_unit_by_loc_avoiding_combat(
+        &mut self,
+        src: Location,
+        dest: Location,
+    ) -> MoveResult {
+        self.game
+            .move_toplevel_unit_by_loc_avoiding_combat(src, dest)
+    }
+
+    async fn move_unit_by_id_in_direction(
+        &mut self,
+        id: UnitID,
+        direction: Direction,
+    ) -> MoveResult {
+        self.game.move_unit_by_id_in_direction(id, direction)
+    }
+
+    async fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
+        self.game.move_unit_by_id(unit_id, dest)
+    }
+
+    async fn propose_move_unit_by_id(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> Proposed<Result<Move, MoveError>> {
+        self.game.propose_move_unit_by_id(id, dest)
+    }
+
+    async fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
+        self.game.move_unit_by_id_avoiding_combat(id, dest)
+    }
+
+    async fn propose_move_unit_by_id_avoiding_combat(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> Proposed<MoveResult> {
+        self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
+    }
+
+    async fn disband_unit_by_id(&mut self, id: UnitID) -> Result<Unit, GameError> {
+        self.game.disband_unit_by_id(id)
+    }
+
+    /// Sets the production of the current player's city at location `loc` to `production`.
+    ///
+    /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
+    async fn set_production_by_loc(
+        &mut self,
+        loc: Location,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError> {
+        self.game.set_production_by_loc(loc, production)
+    }
+
+    /// Sets the production of the current player's city with ID `city_id` to `production`.
+    ///
+    /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
+    async fn set_production_by_id(
+        &mut self,
+        city_id: CityID,
+        production: UnitType,
+    ) -> Result<Option<UnitType>, GameError> {
+        self.game.set_production_by_id(city_id, production)
+    }
+
+    //FIXME Restrict to current player cities
+    async fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(), String> {
+        self.game.clear_production_without_ignoring(loc)
+    }
+
+    //FIXME Restrict to current player cities
+    async fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(), String> {
+        self.game.clear_production_and_ignore(loc)
+    }
+
+    async fn turn(&self) -> TurnNum {
+        self.game.turn()
+    }
+
+    async fn current_player(&self) -> PlayerNum {
+        self.game.current_player()
+    }
+
+    /// The logical dimensions of the game map
+    async fn dims(&self) -> Dims {
+        self.game.dims()
+    }
+
+    async fn wrapping(&self) -> Wrap2d {
+        self.game.wrapping()
+    }
+
+    /// Units that could be produced by a city located at the given location
+    async fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
+        self.game.valid_productions(loc)
+    }
+
+    /// Units that could be produced by a city located at the given location, allowing only those which can actually
+    /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
+    async fn valid_productions_conservative<'b>(
+        &'b self,
+        loc: Location,
+    ) -> impl Iterator<Item = UnitType> + 'b {
+        self.game.valid_productions_conservative(loc)
+    }
+
+    /// If the current player controls a unit with ID `id`, order it to sentry
+    async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
+        self.game.order_unit_sentry(unit_id)
+    }
+
+    async fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
+        self.game.order_unit_skip(unit_id)
+    }
+
+    async fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
+        self.game.order_unit_go_to(unit_id, dest)
+    }
+
+    /// Simulate ordering the specified unit to go to the given location
+    async fn propose_order_unit_go_to(
+        &self,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> Proposed<OrdersResult> {
+        self.game.propose_order_unit_go_to(unit_id, dest)
+    }
+
+    async fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
+        self.game.order_unit_explore(unit_id)
+    }
+
+    /// Simulate ordering the specified unit to explore.
+    async fn propose_order_unit_explore(&self, unit_id: UnitID) -> Proposed<OrdersResult> {
+        self.game.propose_order_unit_explore(unit_id)
+    }
+
+    /// If a unit at the location owned by the current player exists, activate it and any units it carries
+    async fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(), GameError> {
+        self.game.activate_unit_by_loc(loc)
+    }
+
+    async fn propose_end_turn(&self) -> (Game, Result<TurnStart, PlayerNum>) {
+        let mut game = self.game.clone();
+        let result = game.end_turn();
+        (game, result)
+    }
+
+    async fn apply_proposal<T>(&mut self, proposal: Proposed<T>) -> T {
+        proposal.apply(self.game)
+    }
+
+    /// Feature vector for use in AI training
+    ///
+    /// Map of the output vector:
+    ///
+    /// # 15: 1d features
+    /// * 1: current turn
+    /// * 1: current player city count
+    /// * 1: number of tiles observed by current player
+    /// * 1: percentage of tiles observed by current player
+    /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
+    /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
+    ///                                                     submarines, cruisers, battleships, carriers)
+    /// # 363: 2d features, three layers
+    /// * 121: is_enemy_belligerent (11x11)
+    /// * 121: is_observed (11x11)
+    /// * 121: is_neutral (11x11)
+    ///
+    async fn features(&self) -> Vec<fX> {
+        self.game.features()
+    }
+
+    async fn player_score(&self, player: PlayerNum) -> Result<f64, GameError> {
+        self.game.player_score(player)
+    }
+
+    async fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError> {
+        self.game.take_action(action)
     }
 }
 
@@ -36,11 +579,11 @@ async fn main() -> anyhow::Result<()> {
     let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
     let server = server::BaseChannel::with_defaults(server_transport);
-    tokio::spawn(server.execute(HelloServer.serve()));
+    tokio::spawn(server.execute(UmpireServer::serve()));
 
     // WorldClient is generated by the #[tarpc::service] attribute. It has a constructor `new`
     // that takes a config and any Transport as input.
-    let client = UmpireRpcClient::new(client::Config::default(), client_transport).spawn();
+    let client = UmpirePlayerRpcClient::new(client::Config::default(), client_transport).spawn();
 
     // The client has an RPC method for each RPC defined in the annotated trait. It takes the same
     // args as defined, with the addition of a Context, which is always the first arg. The Context

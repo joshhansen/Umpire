@@ -6,3 +6,24 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bincode = "1.2.1"
+clap = { workspace = true }
+common = { path = "../common" }
+crossterm = "0.25.0"
+failure = { workspace = true }
+pastel = "0.7.0"
+rand = { workspace = true }
+serde = { workspace = true }
+
+# Audio
+cpal = "0.10.0"
+dasp = "0.11.0"
+pitch_calc = "0.11.1"
+synth = { git = "https://github.com/dritory/synth" }
+
+# AI/ML
+#rsrl = "0.7.1"
+#rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
+rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master_deref_vec_explicit_update", features = ["serialize"] }
+tch = "0.1.7"
+#tch = { path = "/home/josh/Projects/External/tch-rs" }
