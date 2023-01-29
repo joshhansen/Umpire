@@ -69,7 +69,7 @@ impl Rect {
 ///
 /// This can be thought of as a rectangle with a particular width and height, but not located at any
 /// particular point in space.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Dims {
     pub width: u16,
     pub height: u16,
@@ -138,7 +138,7 @@ pub trait Dimensioned {
     fn dims(&self) -> Dims;
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize)]
 pub struct Vec2d<T> {
     pub x: T,
     pub y: T,
@@ -313,7 +313,7 @@ enum WrapError {
     },
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum Wrap {
     Wrapping,
     NonWrapping,
@@ -406,7 +406,7 @@ pub enum Wrap2dError {
     OutOfBounds { loc: Location, dims: Dims },
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Wrap2d {
     pub horiz: Wrap,
     pub vert: Wrap,

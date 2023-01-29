@@ -4,6 +4,8 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     game::{
         city::{City, CityID},
@@ -25,7 +27,7 @@ pub trait LocationGridI<T>: Dimensioned + Index<Location, Output = T> {
 }
 
 // NOTE This is a dense representation and really doesn't handle large maps well, e.g. 10000x10000
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct LocationGrid<T> {
     /// The values stored in column-major order
     ///

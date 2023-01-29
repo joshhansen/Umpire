@@ -21,6 +21,10 @@ use std::{
 
 use failure::Fail;
 
+use rsrl::DerefVec;
+
+use serde::{Deserialize, Serialize};
+
 use crate::{
     colors::{Colorized, Colors},
     game::{
@@ -43,12 +47,15 @@ use crate::{
         },
     },
     name::{IntNamer, Namer},
-    util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
+    util::{Dimensioned, Dims, Direction, Location, Wrap2d},
 };
 
 pub use self::player::{PlayerNum, PlayerTurnControl, PlayerType};
 
-use self::move_::{Move, MoveComponent, MoveError, MoveResult};
+use self::{
+    ai::{fX, player_features},
+    move_::{Move, MoveComponent, MoveError, MoveResult},
+};
 use ai::UmpireAction;
 
 static UNIT_TYPES: [UnitType; 10] = UnitType::values();
@@ -74,6 +81,7 @@ const VICTORY_SCORE: f64 = 1_000_000.0;
 /// A proposed change to the game state.
 ///
 /// `delta` encapsulates the change, and `new_state` is the state as it will be after the change is applied.
+#[derive(Debug)]
 pub struct Proposed<T> {
     new_state: Game,
     pub delta: T,
@@ -92,7 +100,7 @@ impl<T> Proposed<T> {
 
 pub type TurnNum = u32;
 
-#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum Alignment {
     Neutral,
     Belligerent { player: PlayerNum }, // active neutral, chaotic, etc.
@@ -196,7 +204,7 @@ impl<T: Aligned> AlignedMaybe for T {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct TurnStart {
     pub turn: TurnNum,
     pub current_player: PlayerNum,
@@ -204,7 +212,7 @@ pub struct TurnStart {
     pub production_outcomes: Vec<UnitProductionOutcome>,
 }
 
-#[derive(Debug, Fail, PartialEq)]
+#[derive(Debug, Deserialize, Fail, PartialEq, Serialize)]
 pub enum GameError {
     #[fail(display = "There is no player {}", player)]
     NoSuchPlayer { player: PlayerNum },
@@ -273,7 +281,7 @@ pub enum GameError {
     MoveError(MoveError),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub enum UnitProductionOutcome {
     UnitProduced {
         /// A copy of the unit that was produced
@@ -1687,7 +1695,7 @@ impl Game {
             .collect()
     }
 
-    fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError> {
+    pub fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError> {
         action.take(self)
     }
 }
@@ -1784,6 +1792,12 @@ fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
 impl fmt::Debug for Game {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.map.fmt(f)
+    }
+}
+
+impl DerefVec for Game {
+    fn deref_vec(&self) -> Vec<fX> {
+        player_features(self, self.current_player)
     }
 }
 

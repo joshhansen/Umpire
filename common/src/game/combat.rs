@@ -1,12 +1,13 @@
 use rand::{thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub enum CombatParticipant {
     Attacker,
     Defender,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct CombatOutcome<A: CombatCapable, D: CombatCapable> {
     victor: CombatParticipant,
     attacker: A,

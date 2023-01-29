@@ -1,11 +1,13 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     game::{combat::CombatCapable, obs::Observer, unit::UnitType, Aligned, Alignment},
     util::{Located, Location},
 };
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct CityID {
     id: u64,
 }
@@ -25,7 +27,7 @@ impl Default for CityID {
 
 pub const CITY_MAX_HP: u16 = 1;
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct City {
     pub id: CityID,
     pub alignment: Alignment,

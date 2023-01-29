@@ -1,5 +1,7 @@
 use failure::Fail;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     game::{
         city::City,
@@ -15,7 +17,7 @@ pub type MoveResult = Result<Move, MoveError>;
 /// A move.
 ///
 /// Returned by `ProposedMove::make`
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Move {
     /// The unit as it will be at the end of the proposed move
     pub unit: Unit,
@@ -98,7 +100,7 @@ impl Move {
 }
 
 //FIXME The name is a misnomer---UnitAction or something would be more accurate
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct MoveComponent {
     pub prev_loc: Location,
     pub loc: Location,
@@ -148,7 +150,7 @@ impl MoveComponent {
     }
 }
 
-#[derive(Debug, Fail, PartialEq)]
+#[derive(Debug, Deserialize, Fail, PartialEq, Serialize)]
 pub enum MoveError {
     #[fail(display = "Cannot execute a move of length zero")]
     ZeroLengthMove,

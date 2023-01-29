@@ -1,8 +1,14 @@
 use std::io::{Result as IoResult, Write};
 
-use crossterm::style::{Color, ResetColor, SetForegroundColor};
+use crossterm::{
+    style::{Color, ResetColor, SetForegroundColor},
+    QueueableCommand,
+};
 
-use common::game::map::{Terrain, Tile};
+use common::game::{
+    map::{Terrain, Tile},
+    Aligned, AlignedMaybe,
+};
 
 use crate::ui::Draw;
 

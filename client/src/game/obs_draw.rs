@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use common::game::obs::Obs;
 
 use crate::ui::Draw;

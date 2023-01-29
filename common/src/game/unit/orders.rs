@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::Unit;
 use crate::{
     game::{
@@ -15,14 +17,14 @@ use crate::{
     util::Location,
 };
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum OrdersStatus {
     InProgress,
     Completed,
 }
 
 /// The outcome of a unit following its orders
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct OrdersOutcome {
     /// The ID of the ordered unit
     pub ordered_unit: Unit,
@@ -84,7 +86,7 @@ impl OrdersOutcome {
 
 pub type OrdersResult = Result<OrdersOutcome, GameError>;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Orders {
     Skip,
     Sentry,

@@ -22,8 +22,6 @@ pitch_calc = "0.11.1"
 synth = { git = "https://github.com/dritory/synth" }
 
 # AI/ML
-#rsrl = "0.7.1"
-#rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
-rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master_deref_vec_explicit_update", features = ["serialize"] }
+rsrl = { workspace = true }
 tch = "0.1.7"
 #tch = { path = "/home/josh/Projects/External/tch-rs" }

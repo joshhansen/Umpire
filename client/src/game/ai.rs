@@ -1,23 +1,14 @@
 use std::{fmt, fs::File, io::Write, path::Path};
 
 use common::game::{
-    ai::{fX, AISpec, TrainingInstance, UmpireAction},
+    ai::{player_features, AISpec, TrainingInstance, UmpireAction},
     Game,
 };
 use rand::{thread_rng, Rng};
 
 use common::{game::player::TurnTaker, util::sparsify};
 
-use rsrl::{
-    fa::{EnumerableStateActionFunction, StateActionFunction},
-    DerefVec,
-};
-
-impl DerefVec for Game {
-    fn deref_vec(&self) -> Vec<fX> {
-        self.features()
-    }
-}
+use rsrl::fa::{EnumerableStateActionFunction, StateActionFunction};
 
 pub trait Loadable: Sized {
     fn load<P: AsRef<Path>>(path: P) -> Result<Self, String>;
@@ -248,7 +239,7 @@ impl AI {
             // outcome: TrainingOutcome,// how did things work out for the player?
 
             let (num_features, features, pre_score) = if generate_data {
-                let features = game.features();
+                let features = player_features(game, game.current_player());
                 let (num_features, features) = sparsify(features);
 
                 (

@@ -1,4 +1,6 @@
-use std::{fmt, io::Write};
+use std::fmt;
+
+use serde::{Deserialize, Serialize};
 
 use crate::{
     colors::{Colorized, Colors},
@@ -9,7 +11,7 @@ use crate::{
 use super::Terrain;
 
 //FIXME Cleaner Debug impl
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Tile {
     pub terrain: Terrain,
     pub unit: Option<Unit>,

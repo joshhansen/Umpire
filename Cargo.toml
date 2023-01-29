@@ -26,6 +26,9 @@ members = ["common", "client", "server"]
 clap = "2.33.0"
 failure = "0.1.6"
 rand = "0.7.3"
+#rsrl = "0.7.1"
+#rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
+rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master_deref_vec_explicit_update", features = ["serialize"] }
 serde = { version = "1.0.106", features = ["derive"] }
 
 [badges]

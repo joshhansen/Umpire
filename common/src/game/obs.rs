@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use super::map::dijkstra::Filter;
 use crate::{
     game::{
@@ -15,7 +17,7 @@ use crate::{
 
 /// What a particular player knows about a tile
 /// FIXME Cleaner Debug impl
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Obs {
     Observed {
         tile: Tile,
@@ -35,7 +37,7 @@ impl Obs {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct LocatedObs {
     pub loc: Location,
     pub obs: Obs,
@@ -134,7 +136,7 @@ impl<'a, O: ObsTrackerI, S: Source<Tile>> UnifiedObsTrackerI for UnifiedObsTrack
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct ObsTracker {
     observations: LocationGrid<Obs>,
     num_observed: usize,

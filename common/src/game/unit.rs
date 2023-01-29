@@ -21,7 +21,7 @@ use crate::{
 
 use self::orders::Orders;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct UnitID {
     id: u64,
 }
@@ -40,7 +40,7 @@ impl Default for UnitID {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum TransportMode {
     Land,
     Sea,
@@ -65,7 +65,7 @@ impl TransportMode {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 struct CarryingSpace {
     owner: Alignment,
     accepted_transport_mode: TransportMode,
@@ -355,13 +355,13 @@ impl Ord for UnitType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Fuel {
     Unlimited,
     Limited { remaining: u16 },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Unit {
     pub id: UnitID,
     pub loc: Location,
