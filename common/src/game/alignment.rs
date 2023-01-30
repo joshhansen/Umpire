@@ -13,27 +13,27 @@ pub enum Alignment {
 }
 
 impl Alignment {
-    fn is_friendly_to(self, other: Alignment) -> bool {
+    pub fn is_friendly_to(self, other: Alignment) -> bool {
         self == other
     }
 
-    fn is_friendly_to_player(self, player: PlayerNum) -> bool {
+    pub fn is_friendly_to_player(self, player: PlayerNum) -> bool {
         self == Alignment::Belligerent { player }
     }
 
-    fn is_enemy_of(self, other: Alignment) -> bool {
+    pub fn is_enemy_of(self, other: Alignment) -> bool {
         !self.is_friendly_to(other)
     }
 
-    fn is_enemy_of_player(self, player: PlayerNum) -> bool {
+    pub fn is_enemy_of_player(self, player: PlayerNum) -> bool {
         !self.is_friendly_to_player(player)
     }
 
-    fn is_neutral(self) -> bool {
+    pub fn is_neutral(self) -> bool {
         self == Alignment::Neutral
     }
 
-    fn is_belligerent(self) -> bool {
+    pub fn is_belligerent(self) -> bool {
         if let Alignment::Belligerent { .. } = self {
             true
         } else {
