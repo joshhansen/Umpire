@@ -4,7 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     colors::{Colorized, Colors},
-    game::{city::City, unit::Unit, Aligned, AlignedMaybe, Alignment},
+    game::{
+        alignment::{Aligned, AlignedMaybe, Alignment},
+        city::City,
+        unit::Unit,
+    },
     util::Location,
 };
 

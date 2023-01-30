@@ -3,9 +3,12 @@
 //!
 //! This implements the game logic without regard for user interface.
 
+pub mod action;
 pub mod ai;
+pub mod alignment;
 pub mod city;
 pub mod combat;
+pub mod error;
 pub mod map;
 pub mod move_;
 pub mod obs;
@@ -19,17 +22,17 @@ use std::{
     sync::RwLock,
 };
 
-use failure::Fail;
-
 use rsrl::DerefVec;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    colors::{Colorized, Colors},
     game::{
+        action::AiPlayerAction,
+        alignment::Alignment,
         city::{City, CityID},
         combat::CombatCapable,
+        error::GameError,
         map::{
             dijkstra::{
                 self, directions_unit_could_move_iter, neighbors_terrain_only,
@@ -43,7 +46,7 @@ use crate::{
         obs::{Obs, ObsTracker, ObsTrackerI, Observer},
         unit::{
             orders::{Orders, OrdersOutcome, OrdersResult, OrdersStatus},
-            TransportMode, Unit, UnitID, UnitType,
+            Unit, UnitID, UnitType,
         },
     },
     name::{IntNamer, Namer},
@@ -53,10 +56,11 @@ use crate::{
 pub use self::player::{PlayerNum, PlayerTurnControl, PlayerType};
 
 use self::{
+    action::PlayerAction,
     ai::{fX, player_features},
+    alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError, MoveResult},
 };
-use ai::UmpireAction;
 
 static UNIT_TYPES: [UnitType; 10] = UnitType::values();
 
@@ -98,111 +102,9 @@ impl<T> Proposed<T> {
     }
 }
 
+}
+
 pub type TurnNum = u32;
-
-#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub enum Alignment {
-    Neutral,
-    Belligerent { player: PlayerNum }, // active neutral, chaotic, etc.
-}
-
-impl Alignment {
-    fn is_friendly_to(self, other: Alignment) -> bool {
-        self == other
-    }
-
-    fn is_friendly_to_player(self, player: PlayerNum) -> bool {
-        self == Alignment::Belligerent { player }
-    }
-
-    fn is_enemy_of(self, other: Alignment) -> bool {
-        !self.is_friendly_to(other)
-    }
-
-    fn is_enemy_of_player(self, player: PlayerNum) -> bool {
-        !self.is_friendly_to_player(player)
-    }
-
-    fn is_neutral(self) -> bool {
-        self == Alignment::Neutral
-    }
-
-    fn is_belligerent(self) -> bool {
-        if let Alignment::Belligerent { .. } = self {
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl Colorized for Alignment {
-    fn color(&self) -> Option<Colors> {
-        Some(match self {
-            Alignment::Neutral => Colors::Neutral,
-            Alignment::Belligerent { player } => Colors::Player(*player),
-        })
-    }
-}
-
-impl fmt::Display for Alignment {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Alignment::Neutral => write!(f, "Neutral"),
-            Alignment::Belligerent { player } => write!(f, "Player {}", player),
-        }
-    }
-}
-
-pub trait Aligned: AlignedMaybe {
-    fn alignment(&self) -> Alignment;
-
-    fn is_friendly_to<A: Aligned>(&self, other: &A) -> bool {
-        self.alignment().is_friendly_to(other.alignment())
-    }
-
-    fn is_friendly_to_player(&self, player: PlayerNum) -> bool {
-        self.alignment().is_friendly_to_player(player)
-    }
-
-    fn is_enemy_of<A: Aligned>(&self, other: &A) -> bool {
-        self.alignment().is_enemy_of(other.alignment())
-    }
-
-    fn is_enemy_of_player(&self, player: PlayerNum) -> bool {
-        self.alignment().is_enemy_of_player(player)
-    }
-
-    fn is_neutral(&self) -> bool {
-        self.alignment().is_neutral()
-    }
-
-    fn is_belligerent(&self) -> bool {
-        self.alignment().is_belligerent()
-    }
-}
-
-pub trait AlignedMaybe {
-    fn alignment_maybe(&self) -> Option<Alignment>;
-
-    fn belongs_to_player(&self, player: PlayerNum) -> bool {
-        if let Some(alignment) = self.alignment_maybe() {
-            if let Alignment::Belligerent { player: player_ } = alignment {
-                player == player_
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    }
-}
-
-impl<T: Aligned> AlignedMaybe for T {
-    fn alignment_maybe(&self) -> Option<Alignment> {
-        Some(self.alignment())
-    }
-}
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct TurnStart {
@@ -210,75 +112,6 @@ pub struct TurnStart {
     pub current_player: PlayerNum,
     pub orders_results: Vec<OrdersResult>,
     pub production_outcomes: Vec<UnitProductionOutcome>,
-}
-
-#[derive(Debug, Deserialize, Fail, PartialEq, Serialize)]
-pub enum GameError {
-    #[fail(display = "There is no player {}", player)]
-    NoSuchPlayer { player: PlayerNum },
-
-    #[fail(display = "No unit with ID {:?} exists", id)]
-    NoSuchUnit { id: UnitID },
-
-    #[fail(display = "No unit at location {} exists", loc)]
-    NoUnitAtLocation { loc: Location },
-
-    #[fail(display = "No city with ID {:?} exists", id)]
-    NoSuchCity { id: CityID },
-
-    #[fail(display = "No city at location {} exists", loc)]
-    NoCityAtLocation { loc: Location },
-
-    #[fail(display = "No tile at location {} exists", loc)]
-    NoTileAtLocation { loc: Location },
-
-    #[fail(display = "Specified unit is not controlled by the current player")]
-    UnitNotControlledByCurrentPlayer,
-
-    #[fail(display = "The unit with ID {:?} has no carrying space", carrier_id)]
-    UnitHasNoCarryingSpace { carrier_id: UnitID },
-
-    #[fail(
-        display = "The relevant carrying space cannot carry the unit with ID {:?} because its transport mode {:?} is
-                      incompatible with the carrier's accepted transport mode {:?}",
-        carried_id, carried_transport_mode, carrier_transport_mode
-    )]
-    WrongTransportMode {
-        carried_id: UnitID,
-        carrier_transport_mode: TransportMode,
-        carried_transport_mode: TransportMode,
-    },
-
-    #[fail(
-        display = "The relevant carrying space cannot carry the unit with ID {:?} due insufficient space.",
-        carried_id
-    )]
-    InsufficientCarryingSpace { carried_id: UnitID },
-
-    #[fail(
-        display = "The relevant carrying space cannot carry the unit with ID {:?} because its alignment {:?} differs
-                      from the space owner's alignment {:?}.",
-        carried_id, carried_alignment, carrier_alignment
-    )]
-    OnlyAlliesCarry {
-        carried_id: UnitID,
-        carrier_alignment: Alignment,
-        carried_alignment: Alignment,
-    },
-
-    #[fail(
-        display = "The unit with ID {:?} cannot occupy the city with ID {:?} because the unit with ID {:?} is still
-                      garrisoned there. The garrison must be destroyed prior to occupation.",
-        occupier_unit_id, city_id, garrisoned_unit_id
-    )]
-    CannotOccupyGarrisonedCity {
-        occupier_unit_id: UnitID,
-        city_id: CityID,
-        garrisoned_unit_id: UnitID,
-    },
-
-    #[fail(display = "There was a problem moving the unit: {}", 0)]
-    MoveError(MoveError),
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]

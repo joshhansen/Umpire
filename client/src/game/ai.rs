@@ -1,7 +1,7 @@
 use std::{fmt, fs::File, io::Write, path::Path};
 
 use common::game::{
-    ai::{player_features, AISpec, TrainingInstance, UmpireAction},
+    ai::{player_features, AISpec, AiPlayerAction, TrainingInstance},
     Game,
 };
 use rand::{thread_rng, Rng};
@@ -102,7 +102,7 @@ impl StateActionFunction<Game, usize> for AI {
 
 impl EnumerableStateActionFunction<Game> for AI {
     fn n_actions(&self) -> usize {
-        UmpireAction::possible_actions().len()
+        AiPlayerAction::possible_actions().len()
     }
 
     fn evaluate_all(&self, state: &Game) -> Vec<f64> {
@@ -252,7 +252,7 @@ impl AI {
             };
 
             let action_idx = self.best_action(game).unwrap();
-            let action = UmpireAction::from_idx(action_idx).unwrap();
+            let action = AiPlayerAction::from_idx(action_idx).unwrap();
             action.take(game).unwrap();
 
             if generate_data {

@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 use common::{
     game::{
-        ai::{fX, AISpec, UmpireAction},
+        ai::{fX, AISpec, AiPlayerAction},
         player::TurnTaker,
         unit::UnitType,
         Game, GameError, PlayerNum,
@@ -117,13 +117,13 @@ impl Space for UmpireStateSpace {
 }
 
 pub struct UmpireActionSpace {
-    legal_actions: HashSet<UmpireAction>,
+    legal_actions: HashSet<AiPlayerAction>,
 }
 
 impl UmpireActionSpace {
     fn from_game_state(game: &Game) -> Self {
         Self {
-            legal_actions: UmpireAction::legal_actions(game),
+            legal_actions: AiPlayerAction::legal_actions(game),
         }
     }
 }
@@ -231,7 +231,7 @@ impl UmpireDomain {
         })
     }
 
-    fn update_state(&mut self, action: UmpireAction) {
+    fn update_state(&mut self, action: AiPlayerAction) {
         debug_assert!(!self.game.turn_is_done());
 
         action.take(&mut self.game).unwrap();
@@ -333,7 +333,7 @@ impl Domain for UmpireDomain {
         let start_score = self.player_score(current_player);
         let from = self.emit();
 
-        let action = UmpireAction::from_idx(action_idx).unwrap();
+        let action = AiPlayerAction::from_idx(action_idx).unwrap();
 
         self.update_state(action);
 
@@ -383,13 +383,13 @@ impl Domain for UmpireDomain {
 }
 
 pub struct UmpireRandom {
-    possible_indices: HashMap<UmpireAction, usize>,
+    possible_indices: HashMap<AiPlayerAction, usize>,
 }
 
 impl UmpireRandom {
     fn new() -> Self {
         Self {
-            possible_indices: UmpireAction::possible_actions()
+            possible_indices: AiPlayerAction::possible_actions()
                 .iter()
                 .enumerate()
                 .map(|(i, action)| (*action, i))
@@ -400,7 +400,7 @@ impl UmpireRandom {
     /// The indices of all legal actions for a given game state, given in a consistent manner regardless of which (if
     /// any) are actually present.
     fn canonical_legal_indices(&self, state: &Game) -> Vec<usize> {
-        let legal = UmpireAction::legal_actions(state);
+        let legal = AiPlayerAction::legal_actions(state);
 
         debug_assert!(!legal.is_empty());
 
@@ -630,7 +630,7 @@ fn agent(
     dnn_learning_rate: f32,
     avoid_skip: bool,
 ) -> Result<Agent, String> {
-    let n_actions = UmpireAction::possible_actions().len();
+    let n_actions = AiPlayerAction::possible_actions().len();
 
     let q_func = match initialize_from {
         AI::Random(_) => {
@@ -764,15 +764,15 @@ pub fn find_legal_max<Q: EnumerableStateActionFunction<Game>>(
     state: &Game,
     avoid_skip: bool,
 ) -> (usize, f64) {
-    let mut legal = UmpireAction::legal_actions(state);
+    let mut legal = AiPlayerAction::legal_actions(state);
 
-    let possible = UmpireAction::possible_actions();
+    let possible = AiPlayerAction::possible_actions();
 
     let mut qs = q_func.evaluate_all(state);
 
-    if legal.contains(&UmpireAction::SkipNextUnit) && legal.len() > 1 && avoid_skip {
-        legal.remove(&UmpireAction::SkipNextUnit);
-        qs.remove(UmpireAction::SkipNextUnit.to_idx());
+    if legal.contains(&AiPlayerAction::SkipNextUnit) && legal.len() > 1 && avoid_skip {
+        legal.remove(&AiPlayerAction::SkipNextUnit);
+        qs.remove(AiPlayerAction::SkipNextUnit.to_idx());
     }
 
     qs.into_iter()
@@ -827,7 +827,7 @@ mod test {
     };
 
     use crate::game::ai::{
-        rl::{trained_agent, UmpireAction, UmpireDomain},
+        rl::{trained_agent, AiPlayerAction, UmpireDomain},
         AISpec, RandomAI, AI,
     };
 
@@ -871,7 +871,7 @@ mod test {
 
         let mut directions: HashSet<Direction> = Direction::values().iter().cloned().collect();
 
-        let mut counts: HashMap<UmpireAction, usize> = HashMap::new();
+        let mut counts: HashMap<AiPlayerAction, usize> = HashMap::new();
 
         let game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
@@ -890,13 +890,13 @@ mod test {
 
             domain.step(idx);
 
-            let action = UmpireAction::from_idx(idx).unwrap();
+            let action = AiPlayerAction::from_idx(idx).unwrap();
 
             println!("Action: {:?}", action);
 
             *counts.entry(action).or_insert(0) += 1;
 
-            if let UmpireAction::MoveNextUnit { direction } = action {
+            if let AiPlayerAction::MoveNextUnit { direction } = action {
                 directions.remove(&direction);
             }
         }

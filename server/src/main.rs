@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use common::{
     game::{
-        ai::{fX, player_features, UmpireAction},
+        ai::{fX, player_features, AiPlayerAction},
         city::{City, CityID},
         map::Tile,
         move_::{Move, MoveError, MoveResult},
@@ -215,7 +215,7 @@ trait UmpirePlayerRpc {
 
     async fn player_score(player: PlayerNum) -> Result<f64, GameError>;
 
-    async fn take_action(action: UmpireAction) -> Result<(), GameError>;
+    async fn take_action(action: AiPlayerAction) -> Result<(), GameError>;
 }
 
 // Implementation of the server API
@@ -596,8 +596,8 @@ impl UmpirePlayerRpc for UmpireServer {
         self.game.player_score(player)
     }
 
-    async fn take_action(self, _: Context, action: UmpireAction) -> Result<(), GameError> {
-        self.game.take_action(action)
+    async fn take_action(self, _: Context, action: AiPlayerAction) -> Result<(), GameError> {
+        self.game.take_simple_action(action)
     }
 }
 

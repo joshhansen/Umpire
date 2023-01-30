@@ -391,12 +391,13 @@ pub mod test {
 
     use crate::{
         game::{
+            alignment::AlignedMaybe,
             map::MapData,
             unit::{
                 orders::{propose_exploration, test_support, Orders},
                 UnitID,
             },
-            AlignedMaybe, Game, GameError, MoveError, Proposed,
+            Game, GameError, MoveError, Proposed,
         },
         name::unit_namer,
         util::{Dims, Location, Wrap2d},

@@ -15,7 +15,7 @@ use tch::{
 };
 
 use common::game::{
-    ai::{UmpireAction, DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
+    ai::{AiPlayerAction, DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
     Game,
 };
 
@@ -199,7 +199,7 @@ impl PartialOrd for TensorAndScalar {
 
 impl EnumerableStateActionFunction<Game> for DNN {
     fn n_actions(&self) -> usize {
-        UmpireAction::possible_actions().len()
+        AiPlayerAction::possible_actions().len()
     }
 
     fn evaluate_all(&self, state: &Game) -> Vec<f64> {

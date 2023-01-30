@@ -12,7 +12,7 @@ use common::{
     util::Direction,
 };
 
-use super::UmpireAction;
+use super::AiPlayerAction;
 
 const P_DISBAND: f64 = 0.01;
 
@@ -30,7 +30,7 @@ impl RandomAI {
 }
 
 impl ActionwiseLimitedTurnTaker for RandomAI {
-    fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<UmpireAction> {
+    fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction> {
         let mut rng = rand::thread_rng();
 
         let mut stdout = stdout();
@@ -45,7 +45,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                 println!("{:?} -> {:?}", city_loc, unit_type);
             }
 
-            return Some(UmpireAction::SetNextCityProduction {
+            return Some(AiPlayerAction::SetNextCityProduction {
                 unit_type: *unit_type,
             });
         }
@@ -94,7 +94,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
 
             if x <= move_prob {
                 if unit.type_ == UnitType::Infantry {
-                    return Some(UmpireAction::SkipNextUnit);
+                    return Some(AiPlayerAction::SkipNextUnit);
                 }
 
                 let direction = possible.choose(&mut rng).unwrap();
@@ -103,7 +103,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                     println!("{:?} {} -> {:?}", unit_id, unit.loc, direction);
                 }
 
-                return Some(UmpireAction::MoveNextUnit {
+                return Some(AiPlayerAction::MoveNextUnit {
                     direction: *direction,
                 });
 
@@ -126,14 +126,14 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                     println!("Random skipped unit: {:?}", unit_id);
                 }
                 // ctrl.order_unit_skip(unit_id).unwrap();
-                return Some(UmpireAction::SkipNextUnit);
+                return Some(AiPlayerAction::SkipNextUnit);
             } else {
                 if self.verbosity > 1 {
                     let loc = ctrl.current_player_unit_loc(unit_id).unwrap();
                     println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
                 }
                 // ctrl.disband_unit_by_id(unit_id).unwrap();
-                return Some(UmpireAction::SkipNextUnit); //FIXME? Should this be DisbandNextUnit?
+                return Some(AiPlayerAction::SkipNextUnit); //FIXME? Should this be DisbandNextUnit?
             }
         }
 

@@ -1,20 +1,14 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-    path::Path,
-};
+use std::{collections::HashMap, fmt, path::Path};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     cli::Specified,
-    game::GameError,
+    game::{action::AiPlayerAction, alignment::AlignedMaybe},
     util::{Direction, Vec2d},
 };
 
-use super::{
-    map::dijkstra::Source, obs::Obs, unit::UnitType, AlignedMaybe, Game, PlayerNum, PlayerType,
-};
+use super::{map::dijkstra::Source, obs::Obs, unit::UnitType, Game, PlayerNum, PlayerType};
 
 pub type fX = f64;
 
@@ -33,142 +27,6 @@ pub const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
 pub const DEEP_FEATS: i64 = 4;
 pub const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-pub enum UmpireAction {
-    SetNextCityProduction { unit_type: UnitType },
-    MoveNextUnit { direction: Direction },
-    DisbandNextUnit,
-    SkipNextUnit,
-}
-
-impl UmpireAction {
-    pub fn legal_actions(game: &Game) -> HashSet<Self> {
-        let mut a = HashSet::new();
-
-        debug_assert!(!game.turn_is_done());
-
-        //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
-        if let Some(city_loc) = game.production_set_requests().next() {
-            for unit_type in game.valid_productions_conservative(city_loc) {
-                a.insert(UmpireAction::SetNextCityProduction { unit_type });
-            }
-        }
-
-        //TODO Possibly consider actions for all units instead of just the next one that needs orders
-        if let Some(unit_id) = game.unit_orders_requests().next() {
-            for direction in game.current_player_unit_legal_directions(unit_id).unwrap() {
-                a.insert(UmpireAction::MoveNextUnit { direction });
-            }
-            a.insert(UmpireAction::SkipNextUnit);
-        }
-
-        debug_assert!(!a.is_empty());
-
-        a
-    }
-
-    /// All actions possible in general---not specific to any particular game state
-    /// TODO: Make this an array?
-    // UnitType::Infantry,    0
-    // UnitType::Armor,       1
-    // UnitType::Fighter,     2
-    // UnitType::Bomber,      3
-    // UnitType::Transport,   4
-    // UnitType::Destroyer,   5
-    // UnitType::Submarine,   6
-    // UnitType::Cruiser,     7
-    // UnitType::Battleship,  8
-    // UnitType::Carrier      9
-    // Direction::Up,         10
-    // Direction::Down,       11
-    // Direction::Left,       12
-    // Direction::Right,      13
-    // Direction::UpLeft,     14
-    // Direction::UpRight,    15
-    // Direction::DownLeft,   16
-    // Direction::DownRight,  17
-    // SkipNextTurn           18
-    pub fn possible_actions() -> Vec<Self> {
-        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS);
-        for unit_type in UnitType::values().iter().cloned() {
-            a.push(UmpireAction::SetNextCityProduction { unit_type });
-        }
-        for direction in Direction::values().iter().cloned() {
-            a.push(UmpireAction::MoveNextUnit { direction });
-        }
-        a.push(UmpireAction::SkipNextUnit);
-
-        a
-    }
-
-    pub fn from_idx(mut idx: usize) -> Result<Self, ()> {
-        let unit_types = UnitType::values();
-        if unit_types.len() > idx {
-            return Ok(UmpireAction::SetNextCityProduction {
-                unit_type: unit_types[idx],
-            });
-        }
-
-        idx -= unit_types.len();
-
-        let dirs = Direction::values();
-        if dirs.len() > idx {
-            return Ok(UmpireAction::MoveNextUnit {
-                direction: dirs[idx],
-            });
-        }
-
-        idx -= dirs.len();
-
-        if idx == 0 {
-            return Ok(UmpireAction::SkipNextUnit);
-        }
-
-        Err(())
-    }
-
-    pub fn to_idx(self) -> usize {
-        Self::possible_actions()
-            .into_iter()
-            .position(|a| self == a)
-            .unwrap()
-    }
-
-    pub fn take(self, game: &mut Game) -> Result<(), GameError> {
-        match self {
-            UmpireAction::SetNextCityProduction { unit_type } => {
-                let city_loc = game.production_set_requests().next().unwrap();
-                game.set_production_by_loc(city_loc, unit_type).map(|_| ())
-            }
-            UmpireAction::MoveNextUnit { direction } => {
-                let unit_id = game.unit_orders_requests().next().unwrap();
-                debug_assert!({
-                    let legal: HashSet<Direction> = game
-                        .current_player_unit_legal_directions(unit_id)
-                        .unwrap()
-                        .collect();
-
-                    // println!("legal moves: {}", legal.len());
-
-                    legal.contains(&direction)
-                });
-
-                game.move_unit_by_id_in_direction(unit_id, direction)
-                    .map(|_| ())
-                    .map_err(GameError::MoveError)
-            }
-            UmpireAction::DisbandNextUnit => {
-                let unit_id = game.unit_orders_requests().next().unwrap();
-                game.disband_unit_by_id(unit_id).map(|_| ())
-            }
-            UmpireAction::SkipNextUnit => {
-                let unit_id = game.unit_orders_requests().next().unwrap();
-                game.order_unit_skip(unit_id).map(|_| ())
-            }
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 pub enum TrainingOutcome {
     Victory,
@@ -183,11 +41,11 @@ pub struct TrainingInstance {
     player: PlayerNum, // the player that took the action
     num_features: usize,
     features: HashMap<usize, f64>,
-    pre_score: f64,       // the player's score prior to the action
-    action: UmpireAction, // the action taken
-    post_score: f64,      // the player's score after the action
+    pre_score: f64,         // the player's score prior to the action
+    action: AiPlayerAction, // the action taken
+    post_score: f64,        // the player's score after the action
     outcome: Option<TrainingOutcome>, // how did things work out for the player?
-                          // set as None until the outcome is determined
+                            // set as None until the outcome is determined
 }
 impl TrainingInstance {
     pub fn undetermined(
@@ -195,7 +53,7 @@ impl TrainingInstance {
         num_features: usize,
         features: HashMap<usize, f64>,
         pre_score: f64,
-        action: UmpireAction,
+        action: AiPlayerAction,
         post_score: f64,
     ) -> Self {
         Self {

@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use super::ai::{fX, player_features, AISpec, UmpireAction};
+use super::{
+    action::AiPlayerAction,
+    ai::{fX, player_features, AISpec},
+};
 use crate::{
     cli::Specified,
     game::{
@@ -441,8 +444,8 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_score(player)
     }
 
-    fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError> {
-        self.game.take_action(action)
+    fn take_action(&mut self, action: AiPlayerAction) -> Result<(), GameError> {
+        self.game.take_simple_action(action)
     }
 
     pub fn player_features(&self) -> Vec<fX> {
@@ -577,7 +580,7 @@ pub trait ActionwiseLimitedTurnTaker {
     /// The next action that should be taken
     ///
     /// Return None if there are no actions that should be taken
-    fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<UmpireAction>;
+    fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction>;
 }
 
 impl<T: ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {

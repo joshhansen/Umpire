@@ -21,9 +21,10 @@ use failure::Fail;
 
 use crate::{
     game::{
+        alignment::{AlignedMaybe, Alignment},
         city::{City, CityID},
         unit::{Unit, UnitID, UnitType},
-        AlignedMaybe, Alignment, GameError, PlayerNum,
+        GameError, PlayerNum,
     },
     util::{Dimensioned, Dims, Location},
 };

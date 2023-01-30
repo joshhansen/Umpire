@@ -10,10 +10,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     colors::{Colorized, Colors},
     game::{
+        alignment::{Aligned, Alignment},
         combat::CombatCapable,
         map::{Terrain, Tile},
         obs::Observer,
-        Aligned, Alignment, GameError,
+        GameError,
     },
     name::Named,
     util::{Located, Location},

@@ -3,7 +3,12 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    game::{combat::CombatCapable, obs::Observer, unit::UnitType, Aligned, Alignment},
+    game::{
+        alignment::{Aligned, Alignment},
+        combat::CombatCapable,
+        obs::Observer,
+        unit::UnitType,
+    },
     util::{Located, Location},
 };
 

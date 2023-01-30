@@ -10,11 +10,11 @@ use std::{
 
 use crate::{
     game::{
+        alignment::{Aligned, Alignment},
         map::LocationGridI,
         map::{LocationGrid, SparseLocationGrid, Terrain, Tile},
         obs::Obs,
         unit::{Unit, UnitType},
-        Aligned, Alignment,
     },
     util::{Dimensioned, Dims, Direction, LocatedItem, Location, Vec2d, Wrap2d},
 };
