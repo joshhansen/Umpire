@@ -152,8 +152,6 @@ pub struct Game {
     num_players: PlayerNum,
 
     /// The player that is currently the player right now
-    ///
-    /// Stored in a mutex to facilitate shared control of the game state by the UI and any AIs
     current_player: PlayerNum,
 
     /// The wrapping policy for the game---can you loop around the map vertically, horizontally, or both?
