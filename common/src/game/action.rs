@@ -9,7 +9,11 @@ use crate::util::Direction;
 use super::{
     ai::POSSIBLE_ACTIONS,
     city::CityID,
-    unit::{orders::Orders, UnitID, UnitType},
+    move_::Move,
+    unit::{
+        orders::{Orders, OrdersOutcome},
+        Unit, UnitID, UnitType,
+    },
     Game, GameError,
 };
 
@@ -150,10 +154,11 @@ impl AiPlayerAction {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum PlayerAction {
     SetCityProduction {
         city_id: CityID,
-        unit_type: UnitType,
+        production: UnitType,
     },
     MoveUnit {
         unit_id: UnitID,
@@ -162,8 +167,64 @@ pub enum PlayerAction {
     DisbandUnit {
         unit_id: UnitID,
     },
-    SetUnitOrders {
+    OrderUnit {
         unit_id: UnitID,
         orders: Orders,
     },
+}
+
+pub enum PlayerActionOutcome {
+    SetCityProduction {
+        city_id: CityID,
+        production: UnitType,
+        prior_production: Option<UnitType>,
+    },
+    MoveUnit {
+        unit_id: UnitID,
+        direction: Direction,
+        move_: Move,
+    },
+    DisbandUnit {
+        disbanded: Unit,
+    },
+    OrderUnit {
+        unit_id: UnitID,
+        orders: Orders,
+        orders_outcome: OrdersOutcome,
+    },
+}
+
+impl PlayerAction {
+    pub fn take(self, game: &mut Game) -> Result<PlayerActionOutcome, GameError> {
+        match self {
+            PlayerAction::SetCityProduction {
+                city_id,
+                production,
+            } => game
+                .set_production_by_id(city_id, production)
+                .map(|prior_production| PlayerActionOutcome::SetCityProduction {
+                    city_id,
+                    production,
+                    prior_production,
+                }),
+            PlayerAction::MoveUnit { unit_id, direction } => game
+                .move_unit_by_id_in_direction(unit_id, direction)
+                .map(|move_| PlayerActionOutcome::MoveUnit {
+                    unit_id,
+                    direction,
+                    move_,
+                })
+                .map_err(|move_err| GameError::MoveError(move_err)),
+            PlayerAction::DisbandUnit { unit_id } => game
+                .disband_unit_by_id(unit_id)
+                .map(|disbanded| PlayerActionOutcome::DisbandUnit { disbanded }),
+            PlayerAction::OrderUnit { unit_id, orders } => game
+                .set_and_follow_orders(unit_id, orders)
+                .map(|orders_outcome| PlayerActionOutcome::OrderUnit {
+                    unit_id,
+                    orders,
+                    orders_outcome,
+                }),
+        }
+    }
 }

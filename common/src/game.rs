@@ -13,6 +13,7 @@ pub mod map;
 pub mod move_;
 pub mod obs;
 pub mod player;
+pub mod proposed;
 pub mod unit;
 
 use std::{
@@ -56,10 +57,12 @@ use crate::{
 pub use self::player::{PlayerNum, PlayerTurnControl, PlayerType};
 
 use self::{
-    action::PlayerAction,
+    action::{PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features},
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError, MoveResult},
+    player::PlayerGameView,
+    proposed::{Proposed, Proposed2},
 };
 
 static UNIT_TYPES: [UnitType; 10] = UnitType::values();
@@ -81,28 +84,6 @@ const UNIT_MULTIPLIER: f64 = 100.0;
 
 /// How much is victory worth?
 const VICTORY_SCORE: f64 = 1_000_000.0;
-
-/// A proposed change to the game state.
-///
-/// `delta` encapsulates the change, and `new_state` is the state as it will be after the change is applied.
-#[derive(Debug)]
-pub struct Proposed<T> {
-    new_state: Game,
-    pub delta: T,
-}
-impl<T> Proposed<T> {
-    pub fn new(new_state: Game, delta: T) -> Self {
-        Self { new_state, delta }
-    }
-
-    /// Apply the proposed change to the given game instance. This overwrites the game instance with `new_state`.
-    pub fn apply(self, state: &mut Game) -> T {
-        *state = self.new_state;
-        self.delta
-    }
-}
-
-}
 
 pub type TurnNum = u32;
 
@@ -1526,8 +1507,79 @@ impl Game {
             .collect()
     }
 
-    pub fn take_action(&mut self, action: UmpireAction) -> Result<(), GameError> {
+    pub fn take_simple_action(
+        &mut self,
+        action: AiPlayerAction,
+    ) -> Result<PlayerActionOutcome, GameError> {
+        self.take_action(match action {
+            AiPlayerAction::SetNextCityProduction { unit_type } => {
+                let city_loc = self.production_set_requests().next().unwrap();
+                let city_id = self.current_player_city_by_loc(city_loc).unwrap().id;
+                PlayerAction::SetCityProduction {
+                    city_id,
+                    production: unit_type,
+                }
+            }
+            AiPlayerAction::MoveNextUnit { direction } => {
+                let unit_id = self.unit_orders_requests().next().unwrap();
+                debug_assert!({
+                    let legal: HashSet<Direction> = self
+                        .current_player_unit_legal_directions(unit_id)
+                        .unwrap()
+                        .collect();
+
+                    // println!("legal moves: {}", legal.len());
+
+                    legal.contains(&direction)
+                });
+
+                PlayerAction::MoveUnit { unit_id, direction }
+            }
+            AiPlayerAction::DisbandNextUnit => {
+                let unit_id = self.unit_orders_requests().next().unwrap();
+                PlayerAction::DisbandUnit { unit_id }
+            }
+            AiPlayerAction::SkipNextUnit => {
+                let unit_id = self.unit_orders_requests().next().unwrap();
+                PlayerAction::OrderUnit {
+                    unit_id,
+                    orders: Orders::Skip,
+                }
+            }
+        })
+    }
+
+    pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {
         action.take(self)
+    }
+
+    /// A cloned copy of the specified player's view of the game
+    fn player_game_view(&self, player: PlayerNum) -> Result<PlayerGameView, GameError> {
+        Ok(PlayerGameView {
+            observations: self.player_observations(player).clone(),
+            turn: self.turn,
+            num_players: self.num_players,
+            current_player: self.current_player,
+            wrapping: self.wrapping,
+            fog_of_war: self.fog_of_war,
+            score: self.player_score(player)?,
+        })
+    }
+
+    pub fn propose_action(
+        &self,
+        action: PlayerAction,
+    ) -> Result<Proposed2<PlayerActionOutcome>, GameError> {
+        let player = self.current_player;
+        let mut game = self.clone();
+        let result = game.take_action(action)?;
+        let game_view: PlayerGameView = game.player_game_view(player)?;
+
+        Ok(Proposed2 {
+            action,
+            result,
+            game_view,
+        })
     }
 }
 

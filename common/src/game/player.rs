@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
+
 use super::{
-    action::AiPlayerAction,
+    action::{AiPlayerAction, PlayerActionOutcome},
     ai::{fX, player_features, AISpec},
 };
 use crate::{
@@ -444,7 +446,10 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_score(player)
     }
 
-    fn take_action(&mut self, action: AiPlayerAction) -> Result<(), GameError> {
+    fn take_simple_action(
+        &mut self,
+        action: AiPlayerAction,
+    ) -> Result<PlayerActionOutcome, GameError> {
         self.game.take_simple_action(action)
     }
 
@@ -612,7 +617,7 @@ impl<T: ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
             if let Some(action) = self.next_action(ctrl) {
                 // If an action was specified...
 
-                ctrl.take_action(action).unwrap();
+                ctrl.take_simple_action(action).unwrap();
 
                 if generate_data {
                     let post_score = ctrl.player_score(player).unwrap();
@@ -640,4 +645,24 @@ impl<T: ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
 
 trait ActionwiseTurnTaker {
     fn next_action(&self, game: &Game, generate_data: bool) -> Option<TrainingInstance>;
+}
+
+/**
+ * The game information available to a particular player
+ */
+#[derive(Deserialize, Serialize)]
+pub struct PlayerGameView {
+    pub observations: ObsTracker,
+
+    pub turn: TurnNum,
+
+    pub num_players: PlayerNum,
+
+    pub current_player: PlayerNum,
+
+    pub wrapping: Wrap2d,
+
+    pub fog_of_war: bool,
+
+    pub score: f64,
 }
