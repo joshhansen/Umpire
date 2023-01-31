@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::{action::PlayerAction, player::PlayerGameView, Game};
 
 /// A proposed change to the game state.
@@ -26,6 +28,7 @@ impl<T> Proposed<T> {
 ///
 /// If the result is acceptable, use `Game::
 ///
+#[derive(Deserialize, Serialize)]
 pub struct Proposed2<T> {
     pub action: PlayerAction,
     pub result: T,

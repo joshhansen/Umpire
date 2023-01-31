@@ -3,10 +3,12 @@ use crossterm::event::KeyCode;
 use common::{
     colors::Colors,
     game::{
+        alignment::AlignedMaybe,
+        error::GameError,
         map::Tile,
         player::PlayerTurnControl,
+        proposed::Proposed,
         unit::{orders::OrdersResult, UnitID},
-        AlignedMaybe, GameError, Proposed,
     },
     log::{Message, MessageSource},
     util::{Direction, Location, Wrap2d},

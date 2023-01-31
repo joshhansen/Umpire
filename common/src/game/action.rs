@@ -154,7 +154,7 @@ impl AiPlayerAction {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum PlayerAction {
     SetCityProduction {
         city_id: CityID,
@@ -173,6 +173,7 @@ pub enum PlayerAction {
     },
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub enum PlayerActionOutcome {
     SetCityProduction {
         city_id: CityID,

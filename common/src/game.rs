@@ -19,8 +19,7 @@ pub mod unit;
 use std::{
     collections::{HashMap, HashSet},
     fmt,
-    rc::Rc,
-    sync::RwLock,
+    sync::{Arc, RwLock},
 };
 
 use rsrl::DerefVec;
@@ -139,7 +138,7 @@ pub struct Game {
     wrapping: Wrap2d,
 
     /// A name generator to give names to units
-    unit_namer: Rc<RwLock<dyn Namer>>,
+    unit_namer: Arc<RwLock<dyn Namer>>,
 
     /// Whether players have full information about the map, or have their knowledge obscured by the "fog of war".
     fog_of_war: bool,
@@ -170,7 +169,7 @@ impl Game {
         mut city_namer: N,
         num_players: PlayerNum,
         fog_of_war: bool,
-        unit_namer: Option<Rc<RwLock<dyn Namer>>>,
+        unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
     ) -> Self {
         let map = generate_map(&mut city_namer, map_dims, num_players);
@@ -182,7 +181,7 @@ impl Game {
         map: MapData,
         num_players: PlayerNum,
         fog_of_war: bool,
-        unit_namer: Option<Rc<RwLock<dyn Namer>>>,
+        unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
     ) -> Self {
         let mut player_observations = HashMap::new();
@@ -197,7 +196,7 @@ impl Game {
             num_players,
             current_player: 0,
             wrapping,
-            unit_namer: unit_namer.unwrap_or(Rc::new(RwLock::new(IntNamer::new("unit")))),
+            unit_namer: unit_namer.unwrap_or(Arc::new(RwLock::new(IntNamer::new("unit")))),
             fog_of_war,
             action_counts: vec![0; num_players],
             defeated_unit_hitpoints: vec![0; num_players],
@@ -1687,7 +1686,7 @@ impl DerefVec for Game {
 /// Test support functions
 pub mod test_support {
 
-    use std::{rc::Rc, sync::RwLock};
+    use std::sync::{Arc, RwLock};
 
     use crate::{
         game::{
@@ -1762,6 +1761,8 @@ pub mod test_support {
 
     #[cfg(test)]
     pub fn game1() -> Game {
+        use std::sync::Arc;
+
         let players = 2;
         let fog_of_war = true;
 
@@ -1771,7 +1772,7 @@ pub mod test_support {
             map,
             players,
             fog_of_war,
-            Some(Rc::new(RwLock::new(unit_namer))),
+            Some(Arc::new(RwLock::new(unit_namer))),
             Wrap2d::BOTH,
         )
     }
@@ -1786,7 +1787,7 @@ pub mod test_support {
             map,
             players,
             fog_of_war,
-            Some(Rc::new(RwLock::new(unit_namer))),
+            Some(Arc::new(RwLock::new(unit_namer))),
             Wrap2d::BOTH,
         );
 
@@ -1834,7 +1835,7 @@ pub mod test_support {
             map,
             players,
             fog_of_war,
-            Some(Rc::new(RwLock::new(unit_namer))),
+            Some(Arc::new(RwLock::new(unit_namer))),
             Wrap2d::NEITHER,
         )
     }
@@ -1876,8 +1877,7 @@ pub mod test_support {
 mod test {
     use std::{
         collections::{HashMap, HashSet},
-        rc::Rc,
-        sync::RwLock,
+        sync::{Arc, RwLock},
     };
 
     use rand::{thread_rng, Rng};
@@ -1983,7 +1983,7 @@ mod test {
             map,
             2,
             false,
-            Some(Rc::new(RwLock::new(unit_namer()))),
+            Some(Arc::new(RwLock::new(unit_namer()))),
             Wrap2d::BOTH,
         );
         assert_eq!(game.current_player(), 0);

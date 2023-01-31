@@ -6,8 +6,8 @@ use crossterm::{
 };
 
 use common::game::{
+    alignment::{Aligned, AlignedMaybe},
     map::{Terrain, Tile},
-    Aligned, AlignedMaybe,
 };
 
 use crate::ui::Draw;

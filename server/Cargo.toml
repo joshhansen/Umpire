@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+clap = { workspace = true }
 common = { path = "../common" }
 futures = "0.3"
 tarpc = { version = "0.31", features = ["full"] }

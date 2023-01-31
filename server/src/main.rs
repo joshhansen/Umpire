@@ -1,15 +1,27 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    sync::{Arc, RwLock},
+    time::SystemTime,
+};
+
+use clap::Arg;
 
 use common::{
+    cli::{self, parse_player_spec, Specified},
+    conf,
     game::{
-        ai::{fX, player_features, AiPlayerAction},
+        action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
+        ai::{fX, player_features},
         city::{City, CityID},
+        error::GameError,
         map::Tile,
         move_::{Move, MoveError, MoveResult},
         obs::{Obs, ObsTracker},
+        proposed::Proposed2,
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
-        Game, GameError, PlayerNum, Proposed, TurnNum, TurnStart,
+        Game, PlayerNum, PlayerType, TurnNum, TurnStart,
     },
+    name::{city_namer, unit_namer},
     util::{Dims, Direction, Location, Wrap2d},
 };
 use futures::{
@@ -28,7 +40,10 @@ use tarpc::{
 trait UmpirePlayerRpc {
     /// The number of the player connected over this RPC channel
     async fn player_num() -> PlayerNum;
+}
 
+#[tarpc::service]
+trait Blah {
     /// The number of players in the game
     async fn num_players() -> PlayerNum;
 
@@ -120,17 +135,17 @@ trait UmpirePlayerRpc {
 
     async fn move_unit_by_id(unit_id: UnitID, dest: Location) -> MoveResult;
 
-    async fn propose_move_unit_by_id(
-        id: UnitID,
-        dest: Location,
-    ) -> Proposed<Result<Move, MoveError>>;
+    // async fn propose_move_unit_by_id(
+    //     id: UnitID,
+    //     dest: Location,
+    // ) -> Proposed2<Result<Move, MoveError>>;
 
     async fn move_unit_by_id_avoiding_combat(id: UnitID, dest: Location) -> MoveResult;
 
-    async fn propose_move_unit_by_id_avoiding_combat(
-        id: UnitID,
-        dest: Location,
-    ) -> Proposed<MoveResult>;
+    // async fn propose_move_unit_by_id_avoiding_combat(
+    //     id: UnitID,
+    //     dest: Location,
+    // ) -> Proposed2<MoveResult>;
 
     async fn disband_unit_by_id(id: UnitID) -> Result<Unit, GameError>;
 
@@ -180,19 +195,15 @@ trait UmpirePlayerRpc {
     async fn order_unit_go_to(unit_id: UnitID, dest: Location) -> OrdersResult;
 
     /// Simulate ordering the specified unit to go to the given location
-    async fn propose_order_unit_go_to(unit_id: UnitID, dest: Location) -> Proposed<OrdersResult>;
+    // async fn propose_order_unit_go_to(unit_id: UnitID, dest: Location) -> Proposed<OrdersResult>;
 
     async fn order_unit_explore(unit_id: UnitID) -> OrdersResult;
 
     /// Simulate ordering the specified unit to explore.
-    async fn propose_order_unit_explore(unit_id: UnitID) -> Proposed<OrdersResult>;
+    // async fn propose_order_unit_explore(unit_id: UnitID) -> Proposed<OrdersResult>;
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
     async fn activate_unit_by_loc(loc: Location) -> Result<(), GameError>;
-
-    async fn propose_end_turn() -> (Game, Result<TurnStart, PlayerNum>);
-
-    async fn apply_proposal(proposal: Proposed<T>) -> T;
 
     /// Feature vector for use in AI training
     ///
@@ -215,24 +226,30 @@ trait UmpirePlayerRpc {
 
     async fn player_score(player: PlayerNum) -> Result<f64, GameError>;
 
-    async fn take_action(action: AiPlayerAction) -> Result<(), GameError>;
+    async fn take_simple_action(action: AiPlayerAction) -> Result<PlayerActionOutcome, GameError>;
+
+    async fn take_action(action: PlayerAction) -> Result<PlayerActionOutcome, GameError>;
 }
 
 // Implementation of the server API
 #[derive(Clone)]
 struct UmpireServer {
     game: Game,
-    /// Which player is this control shim representing? A copy of `Game::current_player`'s result. Shouldn't get stale
-    /// since we lock down anything that would change who the current player is. We do this for convenience.
-    pub player: PlayerNum,
-
-    clear_completed_productions: bool,
-
-    end_turn_on_drop: bool,
 }
 
 #[tarpc::server]
 impl UmpirePlayerRpc for UmpireServer {
+    type PlayerNumFut = Ready<PlayerNum>;
+    async fn player_num(self, _: Context) -> Self::PlayerNumFut {
+        future::ready(self.game.current_player())
+    }
+}
+
+struct Tmp {
+    game: Game,
+    player: PlayerNum,
+}
+impl Tmp {
     // Each defined rpc generates two items in the trait, a fn that serves the RPC, and
     // an associated type representing the future output by the fn.
 
@@ -241,10 +258,6 @@ impl UmpirePlayerRpc for UmpireServer {
     // fn hello(self, _: context::Context, name: String) -> Self::HelloFut {
     //     future::ready(format!("Hello, {name}!"))
     // }
-
-    async fn player_num(self, _: Context) -> PlayerNum {
-        self.player
-    }
 
     async fn num_players(self, _: Context) -> PlayerNum {
         self.game.num_players()
@@ -283,21 +296,21 @@ impl UmpirePlayerRpc for UmpireServer {
 
     /// The current player's most recent observation of the tile at location `loc`, if any
     async fn current_player_tile(self, _: Context, loc: Location) -> Option<Tile> {
-        self.game.current_player_tile(loc)
+        self.game.current_player_tile(loc).cloned()
     }
 
     /// The current player's observation at location `loc`
     async fn current_player_obs(self, _: Context, loc: Location) -> Obs {
-        self.game.current_player_obs(loc)
+        self.game.current_player_obs(loc).clone()
     }
 
     async fn current_player_observations(self, _: Context) -> ObsTracker {
-        self.game.current_player_observations()
+        self.game.current_player_observations().clone()
     }
 
     /// Every city controlled by the current player
     async fn current_player_cities(self, _: Context) -> Vec<City> {
-        self.game.current_player_cities()
+        self.game.current_player_cities().cloned().collect()
     }
 
     /// All cities controlled by the current player which have a production target set
@@ -313,7 +326,6 @@ impl UmpirePlayerRpc for UmpireServer {
     /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
     ///
     /// FIXME Get rid of this and just make the UI smarter
-    #[deprecated]
     async fn player_cities_producing_or_not_ignored(self, _: Context) -> usize {
         self.game.player_cities_producing_or_not_ignored()
     }
@@ -325,17 +337,17 @@ impl UmpirePlayerRpc for UmpireServer {
 
     /// If the current player controls a city at location `loc`, return it
     async fn current_player_city_by_loc(self, _: Context, loc: Location) -> Option<City> {
-        self.game.current_player_city_by_loc(loc)
+        self.game.current_player_city_by_loc(loc).cloned()
     }
 
     /// If the current player controls a city with ID `city_id`, return it
     async fn current_player_city_by_id(self, _: Context, city_id: CityID) -> Option<City> {
-        self.game.current_player_city_by_id(city_id)
+        self.game.current_player_city_by_id(city_id).cloned()
     }
 
     /// If the current player controls a unit with ID `id`, return it
     async fn current_player_unit_by_id(self, _: Context, id: UnitID) -> Option<Unit> {
-        self.game.current_player_unit_by_id(id)
+        self.game.current_player_unit_by_id(id).cloned()
     }
 
     /// If the current player controls a unit with ID `id`, return its location
@@ -345,7 +357,7 @@ impl UmpirePlayerRpc for UmpireServer {
 
     /// If the current player controls the top-level unit at location `loc`, return it
     async fn current_player_toplevel_unit_by_loc(self, _: Context, loc: Location) -> Option<Unit> {
-        self.game.current_player_toplevel_unit_by_loc(loc)
+        self.game.current_player_toplevel_unit_by_loc(loc).cloned()
     }
 
     async fn production_set_requests(self, _: Context) -> Vec<Location> {
@@ -373,7 +385,7 @@ impl UmpirePlayerRpc for UmpireServer {
     // Movement-related methods
 
     async fn move_toplevel_unit_by_id(
-        self,
+        mut self,
         _: Context,
         unit_id: UnitID,
         dest: Location,
@@ -382,7 +394,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_toplevel_unit_by_id_avoiding_combat(
-        self,
+        mut self,
         _: Context,
         unit_id: UnitID,
         dest: Location,
@@ -392,7 +404,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_toplevel_unit_by_loc(
-        self,
+        mut self,
         _: Context,
         src: Location,
         dest: Location,
@@ -401,7 +413,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_toplevel_unit_by_loc_avoiding_combat(
-        self,
+        mut self,
         _: Context,
         src: Location,
         dest: Location,
@@ -411,7 +423,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_unit_by_id_in_direction(
-        self,
+        mut self,
         _: Context,
         id: UnitID,
         direction: Direction,
@@ -419,21 +431,21 @@ impl UmpirePlayerRpc for UmpireServer {
         self.game.move_unit_by_id_in_direction(id, direction)
     }
 
-    async fn move_unit_by_id(self, _: Context, unit_id: UnitID, dest: Location) -> MoveResult {
+    async fn move_unit_by_id(mut self, _: Context, unit_id: UnitID, dest: Location) -> MoveResult {
         self.game.move_unit_by_id(unit_id, dest)
     }
 
-    async fn propose_move_unit_by_id(
-        self,
-        _: Context,
-        id: UnitID,
-        dest: Location,
-    ) -> Proposed<Result<Move, MoveError>> {
-        self.game.propose_move_unit_by_id(id, dest)
-    }
+    // async fn propose_move_unit_by_id(
+    //     self,
+    //     _: Context,
+    //     id: UnitID,
+    //     dest: Location,
+    // ) -> Proposed<Result<Move, MoveError>> {
+    //     self.game.propose_move_unit_by_id(id, dest)
+    // }
 
     async fn move_unit_by_id_avoiding_combat(
-        self,
+        mut self,
         _: Context,
         id: UnitID,
         dest: Location,
@@ -441,16 +453,16 @@ impl UmpirePlayerRpc for UmpireServer {
         self.game.move_unit_by_id_avoiding_combat(id, dest)
     }
 
-    async fn propose_move_unit_by_id_avoiding_combat(
-        self,
-        _: Context,
-        id: UnitID,
-        dest: Location,
-    ) -> Proposed<MoveResult> {
-        self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
-    }
+    // async fn propose_move_unit_by_id_avoiding_combat(
+    //     self,
+    //     _: Context,
+    //     id: UnitID,
+    //     dest: Location,
+    // ) -> Proposed<MoveResult> {
+    //     self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
+    // }
 
-    async fn disband_unit_by_id(self, _: Context, id: UnitID) -> Result<Unit, GameError> {
+    async fn disband_unit_by_id(mut self, _: Context, id: UnitID) -> Result<Unit, GameError> {
         self.game.disband_unit_by_id(id)
     }
 
@@ -458,7 +470,7 @@ impl UmpirePlayerRpc for UmpireServer {
     ///
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
     async fn set_production_by_loc(
-        self,
+        mut self,
         _: Context,
         loc: Location,
         production: UnitType,
@@ -470,7 +482,7 @@ impl UmpirePlayerRpc for UmpireServer {
     ///
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
     async fn set_production_by_id(
-        self,
+        mut self,
         _: Context,
         city_id: CityID,
         production: UnitType,
@@ -480,7 +492,7 @@ impl UmpirePlayerRpc for UmpireServer {
 
     //FIXME Restrict to current player cities
     async fn clear_production_without_ignoring(
-        self,
+        mut self,
         _: Context,
         loc: Location,
     ) -> Result<(), String> {
@@ -488,7 +500,11 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     //FIXME Restrict to current player cities
-    async fn clear_production_and_ignore(self, _: Context, loc: Location) -> Result<(), String> {
+    async fn clear_production_and_ignore(
+        mut self,
+        _: Context,
+        loc: Location,
+    ) -> Result<(), String> {
         self.game.clear_production_and_ignore(loc)
     }
 
@@ -521,55 +537,60 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    async fn order_unit_sentry(self, _: Context, unit_id: UnitID) -> OrdersResult {
+    async fn order_unit_sentry(mut self, _: Context, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_sentry(unit_id)
     }
 
-    async fn order_unit_skip(self, _: Context, unit_id: UnitID) -> OrdersResult {
+    async fn order_unit_skip(mut self, _: Context, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_skip(unit_id)
     }
 
-    async fn order_unit_go_to(self, _: Context, unit_id: UnitID, dest: Location) -> OrdersResult {
+    async fn order_unit_go_to(
+        mut self,
+        _: Context,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> OrdersResult {
         self.game.order_unit_go_to(unit_id, dest)
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    async fn propose_order_unit_go_to(
-        self,
-        _: Context,
-        unit_id: UnitID,
-        dest: Location,
-    ) -> Proposed<OrdersResult> {
-        self.game.propose_order_unit_go_to(unit_id, dest)
-    }
+    // async fn propose_order_unit_go_to(
+    //     self,
+    //     _: Context,
+    //     unit_id: UnitID,
+    //     dest: Location,
+    // ) -> Proposed<OrdersResult> {
+    //     self.game.propose_order_unit_go_to(unit_id, dest)
+    // }
 
-    async fn order_unit_explore(self, _: Context, unit_id: UnitID) -> OrdersResult {
+    async fn order_unit_explore(mut self, _: Context, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_explore(unit_id)
     }
 
     /// Simulate ordering the specified unit to explore.
-    async fn propose_order_unit_explore(
-        self,
-        _: Context,
-        unit_id: UnitID,
-    ) -> Proposed<OrdersResult> {
-        self.game.propose_order_unit_explore(unit_id)
-    }
+    // async fn propose_order_unit_explore(
+    //     self,
+    //     _: Context,
+    //     unit_id: UnitID,
+    // ) -> Proposed<OrdersResult> {
+    //     self.game.propose_order_unit_explore(unit_id)
+    // }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    async fn activate_unit_by_loc(self, _: Context, loc: Location) -> Result<(), GameError> {
+    async fn activate_unit_by_loc(mut self, _: Context, loc: Location) -> Result<(), GameError> {
         self.game.activate_unit_by_loc(loc)
     }
 
-    async fn propose_end_turn(self, _: Context) -> (Game, Result<TurnStart, PlayerNum>) {
-        let mut game = self.game.clone();
-        let result = game.end_turn();
-        (game, result)
-    }
+    // async fn propose_end_turn(self, _: Context) -> (Game, Result<TurnStart, PlayerNum>) {
+    //     let mut game = self.game.clone();
+    //     let result = game.end_turn();
+    //     (game, result)
+    // }
 
-    async fn apply_proposal<T>(self, _: Context, proposal: Proposed<T>) -> T {
-        proposal.apply(self.game)
-    }
+    // async fn apply_proposal<T>(mut self, _: Context, proposal: Proposed<T>) -> T {
+    //     proposal.apply(&mut self.game)
+    // }
 
     /// Feature vector for use in AI training
     ///
@@ -596,17 +617,108 @@ impl UmpirePlayerRpc for UmpireServer {
         self.game.player_score(player)
     }
 
-    async fn take_action(self, _: Context, action: AiPlayerAction) -> Result<(), GameError> {
+    async fn take_action(
+        mut self,
+        _: Context,
+        action: AiPlayerAction,
+    ) -> Result<PlayerActionOutcome, GameError> {
         self.game.take_simple_action(action)
     }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let matches = cli::app(format!("{}d", conf::APP_NAME), "fwWH")
+        .version(conf::APP_VERSION)
+        .author("Josh Hansen <hansen.joshuaa@gmail.com>")
+        .about(conf::APP_SUBTITLE)
+        .arg(
+            Arg::with_name("players")
+                .short("p")
+                .long("players")
+                .takes_value(true)
+                .required(true)
+                .default_value("h1233")
+                .help(
+                    format!(
+                        "Player type specification string, {}",
+                        PlayerType::values()
+                            .iter()
+                            .map(|player_type| format!(
+                                "'{}' for {}",
+                                player_type.spec(),
+                                player_type.desc()
+                            ))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                    .as_str(),
+                )
+                .validator(|s| {
+                    parse_player_spec(s.as_str()).map(|_| ())
+                    // for spec_char in s.chars() {
+                    //     PlayerType::from_spec_char(spec_char)
+                    //     .map(|_| ())
+                    //     .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
+                    // }
+                    // Ok(())
+                }),
+        )
+        .get_matches();
+
+    let fog_of_war = matches.value_of("fog").unwrap() == "on";
+    // let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
+    //     .chars()
+    //     .map(|spec_char| {
+    //         PlayerType::from_spec_char(spec_char)
+    //                     .expect(format!("'{}' is not a valid player type", spec_char).as_str())
+    //     })
+    //     .collect()
+    // ;
+
+    let player_types: Vec<PlayerType> =
+        parse_player_spec(matches.value_of("players").unwrap()).unwrap();
+
+    let num_players: PlayerNum = player_types.len();
+    let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
+    let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
+    let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
+    let color_depth: u16 = matches.value_of("colors").unwrap().parse().unwrap();
+    let fog_darkness: f64 = matches.value_of("fog_darkness").unwrap().parse().unwrap();
+    let unicode: bool = matches.is_present("unicode");
+    let quiet: bool = matches.is_present("quiet");
+    let nosplash: bool = matches.is_present("nosplash");
+    let confirm_turn_end: bool = matches.is_present("confirm_turn_end");
+    let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
+
+    let map_dims: Dims = Dims::new(map_width, map_height);
+    if (map_dims.area() as PlayerNum) < num_players {
+        eprintln!("Map dimensions of {} give an area of {} which is not enough room for {} players; area of {} or greater required.",
+            map_dims, map_dims.area(), num_players, num_players);
+        return Err(());
+    }
+
+    let start_time = SystemTime::now();
+
+    let city_namer = city_namer();
+    let unit_namer = unit_namer();
+
     let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
     let server = server::BaseChannel::with_defaults(server_transport);
-    tokio::spawn(server.execute(UmpireServer::serve()));
+
+    let game = Game::new(
+        map_dims,
+        city_namer,
+        num_players,
+        fog_of_war,
+        Some(Arc::new(RwLock::new(unit_namer))),
+        wrapping,
+    );
+
+    let umpire_player_rpc_server = UmpireServer { game };
+
+    tokio::spawn(server.execute(umpire_player_rpc_server.serve()));
 
     // WorldClient is generated by the #[tarpc::service] attribute. It has a constructor `new`
     // that takes a config and any Transport as input.
@@ -615,9 +727,13 @@ async fn main() -> anyhow::Result<()> {
     // The client has an RPC method for each RPC defined in the annotated trait. It takes the same
     // args as defined, with the addition of a Context, which is always the first arg. The Context
     // specifies a deadline and trace information which can be helpful in debugging requests.
-    let hello = client.hello(context::current(), "Stim".to_string()).await?;
+    // let hello = client.hello(context::current(), "Stim".to_string()).await?;
 
-    println!("{hello}");
+    // println!("{hello}");
+
+    let player_num = client.player_num(context::current()).await?;
+
+    println!("player_num: {}", player_num);
 
     Ok(())
 }

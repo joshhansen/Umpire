@@ -9,12 +9,12 @@ use crossterm::{
 use common::{
     colors::{Colorized, Colors},
     game::{
+        alignment::AlignedMaybe,
         city::City,
         map::{LocationGrid, Tile},
         obs::Obs,
         player::PlayerTurnControl,
         unit::{orders::Orders, Unit},
-        AlignedMaybe,
     },
     util::{Dims, Location, Rect, Vec2d},
 };
