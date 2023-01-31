@@ -6,9 +6,7 @@ use std::{
     fmt,
     fs::{File, OpenOptions},
     io::{stdout, Write},
-    ops::{Mul, Sub},
     path::Path,
-    rc::Rc,
     sync::Arc,
 };
 
@@ -38,13 +36,13 @@ use serde::{Deserialize, Serialize};
 
 use common::{
     game::{
-        ai::{fX, AISpec, AiPlayerAction},
-        player::TurnTaker,
+        action::AiPlayerAction,
+        ai::{fX, player_features},
         unit::UnitType,
-        Game, GameError, PlayerNum,
+        Game, PlayerNum,
     },
     name::IntNamer,
-    util::{Dims, Direction, Rect, Vec2d, Wrap2d},
+    util::{Dims, Rect, Vec2d, Wrap2d},
 };
 
 use crate::{
@@ -52,7 +50,7 @@ use crate::{
     ui::{Component, Draw, Map},
 };
 
-use super::{dnn::DNN, Loadable, AI};
+use super::{dnn::DNN, AI};
 
 pub type Basis = Constant;
 // pub type Basis = Polynomial;
@@ -351,10 +349,10 @@ impl Domain for UmpireDomain {
             let x: f64 = thread_rng().gen();
             if x <= self.memory_prob {
                 let memory = Memory {
-                    from: from.state().player_features(current_player),
+                    from: player_features(from.state(), current_player),
                     action: action_idx,
                     reward,
-                    to: to.state().player_features(current_player),
+                    to: player_features(to.state(), current_player),
                 };
 
                 let bytes = bincode::serialize(&memory).unwrap();
@@ -807,11 +805,7 @@ fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        cell::RefCell,
-        collections::{HashMap, HashSet},
-        rc::Rc,
-    };
+    use std::collections::{HashMap, HashSet};
 
     use rand::thread_rng;
 
@@ -819,16 +813,17 @@ mod test {
 
     use common::{
         game::{
+            alignment::Alignment,
             map::{MapData, Terrain},
             unit::UnitType,
-            Alignment, Game,
+            Game,
         },
         util::{Dims, Direction, Location, Wrap2d},
     };
 
     use crate::game::ai::{
         rl::{trained_agent, AiPlayerAction, UmpireDomain},
-        AISpec, RandomAI, AI,
+        AI,
     };
 
     #[test]

@@ -4,8 +4,8 @@ use common::{
     conf::{self, key_desc},
     game::{
         player::PlayerTurnControl,
+        proposed::Proposed,
         unit::{orders::OrdersResult, UnitID},
-        Proposed,
     },
     util::{Direction, Rect},
 };
@@ -109,7 +109,8 @@ impl IMode for GetUnitOrdersMode {
                 Some(Some(unit)),
                 None,
                 None,
-            );
+            )
+            .unwrap();
 
             unit.loc
         };

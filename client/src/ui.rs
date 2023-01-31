@@ -58,7 +58,7 @@ pub trait MoveAnimator {
 }
 
 /// An abstraction on the terminal UI, basically for test mocking purposes
-pub(in crate::ui) trait UI: LogTarget + MoveAnimator {
+pub trait UI: LogTarget + MoveAnimator {
     fn confirm_turn_end(&self) -> bool;
 
     /// Center the map view on the given map location

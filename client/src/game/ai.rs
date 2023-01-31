@@ -1,7 +1,8 @@
 use std::{fmt, fs::File, io::Write, path::Path};
 
 use common::game::{
-    ai::{player_features, AISpec, AiPlayerAction, TrainingInstance},
+    action::AiPlayerAction,
+    ai::{player_features, AISpec, TrainingInstance},
     Game,
 };
 use rand::{thread_rng, Rng};

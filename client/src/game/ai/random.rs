@@ -1,4 +1,4 @@
-use std::io::{stdout, Write};
+use std::io::stdout;
 
 use crossterm::{cursor::MoveTo, execute};
 
@@ -263,10 +263,11 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
 mod test {
     use common::{
         game::{
+            alignment::Alignment,
             map::{gen::generate_map, terrain::Terrain, MapData},
             player::LimitedTurnTaker,
             unit::UnitID,
-            Alignment, Game,
+            Game,
         },
         name::IntNamer,
         util::{Dims, Location, Wrap2d},

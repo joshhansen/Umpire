@@ -203,9 +203,10 @@ impl IMode for TurnOverMode {
 mod test {
     use common::{
         game::{
+            alignment::Alignment,
             map::{MapData, Terrain},
             unit::UnitType,
-            Alignment, Game,
+            Game,
         },
         util::{Dims, Location, Wrap2d},
     };

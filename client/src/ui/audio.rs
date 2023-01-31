@@ -13,7 +13,7 @@ use pitch_calc::{Letter, LetterOctave};
 
 use common::game::unit::UnitType;
 
-pub(in crate::ui) enum Sounds {
+pub enum Sounds {
     Silence,
     Unit(UnitType),
     // Intro,

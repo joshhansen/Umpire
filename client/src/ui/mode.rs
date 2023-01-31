@@ -16,7 +16,7 @@ use self::{
 };
 
 #[derive(Clone, Copy, Debug)]
-pub(in crate::ui) enum Mode {
+pub enum Mode {
     TurnStart,
     TurnResume,
     TurnOver,
@@ -122,18 +122,18 @@ pub enum ModeStatus {
 ///
 /// FIXME: Why is this separate from ModeStatus?
 #[derive(PartialEq)]
-enum StateDisposition {
+pub enum StateDisposition {
     Stay,
     Next,
     Quit,
 }
 
-enum KeyStatus {
+pub enum KeyStatus {
     Handled(StateDisposition),
     Unhandled(KeyEvent),
 }
 
-pub(crate) trait IMode {
+pub trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
     fn run<U: UI>(
         &self,

@@ -15,7 +15,8 @@ use tch::{
 };
 
 use common::game::{
-    ai::{AiPlayerAction, DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
+    action::AiPlayerAction,
+    ai::{player_features, DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
     Game,
 };
 
@@ -56,7 +57,7 @@ impl DNN {
     fn tensor_for(&self, state: &Game) -> Tensor {
         //NOTE We could avoid this extra allocation if we could figure out how to use 64-bit weights in PyTorch
         //     or 32-bit weights in `rsrl`
-        let features_f64 = state.features();
+        let features_f64 = player_features(state, state.current_player());
         let mut features: Vec<f32> = Vec::with_capacity(features_f64.len());
         for feat in features_f64 {
             features.push(feat as f32);

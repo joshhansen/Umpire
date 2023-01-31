@@ -387,7 +387,7 @@ pub mod test_support {
 
 #[cfg(test)]
 pub mod test {
-    use std::{rc::Rc, sync::RwLock};
+    use std::sync::{Arc, RwLock};
 
     use crate::{
         game::{
@@ -412,7 +412,7 @@ pub mod test {
             map,
             1,
             false,
-            Some(Rc::new(RwLock::new(unit_namer()))),
+            Some(Arc::new(RwLock::new(unit_namer()))),
             Wrap2d::BOTH,
         );
 

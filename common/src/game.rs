@@ -1759,10 +1759,7 @@ pub mod test_support {
         map
     }
 
-    #[cfg(test)]
     pub fn game1() -> Game {
-        use std::sync::Arc;
-
         let players = 2;
         let fog_of_war = true;
 
