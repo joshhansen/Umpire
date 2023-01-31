@@ -11,7 +11,7 @@ use std::{
     collections::HashMap,
     io::{stdout, BufRead, BufReader, Write},
     rc::Rc,
-    sync::RwLock,
+    sync::{Arc, RwLock},
     thread,
     time::{Duration, SystemTime},
 };
@@ -211,7 +211,7 @@ fn main() {
         city_namer,
         player_types.len(),
         fog_of_war,
-        Some(Rc::new(RwLock::new(unit_namer))),
+        Some(Arc::new(RwLock::new(unit_namer))),
         wrapping,
     );
 

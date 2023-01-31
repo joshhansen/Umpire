@@ -39,10 +39,9 @@ use common::{
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
 
-use crate::{
+use umpire_client::{
     color::palette16,
-    game::ai::{rl::trained_agent, Storable, AI},
-    ui::{Draw, Map},
+    ui::{Draw, Map}, game::ai::{AI, rl::trained_agent, Storable},
 };
 
 fn f32_validator(s: String) -> Result<(), String> {
