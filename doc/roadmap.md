@@ -10,15 +10,14 @@
 * FIXME Explore and go-to moves aren't animating visibly
 * TODO Fuel limits for aircraft
 * TODO Client/server architecture
- - start with a naive port: no substantial caching on client
+ - Inventory PlayerTurnControl - make sure it's fully restricted to the player's view of game state
+ - PlayerTurnControl -> PlayerGameView - client has a local copy of player's view of the game
+ - Low-level client-server protocol, updating client state incrementally
  - server runs exactly one game
  - each client controls exactly one player
  - switch from async_trait to nightly async trait fn
- - re-implement terminal UI as RPC client
- - re-implement AI training and runtime as RPC clients
 
 ## 0.6 Milestones
-* TODO Lower-level client-server protocol, updating client state incrementally
 * TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
 * TODO Wake up sentried units when an enemy comes within their sight.
 * TODO Opening theme music
@@ -26,7 +25,6 @@
 * FIXME Make it clear when a unit is inside a city
 * FIXME Small maps aren't centered properly (e.g. 10x10)
 * FIXME Rendering issues if wrapping is off
-
 * FIXME Autoscale splashscreen to fit terminal dimensions
 
 ## 0.7 Milestones
