@@ -16,6 +16,9 @@
  - server runs exactly one game
  - each client controls exactly one player
  - switch from async_trait to nightly async trait fn
+* CHORE: Upgrade clap
+* CHORE: Replace failure with thiserror
+* CHORE: Audit dependencies, removing as possible
 
 ## 0.6 Milestones
 * TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
