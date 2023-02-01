@@ -5,28 +5,37 @@
 * ~~TODO Deploy to crates.io~~
 
 ## 0.5 Milestones
-* TODO Client/server architecture
- - what's the implication for testing? Requires a network connection?
+* ~~TODO Initial AI framework~~
+* ~~TODO Make active unit blink---it's too hard to see right now.~~
+* FIXME Explore and go-to moves aren't animating visibly
 * TODO Fuel limits for aircraft
+* TODO Client/server architecture
+ - start with a naive port: no substantial caching on client
+ - server runs exactly one game
+ - each client controls exactly one player
+ - switch from async_trait to nightly async trait fn
+ - re-implement terminal UI as RPC client
+ - re-implement AI training and runtime as RPC clients
+
+## 0.6 Milestones
+* TODO Lower-level client-server protocol, updating client state incrementally
 * TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
 * TODO Wake up sentried units when an enemy comes within their sight.
 * TODO Opening theme music
 * TODO Allow map specification at command-line
 * FIXME Make it clear when a unit is inside a city
-* TODO Initial AI framework
-* TODO Make active unit blink---it's too hard to see right now.
 * FIXME Small maps aren't centered properly (e.g. 10x10)
 * FIXME Rendering issues if wrapping is off
-* FIXME Explore and go-to moves aren't animating visibly
+
 * FIXME Autoscale splashscreen to fit terminal dimensions
 
-## 0.6 Milestones
+## 0.7 Milestones
 * TODO Make splash screen respect color palette
 * FIXME Make splash screen fit the terminal size
 * TODO Zoomed-out map view?
 * TODO Color console text announcing turn start to correspond to player colors?
 
-## 0.7 Milestones
+## 0.8 Milestones
 * TODO Travis infrastructure
 * TODO Remove all git-based dependencies
 * TODO Decruftification
@@ -35,12 +44,12 @@
 * TODO? Move `log` into `ui` and make `Game` fully abstract?
 * TODO Profile and optimize
 
-## 0.8 Milestones
+## 0.9 Milestones
 * TODO Windows support
 * TODO OSX support
 * TODO Game save/load
 
-## 0.9 Milestones
+## 0.10 Milestones
 * TODO Unit names that better reflect current world naming patterns rather than just the US from 10/20 years ago.
 
 ## 1.0 Milestones
