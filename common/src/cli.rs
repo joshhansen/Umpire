@@ -1,8 +1,9 @@
-use clap::{App, Arg};
+use clap::{builder::Str, value_parser, Arg, ArgAction, Command};
 
 use crate::{
     conf::{FOG_OF_WAR, MAP_HEIGHT, MAP_WIDTH},
     game::player::PlayerType,
+    util::Wrap2d,
 };
 
 /// An item specified by a string on the command line
@@ -14,19 +15,34 @@ pub trait Specified: TryFrom<String> {
     fn spec(&self) -> String;
 }
 
+pub fn players_arg() -> Arg {
+    Arg::new("players")
+        .short('p')
+        .long("players")
+        .default_value("h1233")
+        .help(format!(
+            "Player type specification string, {}",
+            PlayerType::values()
+                .iter()
+                .map(|player_type| format!("'{}' for {}", player_type.spec(), player_type.desc()))
+                .collect::<Vec<String>>()
+                .join(", ")
+        ))
+        .value_parser(|s: &str| parse_player_spec(s))
+}
+
 /// A standardized `clap` `App`. Provides uniformity to command line interfaces across binaries.
-pub fn app<S: Into<String>>(name: S, included_flags: &'static str) -> App {
-    let mut app = App::new(name);
+pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
+    let mut app = Command::new(name);
 
     for c in included_flags.chars() {
         app = app.arg(match c {
-            'f' => Arg::with_name("fog")
-                .short("f")
+            'f' => Arg::new("fog")
+                .short('f')
                 .long("fog")
                 .help("Enable or disable fog of war")
-                .takes_value(true)
                 .default_value(FOG_OF_WAR)
-                .possible_values(&["on","off"]),
+                .value_parser(clap::builder::BoolishValueParser::new()),
 
             // 'm' => Arg::with_name("ai_model")
             //     .short("m")
@@ -35,49 +51,35 @@ pub fn app<S: Into<String>>(name: S, included_flags: &'static str) -> App {
             //     .takes_value(true),
             //     .multiple(true),// 
 
-            'v' => Arg::with_name("verbose")
-                .short("v")
+            'v' => Arg::new("verbose")
+                .short('v')
                 .long("verbose")
-                .multiple(true)
+                .action(ArgAction::Count)
                 .help("Show verbose output"),
 
-            'w' => Arg::with_name("wrapping")
-                .short("w")
+            'w' => Arg::new("wrapping")
+                .short('w')
                 .long("wrapping")
-                .help("Whether to wrap horizontally ('h'), vertically ('v'), both ('b'), or neither ('n')")
-                .multiple(true)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
-                .takes_value(true)
+                .help("Whether to wrap horizontally ('h'), vertically ('v'), both ('b'), or neither ('n')") 
                 .default_value("b")
-                .validator(|s| {
-                    match s.as_ref() {
-                        "h" | "v" | "b" | "n" => Ok(()),
-                        x => Err(format!("{} is not a supported wrapping type", x))
-                    }
-                }),
+                .action(ArgAction::Append)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
+                .value_parser(|s:&str| Wrap2d::try_from(s)),
 
-            'H' => Arg::with_name("map_height")
-                .short("H")
+            'H' => Arg::new("map_height")
+                .short('H')
                 .long("height")
                 .help("Map height")
-                .takes_value(true)
                 .default_value(MAP_HEIGHT)
-                .multiple(true)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
-                .validator(|s| {
-                    let width: Result<u16,_> = s.trim().parse();
-                    width.map(|_n| ()).map_err(|_e| format!("Invalid map height '{}'", s))
-                }),
+                .action(ArgAction::Append)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
+                .value_parser(value_parser!(u16)),
 
-            'W' => Arg::with_name("map_width")
-                .short("W")
+            'W' => Arg::new("map_width")
+                .short('W')
                 .long("width")
                 .help("Map width")
-                .takes_value(true)
                 .default_value(MAP_WIDTH)
-                .multiple(true)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
-                .validator(|s| {
-                    let width: Result<u16,_> = s.trim().parse();
-                    width.map(|_n| ()).map_err(|_e| format!("Invalid map width '{}'", s))
-                }),
+                .action(ArgAction::Append)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
+                .value_parser(value_parser!(u16)),
 
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
         });

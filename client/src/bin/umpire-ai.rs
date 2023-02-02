@@ -15,10 +15,9 @@ use std::{
     io::{stdout, Write},
     path::Path,
     rc::Rc,
-    str::FromStr,
 };
 
-use clap::{AppSettings, Arg, SubCommand};
+use clap::{value_parser, Arg, ArgAction, Command};
 
 use crossterm::{
     cursor::MoveTo,
@@ -26,7 +25,6 @@ use crossterm::{
     terminal::{size, Clear, ClearType},
 };
 
-use rand::{prelude::SliceRandom, thread_rng};
 use common::{
     cli::{self, parse_spec},
     conf,
@@ -38,23 +36,13 @@ use common::{
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
+use rand::{prelude::SliceRandom, thread_rng};
 
 use umpire_client::{
     color::palette16,
-    ui::{Draw, Map}, game::ai::{AI, rl::trained_agent, Storable},
+    game::ai::{rl::trained_agent, Storable, AI},
+    ui::{Draw, Map},
 };
-
-fn f32_validator(s: String) -> Result<(), String> {
-    f64::from_str(s.as_str())
-        .map(|_| ())
-        .map_err(|err| format!("{}", err))
-}
-
-fn f64_validator(s: String) -> Result<(), String> {
-    f64::from_str(s.as_str())
-        .map(|_| ())
-        .map_err(|err| format!("{}", err))
-}
 
 fn parse_ai_spec<S: AsRef<str>>(spec: S) -> Result<Vec<AISpec>, String> {
     parse_spec(spec, "AI")
@@ -85,44 +73,36 @@ fn main() -> Result<(), String> {
     let matches = cli::app("Umpire AI Trainer", "fvwHW")
     .version(conf::APP_VERSION)
     .author("Josh Hansen <hansen.joshuaa@gmail.com>")
-    .setting(AppSettings::SubcommandRequiredElseHelp)
+    .subcommand_required(true)
     .arg(
-        Arg::with_name("episodes")
-        .short("e")
+        Arg::new("episodes")
+        .short('e')
         .long("episodes")
-        .takes_value(true)
         .default_value("100")
-        .validator(|s| {
-            let episodes: Result<usize,_> = s.trim().parse();
-            episodes.map(|_n| ()).map_err(|_e| format!("Invalid episodes '{}'", s))
-        })
-    )
-    
-    .arg(
-        Arg::with_name("steps")
-        .short("s")
-        .long("steps")
-        .takes_value(true)
-        .default_value("100000")
-        .help("The number of steps to execute in each episode")
-        .validator(|s| {
-            let steps: Result<u64,_> = s.trim().parse();
-            steps.map(|_n| ()).map_err(|_e| format!("Invalid steps '{}'", s))
-        })
+        .value_parser(value_parser!(usize))
     )
 
     .arg(
-        Arg::with_name("fix_output_loc")
-        .short("F")
+        Arg::new("steps")
+        .short('s')
+        .long("steps")
+        .default_value("100000")
+        .help("The number of steps to execute in each episode")
+        .value_parser(value_parser!(u64))
+    )
+
+    .arg(
+        Arg::new("fix_output_loc")
+        .short('F')
         .long("fix")
         .help("Fix the location of output. Makes the output seem animated.")
     )
 
     // .subcommand(
-    //     SubCommand::with_name("datagen")
+    //     SubCommand::new("datagen")
     //     .about("Generate data for direct modeling of state-action values")
     //     .arg(
-    //         Arg::with_name("out")
+    //         Arg::new("out")
     //         .help("Output path for CSV formatted data")
     //         .multiple(false)
     //         .required(true)
@@ -130,134 +110,116 @@ fn main() -> Result<(), String> {
     // )
 
     .subcommand(
-        SubCommand::with_name("eval")
-        .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME).as_str())
+        Command::new("eval")
+        .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
-            Arg::with_name("ai_models")
+            Arg::new("ai_models")
                 .help(AI_MODEL_SPECS_HELP)
-                .multiple(true)
+                .action(ArgAction::Append)
                 .required(true)
         )
         .arg(
-            Arg::with_name("datagenpath")
-            .short("P")
+            Arg::new("datagenpath")
+            .short('P')
             .long("datagenpath")
             .help("Generate state-action value function training data based on the eval output, serializing to this path")
-            .takes_value(true)
-            .validator(|s| {
-                if !Path::new(&s).exists() {
-                    eprintln!("Warning: datagen path {} already exists; will overwrite", s)
-                }
-                Ok(())
-            })
         )
     )
 
     .subcommand(
         cli::app("train", "")
-        .about(format!("Train an AI for the game of {}", conf::APP_NAME).as_str())
-        .setting(AppSettings::ArgRequiredElseHelp)
+        .about(format!("Train an AI for the game of {}", conf::APP_NAME))
+        .arg_required_else_help(true)
         .arg(
-            Arg::with_name("avoid_skip")
-            .short("a")
+            Arg::new("avoid_skip")
+            .short('a')
             .long("avoid_skip")
             .help("Execute policies in a way that avoids the SkipNextUnit action when possible")
-            .takes_value(false)
+            .action(ArgAction::SetTrue)
         )
         .arg(
-            Arg::with_name("qlearning_alpha")
-            .short("-A")
+            Arg::new("qlearning_alpha")
+            .short('A')
             .long("alpha")
             .help("The alpha parameter (learning rate) for the Q-Learning algorithm")
-            .takes_value(true)
-            .validator(f64_validator)
+            .value_parser(value_parser!(f64))
             .default_value("0.01")
         )
         .arg(
-            Arg::with_name("qlearning_gamma")
-            .short("-G")
+            Arg::new("qlearning_gamma")
+            .short('G')
             .long("gamma")
             .help("The gamma parameter (discount rate) for the Q-Learning algorithm")
-            .takes_value(true)
-            .validator(f64_validator)
+            .value_parser(value_parser!(f64))
             .default_value("0.9")
         )
         .arg(
-            Arg::with_name("epsilon")
-            .short("-E")
+            Arg::new("epsilon")
+            .short('E')
             .long("epsilon")
             .help("The epsilon of the epsilon-greedy training policy. The probability of taking a random action rather the policy action")
-            .takes_value(true)
-            .validator(f64_validator)
+            .value_parser(value_parser!(f64))
             .default_value("0.05")
         )
         .arg(
-            Arg::with_name("epsilon_decay")
+            Arg::new("epsilon_decay")
             .long("epsilon-decay")
             .help("A factor to multiply the epsilon by with some probability.")
-            .takes_value(true)
-            .validator(f64_validator)
+            .value_parser(value_parser!(f64))
             .default_value("1.0")
         )
         .arg(
-            Arg::with_name("epsilon_decay_prob")
+            Arg::new("epsilon_decay_prob")
             .long("epsilon-decay-prob")
             .help("The probability, when sampling from the epsilon-greedy policy, of decaying the epsilon")
-            .takes_value(true)
-            .validator(f64_validator)
+            .value_parser(value_parser!(f64))
             .default_value("10e-4")
         )
         .arg(
-            Arg::with_name("min_epsilon")
+            Arg::new("min_epsilon")
             .long("min-epsilon")
             .help("The lowest value that epsilon should decay to")
-            .takes_value(true)
-            .validator(f64_validator)
+            .value_parser(value_parser!(f64))
             .default_value("0.0")
         )
         .arg(
-            Arg::with_name("dnn_learning_rate")
-            .short("-D")
+            Arg::new("dnn_learning_rate")
+            .short('D')
             .long("dnnlr")
             .help("The learning rate of the neural network (if any)")
-            .takes_value(true)
-            .validator(f32_validator)
+            .value_parser(value_parser!(f32))
             .default_value("10e-3")
         )
         .arg(
-            Arg::with_name("deep")
-            .short("d")
+            Arg::new("deep")
+            .short('d')
             .long("deep")
             .help("Indicates that a deep neural network should be trained rather than a linear function approximator")
-            .takes_value(false)
         )
         .arg(
-            Arg::with_name("initial_model_path")
-                .short("i")
+            Arg::new("initial_model_path")
+                .short('i')
                 .long("initial")
                 .help("Serialized AI model file path for the initial model to use as a starting point for training")
-                .takes_value(true)
-                .validator(|s| {
+                .value_parser(|s: &str| {
                     if Path::new(&s).exists() {
-                        Ok(())
+                        Ok(String::from(s))
                     } else {
                         Err(format!("Initial model path '{}' does not exist", s))
                     }
                 })
         )
         .arg(
-            Arg::with_name("out")
-            .help("Output path to serialize the resultin AI model to")
-            .multiple(false)
+            Arg::new("out")
+            .help("Output path to serialize the resulting AI model to")
             .required(true)
         )
         // .arg(
-        //     Arg::with_name("opponent")
+        //     Arg::new("opponent")
         //         .help(AI_MODEL_SPECS_HELP)
         //         .multiple(true)
         //         .required(true)
         // )
-        
     )
 
     .get_matches();
@@ -266,19 +228,19 @@ fn main() -> Result<(), String> {
         size().map_err(|kind| format!("Could not get terminal size: {}", kind))?;
 
     // Arguments common across subcommands:
-    let episodes: usize = matches.value_of("episodes").unwrap().parse().unwrap();
-    let fix_output_loc: bool = matches.is_present("fix_output_loc");
-    let fog_of_war = matches.value_of("fog").unwrap() == "on";
+    let episodes = matches.get_one::<usize>("episodes").unwrap().clone();
+    let fix_output_loc = matches.contains_id("fix_output_loc");
+    let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
 
     let map_heights: Vec<u16> = matches
-        .values_of("map_height")
+        .get_many::<u16>("map_height")
         .unwrap()
-        .map(|h| h.parse().unwrap())
+        .cloned()
         .collect();
     let map_widths: Vec<u16> = matches
-        .values_of("map_width")
+        .get_many::<u16>("map_width")
         .unwrap()
-        .map(|w| w.parse().unwrap())
+        .cloned()
         .collect();
 
     if map_heights.len() != map_widths.len() {
@@ -293,25 +255,21 @@ fn main() -> Result<(), String> {
         .map(|(i, h)| Dims::new(map_widths[i], h))
         .collect();
 
-    let steps: u64 = matches.value_of("steps").unwrap().parse().unwrap();
-    let verbosity = matches.occurrences_of("verbose") as usize;
-    // let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
-
+    let steps = matches.get_one::<u64>("steps").unwrap().clone();
+    let verbosity = matches.get_count("verbose");
     let wrappings: Vec<Wrap2d> = matches
-        .values_of("wrapping")
+        .get_many::<Wrap2d>("wrapping")
         .unwrap()
-        .map(|wrapping_s| Wrap2d::try_from(wrapping_s).unwrap())
+        .cloned()
         .collect();
 
-    let (subcommand, sub_matches) = matches.subcommand();
+    let (subcommand, sub_matches) = matches.subcommand().unwrap();
 
     match subcommand {
         "eval" => println!("Evaluating {} AIs", conf::APP_NAME),
         "train" => println!("Training {} AI", conf::APP_NAME),
         c => unreachable!("Unrecognized subcommand {} should have been caught by the agument parser; there's a bug somehere", c)
     }
-
-    let sub_matches = sub_matches.unwrap();
 
     let mut stdout = stdout();
 
@@ -342,13 +300,24 @@ fn main() -> Result<(), String> {
         let map_width = dims[0].width;
         let map_height = dims[0].height;
 
-        let ai_specs_s: Vec<&str> = sub_matches.values_of("ai_models").unwrap().collect();
+        let ai_specs_s: Vec<&str> = sub_matches
+            .get_many::<&str>("ai_models")
+            .unwrap()
+            .cloned()
+            .collect();
         let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
         let mut ais: Vec<Rc<RefCell<AI>>> = load_ais(&ai_specs)?;
 
-        let datagenpath = sub_matches.value_of("datagenpath").map(Path::new);
-        if let Some(ref datagenpath) = datagenpath {
+        let datagenpath = sub_matches.get_one::<&str>("datagenpath").map(Path::new);
+        if let Some(datagenpath) = datagenpath {
             println!("Generating data to path: {}", datagenpath.display());
+
+            if datagenpath.exists() {
+                eprintln!(
+                    "Warning: datagen path {} already exists; will overwrite",
+                    datagenpath.display()
+                )
+            }
         }
         let generate_data = datagenpath.is_some();
 
@@ -501,21 +470,30 @@ fn main() -> Result<(), String> {
 
         // let opponent_specs: Vec<AISpec> = parse_ai_specs(&opponent_specs_s)?;
 
-        let alpha: f64 = f64::from_str(sub_matches.value_of("qlearning_alpha").unwrap()).unwrap();
-        let gamma: f64 = f64::from_str(sub_matches.value_of("qlearning_gamma").unwrap()).unwrap();
-        let epsilon: f64 = f64::from_str(sub_matches.value_of("epsilon").unwrap()).unwrap();
-        let epsilon_decay: f64 =
-            f64::from_str(sub_matches.value_of("epsilon_decay").unwrap()).unwrap();
-        let decay_prob: f64 =
-            f64::from_str(sub_matches.value_of("epsilon_decay_prob").unwrap()).unwrap();
-        let min_epsilon: f64 = f64::from_str(sub_matches.value_of("min_epsilon").unwrap()).unwrap();
-        let dnn_learning_rate: f32 =
-            f32::from_str(sub_matches.value_of("dnn_learning_rate").unwrap()).unwrap();
+        let alpha = sub_matches
+            .get_one::<f64>("qlearning_alpha")
+            .unwrap()
+            .clone();
+        let gamma = sub_matches
+            .get_one::<f64>("qlearning_gamma")
+            .unwrap()
+            .clone();
+        let epsilon = sub_matches.get_one::<f64>("epsilon").unwrap().clone();
+        let epsilon_decay = sub_matches.get_one::<f64>("epsilon_decay").unwrap().clone();
+        let decay_prob = sub_matches
+            .get_one::<f64>("epsilon_decay_prob")
+            .unwrap()
+            .clone();
+        let min_epsilon = sub_matches.get_one::<f64>("min_epsilon").unwrap().clone();
+        let dnn_learning_rate = sub_matches
+            .get_one::<f32>("dnn_learning_rate")
+            .unwrap()
+            .clone();
 
-        let avoid_skip = sub_matches.is_present("avoid_skip");
-        let deep = sub_matches.is_present("deep");
-        let initial_model_path = sub_matches.value_of("initial_model_path").map(String::from);
-        let output_path = sub_matches.value_of("out").unwrap();
+        let avoid_skip = sub_matches.contains_id("avoid_skip");
+        let deep = sub_matches.contains_id("deep");
+        let initial_model_path = sub_matches.get_one::<String>("initial_model_path").cloned();
+        let output_path = sub_matches.get_one::<&str>("out").unwrap().clone();
 
         let initialize_from_spec_s = initial_model_path.unwrap_or(String::from("random"));
 
@@ -582,7 +560,7 @@ fn main() -> Result<(), String> {
             )
         })?;
     } else {
-        println!("{}", matches.usage());
+        return Err(String::from("A subcommand must be given"));
     }
 
     Ok(())

@@ -23,7 +23,7 @@ homepage = "https://github.com/joshhansen/Umpire"
 members = ["common", "client", "server"]
 
 [workspace.dependencies]
-clap = "2.33.0"
+clap = "4.1.4"
 failure = "0.1.6"
 rand = "0.7.3"
 #rsrl = "0.7.1"

@@ -153,7 +153,7 @@ pub struct UmpireDomain {
     /// The game state
     game: Game,
 
-    verbosity: usize,
+    verbosity: u8,
 
     fix_output_loc: bool,
 
@@ -173,7 +173,7 @@ impl UmpireDomain {
         fix_output_loc: bool,
         fog_of_war: bool,
         wrapping: Wrap2d,
-        verbosity: usize,
+        verbosity: u8,
         memory_path: Option<&Path>,
         memory_prob: f64,
     ) -> Result<Self, std::io::Error> {
@@ -194,7 +194,7 @@ impl UmpireDomain {
     fn from_game(
         game: Game,
         fix_output_loc: bool,
-        verbosity: usize,
+        verbosity: u8,
         memory_path: Option<&Path>,
         memory_prob: f64,
     ) -> Result<Self, std::io::Error> {
@@ -681,7 +681,7 @@ pub fn trained_agent(
     avoid_skip: bool,
     fix_output_loc: bool,
     fog_of_war: bool,
-    verbosity: usize,
+    verbosity: u8,
     memory_path: Option<&'static Path>,
     memory_prob: f64,
 ) -> Result<Agent, String> {

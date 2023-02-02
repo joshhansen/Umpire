@@ -35,7 +35,7 @@ use self::{
 };
 
 use common::{
-    cli::{self, parse_player_spec, Specified},
+    cli::{self, parse_player_spec, players_arg, Specified},
     conf,
     game::{ai::AISpec, player::TurnTaker, Game, PlayerNum, PlayerType},
     log::LogTarget,
@@ -65,108 +65,67 @@ fn print_loading_screen() {
 }
 
 fn main() {
-    let matches = cli::app(conf::APP_NAME, "fwWH")
+    let matches = cli::app(conf::APP_NAME, "")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
         .arg(
-            Arg::with_name("use_alt_screen")
-                .short("a")
+            Arg::new("use_alt_screen")
+                .short('a')
                 .long("altscreen")
                 .help("Use alternate screen")
-                .takes_value(true)
                 .default_value(conf::USE_ALTERNATE_SCREEN)
-                .possible_values(&["on", "off"]),
+                .value_parser(["on", "off"]),
         )
         .arg(
-            Arg::with_name("colors")
-                .short("c")
+            Arg::new("colors")
+                .short('c')
                 .long("colors")
                 .help("Colors supported. 16=16 colors, 256=256 colors, 24=24-bit color")
-                .takes_value(true)
                 .default_value("256")
-                .possible_values(&["16", "256", "24"])
-                .validator(|s| {
-                    let width: Result<u16, _> = s.trim().parse();
-                    width
-                        .map(|_n| ())
-                        .map_err(|_e| format!("Invalid colors '{}'", s))
-                }),
+                .value_parser(["16", "256", "24"]),
         )
         .arg(
-            Arg::with_name("fog_darkness")
-                .short("d")
+            Arg::new("fog_darkness")
+                .short('c')
                 .long("fogdarkness")
                 .help("Number between 0.0 and 1.0 indicating how dark the fog effect should be")
-                .takes_value(true)
                 .default_value("0.1")
-                .validator(|s| {
+                .value_parser(|s: &str| {
                     let width: Result<f64, _> = s.trim().parse();
-                    width
-                        .map(|_n| ())
-                        .map_err(|_e| format!("Invalid map height '{}'", s))
+                    width.map_err(|_e| format!("Invalid map height '{}'", s))
                 }),
         )
         .arg(
-            Arg::with_name("nosplash")
-                .short("n")
+            Arg::new("nosplash")
+                .short('n')
                 .long("nosplash")
                 .help("Don't show the splash screen"),
         )
         .arg(
-            Arg::with_name("players")
-                .short("p")
-                .long("players")
-                .takes_value(true)
-                .required(true)
-                .default_value("h1233")
-                .help(
-                    format!(
-                        "Player type specification string, {}",
-                        PlayerType::values()
-                            .iter()
-                            .map(|player_type| format!(
-                                "'{}' for {}",
-                                player_type.spec(),
-                                player_type.desc()
-                            ))
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    )
-                    .as_str(),
-                )
-                .validator(|s| {
-                    parse_player_spec(s.as_str()).map(|_| ())
-                    // for spec_char in s.chars() {
-                    //     PlayerType::from_spec_char(spec_char)
-                    //     .map(|_| ())
-                    //     .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
-                    // }
-                    // Ok(())
-                }),
-        )
-        .arg(
-            Arg::with_name("quiet")
-                .short("q")
+            Arg::new("quiet")
+                .short('q')
                 .long("quiet")
                 .help("Don't produce sound"),
         )
         .arg(
-            Arg::with_name("unicode")
-                .short("u")
+            Arg::new("unicode")
+                .short('u')
                 .long("unicode")
                 .help("Enable Unicode support"),
         )
         .arg(
-            Arg::with_name("confirm_turn_end")
-                .short("C")
+            Arg::new("confirm_turn_end")
+                .short('C')
                 .long("confirm")
                 .help("Wait for explicit confirmation of turn end."),
         )
+        .arg(players_arg().required_unless_present("server"))
+        .arg(Arg::new("server").required_unless_present("players"))
         .get_matches();
 
     // let ai_model_path = matches.value_of("ai_model");
-    let fog_of_war = matches.value_of("fog").unwrap() == "on";
+    // let fog_of_war = matches.value_of("fog").unwrap() == "on";
     // let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
     //     .chars()
     //     .map(|spec_char| {
@@ -176,20 +135,24 @@ fn main() {
     //     .collect()
     // ;
 
-    let player_types: Vec<PlayerType> =
-        parse_player_spec(matches.value_of("players").unwrap()).unwrap();
+    if matches.contains_id("players") {
+        // We'll run our own server with the specified players, then connect this client to it
+    } else {
+    }
 
-    let num_players: PlayerNum = player_types.len();
-    let use_alt_screen = matches.value_of("use_alt_screen").unwrap() == "on";
-    let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
-    let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
-    let color_depth: u16 = matches.value_of("colors").unwrap().parse().unwrap();
-    let fog_darkness: f64 = matches.value_of("fog_darkness").unwrap().parse().unwrap();
-    let unicode: bool = matches.is_present("unicode");
-    let quiet: bool = matches.is_present("quiet");
-    let nosplash: bool = matches.is_present("nosplash");
-    let confirm_turn_end: bool = matches.is_present("confirm_turn_end");
-    let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
+    // let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
+
+    // let num_players: PlayerNum = player_types.len();
+    let use_alt_screen = matches.get_one::<String>("use_alt_screen").unwrap() == "on";
+    // let map_width = matches.get_one::<u16>("map_width").unwrap().clone();
+    // let map_height = matches.get_one::<u16>("map_height").unwrap().clone();
+    let color_depth = matches.get_one::<u16>("colors").unwrap().clone();
+    let fog_darkness = matches.get_one::<f64>("fog_darkness").unwrap().clone();
+    let unicode = matches.contains_id("unicode");
+    let quiet = matches.contains_id("quiet");
+    let nosplash = matches.contains_id("nosplash");
+    let confirm_turn_end = matches.contains_id("confirm_turn_end");
+    // let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone();
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if (map_dims.area() as PlayerNum) < num_players {
@@ -206,14 +169,14 @@ fn main() {
     let city_namer = city_namer();
     let unit_namer = unit_namer();
 
-    let game = Game::new(
-        map_dims,
-        city_namer,
-        player_types.len(),
-        fog_of_war,
-        Some(Arc::new(RwLock::new(unit_namer))),
-        wrapping,
-    );
+    // let game = Game::new(
+    //     map_dims,
+    //     city_namer,
+    //     player_types.len(),
+    //     fog_of_war,
+    //     Some(Arc::new(RwLock::new(unit_namer))),
+    //     wrapping,
+    // );
 
     if !nosplash {
         let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();

@@ -617,61 +617,20 @@ impl UmpirePlayerRpc for UmpireServer {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let matches = cli::app(format!("{}d", conf::APP_NAME), "fwWH")
+    let matches = cli::app("umpired", "fpwWH")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
-        .arg(
-            Arg::with_name("players")
-                .short("p")
-                .long("players")
-                .takes_value(true)
-                .required(true)
-                .default_value("h1233")
-                .help(
-                    format!(
-                        "Player type specification string, {}",
-                        PlayerType::values()
-                            .iter()
-                            .map(|player_type| format!(
-                                "'{}' for {}",
-                                player_type.spec(),
-                                player_type.desc()
-                            ))
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    )
-                    .as_str(),
-                )
-                .validator(|s| {
-                    parse_player_spec(s.as_str()).map(|_| ())
-                    // for spec_char in s.chars() {
-                    //     PlayerType::from_spec_char(spec_char)
-                    //     .map(|_| ())
-                    //     .map_err(|_| format!("'{}' is not a valid player type", spec_char))?;
-                    // }
-                    // Ok(())
-                }),
-        )
         .get_matches();
 
-    let fog_of_war = matches.value_of("fog").unwrap() == "on";
-    // let player_types: Vec<PlayerType> = matches.value_of("players").unwrap()
-    //     .chars()
-    //     .map(|spec_char| {
-    //         PlayerType::from_spec_char(spec_char)
-    //                     .expect(format!("'{}' is not a valid player type", spec_char).as_str())
-    //     })
-    //     .collect()
-    // ;
+    let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
 
-    let player_types: Vec<PlayerType> =
-        parse_player_spec(matches.value_of("players").unwrap()).unwrap();
+    let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
 
     let num_players: PlayerNum = player_types.len();
-    let map_width: u16 = matches.value_of("map_width").unwrap().parse().unwrap();
-    let map_height: u16 = matches.value_of("map_height").unwrap().parse().unwrap();
-    let wrapping = Wrap2d::try_from(matches.value_of("wrapping").unwrap().as_ref()).unwrap();
+    let map_width = matches.get_one::<u16>("map_width").unwrap().clone();
+    let map_height = matches.get_one::<u16>("map_height").unwrap().clone();
+    let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone();
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if (map_dims.area() as PlayerNum) < num_players {

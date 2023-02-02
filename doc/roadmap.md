@@ -7,6 +7,7 @@
 ## 0.5 Milestones
 * ~~TODO Initial AI framework~~
 * ~~TODO Make active unit blink---it's too hard to see right now.~~
+* ~~CHORE: Upgrade clap~~
 * FIXME Explore and go-to moves aren't animating visibly
 * TODO Fuel limits for aircraft
 * TODO Client/server architecture
@@ -16,7 +17,6 @@
  - server runs exactly one game
  - each client controls exactly one player
  - switch from async_trait to nightly async trait fn
-* CHORE: Upgrade clap
 * CHORE: Replace failure with thiserror
 * CHORE: Audit dependencies, removing as possible
 
