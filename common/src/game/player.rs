@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -10,9 +8,9 @@ use crate::{
     cli::Specified,
     game::{
         ai::TrainingInstance,
-        city::{City, CityID},
+        city::City,
         map::tile::Tile,
-        move_::{Move, MoveError, MoveResult},
+        move_::{Move, MoveError},
         obs::{Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
         Game, GameError, Proposed, TurnNum, TurnStart,
@@ -156,10 +154,6 @@ impl<'a> PlayerTurnControl<'a> {
         }
     }
 
-    pub fn num_players(&self) -> PlayerNum {
-        self.game.num_players()
-    }
-
     pub fn turn_is_done(&self) -> bool {
         self.game.turn_is_done()
     }
@@ -170,14 +164,6 @@ impl<'a> PlayerTurnControl<'a> {
     /// has won.
     pub fn victor(&self) -> Option<PlayerNum> {
         self.game.victor()
-    }
-
-    pub fn current_player_unit_legal_one_step_destinations(
-        &self,
-        unit_id: UnitID,
-    ) -> Result<HashSet<Location>, GameError> {
-        self.game
-            .current_player_unit_legal_one_step_destinations(unit_id)
     }
 
     pub fn current_player_unit_legal_directions<'b>(
@@ -197,20 +183,6 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.current_player_obs(loc)
     }
 
-    pub fn current_player_observations(&self) -> &ObsTracker {
-        self.game.current_player_observations()
-    }
-
-    /// Every city controlled by the current player
-    pub fn current_player_cities(&self) -> impl Iterator<Item = &City> {
-        self.game.current_player_cities()
-    }
-
-    /// All cities controlled by the current player which have a production target set
-    pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City> {
-        self.game.current_player_cities_with_production_target()
-    }
-
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
     ///
     /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
@@ -221,19 +193,9 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_cities_producing_or_not_ignored()
     }
 
-    /// Every unit controlled by the current player
-    pub fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
-        self.game.current_player_units()
-    }
-
     /// If the current player controls a city at location `loc`, return it
     pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.game.current_player_city_by_loc(loc)
-    }
-
-    /// If the current player controls a city with ID `city_id`, return it
-    pub fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City> {
-        self.game.current_player_city_by_id(city_id)
     }
 
     /// If the current player controls a unit with ID `id`, return it
@@ -262,52 +224,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.unit_orders_requests()
     }
 
-    /// Which if the current player's units need orders?
-    ///
-    /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn units_with_orders_requests(&'a self) -> impl Iterator<Item = &Unit> + 'a {
-        self.game.units_with_orders_requests()
-    }
-
-    pub fn units_with_pending_orders(&'a self) -> impl Iterator<Item = UnitID> + 'a {
-        self.game.units_with_pending_orders()
-    }
-
     // Movement-related methods
-
-    pub fn move_toplevel_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
-        self.game.move_toplevel_unit_by_id(unit_id, dest)
-    }
-
-    pub fn move_toplevel_unit_by_id_avoiding_combat(
-        &mut self,
-        unit_id: UnitID,
-        dest: Location,
-    ) -> MoveResult {
-        self.game
-            .move_toplevel_unit_by_id_avoiding_combat(unit_id, dest)
-    }
-
-    pub fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> MoveResult {
-        self.game.move_toplevel_unit_by_loc(src, dest)
-    }
-
-    pub fn move_toplevel_unit_by_loc_avoiding_combat(
-        &mut self,
-        src: Location,
-        dest: Location,
-    ) -> MoveResult {
-        self.game
-            .move_toplevel_unit_by_loc_avoiding_combat(src, dest)
-    }
-
-    pub fn move_unit_by_id_in_direction(&mut self, id: UnitID, direction: Direction) -> MoveResult {
-        self.game.move_unit_by_id_in_direction(id, direction)
-    }
-
-    pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
-        self.game.move_unit_by_id(unit_id, dest)
-    }
 
     pub fn propose_move_unit_by_id(
         &self,
@@ -315,18 +232,6 @@ impl<'a> PlayerTurnControl<'a> {
         dest: Location,
     ) -> Proposed<Result<Move, MoveError>> {
         self.game.propose_move_unit_by_id(id, dest)
-    }
-
-    pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
-        self.game.move_unit_by_id_avoiding_combat(id, dest)
-    }
-
-    pub fn propose_move_unit_by_id_avoiding_combat(
-        &self,
-        id: UnitID,
-        dest: Location,
-    ) -> Proposed<MoveResult> {
-        self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
     }
 
     pub fn disband_unit_by_id(&mut self, id: UnitID) -> Result<Unit, GameError> {
@@ -342,17 +247,6 @@ impl<'a> PlayerTurnControl<'a> {
         production: UnitType,
     ) -> Result<Option<UnitType>, GameError> {
         self.game.set_production_by_loc(loc, production)
-    }
-
-    /// Sets the production of the current player's city with ID `city_id` to `production`.
-    ///
-    /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
-    pub fn set_production_by_id(
-        &mut self,
-        city_id: CityID,
-        production: UnitType,
-    ) -> Result<Option<UnitType>, GameError> {
-        self.game.set_production_by_id(city_id, production)
     }
 
     //FIXME Restrict to current player cities
@@ -405,10 +299,6 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.order_unit_skip(unit_id)
     }
 
-    pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
-        self.game.order_unit_go_to(unit_id, dest)
-    }
-
     /// Simulate ordering the specified unit to go to the given location
     pub fn propose_order_unit_go_to(
         &self,
@@ -416,10 +306,6 @@ impl<'a> PlayerTurnControl<'a> {
         dest: Location,
     ) -> Proposed<OrdersResult> {
         self.game.propose_order_unit_go_to(unit_id, dest)
-    }
-
-    pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.game.order_unit_explore(unit_id)
     }
 
     /// Simulate ordering the specified unit to explore.
