@@ -37,37 +37,6 @@ impl PlayerType {
             Self::AI(AISpec::FromLevel(4)),
         ]
     }
-
-    // /// The text description of this type of player
-    // pub fn desc(&self) -> String {
-    //     match self {
-    //         Self::Human => String::from("human"),
-    //         Self::AI(ai_type) => ai_type.desc(),
-    //     }
-    // }
-
-    // pub fn spec(&self) -> String {
-    //     match self {
-    //         Self::Human => "h".to_string(),
-    //         Self::AI(ai_type) => ai_type.spec()
-    //     }
-    // }
-
-    // /// The character used to specify this variant on the command line
-    // pub fn spec_char(&self) -> char {
-    //     match self {
-    //         Self::Human => 'h',
-    //         Self::Random => 'r',
-    //         Self::AI(level) => std::char::from_digit(*level as u32, 10).unwrap(),
-    //     }
-    // }
-
-    // pub fn from_spec_char(c: char) -> Result<Self,String> {
-    //     match c {
-    //         'h' => Ok(Self::Human),
-    //         c => AIType::try_from(c).map(Self::AI)
-    //     }
-    // }
 }
 
 impl Specified for PlayerType {
@@ -105,18 +74,6 @@ impl Into<String> for PlayerType {
         }
     }
 }
-
-// impl Into<Rc<RefCell<dyn TurnTaker>>> for PlayerType {
-//     fn into(self) -> Rc<RefCell<dyn TurnTaker>> {
-
-//     }
-// }
-
-// impl Into<String> for PlayerType {
-//     fn into(self) -> String {
-
-//     }
-// }
 
 pub struct PlayerTurnControl<'a> {
     game: &'a mut Game,
@@ -340,11 +297,6 @@ impl<'a> PlayerTurnControl<'a> {
     pub fn player_features(&self) -> Vec<fX> {
         player_features(self.game, self.current_player())
     }
-
-    // // ----- Consuming methods -----
-    // fn end_turn(self) -> Result<TurnStart,PlayerNum> {
-    //     self.game.end_turn()
-    // }
 }
 
 /// If for whatever reason a careless user fails to end the turn, we do it for them so the game continues to advance.
