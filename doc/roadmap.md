@@ -21,6 +21,7 @@
 * CHORE: Audit dependencies, removing as possible
 
 ## 0.6 Milestones
+* TODO Make game states uniquely identifiable and restorable?
 * TODO Wake up units with auto-explore and go-to orders when they encounter something interesting
 * TODO Wake up sentried units when an enemy comes within their sight.
 * TODO Opening theme music
@@ -29,6 +30,7 @@
 * FIXME Small maps aren't centered properly (e.g. 10x10)
 * FIXME Rendering issues if wrapping is off
 * FIXME Autoscale splashscreen to fit terminal dimensions
+* CHORE: Upgrade rand
 
 ## 0.7 Milestones
 * TODO Make splash screen respect color palette
