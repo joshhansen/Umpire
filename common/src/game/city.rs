@@ -72,24 +72,18 @@ impl City {
         self.production.replace(production)
     }
 
-    /// Clear the city's production but ignore it when looking for un-set productions in the future.
+    /// Clear the city's production and optionally ignore it when looking for un-set productions in the future.
     ///
-    /// The user must manually activate it in Examine Mode after this.
-    pub fn clear_production_and_ignore(&mut self) {
-        self.production = None;
-        self.ignore_cleared_production = true;
+    /// When set to `true`, `ignore_cleared_production` means the user must manually activate the city's production
+    /// in Examine Mode---it won't be brought up automatically.
+    ///
+    /// FIXME This is a bit of a UI detail in the game engine
+    ///
+    /// Returns the prior production if any
+    pub fn clear_production(&mut self, ignore_cleared_production: bool) -> Option<UnitType> {
+        self.ignore_cleared_production = ignore_cleared_production;
+        self.production.take()
     }
-
-    /// Clear the city's production, and include it in the future when looking for un-set productions.
-    pub fn clear_production_without_ignoring(&mut self) {
-        self.production = None;
-        self.ignore_cleared_production = false;
-    }
-
-    // pub fn set_production(&mut self, production: Option<UnitType>) {
-    //     self.ignore_cleared_production = production.is_none();
-    //     self.unit_under_production = production;
-    // }
 
     pub fn production(&self) -> Option<UnitType> {
         self.production

@@ -249,14 +249,12 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.set_production_by_loc(loc, production)
     }
 
-    //FIXME Restrict to current player cities
-    pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(), String> {
-        self.game.clear_production_without_ignoring(loc)
-    }
-
-    //FIXME Restrict to current player cities
-    pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(), String> {
-        self.game.clear_production_and_ignore(loc)
+    pub fn clear_production(
+        &mut self,
+        loc: Location,
+        ignore_cleared_production: bool,
+    ) -> Result<Option<UnitType>, GameError> {
+        self.game.clear_production(loc, ignore_cleared_production)
     }
 
     pub fn turn(&self) -> TurnNum {

@@ -350,7 +350,7 @@ impl Game {
 
         for prod in result.production_outcomes.iter() {
             if let UnitProductionOutcome::UnitProduced { city, .. } = prod {
-                self.clear_production_without_ignoring(city.loc).unwrap();
+                self.clear_production(city.loc, false).unwrap();
             }
         }
 
@@ -1247,22 +1247,21 @@ impl Game {
         result
     }
 
-    //FIXME Restrict to current player cities
-    pub fn clear_production_without_ignoring(&mut self, loc: Location) -> Result<(), String> {
-        self.map.clear_city_production_without_ignoring_by_loc(loc).map_err(|_| format!(
-            "Attempted to clear production for city at location {} but there is no city at that location",
-            loc
-        ))
-    }
+    /// Clears the production of a city at location `loc` if one exists and is controlled by the
+    /// current player.
+    ///
+    /// Returns the prior production (if any) on success, otherwise `GameError::NoCityAtLocation`
+    pub fn clear_production(
+        &mut self,
+        loc: Location,
+        ignore_cleared_production: bool,
+    ) -> Result<Option<UnitType>, GameError> {
+        if self.current_player_city_by_loc(loc).is_none() {
+            return Err(GameError::NoCityAtLocation { loc });
+        }
 
-    //FIXME Restrict to current player cities
-    pub fn clear_production_and_ignore(&mut self, loc: Location) -> Result<(), String> {
-        self.map.clear_city_production_and_ignore_by_loc(loc).map_err(|_|
-            format!(
-                "Attempted to clear production for city at location {} but there is no city at that location",
-                loc
-            )
-        )
+        self.map
+            .clear_city_production_by_loc(loc, ignore_cleared_production)
     }
 
     pub fn turn(&self) -> TurnNum {

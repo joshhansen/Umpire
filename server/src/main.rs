@@ -162,11 +162,10 @@ trait UmpirePlayerRpc {
         production: UnitType,
     ) -> Result<Option<UnitType>, GameError>;
 
-    //FIXME Restrict to current player cities
-    async fn clear_production_without_ignoring(loc: Location) -> Result<(), String>;
-
-    //FIXME Restrict to current player cities
-    async fn clear_production_and_ignore(loc: Location) -> Result<(), String>;
+    async fn clear_production(
+        loc: Location,
+        ignore_cleared_production: bool,
+    ) -> Result<Option<UnitType>, GameError>;
 
     async fn turn() -> TurnNum;
 
@@ -471,22 +470,13 @@ impl UmpirePlayerRpc for UmpireServer {
         self.game.set_production_by_id(city_id, production)
     }
 
-    //FIXME Restrict to current player cities
-    async fn clear_production_without_ignoring(
+    async fn clear_production(
         mut self,
         _: Context,
         loc: Location,
-    ) -> Result<(), String> {
-        self.game.clear_production_without_ignoring(loc)
-    }
-
-    //FIXME Restrict to current player cities
-    async fn clear_production_and_ignore(
-        mut self,
-        _: Context,
-        loc: Location,
-    ) -> Result<(), String> {
-        self.game.clear_production_and_ignore(loc)
+        ignore_cleared_production: bool,
+    ) -> Result<Option<UnitType>, GameError> {
+        self.game.clear_production(loc, ignore_cleared_production)
     }
 
     async fn turn(self, _: Context) -> TurnNum {

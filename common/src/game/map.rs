@@ -1002,19 +1002,16 @@ impl MapData {
             .ok_or(())
     }
 
-    pub fn clear_city_production_and_ignore_by_loc(&mut self, loc: Location) -> Result<(), ()> {
-        self.city_by_loc_mut(loc)
-            .map(|city| city.clear_production_and_ignore())
-            .ok_or(())
-    }
-
-    pub fn clear_city_production_without_ignoring_by_loc(
+    pub fn clear_city_production_by_loc(
         &mut self,
         loc: Location,
-    ) -> Result<(), ()> {
-        self.city_by_loc_mut(loc)
-            .map(|city| city.clear_production_without_ignoring())
-            .ok_or(())
+        ignore_cleared_production: bool,
+    ) -> Result<Option<UnitType>, GameError> {
+        let city = self
+            .city_by_loc_mut(loc)
+            .ok_or(GameError::NoCityAtLocation { loc })?;
+
+        Ok(city.clear_production(ignore_cleared_production))
     }
 
     pub fn set_city_alignment_by_loc(
