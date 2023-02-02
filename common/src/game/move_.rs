@@ -15,8 +15,6 @@ use crate::{
 pub type MoveResult = Result<Move, MoveError>;
 
 /// A move.
-///
-/// Returned by `ProposedMove::make`
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Move {
     /// The unit as it will be at the end of the proposed move
