@@ -65,7 +65,7 @@ fn print_loading_screen() {
 }
 
 fn main() {
-    let matches = cli::app(conf::APP_NAME, "")
+    let matches = cli::app(conf::APP_NAME, "fwHW")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -140,19 +140,20 @@ fn main() {
     } else {
     }
 
-    // let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
+    let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap(); //FIXME take from server
 
-    // let num_players: PlayerNum = player_types.len();
+    let num_players: PlayerNum = player_types.len(); //FIXME take from server
     let use_alt_screen = matches.get_one::<String>("use_alt_screen").unwrap() == "on";
-    // let map_width = matches.get_one::<u16>("map_width").unwrap().clone();
-    // let map_height = matches.get_one::<u16>("map_height").unwrap().clone();
+    let map_width = matches.get_one::<u16>("map_width").unwrap().clone(); //FIXME take from server
+    let map_height = matches.get_one::<u16>("map_height").unwrap().clone(); //FIXME take from server
     let color_depth = matches.get_one::<u16>("colors").unwrap().clone();
     let fog_darkness = matches.get_one::<f64>("fog_darkness").unwrap().clone();
     let unicode = matches.contains_id("unicode");
     let quiet = matches.contains_id("quiet");
     let nosplash = matches.contains_id("nosplash");
     let confirm_turn_end = matches.contains_id("confirm_turn_end");
-    // let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone();
+    let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone(); //FIXME take from server
+    let fog_of_war = matches.get_one::<bool>("fog_of_war").unwrap().clone(); //FIXME take from server
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if (map_dims.area() as PlayerNum) < num_players {
@@ -169,14 +170,14 @@ fn main() {
     let city_namer = city_namer();
     let unit_namer = unit_namer();
 
-    // let game = Game::new(
-    //     map_dims,
-    //     city_namer,
-    //     player_types.len(),
-    //     fog_of_war,
-    //     Some(Arc::new(RwLock::new(unit_namer))),
-    //     wrapping,
-    // );
+    let game = Game::new(
+        map_dims,
+        city_namer,
+        player_types.len(),
+        fog_of_war,
+        Some(Arc::new(RwLock::new(unit_namer))),
+        wrapping,
+    );
 
     if !nosplash {
         let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();
