@@ -26,3 +26,7 @@ synth = { git = "https://github.com/dritory/synth" }
 rsrl = { workspace = true }
 tch = "0.1.7"
 #tch = { path = "/home/josh/Projects/External/tch-rs" }
+
+# BLAS for rsrl
+blas-src = { workspace = true }
+openblas-src = { workspace = true }

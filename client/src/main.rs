@@ -87,7 +87,7 @@ fn main() {
         )
         .arg(
             Arg::new("fog_darkness")
-                .short('c')
+                .short('F')
                 .long("fogdarkness")
                 .help("Number between 0.0 and 1.0 indicating how dark the fog effect should be")
                 .default_value("0.1")
@@ -146,14 +146,18 @@ fn main() {
     let use_alt_screen = matches.get_one::<String>("use_alt_screen").unwrap() == "on";
     let map_width = matches.get_one::<u16>("map_width").unwrap().clone(); //FIXME take from server
     let map_height = matches.get_one::<u16>("map_height").unwrap().clone(); //FIXME take from server
-    let color_depth = matches.get_one::<u16>("colors").unwrap().clone();
+    let color_depth: u16 = matches
+        .get_one::<String>("colors")
+        .unwrap()
+        .parse()
+        .unwrap();
     let fog_darkness = matches.get_one::<f64>("fog_darkness").unwrap().clone();
     let unicode = matches.contains_id("unicode");
     let quiet = matches.contains_id("quiet");
     let nosplash = matches.contains_id("nosplash");
     let confirm_turn_end = matches.contains_id("confirm_turn_end");
     let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone(); //FIXME take from server
-    let fog_of_war = matches.get_one::<bool>("fog_of_war").unwrap().clone(); //FIXME take from server
+    let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone(); //FIXME take from server
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if (map_dims.area() as PlayerNum) < num_players {

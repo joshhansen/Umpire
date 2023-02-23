@@ -31,6 +31,9 @@ rand = "0.7.3"
 rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master_deref_vec_explicit_update", features = ["serialize"] }
 serde = { version = "1.0.106", features = ["derive"] }
 
+blas-src = { version = "0.2.0", default-features = false, features = ["openblas"] }
+openblas-src = { version = "0.6.0", default-features = false, features = ["cblas", "system"] }
+
 [badges]
 travis-ci = { repository = "joshhansen/Umpire" }
 
@@ -39,11 +42,6 @@ half = "1.5.0"
 lfa = "0.13.0"
 ndarray = "0.12.1"
 spaces = "5.0.0"
-
-
-
-blas-src = { version = "0.2.0", default-features = false, features = ["openblas"] }
-openblas-src = { version = "0.6.0", default-features = false, features = ["cblas", "system"] }
 
 
 [dev-dependencies]
