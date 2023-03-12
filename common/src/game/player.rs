@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    action::{AiPlayerAction, PlayerActionOutcome},
+    action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features, AISpec},
+    ProposedActionResult,
 };
 use crate::{
     cli::Specified,
@@ -259,12 +260,12 @@ impl<'a> PlayerTurnControl<'a> {
         &self,
         unit_id: UnitID,
         dest: Location,
-    ) -> Proposed<OrdersResult> {
+    ) -> ProposedActionResult {
         self.game.propose_order_unit_go_to(unit_id, dest)
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> Proposed<OrdersResult> {
+    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedActionResult {
         self.game.propose_order_unit_explore(unit_id)
     }
 
@@ -294,6 +295,10 @@ impl<'a> PlayerTurnControl<'a> {
 
     pub fn player_features(&self) -> Vec<fX> {
         player_features(self.game, self.current_player())
+    }
+
+    pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {
+        self.game.take_action(action)
     }
 }
 

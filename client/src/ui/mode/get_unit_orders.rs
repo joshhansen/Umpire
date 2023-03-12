@@ -3,8 +3,9 @@ use crossterm::event::KeyCode;
 use common::{
     conf::{self, key_desc},
     game::{
+        action::PlayerActionOutcome,
         player::PlayerTurnControl,
-        proposed::Proposed,
+        proposed::{self, Proposed},
         unit::{orders::OrdersResult, UnitID},
     },
     util::{Direction, Rect},
@@ -174,16 +175,22 @@ impl IMode for GetUnitOrdersMode {
                             Self::clear_buf(ui);
                             return ModeStatus::Continue;
                         } else if c == conf::KEY_EXPLORE {
-                            let proposed_orders_result: Proposed<OrdersResult> =
-                                game.propose_order_unit_explore(self.unit_id);
-                            let proposed_orders_outcome =
-                                proposed_orders_result.delta.as_ref().unwrap();
+                            let proposed_orders_result =
+                                game.propose_order_unit_explore(self.unit_id).unwrap();
+
+                            let proposed_orders_outcome = match proposed_orders_result.result {
+                                PlayerActionOutcome::OrderUnit { orders_outcome, .. } => {
+                                    orders_outcome
+                                }
+                                _ => panic!("Expected OrderUnit outcome but found something else"),
+                            };
+
                             if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
                                 ui.animate_move(game, &proposed_move);
                                 // proposed_move.take(game);
                             }
 
-                            game.apply_proposal(proposed_orders_result).unwrap();
+                            game.take_action(proposed_orders_result.action).unwrap();
 
                             *mode = Mode::GetOrders;
                             return ModeStatus::Continue;

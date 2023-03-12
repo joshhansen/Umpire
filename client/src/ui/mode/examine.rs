@@ -3,12 +3,16 @@ use crossterm::event::KeyCode;
 use common::{
     colors::Colors,
     game::{
+        action::PlayerActionOutcome,
         alignment::AlignedMaybe,
         error::GameError,
         map::Tile,
         player::PlayerTurnControl,
         proposed::Proposed,
-        unit::{orders::OrdersResult, UnitID},
+        unit::{
+            orders::{self, OrdersResult},
+            UnitID,
+        },
     },
     log::{Message, MessageSource},
     util::{Direction, Location, Wrap2d},
@@ -161,15 +165,25 @@ impl IMode for ExamineMode {
                             .viewport_to_map_coords(game, self.cursor_viewport_loc)
                             .unwrap();
 
-                        let proposed_result: Proposed<OrdersResult> =
+                        let proposed_result =
                             game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
 
-                        match proposed_result.delta {
+                        match proposed_result {
                             Ok(ref proposed_orders_outcome) => {
-                                if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
+                                let move_ = match &proposed_orders_outcome.result {
+                                    PlayerActionOutcome::OrderUnit { orders_outcome, .. } => {
+                                        orders_outcome.move_.as_ref()
+                                    }
+                                    _ => panic!(
+                                        "Expected OrderUnit variant but found something else"
+                                    ),
+                                };
+                                if let Some(ref proposed_move) = move_ {
                                     ui.animate_move(game, proposed_move);
                                 }
                                 ui.log_message(format!("Ordered unit to go to {}", dest));
+
+                                game.take_action(proposed_orders_outcome.action).unwrap();
                             }
                             Err(ref orders_err) => ui.log_message(Message {
                                 text: format!("{}", orders_err),
@@ -179,11 +193,6 @@ impl IMode for ExamineMode {
                                 source: Some(MessageSource::UI),
                             }),
                         };
-
-                        // If the result as good then apply it
-                        if proposed_result.delta.is_ok() {
-                            game.apply_proposal(proposed_result).unwrap();
-                        }
 
                         *mode = Mode::TurnResume;
 

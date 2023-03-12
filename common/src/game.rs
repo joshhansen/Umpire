@@ -116,6 +116,10 @@ pub enum UnitProductionOutcome {
     },
 }
 
+type ProposedAction = Proposed2<PlayerActionOutcome>;
+
+type ProposedActionResult = Result<ProposedAction, GameError>;
+
 /// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
 pub struct Game {
@@ -1340,7 +1344,6 @@ impl Game {
     }
 
     pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
-        // self.propose_order_unit_go_to(unit_id, dest).take(self)
         self.set_and_follow_orders(unit_id, Orders::GoTo { dest })
     }
 
@@ -1349,17 +1352,16 @@ impl Game {
         &self,
         unit_id: UnitID,
         dest: Location,
-    ) -> Proposed<OrdersResult> {
+    ) -> ProposedActionResult {
         self.propose_set_and_follow_orders(unit_id, Orders::GoTo { dest })
     }
 
     pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
-        // self.propose_order_unit_explore(unit_id).take(self)
         self.set_and_follow_orders(unit_id, Orders::Explore)
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> Proposed<OrdersResult> {
+    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedActionResult {
         self.propose_set_and_follow_orders(unit_id, Orders::Explore)
     }
 
@@ -1434,10 +1436,11 @@ impl Game {
     }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
-    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> Proposed<OrdersResult> {
-        let mut new = self.clone();
-        let orders_result = new.set_and_follow_orders(id, orders);
-        Proposed::new(new, orders_result)
+    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedActionResult {
+        self.propose_action(PlayerAction::OrderUnit {
+            unit_id: id,
+            orders,
+        })
     }
 
     fn set_and_follow_orders(&mut self, id: UnitID, orders: Orders) -> OrdersResult {
@@ -1566,20 +1569,11 @@ impl Game {
         })
     }
 
-    pub fn propose_action(
-        &self,
-        action: PlayerAction,
-    ) -> Result<Proposed2<PlayerActionOutcome>, GameError> {
-        let player = self.current_player;
+    pub fn propose_action(&self, action: PlayerAction) -> ProposedActionResult {
         let mut game = self.clone();
         let result = game.take_action(action)?;
-        let game_view: PlayerGameView = game.player_game_view(player)?;
 
-        Ok(Proposed2 {
-            action,
-            result,
-            game_view,
-        })
+        Ok(Proposed2 { action, result })
     }
 }
 

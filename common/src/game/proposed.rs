@@ -24,13 +24,12 @@ impl<T> Proposed<T> {
 
 /// A proposed player action
 ///
-/// The `result` characterizes what happens when the action is taken
+/// The `result` characterizes what happens when the action is taken.
 ///
-/// If the result is acceptable, use `Game::
+/// If the result is acceptable, use `Game::take_action` to realize it.
 ///
 #[derive(Deserialize, Serialize)]
 pub struct Proposed2<T> {
     pub action: PlayerAction,
     pub result: T,
-    pub game_view: PlayerGameView,
 }
