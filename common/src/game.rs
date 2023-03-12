@@ -43,7 +43,7 @@ use crate::{
             gen::generate_map,
             LocationGridI, MapData, NewUnitError, Tile,
         },
-        obs::{Obs, ObsTracker, ObsTrackerI, Observer},
+        obs::{Obs, ObsTracker, ObsTrackerI, Observer, PlayerObsTracker},
         unit::{
             orders::{Orders, OrdersOutcome, OrdersResult, OrdersStatus},
             Unit, UnitID, UnitType,
@@ -122,8 +122,7 @@ pub struct Game {
     /// The underlying state of the game
     map: MapData,
 
-    /// The information that each player has about the state of the game
-    player_observations: HashMap<PlayerNum, ObsTracker>,
+    player_observations: PlayerObsTracker,
 
     /// The turn that it is right now
     turn: TurnNum,
@@ -184,10 +183,7 @@ impl Game {
         unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
     ) -> Self {
-        let mut player_observations = HashMap::new();
-        for player_num in 0..num_players {
-            player_observations.insert(player_num, ObsTracker::new(map.dims()));
-        }
+        let player_observations = PlayerObsTracker::new(num_players, map.dims());
 
         let mut game = Self {
             map,
@@ -439,7 +435,7 @@ impl Game {
     /// End the turn without checking that the player has filled all production and orders requests.
     fn force_end_turn(&mut self) -> TurnStart {
         self.player_observations
-            .get_mut(&self.current_player())
+            .tracker_mut(self.current_player())
             .unwrap()
             .archive();
 
@@ -451,7 +447,7 @@ impl Game {
     /// End the turn without checking that the player has filled all production and orders requests.
     fn force_end_turn_clearing(&mut self) -> TurnStart {
         self.player_observations
-            .get_mut(&self.current_player())
+            .tracker_mut(self.current_player())
             .unwrap()
             .archive();
 
@@ -471,7 +467,10 @@ impl Game {
     /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
     fn update_current_player_observations(&mut self) {
         let current_player = self.current_player();
-        let obs_tracker = self.player_observations.get_mut(&current_player).unwrap();
+        let obs_tracker = self
+            .player_observations
+            .tracker_mut(current_player)
+            .unwrap();
 
         if self.fog_of_war {
             for city in self.map.player_cities(self.current_player) {
@@ -535,7 +534,10 @@ impl Game {
 
     /// The current player's observation at location `loc`
     pub fn current_player_obs(&self, loc: Location) -> &Obs {
-        self.player_observations[&self.current_player()].get(loc)
+        self.player_observations
+            .tracker(self.current_player)
+            .unwrap()
+            .get(loc)
     }
 
     pub fn current_player_observations(&self) -> &ObsTracker {
@@ -543,7 +545,7 @@ impl Game {
     }
 
     pub fn player_observations(&self, player: PlayerNum) -> &ObsTracker {
-        self.player_observations.get(&player).unwrap()
+        self.player_observations.tracker(player).unwrap()
     }
 
     // fn current_player_observations_mut(&mut self) -> &mut ObsTracker {
@@ -903,7 +905,7 @@ impl Game {
         // let obs_tracker = self.current_player_observations_mut();
         let obs_tracker = self
             .player_observations
-            .get_mut(&self.current_player)
+            .tracker_mut(self.current_player)
             .unwrap();
 
         // Keep a copy of the source location around
@@ -1204,7 +1206,7 @@ impl Game {
         // Make a fresh observation with the disbanding unit so that its absence is noted.
         let obs_tracker = self
             .player_observations
-            .get_mut(&self.current_player)
+            .tracker_mut(self.current_player)
             .unwrap();
         unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
 
@@ -1460,7 +1462,7 @@ impl Game {
         // Observations
         let observed_tiles = self
             .player_observations
-            .get(&player)
+            .tracker(player)
             .ok_or(GameError::NoSuchPlayer { player })?
             .num_observed();
 

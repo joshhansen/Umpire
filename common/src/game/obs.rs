@@ -1,8 +1,8 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use serde::{Deserialize, Serialize};
 
-use super::map::dijkstra::Filter;
+use super::{map::dijkstra::Filter, PlayerNum};
 use crate::{
     game::{
         map::{
@@ -211,6 +211,46 @@ impl Source<Obs> for ObsTracker {
 impl fmt::Debug for ObsTracker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.observations.fmt(f)
+    }
+}
+
+/// Convenience struct to track the observations of one or more players
+#[derive(Clone)]
+pub struct PlayerObsTracker {
+    /// The information that each player has about the state of the game
+    player_observations: HashMap<PlayerNum, ObsTracker>,
+}
+
+impl PlayerObsTracker {
+    pub fn new(players: PlayerNum, dims: Dims) -> Self {
+        let mut player_observations = HashMap::new();
+
+        for p in 0..players {
+            player_observations.insert(p, ObsTracker::new(dims));
+        }
+
+        Self {
+            player_observations,
+        }
+    }
+
+    /// Track an observation made by the given player at the specified location
+    ///
+    /// Returns Err(()) if no such player is recognized
+    pub fn track(&mut self, player: PlayerNum, loc: Location, obs: Obs) -> Result<(), ()> {
+        let observations = self.player_observations.get_mut(&player).ok_or(())?;
+
+        observations.observations.replace(loc, obs);
+
+        Ok(())
+    }
+
+    pub fn tracker(&self, player: PlayerNum) -> Option<&ObsTracker> {
+        self.player_observations.get(&player)
+    }
+
+    pub fn tracker_mut(&mut self, player: PlayerNum) -> Option<&mut ObsTracker> {
+        self.player_observations.get_mut(&player)
     }
 }
 
