@@ -273,10 +273,8 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.activate_unit_by_loc(loc)
     }
 
-    pub fn propose_end_turn(&self) -> (Game, Result<TurnStart, PlayerNum>) {
-        let mut game = self.game.clone();
-        let result = game.end_turn();
-        (game, result)
+    pub fn end_turn(&mut self) -> Result<TurnStart, PlayerNum> {
+        self.game.end_turn()
     }
 
     pub fn apply_proposal<T>(&mut self, proposal: Proposed<T>) -> T {
