@@ -460,6 +460,7 @@ impl Game {
         self.begin_turn_clearing()
     }
 
+    /// TODO Port to Proposed2
     pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart, PlayerNum>> {
         let mut new = self.clone();
         let result = new.end_turn();
@@ -852,6 +853,7 @@ impl Game {
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 
+    /// TODO Port to Proposed2
     pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
         let mut new = self.clone();
         let result = new.move_unit_by_id(id, dest);
@@ -872,6 +874,7 @@ impl Game {
         self.move_unit_by_id_using_filter(id, dest, &unit_filter)
     }
 
+    /// TODO Port to Proposed2
     pub fn propose_move_unit_by_id_avoiding_combat(
         &self,
         id: UnitID,

@@ -293,6 +293,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.take_simple_action(action)
     }
 
+    /// FIXME Maintain this vector in the client, incrementally
     pub fn player_features(&self) -> Vec<fX> {
         player_features(self.game, self.current_player())
     }
