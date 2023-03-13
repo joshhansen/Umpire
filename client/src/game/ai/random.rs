@@ -93,10 +93,6 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             }
 
             if x <= move_prob {
-                if unit.type_ == UnitType::Infantry {
-                    return Some(AiPlayerAction::SkipNextUnit);
-                }
-
                 let direction = possible.choose(&mut rng).unwrap();
 
                 if self.verbosity > 1 {
@@ -350,9 +346,14 @@ mod test {
         for _ in 0..1000 {
             let mut game = game.clone();
 
-            let mut ctrl = game.player_turn_control(0);
+            if game.current_player() == 0 {
+                let _ctrl = game.player_turn_control(0);
+                // drop this to end first player's turn without moving the infantry or transport
+            } else {
+                let mut ctrl = game.player_turn_control(1);
 
-            ai.take_turn(&mut ctrl, false);
+                ai.take_turn(&mut ctrl, false);
+            }
         }
     }
 }
