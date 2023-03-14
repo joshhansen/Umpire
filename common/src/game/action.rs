@@ -14,7 +14,7 @@ use super::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError,
+    Game, GameError, TurnStart,
 };
 
 /// Bare-bones actions, reduced for machine learning purposes
@@ -156,6 +156,7 @@ impl AiPlayerAction {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum PlayerAction {
+    EndTurn,
     SetCityProduction {
         city_id: CityID,
         production: UnitType,
@@ -179,6 +180,7 @@ pub enum PlayerAction {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum PlayerActionOutcome {
+    TurnEnded(TurnStart),
     SetCityProduction {
         city_id: CityID,
         production: UnitType,
@@ -203,6 +205,9 @@ pub enum PlayerActionOutcome {
 impl PlayerAction {
     pub fn take(self, game: &mut Game) -> Result<PlayerActionOutcome, GameError> {
         match self {
+            PlayerAction::EndTurn => game
+                .end_turn()
+                .map(|turn_start| PlayerActionOutcome::TurnEnded(turn_start)),
             PlayerAction::SetCityProduction {
                 city_id,
                 production,
