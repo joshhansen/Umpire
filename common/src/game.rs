@@ -413,11 +413,13 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn(&mut self) -> Result<TurnStart, PlayerNum> {
+    pub fn end_turn(&mut self) -> Result<TurnStart, GameError> {
         if self.turn_is_done() {
             Ok(self.force_end_turn())
         } else {
-            Err(self.current_player())
+            Err(GameError::TurnEndRequirementsNotMet {
+                player: self.current_player(),
+            })
         }
     }
 
@@ -461,7 +463,7 @@ impl Game {
     }
 
     /// TODO Port to Proposed2
-    pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart, PlayerNum>> {
+    pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart, GameError>> {
         let mut new = self.clone();
         let result = new.end_turn();
         Proposed::new(new, result)
@@ -1698,6 +1700,7 @@ pub mod test_support {
     use crate::{
         game::{
             action::PlayerActionOutcome,
+            error::GameError,
             map::{MapData, Terrain},
             obs::Obs,
             unit::{UnitID, UnitType},
@@ -1866,8 +1869,14 @@ pub mod test_support {
             assert_eq!(player, 0);
         }
 
-        assert_eq!(game.end_turn(), Err(0));
-        assert_eq!(game.end_turn(), Err(0));
+        assert_eq!(
+            game.end_turn(),
+            Err(GameError::TurnEndRequirementsNotMet { player: 0 })
+        );
+        assert_eq!(
+            game.end_turn(),
+            Err(GameError::TurnEndRequirementsNotMet { player: 0 })
+        );
 
         game
     }
@@ -2017,7 +2026,10 @@ mod test {
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 0);
         }
-        assert_eq!(game.end_turn(), Err(0));
+        assert_eq!(
+            game.end_turn(),
+            Err(GameError::TurnEndRequirementsNotMet { player: 0 })
+        );
 
         // Move the armor unit to the right until it attacks the opposing city
         for round in 0..3 {

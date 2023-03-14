@@ -269,7 +269,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.activate_unit_by_loc(loc)
     }
 
-    pub fn end_turn(&mut self) -> Result<TurnStart, PlayerNum> {
+    pub fn end_turn(&mut self) -> Result<TurnStart, GameError> {
         self.game.end_turn()
     }
 

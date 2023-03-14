@@ -81,4 +81,7 @@ pub enum GameError {
 
     #[fail(display = "There was a problem moving the unit: {}", 0)]
     MoveError(MoveError),
+
+    #[fail(display = "Requirements for ending turn not met for player {}", player)]
+    TurnEndRequirementsNotMet { player: PlayerNum },
 }
