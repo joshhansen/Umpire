@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features, AISpec},
-    ProposedActionResult,
+    ProposedActionResult, ProposedMoveResult,
 };
 use crate::{
     cli::Specified,
@@ -183,7 +183,7 @@ impl<'a> PlayerTurnControl<'a> {
 
     // Movement-related methods
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedActionResult {
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
         self.game.propose_move_unit_by_id(id, dest)
     }
 

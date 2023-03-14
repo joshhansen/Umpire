@@ -2,11 +2,7 @@ use crossterm::event::KeyCode;
 
 use common::{
     conf::{self, key_desc},
-    game::{
-        action::{PlayerAction, PlayerActionOutcome},
-        player::PlayerTurnControl,
-        unit::UnitID,
-    },
+    game::{action::PlayerActionOutcome, player::PlayerTurnControl, unit::UnitID},
     util::{Direction, Rect},
 };
 
@@ -128,10 +124,7 @@ impl IMode for GetUnitOrdersMode {
 
                                 match proposed_move {
                                     Ok(ref proposed_move_result) => {
-                                        let move_ = match proposed_move_result.outcome {
-                                            PlayerActionOutcome::MoveUnit { ref move_, .. } => move_,
-                                            _ => panic!("Move result outcome was not PlayerActionOutcome::MoveUnit"),
-                                        };
+                                        let move_ = &proposed_move_result.outcome;
 
                                         ui.animate_move(game, move_);
 

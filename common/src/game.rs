@@ -120,6 +120,10 @@ type ProposedAction = Proposed2<PlayerActionOutcome>;
 
 type ProposedActionResult = Result<ProposedAction, GameError>;
 
+type ProposedMove = Proposed2<Move>;
+
+type ProposedMoveResult = Result<ProposedMove, MoveError>;
+
 /// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
 pub struct Game {
@@ -848,19 +852,12 @@ impl Game {
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedActionResult {
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
         let mut new = self.clone();
-        let move_ = new
-            .move_unit_by_id(id, dest)
-            .map_err(|move_err| GameError::MoveError(move_err))?;
+        let move_ = new.move_unit_by_id(id, dest)?;
         Ok(Proposed2 {
             action: PlayerAction::MoveUnit { unit_id: id, dest },
-            outcome: PlayerActionOutcome::MoveUnit {
-                unit_id: id,
-                /// When moving by direction, this could be None
-                dest: Some(dest),
-                move_,
-            },
+            outcome: move_,
         })
     }
 
@@ -1692,7 +1689,6 @@ pub mod test_support {
 
     use crate::{
         game::{
-            action::PlayerActionOutcome,
             error::GameError,
             map::{MapData, Terrain},
             obs::Obs,
@@ -1716,10 +1712,7 @@ pub mod test_support {
             assert_eq!(unit.loc, src);
         }
 
-        let proposed_move = match game.propose_move_unit_by_id(unit_id, dest).unwrap().outcome {
-            PlayerActionOutcome::MoveUnit { move_, .. } => move_,
-            _ => panic!("Move result wasn't PlayerActionOutcome::MoveUnit"),
-        };
+        let proposed_move = game.propose_move_unit_by_id(unit_id, dest).unwrap().outcome;
 
         let component = proposed_move.components.get(0).unwrap();
 
