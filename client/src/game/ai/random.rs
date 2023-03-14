@@ -15,6 +15,8 @@ use common::{
 use super::AiPlayerAction;
 
 const P_DISBAND: f64 = 0.01;
+const P_SKIP: f64 = 0.1;
+const P_MOVE: f64 = 1f64 - P_DISBAND - P_SKIP;
 
 pub struct RandomAI {
     verbosity: usize,
@@ -82,9 +84,15 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             //     possible
             // );
 
-            let non_disband_options = possible.len() + 1;
-            let move_prob = possible.len() as f64 / non_disband_options as f64;
-            let skip_prob = (1.0f64 / non_disband_options as f64) - P_DISBAND;
+            // Normalization factor
+            let z = if possible.is_empty() {
+                P_SKIP + P_DISBAND
+            } else {
+                1f64
+            };
+
+            let move_prob = P_MOVE / z;
+            let skip_prob = P_SKIP / z;
 
             let x: f64 = rng.gen();
 
@@ -128,8 +136,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                     let loc = ctrl.current_player_unit_loc(unit_id).unwrap();
                     println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
                 }
-                // ctrl.disband_unit_by_id(unit_id).unwrap();
-                return Some(AiPlayerAction::SkipNextUnit); //FIXME? Should this be DisbandNextUnit?
+                return Some(AiPlayerAction::DisbandNextUnit);
             }
         }
 
