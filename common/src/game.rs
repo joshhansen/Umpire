@@ -1490,7 +1490,7 @@ impl Game {
         }
 
         // Defeated units
-        score += UNIT_MULTIPLIER * self.defeated_unit_hitpoints[self.current_player] as f64;
+        score += UNIT_MULTIPLIER * self.defeated_unit_hitpoints[player] as f64;
 
         // Controlled cities
         for city in self.player_cities(player) {
@@ -1502,7 +1502,7 @@ impl Game {
         score -= TURN_PENALTY * self.turn as f64;
 
         // Penalty for each action taken
-        score -= ACTION_PENALTY * self.action_counts[self.current_player] as f64;
+        score -= ACTION_PENALTY * self.action_counts[player] as f64;
 
         // Victory
         if let Some(victor) = self.victor() {
