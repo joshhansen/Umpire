@@ -462,13 +462,6 @@ impl Game {
         self.begin_turn_clearing()
     }
 
-    /// TODO Port to Proposed2
-    pub fn propose_end_turn(&self) -> Proposed<Result<TurnStart, GameError>> {
-        let mut new = self.clone();
-        let result = new.end_turn();
-        Proposed::new(new, result)
-    }
-
     /// Register the current observations of current player units
     ///
     /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
