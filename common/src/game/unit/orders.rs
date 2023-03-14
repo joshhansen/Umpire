@@ -12,7 +12,7 @@ use crate::{
         },
         move_::{Move, MoveComponent, MoveError},
         unit::UnitID,
-        Game, GameError, Proposed,
+        Game, GameError,
     },
     util::Location,
 };
@@ -112,12 +112,6 @@ impl Orders {
         }
     }
 
-    pub fn propose(self, unit_id: UnitID, game: &Game) -> Proposed<OrdersResult> {
-        let mut game = game.clone();
-        let delta = self.carry_out(unit_id, &mut game);
-        Proposed::new(game, delta)
-    }
-
     /// A present-tense, progressive aspect verb phrase describing the action of the unit as it carries out these orders
     /// Example: "standing sentry" for a sentry unit.
     pub fn present_progressive_description(self) -> String {
@@ -201,12 +195,6 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
             });
         }
     }
-}
-
-pub fn propose_exploration(orders: Orders, game: &Game, unit_id: UnitID) -> Proposed<OrdersResult> {
-    let mut new = game.clone();
-    let delta = explore(orders, &mut new, unit_id);
-    Proposed::new(new, delta)
 }
 
 /// Analysis of potential destinations:
@@ -307,16 +295,6 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         })
         .map_err(GameError::MoveError)
 }
-pub fn propose_go_to(
-    orders: Orders,
-    game: &Game,
-    unit_id: UnitID,
-    dest: Location,
-) -> Proposed<OrdersResult> {
-    let mut new = game.clone();
-    let delta = go_to(orders, &mut new, unit_id, dest);
-    Proposed::new(new, delta)
-}
 
 pub mod test_support {
     use crate::{
@@ -394,16 +372,16 @@ pub mod test {
             alignment::AlignedMaybe,
             map::MapData,
             unit::{
-                orders::{propose_exploration, test_support, Orders},
+                orders::{test_support, Orders},
                 UnitID,
             },
-            Game, GameError, MoveError, Proposed,
+            Game, GameError, MoveError,
         },
         name::unit_namer,
         util::{Dims, Location, Wrap2d},
     };
 
-    use super::{OrdersResult, OrdersStatus};
+    use super::OrdersStatus;
 
     #[test]
     fn test_go_to() {
@@ -481,9 +459,7 @@ pub mod test {
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
-        let proposed_outcome: Proposed<OrdersResult> =
-            propose_exploration(Orders::Explore, &game, unit_id);
-        let outcome = proposed_outcome.delta.unwrap();
+        let outcome = game.propose_order_unit_explore(unit_id).unwrap().outcome;
 
         //         /// The ID of the ordered unit
         // pub ordered_unit_id: UnitID,

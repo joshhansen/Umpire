@@ -61,7 +61,7 @@ use self::{
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError, MoveResult},
     player::PlayerGameView,
-    proposed::{Proposed, Proposed2},
+    proposed::Proposed2,
 };
 
 static UNIT_TYPES: [UnitType; 10] = UnitType::values();
@@ -116,13 +116,13 @@ pub enum UnitProductionOutcome {
     },
 }
 
-type ProposedAction = Proposed2<PlayerActionOutcome>;
+type ProposedResult<Outcome, E> = Result<Proposed2<Outcome>, E>;
 
-type ProposedActionResult = Result<ProposedAction, GameError>;
+type ProposedActionResult = ProposedResult<PlayerActionOutcome, GameError>;
 
-type ProposedMove = Proposed2<Move>;
+type ProposedMoveResult = ProposedResult<Move, MoveError>;
 
-type ProposedMoveResult = Result<ProposedMove, MoveError>;
+type ProposedOrdersResult = ProposedResult<OrdersOutcome, GameError>; //TODO Make error type orders-specific
 
 /// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
@@ -1358,7 +1358,7 @@ impl Game {
         &self,
         unit_id: UnitID,
         dest: Location,
-    ) -> ProposedActionResult {
+    ) -> ProposedOrdersResult {
         self.propose_set_and_follow_orders(unit_id, Orders::GoTo { dest })
     }
 
@@ -1367,7 +1367,7 @@ impl Game {
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedActionResult {
+    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult {
         self.propose_set_and_follow_orders(unit_id, Orders::Explore)
     }
 
@@ -1442,11 +1442,16 @@ impl Game {
     }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
-    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedActionResult {
-        self.propose_action(PlayerAction::OrderUnit {
-            unit_id: id,
-            orders,
-        })
+    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedOrdersResult {
+        self.clone()
+            .set_and_follow_orders(id, orders)
+            .map(|orders_outcome| Proposed2 {
+                action: PlayerAction::OrderUnit {
+                    unit_id: id,
+                    orders,
+                },
+                outcome: orders_outcome,
+            })
     }
 
     fn set_and_follow_orders(&mut self, id: UnitID, orders: Orders) -> OrdersResult {

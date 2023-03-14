@@ -3,16 +3,8 @@ use crossterm::event::KeyCode;
 use common::{
     colors::Colors,
     game::{
-        action::PlayerActionOutcome,
-        alignment::AlignedMaybe,
-        error::GameError,
-        map::Tile,
-        player::PlayerTurnControl,
-        proposed::Proposed,
-        unit::{
-            orders::{self, OrdersResult},
-            UnitID,
-        },
+        alignment::AlignedMaybe, error::GameError, map::Tile, player::PlayerTurnControl,
+        unit::UnitID,
     },
     log::{Message, MessageSource},
     util::{Direction, Location, Wrap2d},
@@ -170,15 +162,8 @@ impl IMode for ExamineMode {
 
                         match proposed_result {
                             Ok(ref proposed_orders_outcome) => {
-                                let move_ = match &proposed_orders_outcome.outcome {
-                                    PlayerActionOutcome::OrderUnit { orders_outcome, .. } => {
-                                        orders_outcome.move_.as_ref()
-                                    }
-                                    _ => panic!(
-                                        "Expected OrderUnit variant but found something else"
-                                    ),
-                                };
-                                if let Some(ref proposed_move) = move_ {
+                                let move_ = proposed_orders_outcome.outcome.move_.as_ref();
+                                if let Some(proposed_move) = move_ {
                                     ui.animate_move(game, proposed_move);
                                 }
                                 ui.log_message(format!("Ordered unit to go to {}", dest));

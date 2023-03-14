@@ -179,12 +179,7 @@ impl IMode for GetUnitOrdersMode {
                             let proposed_orders_result =
                                 game.propose_order_unit_explore(self.unit_id).unwrap();
 
-                            let proposed_orders_outcome = match proposed_orders_result.outcome {
-                                PlayerActionOutcome::OrderUnit { orders_outcome, .. } => {
-                                    orders_outcome
-                                }
-                                _ => panic!("Expected OrderUnit outcome but found something else"),
-                            };
+                            let proposed_orders_outcome = proposed_orders_result.outcome;
 
                             if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
                                 ui.animate_move(game, &proposed_move);

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features, AISpec},
-    ProposedActionResult, ProposedMoveResult,
+    ProposedMoveResult, ProposedOrdersResult,
 };
 use crate::{
     cli::Specified,
@@ -13,7 +13,7 @@ use crate::{
         map::tile::Tile,
         obs::{Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
-        Game, GameError, Proposed, TurnNum, TurnStart,
+        Game, GameError, TurnNum, TurnStart,
     },
     util::{sparsify, Dims, Direction, Location, Wrap2d},
 };
@@ -255,12 +255,12 @@ impl<'a> PlayerTurnControl<'a> {
         &self,
         unit_id: UnitID,
         dest: Location,
-    ) -> ProposedActionResult {
+    ) -> ProposedOrdersResult {
         self.game.propose_order_unit_go_to(unit_id, dest)
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedActionResult {
+    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult {
         self.game.propose_order_unit_explore(unit_id)
     }
 
@@ -271,10 +271,6 @@ impl<'a> PlayerTurnControl<'a> {
 
     pub fn end_turn(&mut self) -> Result<TurnStart, GameError> {
         self.game.end_turn()
-    }
-
-    pub fn apply_proposal<T>(&mut self, proposal: Proposed<T>) -> T {
-        proposal.apply(self.game)
     }
 
     fn player_score(&self, player: PlayerNum) -> Result<f64, GameError> {
