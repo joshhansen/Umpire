@@ -875,15 +875,17 @@ impl Game {
         self.move_unit_by_id_using_filter(id, dest, &unit_filter)
     }
 
-    /// TODO Port to Proposed2
     pub fn propose_move_unit_by_id_avoiding_combat(
         &self,
         id: UnitID,
         dest: Location,
-    ) -> Proposed<MoveResult> {
-        let mut new = self.clone();
-        let result = new.move_unit_by_id_avoiding_combat(id, dest);
-        Proposed::new(new, result)
+    ) -> ProposedMoveResult {
+        self.clone()
+            .move_unit_by_id_avoiding_combat(id, dest)
+            .map(|move_| Proposed2 {
+                action: PlayerAction::MoveUnit { unit_id: id, dest },
+                outcome: move_,
+            })
     }
 
     /// Make a best-effort attempt to move the given unit to the destination, generating shortest paths repeatedly using
