@@ -91,7 +91,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                 1f64
             };
 
-            let move_prob = P_MOVE / z;
+            let move_prob = if possible.is_empty() { 0f64 } else { P_MOVE } / z;
             let skip_prob = P_SKIP / z;
 
             let x: f64 = rng.gen();
