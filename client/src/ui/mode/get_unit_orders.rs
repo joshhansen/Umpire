@@ -3,10 +3,9 @@ use crossterm::event::KeyCode;
 use common::{
     conf::{self, key_desc},
     game::{
-        action::PlayerActionOutcome,
+        action::{PlayerAction, PlayerActionOutcome},
         player::PlayerTurnControl,
-        proposed::{self, Proposed},
-        unit::{orders::OrdersResult, UnitID},
+        unit::UnitID,
     },
     util::{Direction, Rect},
 };
@@ -127,11 +126,20 @@ impl IMode for GetUnitOrdersMode {
                                 let proposed_move =
                                     game.propose_move_unit_by_id(self.unit_id, dest);
 
-                                match proposed_move.delta {
+                                match proposed_move {
                                     Ok(ref proposed_move_result) => {
-                                        ui.animate_move(game, &proposed_move_result);
+                                        let move_ = match proposed_move_result.outcome {
+                                            PlayerActionOutcome::MoveUnit { ref move_, .. } => move_,
+                                            _ => panic!("Move result outcome was not PlayerActionOutcome::MoveUnit"),
+                                        };
 
-                                        let move_ = game.apply_proposal(proposed_move).unwrap();
+                                        ui.animate_move(game, move_);
+
+                                        let move_ = match
+                                            game.take_action(proposed_move_result.action).unwrap() {
+                                                PlayerActionOutcome::MoveUnit { move_, .. } => move_,
+                                                _ => panic!("Did not find PlayerActionOutcome::MoveUnit as expected"),
+                                            };
 
                                         if let Some(conquered_city) = move_.conquered_city() {
                                             *mode = Mode::SetProduction {

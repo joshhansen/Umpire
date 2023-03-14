@@ -11,7 +11,6 @@ use crate::{
         ai::TrainingInstance,
         city::City,
         map::tile::Tile,
-        move_::{Move, MoveError},
         obs::{Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
         Game, GameError, Proposed, TurnNum, TurnStart,
@@ -184,11 +183,7 @@ impl<'a> PlayerTurnControl<'a> {
 
     // Movement-related methods
 
-    pub fn propose_move_unit_by_id(
-        &self,
-        id: UnitID,
-        dest: Location,
-    ) -> Proposed<Result<Move, MoveError>> {
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedActionResult {
         self.game.propose_move_unit_by_id(id, dest)
     }
 

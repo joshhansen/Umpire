@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::util::Direction;
+use crate::util::{Direction, Location};
 
 use super::{
     ai::POSSIBLE_ACTIONS,
@@ -162,6 +162,10 @@ pub enum PlayerAction {
     },
     MoveUnit {
         unit_id: UnitID,
+        dest: Location,
+    },
+    MoveUnitInDirection {
+        unit_id: UnitID,
         direction: Direction,
     },
     DisbandUnit {
@@ -182,7 +186,8 @@ pub enum PlayerActionOutcome {
     },
     MoveUnit {
         unit_id: UnitID,
-        direction: Direction,
+        /// When moving by direction, this could be None
+        dest: Option<Location>,
         move_: Move,
     },
     DisbandUnit {
@@ -208,14 +213,28 @@ impl PlayerAction {
                     production,
                     prior_production,
                 }),
-            PlayerAction::MoveUnit { unit_id, direction } => game
-                .move_unit_by_id_in_direction(unit_id, direction)
+            PlayerAction::MoveUnit { unit_id, dest } => game
+                .move_unit_by_id(unit_id, dest)
                 .map(|move_| PlayerActionOutcome::MoveUnit {
                     unit_id,
-                    direction,
+                    dest: Some(dest),
                     move_,
                 })
                 .map_err(|move_err| GameError::MoveError(move_err)),
+            PlayerAction::MoveUnitInDirection { unit_id, direction } => {
+                let dest = game
+                    .current_player_unit_by_id(unit_id)
+                    .unwrap()
+                    .loc
+                    .shift_wrapped(direction, game.dims(), game.wrapping);
+                game.move_unit_by_id_in_direction(unit_id, direction)
+                    .map(|move_| PlayerActionOutcome::MoveUnit {
+                        unit_id,
+                        dest,
+                        move_,
+                    })
+                    .map_err(|move_err| GameError::MoveError(move_err))
+            }
             PlayerAction::DisbandUnit { unit_id } => game
                 .disband_unit_by_id(unit_id)
                 .map(|disbanded| PlayerActionOutcome::DisbandUnit { disbanded }),

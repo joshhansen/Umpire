@@ -853,11 +853,20 @@ impl Game {
         self.move_unit_by_id_using_filter(unit_id, dest, &filter)
     }
 
-    /// TODO Port to Proposed2
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> Proposed<MoveResult> {
+    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedActionResult {
         let mut new = self.clone();
-        let result = new.move_unit_by_id(id, dest);
-        Proposed::new(new, result)
+        let move_ = new
+            .move_unit_by_id(id, dest)
+            .map_err(|move_err| GameError::MoveError(move_err))?;
+        Ok(Proposed2 {
+            action: PlayerAction::MoveUnit { unit_id: id, dest },
+            outcome: PlayerActionOutcome::MoveUnit {
+                unit_id: id,
+                /// When moving by direction, this could be None
+                dest: Some(dest),
+                move_,
+            },
+        })
     }
 
     pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
@@ -1539,7 +1548,7 @@ impl Game {
                     legal.contains(&direction)
                 });
 
-                PlayerAction::MoveUnit { unit_id, direction }
+                PlayerAction::MoveUnitInDirection { unit_id, direction }
             }
             AiPlayerAction::DisbandNextUnit => {
                 let unit_id = self.unit_orders_requests().next().unwrap();
@@ -1688,6 +1697,7 @@ pub mod test_support {
 
     use crate::{
         game::{
+            action::PlayerActionOutcome,
             map::{MapData, Terrain},
             obs::Obs,
             unit::{UnitID, UnitType},
@@ -1710,7 +1720,10 @@ pub mod test_support {
             assert_eq!(unit.loc, src);
         }
 
-        let proposed_move = game.propose_move_unit_by_id(unit_id, dest).delta.unwrap();
+        let proposed_move = match game.propose_move_unit_by_id(unit_id, dest).unwrap().outcome {
+            PlayerActionOutcome::MoveUnit { move_, .. } => move_,
+            _ => panic!("Move result wasn't PlayerActionOutcome::MoveUnit"),
+        };
 
         let component = proposed_move.components.get(0).unwrap();
 
