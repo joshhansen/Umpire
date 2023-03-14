@@ -302,7 +302,7 @@ mod test {
 
         let mut ai = RandomAI::new(2, false);
 
-        for r in 0..100 {
+        for r in 0..1000 {
             let players = 2;
             let mut city_namer = IntNamer::new("city");
             let map = generate_map(&mut city_namer, Dims::new(5, 5), players);
