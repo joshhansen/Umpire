@@ -178,7 +178,7 @@ impl IMode for GetUnitOrdersMode {
                             let proposed_orders_result =
                                 game.propose_order_unit_explore(self.unit_id).unwrap();
 
-                            let proposed_orders_outcome = match proposed_orders_result.result {
+                            let proposed_orders_outcome = match proposed_orders_result.outcome {
                                 PlayerActionOutcome::OrderUnit { orders_outcome, .. } => {
                                     orders_outcome
                                 }

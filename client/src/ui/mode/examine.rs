@@ -170,7 +170,7 @@ impl IMode for ExamineMode {
 
                         match proposed_result {
                             Ok(ref proposed_orders_outcome) => {
-                                let move_ = match &proposed_orders_outcome.result {
+                                let move_ = match &proposed_orders_outcome.outcome {
                                     PlayerActionOutcome::OrderUnit { orders_outcome, .. } => {
                                         orders_outcome.move_.as_ref()
                                     }

@@ -1574,9 +1574,9 @@ impl Game {
 
     pub fn propose_action(&self, action: PlayerAction) -> ProposedActionResult {
         let mut game = self.clone();
-        let result = game.take_action(action)?;
+        let outcome = game.take_action(action)?;
 
-        Ok(Proposed2 { action, result })
+        Ok(Proposed2 { action, outcome })
     }
 }
 
