@@ -7,6 +7,7 @@ default-run = "umpire-client"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = { workspace = true }
 bincode = "1.2.1"
 clap = { workspace = true }
 common = { path = "../common" }
@@ -15,6 +16,9 @@ failure = { workspace = true }
 pastel = "0.7.0"
 rand = { workspace = true }
 serde = { workspace = true }
+tarpc = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
 
 # Audio
 cpal = "0.10.0"

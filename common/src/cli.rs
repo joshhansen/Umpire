@@ -19,7 +19,7 @@ pub fn players_arg() -> Arg {
     Arg::new("players")
         .short('p')
         .long("players")
-        .default_value("h1233")
+        // .default_value("h1233")
         .help(format!(
             "Player type specification string, {}",
             PlayerType::values()

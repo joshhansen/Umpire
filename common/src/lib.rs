@@ -9,4 +9,5 @@ pub mod conf;
 pub mod game;
 pub mod log;
 pub mod name;
+pub mod rpc;
 pub mod util;

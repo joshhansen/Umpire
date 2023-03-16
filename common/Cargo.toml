@@ -13,4 +13,5 @@ flate2 = "1.0.13"
 rand = { workspace = true }
 rsrl = { workspace = true }
 serde = { workspace = true }
+tarpc = { workspace = true }
 unicode-segmentation = "1.6.0"
