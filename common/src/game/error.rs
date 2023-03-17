@@ -16,6 +16,9 @@ use super::alignment::Alignment;
 
 #[derive(Debug, Deserialize, Fail, PartialEq, Serialize)]
 pub enum GameError {
+    #[fail(display = "No player slots available; the game is full")]
+    NoPlayerSlotsAvailable,
+
     #[fail(display = "There is no player {}", player)]
     NoSuchPlayer { player: PlayerNum },
 

@@ -300,8 +300,8 @@ async fn main() {
 
         // println!("{hello}");
 
-        let player_num = client.player_num(context::current()).await.unwrap();
-        println!("player_num: {}", player_num);
+        let num_players = client.num_players(context::current()).await.unwrap();
+        println!("num_players: {}", num_players);
     }
 
     println!(

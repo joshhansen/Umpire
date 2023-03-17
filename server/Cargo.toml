@@ -13,3 +13,4 @@ futures = "0.3"
 serde = { workspace = true }
 tarpc = { workspace = true }
 tokio = { workspace = true }
+uuid = { workspace = true}

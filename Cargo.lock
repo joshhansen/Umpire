@@ -338,6 +338,7 @@ dependencies = [
  "serde",
  "tarpc",
  "unicode-segmentation",
+ "uuid",
 ]
 
 [[package]]
@@ -2732,6 +2733,7 @@ dependencies = [
  "serde",
  "tarpc",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

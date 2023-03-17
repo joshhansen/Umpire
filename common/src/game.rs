@@ -25,6 +25,7 @@ use std::{
 use rsrl::DerefVec;
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{
     game::{
@@ -135,8 +136,11 @@ pub struct Game {
     /// The turn that it is right now
     turn: TurnNum,
 
-    /// Specification of who is human and who is what kind of robot
+    /// The number of players the game is set up for
     num_players: PlayerNum,
+
+    /// As players register, they're given secrets which we track here
+    player_secrets: Vec<Uuid>,
 
     /// The player that is currently the player right now
     current_player: PlayerNum,
@@ -198,6 +202,7 @@ impl Game {
             player_observations,
             turn: 0,
             num_players,
+            player_secrets: Vec::new(),
             current_player: 0,
             wrapping,
             unit_namer: unit_namer.unwrap_or(Arc::new(RwLock::new(IntNamer::new("unit")))),
@@ -212,6 +217,21 @@ impl Game {
 
     pub fn num_players(&self) -> PlayerNum {
         self.num_players
+    }
+
+    /// Register a player and get its secret
+    ///
+    /// The secret is used for access control on other methods
+    ///
+    /// Errors if all player slots are currently filled
+    pub fn register_player(&mut self) -> Result<Uuid, GameError> {
+        if self.player_secrets.len() == self.num_players {
+            Err(GameError::NoPlayerSlotsAvailable)
+        } else {
+            let secret = Uuid::new_v4();
+            self.player_secrets.push(secret);
+            Ok(secret)
+        }
     }
 
     pub fn player_turn_control(&mut self, player: PlayerNum) -> PlayerTurnControl {
