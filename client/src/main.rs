@@ -19,12 +19,7 @@ use std::{
 
 use clap::Arg;
 
-use tarpc::{
-    client::{self, RpcError},
-    context::{self, Context},
-    server::{self, incoming::Incoming, Channel},
-    tokio_serde::formats::Json,
-};
+use tarpc::{client, context, tokio_serde::formats::Json};
 
 // use rsrl::{
 //     fa::{
@@ -43,12 +38,12 @@ use self::{
 };
 
 use common::{
-    cli::{self, parse_player_spec, players_arg, Specified},
+    cli::{self, players_arg},
     conf,
     game::{ai::AISpec, player::TurnTaker, Game, PlayerNum, PlayerType},
     log::LogTarget,
     name::{city_namer, unit_namer},
-    rpc::UmpirePlayerRpcClient,
+    rpc::UmpireRpcClient,
     util::{Dims, Wrap2d},
 };
 
@@ -291,7 +286,7 @@ async fn main() {
 
         // let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
-        let client = UmpirePlayerRpcClient::new(client::Config::default(), transport).spawn();
+        let client = UmpireRpcClient::new(client::Config::default(), transport).spawn();
 
         // The client has an RPC method for each RPC defined in the annotated trait. It takes the same
         // args as defined, with the addition of a Context, which is always the first arg. The Context

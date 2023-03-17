@@ -1,15 +1,11 @@
 use std::{
     collections::HashSet,
-    f32::consts::E,
     net::{IpAddr, Ipv6Addr},
     sync::{Arc, RwLock},
-    time::SystemTime,
 };
 
-use clap::Arg;
-
 use common::{
-    cli::{self, parse_player_spec, players_arg, Specified},
+    cli::{self, players_arg},
     conf,
     game::{
         action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
@@ -17,24 +13,19 @@ use common::{
         city::{City, CityID},
         error::GameError,
         map::Tile,
-        move_::{Move, MoveError, MoveResult},
+        move_::MoveResult,
         obs::{LocatedObs, Obs, ObsTracker},
-        proposed::Proposed2,
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
         Game, PlayerNum, PlayerType, TurnNum, TurnStart,
     },
     name::{city_namer, unit_namer},
-    rpc::{UmpirePlayerRpc, UmpirePlayerRpcClient},
+    rpc::UmpireRpc,
     util::{Dims, Direction, Location, Wrap2d},
 };
-use futures::{
-    future::{self, Ready},
-    prelude::*,
-};
+use futures::{future, prelude::*};
 use serde::{Deserialize, Serialize};
 use tarpc::{
-    client::{self, RpcError},
-    context::{self, Context},
+    context::Context,
     server::{self, incoming::Incoming, Channel},
     tokio_serde::formats::Json,
 };
@@ -64,7 +55,7 @@ struct UmpireServer {
 }
 
 #[tarpc::server]
-impl UmpirePlayerRpc for UmpireServer {
+impl UmpireRpc for UmpireServer {
     async fn num_players(self, _: Context) -> PlayerNum {
         self.game.read().unwrap().num_players()
     }
@@ -243,7 +234,7 @@ impl UmpirePlayerRpc for UmpireServer {
     // Movement-related methods
 
     async fn move_toplevel_unit_by_id(
-        mut self,
+        self,
         _: Context,
         unit_id: UnitID,
         dest: Location,
@@ -255,7 +246,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_toplevel_unit_by_id_avoiding_combat(
-        mut self,
+        self,
         _: Context,
         unit_id: UnitID,
         dest: Location,
@@ -267,7 +258,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_toplevel_unit_by_loc(
-        mut self,
+        self,
         _: Context,
         src: Location,
         dest: Location,
@@ -279,7 +270,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_toplevel_unit_by_loc_avoiding_combat(
-        mut self,
+        self,
         _: Context,
         src: Location,
         dest: Location,
@@ -291,7 +282,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn move_unit_by_id_in_direction(
-        mut self,
+        self,
         _: Context,
         id: UnitID,
         direction: Direction,
@@ -302,7 +293,7 @@ impl UmpirePlayerRpc for UmpireServer {
             .move_unit_by_id_in_direction(id, direction)
     }
 
-    async fn move_unit_by_id(mut self, _: Context, unit_id: UnitID, dest: Location) -> MoveResult {
+    async fn move_unit_by_id(self, _: Context, unit_id: UnitID, dest: Location) -> MoveResult {
         self.game.write().unwrap().move_unit_by_id(unit_id, dest)
     }
 
@@ -316,7 +307,7 @@ impl UmpirePlayerRpc for UmpireServer {
     // }
 
     async fn move_unit_by_id_avoiding_combat(
-        mut self,
+        self,
         _: Context,
         id: UnitID,
         dest: Location,
@@ -336,7 +327,7 @@ impl UmpirePlayerRpc for UmpireServer {
     //     self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
     // }
 
-    async fn disband_unit_by_id(mut self, _: Context, id: UnitID) -> Result<Unit, GameError> {
+    async fn disband_unit_by_id(self, _: Context, id: UnitID) -> Result<Unit, GameError> {
         self.game.write().unwrap().disband_unit_by_id(id)
     }
 
@@ -344,7 +335,7 @@ impl UmpirePlayerRpc for UmpireServer {
     ///
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
     async fn set_production_by_loc(
-        mut self,
+        self,
         _: Context,
         loc: Location,
         production: UnitType,
@@ -359,7 +350,7 @@ impl UmpirePlayerRpc for UmpireServer {
     ///
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
     async fn set_production_by_id(
-        mut self,
+        self,
         _: Context,
         city_id: CityID,
         production: UnitType,
@@ -371,7 +362,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn clear_production(
-        mut self,
+        self,
         _: Context,
         loc: Location,
         ignore_cleared_production: bool,
@@ -415,20 +406,15 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    async fn order_unit_sentry(mut self, _: Context, unit_id: UnitID) -> OrdersResult {
+    async fn order_unit_sentry(self, _: Context, unit_id: UnitID) -> OrdersResult {
         self.game.write().unwrap().order_unit_sentry(unit_id)
     }
 
-    async fn order_unit_skip(mut self, _: Context, unit_id: UnitID) -> OrdersResult {
+    async fn order_unit_skip(self, _: Context, unit_id: UnitID) -> OrdersResult {
         self.game.write().unwrap().order_unit_skip(unit_id)
     }
 
-    async fn order_unit_go_to(
-        mut self,
-        _: Context,
-        unit_id: UnitID,
-        dest: Location,
-    ) -> OrdersResult {
+    async fn order_unit_go_to(self, _: Context, unit_id: UnitID, dest: Location) -> OrdersResult {
         self.game.write().unwrap().order_unit_go_to(unit_id, dest)
     }
 
@@ -442,7 +428,7 @@ impl UmpirePlayerRpc for UmpireServer {
     //     self.game.propose_order_unit_go_to(unit_id, dest)
     // }
 
-    async fn order_unit_explore(mut self, _: Context, unit_id: UnitID) -> OrdersResult {
+    async fn order_unit_explore(self, _: Context, unit_id: UnitID) -> OrdersResult {
         self.game.write().unwrap().order_unit_explore(unit_id)
     }
 
@@ -456,7 +442,7 @@ impl UmpirePlayerRpc for UmpireServer {
     // }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    async fn activate_unit_by_loc(mut self, _: Context, loc: Location) -> Result<(), GameError> {
+    async fn activate_unit_by_loc(self, _: Context, loc: Location) -> Result<(), GameError> {
         self.game.write().unwrap().activate_unit_by_loc(loc)
     }
 
@@ -497,7 +483,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn take_simple_action(
-        mut self,
+        self,
         _: Context,
         action: AiPlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {
@@ -505,7 +491,7 @@ impl UmpirePlayerRpc for UmpireServer {
     }
 
     async fn take_action(
-        mut self,
+        self,
         _: Context,
         action: PlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {

@@ -15,9 +15,9 @@ use crate::{
     util::{Dims, Direction, Location, Wrap2d},
 };
 
-/// The Umpire RPC client. The macro renames this `UmpireClient`.
+/// The Umpire RPC interface. The macro generates a client impl called `UmpireRpcClient`.
 #[tarpc::service]
-pub trait UmpirePlayerRpc {
+pub trait UmpireRpc {
     /// The number of players in the game
     async fn num_players() -> PlayerNum;
 
