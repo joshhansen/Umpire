@@ -12,10 +12,12 @@
 * TODO Fuel limits for aircraft
 * TODO Client/server architecture
  - Inventory PlayerTurnControl - make sure it's fully restricted to the player's view of game state
- - PlayerTurnControl -> PlayerGameView - client has a local copy of player's view of the game
+ - ~~PlayerTurnControl -> PlayerGameView - client has a local copy of player's view of the game~~
+ - Use UmpireClient RPC calls to maintain client-local PlayerGameView's; pass these to the UI
+   for synchronous rendering.
  - Low-level client-server protocol, updating client state incrementally
  - server runs exactly one game
- - each client controls exactly one player
+ - ~~each client controls exactly one player~~ Clients can register arbitrary numbers of players
  - switch from async_trait to nightly async trait fn
 * CHORE: Replace failure with thiserror
 * CHORE: Audit dependencies, removing as possible
