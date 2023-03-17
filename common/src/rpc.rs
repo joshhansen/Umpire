@@ -1,36 +1,21 @@
-use std::{
-    collections::HashSet,
-    sync::{Arc, RwLock},
-    time::SystemTime,
-};
+use std::collections::HashSet;
 
 use crate::{
-    cli::{self, parse_player_spec, players_arg, Specified},
-    conf,
     game::{
         action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
-        ai::{fX, player_features},
+        ai::fX,
         city::{City, CityID},
         error::GameError,
         map::Tile,
-        move_::{Move, MoveError, MoveResult},
-        obs::{LocatedObs, Obs, ObsTracker},
-        proposed::Proposed2,
+        move_::MoveResult,
+        obs::{Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
-        Game, PlayerNum, PlayerType, TurnNum, TurnStart,
+        PlayerNum, TurnNum,
     },
-    name::{city_namer, unit_namer},
     util::{Dims, Direction, Location, Wrap2d},
 };
 
-use tarpc::{
-    client::{self, RpcError},
-    context::{self, Context},
-    server::{self, incoming::Incoming, Channel},
-};
-
-// This is the service definition. It looks a lot like a trait definition.
-// It defines one RPC, hello, which takes one arg, name, and returns a String.
+/// The Umpire RPC client. The macro renames this `UmpireClient`.
 #[tarpc::service]
 pub trait UmpirePlayerRpc {
     /// The number of players in the game
