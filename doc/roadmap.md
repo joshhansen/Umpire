@@ -12,6 +12,7 @@
 * TODO Fuel limits for aircraft
 * TODO Client/server architecture
  - Inventory PlayerTurnControl - make sure it's fully restricted to the player's view of game state
+ - Reduce PlayerTurnControl API to minimal actions and results format
  - ~~PlayerTurnControl -> PlayerGameView - client has a local copy of player's view of the game~~
  - Use UmpireClient RPC calls to maintain client-local PlayerGameView's; pass these to the UI
    for synchronous rendering.
