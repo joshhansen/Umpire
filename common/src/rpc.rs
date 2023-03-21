@@ -10,7 +10,7 @@ use crate::{
         move_::MoveResult,
         obs::{Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
-        PlayerNum, TurnNum,
+        PlayerNum, PlayerSecret, TurnNum, UmpireResult,
     },
     util::{Dims, Direction, Location, Wrap2d},
 };
@@ -45,8 +45,8 @@ pub trait UmpireRpc {
 
     async fn current_player_observations() -> ObsTracker;
 
-    /// Every city controlled by the current player
-    async fn current_player_cities() -> Vec<City>;
+    /// Every city controlled by the player whose secret is provided
+    async fn player_cities(player_secret: PlayerSecret) -> UmpireResult<Vec<City>>;
 
     /// All cities controlled by the current player which have a production target set
     async fn current_player_cities_with_production_target() -> Vec<City>;
@@ -197,7 +197,7 @@ pub trait UmpireRpc {
     ///
     async fn features() -> Vec<fX>;
 
-    async fn player_score(player: PlayerNum) -> Result<f64, GameError>;
+    async fn player_score(player_secret: PlayerSecret) -> UmpireResult<f64>;
 
     async fn take_simple_action(action: AiPlayerAction) -> Result<PlayerActionOutcome, GameError>;
 

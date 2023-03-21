@@ -22,6 +22,9 @@ pub enum GameError {
     #[fail(display = "There is no player {}", player)]
     NoSuchPlayer { player: PlayerNum },
 
+    #[fail(display = "There is no player identified by the given secret")]
+    NoPlayerIdentifiedBySecret,
+
     #[fail(display = "No unit with ID {:?} exists", id)]
     NoSuchUnit { id: UnitID },
 

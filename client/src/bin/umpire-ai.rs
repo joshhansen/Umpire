@@ -358,7 +358,8 @@ fn main() -> Result<(), String> {
             let map_dims = dims.choose(&mut rng).cloned().unwrap();
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
-            let mut game = Game::new(map_dims, city_namer, num_ais, fog_of_war, None, wrapping);
+            let (mut game, secrets) =
+                Game::new(map_dims, city_namer, num_ais, fog_of_war, None, wrapping);
 
             if fix_output_loc {
                 execute!(stdout, MoveTo(0, 0)).unwrap();
@@ -368,7 +369,7 @@ fn main() -> Result<(), String> {
 
             if verbosity > 1 {
                 if fix_output_loc {
-                    let ctrl = game.player_turn_control_nonending(0);
+                    let ctrl = game.player_turn_control_nonending(secrets[0]).unwrap();
 
                     map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
                 } else {
@@ -386,10 +387,12 @@ fn main() -> Result<(), String> {
                     }
 
                     let player = game.current_player();
+                    let player_secret = secrets[player];
 
                     let ai = ais.get_mut(i).unwrap();
                     let mut maybe_training_instances =
-                        ai.borrow_mut().take_turn_clearing(&mut game, generate_data);
+                        ai.borrow_mut()
+                            .take_turn_clearing(&mut game, player_secret, generate_data);
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
@@ -402,7 +405,7 @@ fn main() -> Result<(), String> {
 
                     if verbosity > 1 {
                         if fix_output_loc {
-                            let ctrl = game.player_turn_control_nonending(i);
+                            let ctrl = game.player_turn_control_nonending(secrets[i]).unwrap();
 
                             map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
                             execute!(stdout, MoveTo(0, map_height + 2)).unwrap();

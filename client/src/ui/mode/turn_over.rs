@@ -240,10 +240,10 @@ mod test {
             )
             .unwrap();
 
-        let mut game = Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
 
         {
-            let mut ctrl = game.player_turn_control(0);
+            let mut ctrl = game.player_turn_control(secrets[0]).unwrap();
             ctrl.order_unit_skip(unit_id).unwrap();
         }
 
@@ -251,7 +251,7 @@ mod test {
         let mut mode = Mode::TurnOver;
 
         {
-            let mut ctrl = game.player_turn_control(1);
+            let mut ctrl = game.player_turn_control(secrets[1]).unwrap();
 
             ctrl.order_unit_skip(other_unit_id).unwrap();
 

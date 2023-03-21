@@ -85,6 +85,8 @@ const UNIT_MULTIPLIER: f64 = 100.0;
 /// How much is victory worth?
 const VICTORY_SCORE: f64 = 1_000_000.0;
 
+pub type PlayerSecret = Uuid;
+
 pub type TurnNum = u32;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -116,6 +118,8 @@ pub enum UnitProductionOutcome {
         city: City,
     },
 }
+
+pub type UmpireResult<T> = Result<T, GameError>;
 
 type ProposedResult<Outcome, E> = Result<Proposed2<Outcome>, E>;
 
@@ -175,6 +179,8 @@ impl Game {
     ///
     /// If `fog_of_war` is `true` then players' view of the map will be limited to what they have previously
     /// observed, with observations growing stale over time.
+    ///
+    /// Also returns the player secrets used for access control
     pub fn new<N: Namer>(
         map_dims: Dims,
         mut city_namer: N,
@@ -182,19 +188,21 @@ impl Game {
         fog_of_war: bool,
         unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
-    ) -> Self {
+    ) -> (Self, Vec<PlayerSecret>) {
         let map = generate_map(&mut city_namer, map_dims, num_players);
         Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 
     /// Creates a new game instance from a pre-generated map
+    ///
+    /// Also returns the player secrets used for access control
     pub fn new_with_map(
         map: MapData,
         num_players: PlayerNum,
         fog_of_war: bool,
         unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
-    ) -> Self {
+    ) -> (Self, Vec<PlayerSecret>) {
         let player_observations = PlayerObsTracker::new(num_players, map.dims());
 
         let mut game = Self {
@@ -211,8 +219,12 @@ impl Game {
             defeated_unit_hitpoints: vec![0; num_players],
         };
 
+        let secrets: Vec<PlayerSecret> = (0..num_players)
+            .map(|_player| game.register_player().unwrap())
+            .collect();
+
         game.begin_turn();
-        game
+        (game, secrets)
     }
 
     pub fn num_players(&self) -> PlayerNum {
@@ -224,7 +236,7 @@ impl Game {
     /// The secret is used for access control on other methods
     ///
     /// Errors if all player slots are currently filled
-    pub fn register_player(&mut self) -> Result<Uuid, GameError> {
+    fn register_player(&mut self) -> Result<Uuid, GameError> {
         if self.player_secrets.len() == self.num_players {
             Err(GameError::NoPlayerSlotsAvailable)
         } else {
@@ -234,20 +246,37 @@ impl Game {
         }
     }
 
-    pub fn player_turn_control(&mut self, player: PlayerNum) -> PlayerTurnControl {
-        debug_assert_eq!(player, self.current_player);
-
-        PlayerTurnControl::new(self, true, false)
+    fn validate_player_num(&self, player: PlayerNum) -> UmpireResult<()> {
+        if player >= self.num_players {
+            Err(GameError::NoSuchPlayer { player })
+        } else {
+            Ok(())
+        }
     }
 
-    pub fn player_turn_control_clearing(&mut self, player: PlayerNum) -> PlayerTurnControl {
-        debug_assert_eq!(player, self.current_player);
-
-        PlayerTurnControl::new_clearing(self)
+    fn validate_player_secret(&self, secret: PlayerSecret) -> UmpireResult<()> {
+        self.player_with_secret(secret).map(|_| ())
     }
 
-    pub fn player_turn_control_nonending(&mut self, player: PlayerNum) -> PlayerTurnControl {
-        PlayerTurnControl::new(self, false, false)
+    pub fn player_turn_control(&mut self, secret: PlayerSecret) -> UmpireResult<PlayerTurnControl> {
+        self.validate_player_secret(secret)
+            .map(|_| PlayerTurnControl::new(secret, self, true, false))
+    }
+
+    pub fn player_turn_control_clearing(
+        &mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<PlayerTurnControl> {
+        self.validate_player_secret(secret)
+            .map(|_| PlayerTurnControl::new_clearing(secret, self))
+    }
+
+    pub fn player_turn_control_nonending(
+        &mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<PlayerTurnControl> {
+        self.validate_player_secret(secret)
+            .map(|_| PlayerTurnControl::new(secret, self, false, false))
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
@@ -572,17 +601,32 @@ impl Game {
         self.player_observations.tracker(player).unwrap()
     }
 
-    // fn current_player_observations_mut(&mut self) -> &mut ObsTracker {
-    //     self.player_observations.get_mut(&self.current_player).unwrap()
-    // }
+    /// NOTE: Don't include this in the RPC API - could allow searches for secrets, however improbable of success
+    pub fn player_with_secret(&self, player_secret: PlayerSecret) -> UmpireResult<PlayerNum> {
+        self.player_secrets
+            .iter()
+            .position(|ps| *ps == player_secret)
+            .ok_or(GameError::NoPlayerIdentifiedBySecret)
+    }
 
-    fn player_cities(&self, player: PlayerNum) -> impl Iterator<Item = &City> {
-        self.map.player_cities(player)
+    /// Every city controlled by the player whose secret is provided
+    pub fn player_cities(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<impl Iterator<Item = &City>> {
+        let player = self.player_with_secret(player_secret)?;
+
+        self.player_cities_by_idx(player)
+    }
+
+    fn player_cities_by_idx(&self, player: PlayerNum) -> UmpireResult<impl Iterator<Item = &City>> {
+        self.validate_player_num(player)
+            .map(|_| self.map.player_cities(player))
     }
 
     /// Every city controlled by the current player
-    pub fn current_player_cities(&self) -> impl Iterator<Item = &City> {
-        self.player_cities(self.current_player())
+    fn current_player_cities(&self) -> impl Iterator<Item = &City> {
+        self.map.player_cities(self.current_player)
     }
 
     /// All cities controlled by the current player which have a production target set
@@ -617,7 +661,7 @@ impl Game {
     ///
     /// FIXME Get rid of this and just make the UI smarter
     #[deprecated]
-    pub fn player_cities_producing_or_not_ignored(&self) -> usize {
+    pub fn current_player_cities_producing_or_not_ignored(&self) -> usize {
         self.current_player_cities()
             .filter(|city| city.production().is_some() || !city.ignore_cleared_production())
             .count()
@@ -1487,10 +1531,16 @@ impl Game {
     }
 
     pub fn current_player_score(&self) -> f64 {
-        self.player_score(self.current_player).unwrap()
+        self.player_score_by_idx(self.current_player).unwrap()
     }
 
-    pub fn player_score(&self, player: PlayerNum) -> Result<f64, GameError> {
+    pub fn player_score(&self, player_secret: PlayerSecret) -> UmpireResult<f64> {
+        let player = self.player_with_secret(player_secret)?;
+
+        self.player_score_by_idx(player)
+    }
+
+    fn player_score_by_idx(&self, player: PlayerNum) -> UmpireResult<f64> {
         let mut score = 0.0;
 
         // Observations
@@ -1513,7 +1563,7 @@ impl Game {
         score += UNIT_MULTIPLIER * self.defeated_unit_hitpoints[player] as f64;
 
         // Controlled cities
-        for city in self.player_cities(player) {
+        for city in self.player_cities_by_idx(player)? {
             // The city's intrinsic value plus any progress it's made toward producing its unit
             score += CITY_INTRINSIC_SCORE + city.production_progress as f64 * UNIT_MULTIPLIER;
         }
@@ -1537,7 +1587,7 @@ impl Game {
     /// Each player's current score, indexed by player number
     pub fn player_scores(&self) -> Vec<f64> {
         (0..self.num_players)
-            .map(|player| self.player_score(player).unwrap())
+            .map(|player| self.player_score_by_idx(player).unwrap())
             .collect()
     }
 
@@ -1596,7 +1646,7 @@ impl Game {
             current_player: self.current_player,
             wrapping: self.wrapping,
             fog_of_war: self.fog_of_war,
-            score: self.player_score(player)?,
+            score: self.player_score_by_idx(player)?,
         })
     }
 
@@ -1726,11 +1776,13 @@ pub mod test_support {
         util::{Dims, Location, Wrap2d},
     };
 
+    use super::PlayerSecret;
+
     pub fn test_propose_move_unit_by_id() {
         let src = Location { x: 0, y: 0 };
         let dest = Location { x: 1, y: 0 };
 
-        let game = game_two_cities_two_infantry();
+        let (game, _secrets) = game_two_cities_two_infantry();
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
@@ -1786,7 +1838,7 @@ pub mod test_support {
         map
     }
 
-    pub fn game1() -> Game {
+    pub fn game1() -> (Game, Vec<PlayerSecret>) {
         let players = 2;
         let fog_of_war = true;
 
@@ -1801,13 +1853,13 @@ pub mod test_support {
         )
     }
 
-    pub fn game_two_cities_dims(dims: Dims) -> Game {
+    pub fn game_two_cities_dims(dims: Dims) -> (Game, Vec<PlayerSecret>) {
         let players = 2;
         let fog_of_war = true;
 
         let map = map_two_cities(dims);
         let unit_namer = unit_namer();
-        let mut game = Game::new_with_map(
+        let (mut game, secrets) = Game::new_with_map(
             map,
             players,
             fog_of_war,
@@ -1830,7 +1882,7 @@ pub mod test_support {
         let player = game.end_turn().unwrap().current_player;
         assert_eq!(player, 0);
 
-        game
+        (game, secrets)
     }
 
     fn map_tunnel(dims: Dims) -> MapData {
@@ -1850,7 +1902,7 @@ pub mod test_support {
         map
     }
 
-    pub fn game_tunnel(dims: Dims) -> Game {
+    pub fn game_tunnel(dims: Dims) -> (Game, Vec<PlayerSecret>) {
         let players = 2;
         let fog_of_war = false;
         let map = map_tunnel(dims);
@@ -1872,8 +1924,8 @@ pub mod test_support {
     //     game_two_cities_dims(Dims::new(100, 100))
     // }
 
-    pub fn game_two_cities_two_infantry_dims(dims: Dims) -> Game {
-        let mut game = game_two_cities_dims(dims);
+    pub fn game_two_cities_two_infantry_dims(dims: Dims) -> (Game, Vec<PlayerSecret>) {
+        let (mut game, secrets) = game_two_cities_dims(dims);
 
         for _ in 0..5 {
             let player = game.end_turn().unwrap().current_player;
@@ -1891,14 +1943,14 @@ pub mod test_support {
             Err(GameError::TurnEndRequirementsNotMet { player: 0 })
         );
 
-        game
+        (game, secrets)
     }
 
-    pub fn game_two_cities_two_infantry() -> Game {
+    pub fn game_two_cities_two_infantry() -> (Game, Vec<PlayerSecret>) {
         game_two_cities_two_infantry_dims(Dims::new(10, 10))
     }
 
-    pub fn game_two_cities_two_infantry_big() -> Game {
+    pub fn game_two_cities_two_infantry_big() -> (Game, Vec<PlayerSecret>) {
         game_two_cities_two_infantry_dims(Dims::new(100, 100))
     }
 }
@@ -1929,7 +1981,7 @@ mod test {
 
     #[test]
     fn test_game() {
-        let mut game = game_two_cities_two_infantry();
+        let (mut game, _secrets) = game_two_cities_two_infantry();
 
         for player in 0..2 {
             assert_eq!(game.unit_orders_requests().count(), 1);
@@ -1966,7 +2018,7 @@ mod test {
             )
             .unwrap();
 
-        let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
         let mut rand = thread_rng();
         for _ in 0..10 {
@@ -2009,7 +2061,7 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let mut game = Game::new_with_map(
+        let (mut game, _secrets) = Game::new_with_map(
             map,
             2,
             false,
@@ -2127,7 +2179,7 @@ mod test {
 
         let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
 
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         game.move_unit_by_id_in_direction(transport_id, Direction::Left)
             .unwrap();
@@ -2152,7 +2204,7 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
         let move_result = game
             .move_toplevel_unit_by_loc(infantry_loc, transport_loc)
             .unwrap();
@@ -2173,7 +2225,7 @@ mod test {
             let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
             let battleship_id = map.toplevel_unit_by_loc(Location::new(2, 0)).unwrap().id;
 
-            let mut game = Game::new_with_map(map, 2, false, None, Wrap2d::NEITHER);
+            let (mut game, _secrets) = Game::new_with_map(map, 2, false, None, Wrap2d::NEITHER);
 
             // Load the infantry onto the transport
             let inf_move = game
@@ -2297,7 +2349,7 @@ mod test {
     #[test]
     fn test_set_orders() {
         let map = MapData::try_from("i").unwrap();
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
         assert_eq!(
@@ -2320,7 +2372,7 @@ mod test {
     #[test]
     pub fn test_order_unit_explore() {
         let map = MapData::try_from("i--------------------").unwrap();
-        let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
@@ -2387,7 +2439,7 @@ mod test {
                                         let map = MapData::try_from(s.clone()).unwrap();
                                         assert_eq!(map.dims(), Dims::new(3, 3));
 
-                                        let game =
+                                        let (game, _secrets) =
                                             Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
 
                                         let id = game
@@ -2464,7 +2516,7 @@ mod test {
                         "Eunice",
                     )
                     .unwrap();
-                let game = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 assert!(game
                     .current_player_unit_legal_one_step_destinations(unit_id)
@@ -2483,7 +2535,7 @@ mod test {
                         "Eunice",
                     )
                     .unwrap();
-                let game = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game
                     .current_player_unit_legal_one_step_destinations(unit_id)
@@ -2509,7 +2561,7 @@ mod test {
                         "Eunice",
                     )
                     .unwrap();
-                let game = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game
                     .current_player_unit_legal_one_step_destinations(unit_id)
@@ -2532,7 +2584,7 @@ mod test {
                 let inf_id = map.toplevel_unit_id_by_loc(Location::new(2, 0)).unwrap();
                 map.carry_unit_by_id(transport_id, inf_id).unwrap();
 
-                let game = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game
                     .current_player_unit_legal_one_step_destinations(inf_id)
@@ -2562,7 +2614,7 @@ mod test {
             )
             .unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         // let mut rand = thread_rng();
 
@@ -2640,7 +2692,7 @@ mod test {
                 "Skipper",
             )
             .unwrap();
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         game.move_unit_by_id_in_direction(unit_id, Direction::Right)
             .unwrap();
@@ -2683,7 +2735,7 @@ mod test {
                 map.set_unit(l1, u1.clone());
                 map.set_unit(l2, u2.clone());
 
-                let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+                let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
                 let result = game.move_unit_by_id_in_direction(u1.id, Direction::Right);
 
                 if u2.can_carry_unit(&u1) {
@@ -2709,7 +2761,7 @@ mod test {
             )
             .unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         for _ in 0..9 {
             game.move_unit_by_id_in_direction(unit_id, Direction::Right)
@@ -2735,7 +2787,8 @@ mod test {
         let t1_id = map.toplevel_unit_id_by_loc(l1).unwrap();
 
         {
-            let mut game = Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
+            let (mut game, _secrets) =
+                Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
 
             game.move_unit_by_id_in_direction(t1_id, Direction::Right)
                 .expect_err("Transport should not be able to move onto transport");
@@ -2745,7 +2798,7 @@ mod test {
         map2.new_city(l2, Alignment::Belligerent { player: 0 }, "city")
             .unwrap();
 
-        let mut game = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
         game.move_unit_by_id_in_direction(t1_id, Direction::Right)
             .expect_err("Transport should not be able to move onto transport");
@@ -2787,7 +2840,8 @@ mod test {
         }
 
         {
-            let mut game = Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
+            let (mut game, _secrets) =
+                Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
 
             game.move_unit_by_id_in_direction(t1_id, Direction::Right)
                 .expect_err("Transport should not be able to move onto transport");
@@ -2800,7 +2854,7 @@ mod test {
         map2.new_city(l2, Alignment::Belligerent { player: 0 }, "city")
             .unwrap();
 
-        let mut game = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
         game.move_unit_by_id_in_direction(t1_id, Direction::Right)
             .expect_err("Transport should not be able to move onto transport");
@@ -2811,7 +2865,7 @@ mod test {
         let map = MapData::try_from("at -").unwrap();
         let armor_id = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
         let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         // Embark
         game.move_unit_by_id_in_direction(armor_id, Direction::Right)
@@ -2855,7 +2909,7 @@ mod test {
         let map = MapData::try_from("at -").unwrap();
         let armor_id = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
         let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         // Embark
         game.order_unit_go_to(armor_id, Location::new(1, 0))
@@ -2898,7 +2952,7 @@ mod test {
     fn test_shortest_paths_carrying() {
         let map = MapData::try_from("t t  ").unwrap();
 
-        let mut game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         game.move_toplevel_unit_by_loc(Location::new(0, 0), Location::new(4, 0))
             .expect_err("Transports shouldn't traverse transports on their way somewhere");
@@ -2907,7 +2961,7 @@ mod test {
     #[test]
     fn test_valid_productions() {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
-        let game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         let city_loc = game.production_set_requests().next().unwrap();
 
@@ -2936,7 +2990,7 @@ mod test {
     #[test]
     fn test_valid_productions_conservative() {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
-        let game = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         let city_loc = game.production_set_requests().next().unwrap();
 
@@ -2974,7 +3028,7 @@ mod test {
             )
             .unwrap();
 
-        let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+        let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
         let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
         let dest = game
@@ -2988,7 +3042,7 @@ mod test {
     fn test_disband_unit_by_id() {
         {
             let map = MapData::try_from("i").unwrap();
-            let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+            let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
             let id = UnitID::new(0);
 
             let unit = game.current_player_unit_by_id(id).cloned().unwrap();
@@ -3018,7 +3072,7 @@ mod test {
             let infantry_id = map2.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
             let transport_id = map2.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
-            let mut game2 = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
+            let (mut game2, _secrets) = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
 
             assert!(game2
                 .unit_orders_requests()
@@ -3082,7 +3136,7 @@ mod test {
             let a = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
             let b = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
-            let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+            let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
             assert!(game.disband_unit_by_id(a).is_ok());
 

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features, AISpec},
-    ProposedMoveResult, ProposedOrdersResult,
+    PlayerSecret, ProposedMoveResult, ProposedOrdersResult, UmpireResult,
 };
 use crate::{
     cli::Specified,
@@ -78,6 +78,8 @@ impl Into<String> for PlayerType {
 pub struct PlayerTurnControl<'a> {
     game: &'a mut Game,
 
+    secret: PlayerSecret,
+
     /// Which player is this control shim representing? A copy of `Game::current_player`'s result. Shouldn't get stale
     /// since we lock down anything that would change who the current player is. We do this for convenience.
     pub player: PlayerNum,
@@ -88,6 +90,7 @@ pub struct PlayerTurnControl<'a> {
 }
 impl<'a> PlayerTurnControl<'a> {
     pub fn new(
+        secret: PlayerSecret,
         game: &'a mut Game,
         end_turn_on_drop: bool,
         clear_completed_productions: bool,
@@ -95,15 +98,17 @@ impl<'a> PlayerTurnControl<'a> {
         let player = game.current_player();
         Self {
             game,
+            secret,
             player,
             clear_completed_productions,
             end_turn_on_drop,
         }
     }
 
-    pub fn new_clearing(game: &'a mut Game) -> Self {
+    pub fn new_clearing(secret: PlayerSecret, game: &'a mut Game) -> Self {
         let player = game.current_player();
         Self {
+            secret,
             game,
             player,
             clear_completed_productions: true,
@@ -147,7 +152,7 @@ impl<'a> PlayerTurnControl<'a> {
     /// FIXME Get rid of this and just make the UI smarter
     #[deprecated]
     pub fn player_cities_producing_or_not_ignored(&self) -> usize {
-        self.game.player_cities_producing_or_not_ignored()
+        self.game.current_player_cities_producing_or_not_ignored()
     }
 
     /// If the current player controls a city at location `loc`, return it
@@ -273,8 +278,8 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.end_turn()
     }
 
-    fn player_score(&self, player: PlayerNum) -> Result<f64, GameError> {
-        self.game.player_score(player)
+    fn player_score(&self) -> UmpireResult<f64> {
+        self.game.player_score(self.secret)
     }
 
     fn take_simple_action(
@@ -331,25 +336,28 @@ pub trait TurnTaker {
     fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     fn take_turn_clearing(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     fn take_turn(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         clear_at_end_of_turn: bool,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         if clear_at_end_of_turn {
-            self.take_turn_clearing(game, generate_data)
+            self.take_turn_clearing(game, player_secret, generate_data)
         } else {
-            self.take_turn_not_clearing(game, generate_data)
+            self.take_turn_not_clearing(game, player_secret, generate_data)
         }
     }
 }
@@ -358,9 +366,10 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
     fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let mut ctrl = game.player_turn_control(game.current_player());
+        let mut ctrl = game.player_turn_control(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -386,9 +395,10 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
     fn take_turn_clearing(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let mut ctrl = game.player_turn_control_clearing(game.current_player());
+        let mut ctrl = game.player_turn_control_clearing(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -439,7 +449,7 @@ impl<T: ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
                 (
                     Some(num_features),
                     Some(features),
-                    Some(ctrl.player_score(player).unwrap()),
+                    Some(ctrl.player_score().unwrap()),
                 )
             } else {
                 (None, None, None)
@@ -451,7 +461,7 @@ impl<T: ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
                 ctrl.take_simple_action(action).unwrap();
 
                 if generate_data {
-                    let post_score = ctrl.player_score(player).unwrap();
+                    let post_score = ctrl.player_score().unwrap();
                     training_instances.as_mut().map(|v| {
                         v.push(TrainingInstance::undetermined(
                             player,

@@ -661,8 +661,9 @@ mod test {
     fn _test_viewport_to_map_coords(map_dims: Dims) {
         // pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
 
-        let mut game = game1();
-        let ctrl = game.player_turn_control(0);
+        let (mut game, secrets) = game1();
+
+        let ctrl = game.player_turn_control(secrets[0]).unwrap();
 
         let rect = Rect {
             left: 0,

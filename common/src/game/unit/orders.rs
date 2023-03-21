@@ -315,7 +315,7 @@ pub mod test_support {
         let players: PlayerNum = 1;
         let map = generate_map(&mut city_namer, dims, players);
 
-        let mut game = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
         // Request a fighter to be produced
         let city_loc = game.production_set_requests().next().unwrap();
@@ -386,7 +386,7 @@ pub mod test {
     #[test]
     fn test_go_to() {
         let map = MapData::try_from("i----------").unwrap();
-        let mut game = Game::new_with_map(
+        let (mut game, secrets) = Game::new_with_map(
             map,
             1,
             false,
@@ -455,7 +455,7 @@ pub mod test {
     #[test]
     fn test_propose_exploration() {
         let map = MapData::try_from("i--------------------").unwrap();
-        let game = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+        let (game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 

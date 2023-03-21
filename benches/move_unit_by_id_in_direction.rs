@@ -28,7 +28,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     )
                     .unwrap();
 
-                let game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+                let (game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
                 let dir_idx = thread_rng().gen_range(0, 8);
                 let dir = Direction::values()[dir_idx];

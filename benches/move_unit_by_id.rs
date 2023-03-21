@@ -26,7 +26,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     )
                     .unwrap();
 
-                let game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+                let (game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
                 let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
                 let dest = game

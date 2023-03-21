@@ -3,7 +3,7 @@ use std::{fmt, fs::File, io::Write, path::Path};
 use common::game::{
     action::AiPlayerAction,
     ai::{player_features, AISpec, TrainingInstance},
-    Game,
+    Game, PlayerSecret,
 };
 use rand::{thread_rng, Rng};
 
@@ -222,6 +222,7 @@ impl AI {
     fn _take_turn_unended(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         let mut training_instances = if generate_data {
@@ -230,7 +231,7 @@ impl AI {
             None
         };
 
-        let player = game.current_player();
+        let player = game.player_with_secret(player_secret).unwrap();
 
         while !game.turn_is_done() {
             // features: Vec<f64>,// the view on the game state
@@ -246,7 +247,7 @@ impl AI {
                 (
                     Some(num_features),
                     Some(features),
-                    Some(game.player_score(player).unwrap()),
+                    Some(game.player_score(player_secret).unwrap()),
                 )
             } else {
                 (None, None, None)
@@ -257,7 +258,7 @@ impl AI {
             action.take(game).unwrap();
 
             if generate_data {
-                let post_score = game.player_score(player).unwrap();
+                let post_score = game.player_score(player_secret).unwrap();
                 training_instances.as_mut().map(|v| {
                     v.push(TrainingInstance::undetermined(
                         player,
@@ -279,19 +280,20 @@ impl TurnTaker for AI {
     fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         match self {
-            Self::Random(ai) => ai.take_turn_not_clearing(game, generate_data),
+            Self::Random(ai) => ai.take_turn_not_clearing(game, player_secret, generate_data),
             Self::LFA(_fa) => {
-                let result = self._take_turn_unended(game, generate_data);
+                let result = self._take_turn_unended(game, player_secret, generate_data);
 
                 game.end_turn().unwrap();
 
                 result
             }
             Self::DNN(_fa) => {
-                let result = self._take_turn_unended(game, generate_data);
+                let result = self._take_turn_unended(game, player_secret, generate_data);
 
                 game.end_turn().unwrap();
 
@@ -303,19 +305,20 @@ impl TurnTaker for AI {
     fn take_turn_clearing(
         &mut self,
         game: &mut Game,
+        player_secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         match self {
-            Self::Random(ai) => ai.take_turn_clearing(game, generate_data),
+            Self::Random(ai) => ai.take_turn_clearing(game, player_secret, generate_data),
             Self::LFA(_fa) => {
-                let result = self._take_turn_unended(game, generate_data);
+                let result = self._take_turn_unended(game, player_secret, generate_data);
 
                 game.end_turn_clearing().unwrap();
 
                 result
             }
             Self::DNN(_fa) => {
-                let result = self._take_turn_unended(game, generate_data);
+                let result = self._take_turn_unended(game, player_secret, generate_data);
 
                 game.end_turn_clearing().unwrap();
 

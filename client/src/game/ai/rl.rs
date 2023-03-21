@@ -39,7 +39,7 @@ use common::{
         action::AiPlayerAction,
         ai::{fX, player_features},
         unit::UnitType,
-        Game, PlayerNum,
+        Game, PlayerNum, PlayerSecret,
     },
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
@@ -153,6 +153,8 @@ pub struct UmpireDomain {
     /// The game state
     game: Game,
 
+    player_secrets: Vec<PlayerSecret>,
+
     verbosity: u8,
 
     fix_output_loc: bool,
@@ -179,7 +181,7 @@ impl UmpireDomain {
     ) -> Result<Self, std::io::Error> {
         let city_namer = IntNamer::new("city");
 
-        let game = Game::new(
+        let (game, player_secrets) = Game::new(
             map_dims,
             city_namer,
             num_players,
@@ -188,11 +190,19 @@ impl UmpireDomain {
             wrapping,
         );
 
-        Self::from_game(game, fix_output_loc, verbosity, memory_path, memory_prob)
+        Self::from_game(
+            game,
+            player_secrets,
+            fix_output_loc,
+            verbosity,
+            memory_path,
+            memory_prob,
+        )
     }
 
     fn from_game(
         game: Game,
+        secrets: Vec<PlayerSecret>,
         fix_output_loc: bool,
         verbosity: u8,
         memory_path: Option<&Path>,
@@ -220,6 +230,7 @@ impl UmpireDomain {
 
         Ok(Self {
             game,
+            player_secrets: secrets,
             fix_output_loc,
             verbosity,
             memory_file,
@@ -241,12 +252,15 @@ impl UmpireDomain {
                 self.game.production_set_requests().next()
             };
 
+            let player_secret = self.player_secrets[self.game.current_player()];
+
             if self.fix_output_loc {
                 let mut stdout = stdout();
                 {
                     let ctrl = self
                         .game
-                        .player_turn_control_nonending(self.game.current_player());
+                        .player_turn_control_nonending(player_secret)
+                        .unwrap();
                     self.map.draw(&ctrl, &mut stdout, &self.palette);
                 }
                 execute!(stdout, MoveTo(0, self.map.rect().bottom() + 1)).unwrap();
@@ -262,7 +276,7 @@ impl UmpireDomain {
             );
             println!(
                 "Cities: {} | Units: {}     ",
-                self.game.current_player_cities().count(),
+                self.game.player_cities(player_secret).unwrap().count(),
                 self.game.current_player_units().count()
             );
             println!(
@@ -278,26 +292,6 @@ impl UmpireDomain {
             // End this user's turn
             self.game.end_turn_clearing().unwrap();
         }
-    }
-
-    /// For our purposes, the player's score is their own inherent score minus all other players' scores.
-    fn player_score(&self, player: PlayerNum) -> f64 {
-        // let scores = self.game.player_scores();
-        // // scores[self.game.current_player()]
-
-        // let mut score = 0.0;
-
-        // for player_ in 0..self.game.num_players() {
-        //     if player_ == player {
-        //         score += scores[player_];
-        //     } else {
-        //         score -= scores[player_];
-        //     }
-        // }
-
-        // score
-
-        self.game.player_score(player).unwrap()
     }
 }
 
@@ -328,14 +322,15 @@ impl Domain for UmpireDomain {
     /// Transition the environment forward a single step given an action, `a`.
     fn step(&mut self, action_idx: usize) -> Transition<State<Self>, Action<Self>> {
         let current_player = self.game.current_player();
-        let start_score = self.player_score(current_player);
+        let player_secret = self.player_secrets[current_player];
+        let start_score = self.game.player_score(player_secret).unwrap();
         let from = self.emit();
 
         let action = AiPlayerAction::from_idx(action_idx).unwrap();
 
         self.update_state(action);
 
-        let end_score = self.player_score(current_player);
+        let end_score = self.game.player_score(player_secret).unwrap();
         let to = self.emit();
 
         let reward = end_score - start_score;
@@ -868,17 +863,25 @@ mod test {
 
         let mut counts: HashMap<AiPlayerAction, usize> = HashMap::new();
 
-        let game = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         let mut domain =
-            UmpireDomain::from_game(game.clone(), false, 0, None, std::f64::NAN).unwrap();
+            UmpireDomain::from_game(game.clone(), secrets.clone(), false, 0, None, std::f64::NAN)
+                .unwrap();
 
         let mut rng = thread_rng();
         for _ in 0..n {
             // Reinitialize when somebody wins
             if domain.game.victor().is_some() {
-                domain =
-                    UmpireDomain::from_game(game.clone(), false, 0, None, std::f64::NAN).unwrap();
+                domain = UmpireDomain::from_game(
+                    game.clone(),
+                    secrets.clone(),
+                    false,
+                    0,
+                    None,
+                    std::f64::NAN,
+                )
+                .unwrap();
             }
 
             let idx = agent.sample_behaviour(&mut rng, domain.emit().state());

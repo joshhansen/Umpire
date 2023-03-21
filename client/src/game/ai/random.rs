@@ -292,8 +292,8 @@ mod test {
             )
             .unwrap();
 
-            let mut game = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
-            let mut ctrl = game.player_turn_control(0);
+            let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+            let mut ctrl = game.player_turn_control(secrets[0]).unwrap();
 
             for _ in 0..1000 {
                 ai.take_turn(&mut ctrl, false);
@@ -306,11 +306,11 @@ mod test {
             let players = 2;
             let mut city_namer = IntNamer::new("city");
             let map = generate_map(&mut city_namer, Dims::new(5, 5), players);
-            let mut game = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
+            let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
             for i in 0..300 {
                 for player in 0..=1 {
-                    let mut ctrl = game.player_turn_control(player);
+                    let mut ctrl = game.player_turn_control(secrets[player]).unwrap();
                     ai.take_turn(&mut ctrl, false);
 
                     let orders_requests: Vec<UnitID> = ctrl.unit_orders_requests().collect();
@@ -346,7 +346,7 @@ mod test {
 
         map.carry_unit_by_id(transport_id, infantry_id).unwrap();
 
-        let game = Game::new_with_map(map, 2, true, None, Wrap2d::BOTH);
+        let (game, secrets) = Game::new_with_map(map, 2, true, None, Wrap2d::BOTH);
 
         let mut ai = RandomAI::new(0, false);
 
@@ -354,10 +354,10 @@ mod test {
             let mut game = game.clone();
 
             if game.current_player() == 0 {
-                let _ctrl = game.player_turn_control(0);
+                let _ctrl = game.player_turn_control(secrets[0]).unwrap();
                 // drop this to end first player's turn without moving the infantry or transport
             } else {
-                let mut ctrl = game.player_turn_control(1);
+                let mut ctrl = game.player_turn_control(secrets[1]).unwrap();
 
                 ai.take_turn(&mut ctrl, false);
             }

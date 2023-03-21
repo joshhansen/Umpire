@@ -12,7 +12,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     // let src = Location{x:0, y:0};
     let dest = Location { x: 1, y: 0 };
 
-    let game = game_two_cities_two_infantry();
+    let (game, secrets) = game_two_cities_two_infantry();
 
     let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
 
