@@ -327,7 +327,7 @@ pub mod test_support {
             game.end_turn().unwrap();
         }
 
-        game.clear_production(city_loc, true).unwrap();
+        game.clear_production(secrets[0], city_loc, true).unwrap();
 
         let fighter_id = game.unit_orders_requests().next().unwrap();
 

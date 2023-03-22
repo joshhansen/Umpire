@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features, AISpec},
+    obs::PlayerObsTracker,
     PlayerSecret, ProposedMoveResult, ProposedOrdersResult, UmpireResult,
 };
 use crate::{
@@ -80,6 +81,8 @@ pub struct PlayerTurnControl<'a> {
 
     secret: PlayerSecret,
 
+    observations: PlayerObsTracker,
+
     /// Which player is this control shim representing? A copy of `Game::current_player`'s result. Shouldn't get stale
     /// since we lock down anything that would change who the current player is. We do this for convenience.
     pub player: PlayerNum,
@@ -95,10 +98,12 @@ impl<'a> PlayerTurnControl<'a> {
         end_turn_on_drop: bool,
         clear_completed_productions: bool,
     ) -> Self {
+        let observations = PlayerObsTracker::new(game.num_players(), game.dims());
         let player = game.current_player();
         Self {
             game,
             secret,
+            observations,
             player,
             clear_completed_productions,
             end_turn_on_drop,
@@ -106,10 +111,12 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     pub fn new_clearing(secret: PlayerSecret, game: &'a mut Game) -> Self {
+        let observations = PlayerObsTracker::new(game.num_players(), game.dims());
         let player = game.current_player();
         Self {
             secret,
             game,
+            observations,
             player,
             clear_completed_productions: true,
             end_turn_on_drop: true,
@@ -155,9 +162,18 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.current_player_cities_producing_or_not_ignored()
     }
 
-    /// If the current player controls a city at location `loc`, return it
-    pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
-        self.game.current_player_city_by_loc(loc)
+    /// If the specified player controls a city at location `loc`, return it
+    pub fn player_city_by_loc(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<&City>> {
+        self.game.player_city_by_loc(player_secret, loc)
+    }
+
+    /// The city at `loc` if controlled by this player
+    pub fn city_by_loc(&self, loc: Location) -> Option<&City> {
+        self.game.player_city_by_loc(self.secret, loc).unwrap()
     }
 
     /// If the current player controls a unit with ID `id`, return it
@@ -203,7 +219,7 @@ impl<'a> PlayerTurnControl<'a> {
         &mut self,
         loc: Location,
         production: UnitType,
-    ) -> Result<Option<UnitType>, GameError> {
+    ) -> UmpireResult<Option<UnitType>> {
         self.game.set_production_by_loc(loc, production)
     }
 
@@ -211,8 +227,9 @@ impl<'a> PlayerTurnControl<'a> {
         &mut self,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> Result<Option<UnitType>, GameError> {
-        self.game.clear_production(loc, ignore_cleared_production)
+    ) -> UmpireResult<Option<UnitType>> {
+        self.game
+            .clear_production(self.secret, loc, ignore_cleared_production)
     }
 
     pub fn turn(&self) -> TurnNum {
@@ -286,12 +303,12 @@ impl<'a> PlayerTurnControl<'a> {
         &mut self,
         action: AiPlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {
-        self.game.take_simple_action(action)
+        self.game.take_simple_action(self.secret, action)
     }
 
     /// FIXME Maintain this vector in the client, incrementally
     pub fn player_features(&self) -> Vec<fX> {
-        player_features(self.game, self.current_player())
+        player_features(self.game, self.current_player(), self.secret)
     }
 
     pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {
@@ -336,28 +353,28 @@ pub trait TurnTaker {
     fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
-        player_secret: PlayerSecret,
+        player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     fn take_turn_clearing(
         &mut self,
         game: &mut Game,
-        player_secret: PlayerSecret,
+        player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     fn take_turn(
         &mut self,
         game: &mut Game,
-        player_secret: PlayerSecret,
+        player_secrets: &Vec<PlayerSecret>,
         clear_at_end_of_turn: bool,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         if clear_at_end_of_turn {
-            self.take_turn_clearing(game, player_secret, generate_data)
+            self.take_turn_clearing(game, player_secrets, generate_data)
         } else {
-            self.take_turn_not_clearing(game, player_secret, generate_data)
+            self.take_turn_not_clearing(game, player_secrets, generate_data)
         }
     }
 }
@@ -366,9 +383,10 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
     fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
-        player_secret: PlayerSecret,
+        player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
+        let player_secret = player_secrets[game.current_player()];
         let mut ctrl = game.player_turn_control(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())
@@ -395,9 +413,10 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
     fn take_turn_clearing(
         &mut self,
         game: &mut Game,
-        player_secret: PlayerSecret,
+        player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
+        let player_secret = player_secrets[game.current_player()];
         let mut ctrl = game.player_turn_control_clearing(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())

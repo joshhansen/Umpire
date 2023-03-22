@@ -17,10 +17,9 @@ use tch::{
 use common::game::{
     action::AiPlayerAction,
     ai::{player_features, DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
-    Game,
 };
 
-use super::{Loadable, Storable};
+use super::{GameWithSecrets, Loadable, Storable};
 
 // const LEARNING_RATE: f64 = 1e-4;
 
@@ -54,10 +53,12 @@ pub struct DNN {
 }
 
 impl DNN {
-    fn tensor_for(&self, state: &Game) -> Tensor {
+    fn tensor_for(&self, state: &GameWithSecrets) -> Tensor {
+        let player_secret = state.secrets[state.game.current_player()];
+
         //NOTE We could avoid this extra allocation if we could figure out how to use 64-bit weights in PyTorch
         //     or 32-bit weights in `rsrl`
-        let features_f64 = player_features(state, state.current_player());
+        let features_f64 = player_features(&state.game, state.game.current_player(), player_secret);
         let mut features: Vec<f32> = Vec::with_capacity(features_f64.len());
         for feat in features_f64 {
             features.push(feat as f32);
@@ -137,10 +138,10 @@ impl DNN {
     }
 }
 
-impl StateActionFunction<Game, usize> for DNN {
+impl StateActionFunction<GameWithSecrets, usize> for DNN {
     type Output = f64;
 
-    fn evaluate(&self, state: &Game, action: &usize) -> Self::Output {
+    fn evaluate(&self, state: &GameWithSecrets, action: &usize) -> Self::Output {
         let features = self.tensor_for(state);
 
         let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
@@ -150,7 +151,7 @@ impl StateActionFunction<Game, usize> for DNN {
 
     fn update_with_error(
         &mut self,
-        state: &Game,
+        state: &GameWithSecrets,
         action: &usize,
         value: Self::Output,
         _estimate: Self::Output,
@@ -198,12 +199,12 @@ impl PartialOrd for TensorAndScalar {
     }
 }
 
-impl EnumerableStateActionFunction<Game> for DNN {
+impl EnumerableStateActionFunction<GameWithSecrets> for DNN {
     fn n_actions(&self) -> usize {
         AiPlayerAction::possible_actions().len()
     }
 
-    fn evaluate_all(&self, state: &Game) -> Vec<f64> {
+    fn evaluate_all(&self, state: &GameWithSecrets) -> Vec<f64> {
         (0..self.n_actions())
             .map(|action_idx| self.evaluate(state, &action_idx))
             .collect()
@@ -211,7 +212,7 @@ impl EnumerableStateActionFunction<Game> for DNN {
 
     fn update_all_with_errors(
         &mut self,
-        state: &Game,
+        state: &GameWithSecrets,
         values: Vec<f64>,
         estimates: Vec<f64>,
         errors: Vec<f64>,

@@ -253,8 +253,6 @@ async fn main() {
                         break 'outer;
                     }
 
-                    let player_secret = secrets[i];
-
                     let next_player = &player_types[(i + 1) % player_types.len()];
                     let clear_at_end_of_turn = match next_player {
                         PlayerType::Human => false,
@@ -264,7 +262,7 @@ async fn main() {
                     match ptype {
                         PlayerType::Human => {
                             let training_instances =
-                                ui.take_turn(&mut game, player_secret, clear_at_end_of_turn, false);
+                                ui.take_turn(&mut game, &secrets, clear_at_end_of_turn, false);
                             assert!(training_instances.is_none());
                         }
                         PlayerType::AI(ai_type) => {
@@ -272,7 +270,7 @@ async fn main() {
                                 .get_mut(ai_type)
                                 .unwrap()
                                 .borrow_mut()
-                                .take_turn(&mut game, player_secret, clear_at_end_of_turn, false);
+                                .take_turn(&mut game, &secrets, clear_at_end_of_turn, false);
                             assert!(training_instances.is_none());
                         }
                     }

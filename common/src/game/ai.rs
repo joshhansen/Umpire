@@ -8,7 +8,9 @@ use crate::{
     util::{Direction, Vec2d},
 };
 
-use super::{map::dijkstra::Source, obs::Obs, unit::UnitType, Game, PlayerNum, PlayerType};
+use super::{
+    map::dijkstra::Source, obs::Obs, unit::UnitType, Game, PlayerNum, PlayerSecret, PlayerType,
+};
 
 pub type fX = f64;
 
@@ -101,7 +103,7 @@ impl TrainingInstance {
 /// * 121: is_observed (11x11)
 /// * 121: is_neutral (11x11)
 ///
-pub fn player_features(game: &Game, player: PlayerNum) -> Vec<fX> {
+pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecret) -> Vec<fX> {
     // For every tile we add these f64's:
     // is the tile observed or not?
     // which player controls the tile (one hot encoded)
@@ -132,7 +134,7 @@ pub fn player_features(game: &Game, player: PlayerNum) -> Vec<fX> {
     // - number of cities player controls
     x.push(game.player_city_count(player) as fX);
 
-    let observations = game.player_observations(player);
+    let observations = game.player_observations(player_secret).unwrap();
 
     // - number of tiles observed
     let num_observed: fX = observations.num_observed() as fX;

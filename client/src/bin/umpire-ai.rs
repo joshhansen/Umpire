@@ -387,12 +387,11 @@ fn main() -> Result<(), String> {
                     }
 
                     let player = game.current_player();
-                    let player_secret = secrets[player];
 
                     let ai = ais.get_mut(i).unwrap();
                     let mut maybe_training_instances =
                         ai.borrow_mut()
-                            .take_turn_clearing(&mut game, player_secret, generate_data);
+                            .take_turn_clearing(&mut game, &secrets, generate_data);
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =

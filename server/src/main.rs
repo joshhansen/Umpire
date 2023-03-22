@@ -50,7 +50,7 @@ enum ServerEvent {
 // Implementation of the server API
 #[derive(Clone)]
 struct UmpireServer {
-    player_secret: Uuid,
+    player_secret: PlayerSecret,
     game: Arc<RwLock<Game>>,
 }
 
@@ -95,22 +95,42 @@ impl UmpireRpc for UmpireServer {
             .map(|d| d.collect())
     }
 
-    /// The current player's most recent observation of the tile at location `loc`, if any
-    async fn current_player_tile(self, _: Context, loc: Location) -> Option<Tile> {
-        self.game.read().unwrap().current_player_tile(loc).cloned()
-    }
-
-    /// The current player's observation at location `loc`
-    async fn current_player_obs(self, _: Context, loc: Location) -> Obs {
-        self.game.read().unwrap().current_player_obs(loc).clone()
-    }
-
-    async fn current_player_observations(self, _: Context) -> ObsTracker {
+    async fn player_tile(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Tile>> {
         self.game
             .read()
             .unwrap()
-            .current_player_observations()
-            .clone()
+            .player_tile(player_secret, loc)
+            .map(|tile| tile.cloned())
+    }
+
+    async fn player_obs(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Obs> {
+        self.game
+            .read()
+            .unwrap()
+            .player_obs(player_secret, loc)
+            .map(|obs| obs.clone())
+    }
+
+    async fn player_observations(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<ObsTracker> {
+        self.game
+            .read()
+            .unwrap()
+            .player_observations(player_secret)
+            .map(|observations| observations.clone())
     }
 
     /// Every city controlled by the player whose secret is provided
@@ -158,13 +178,17 @@ impl UmpireRpc for UmpireServer {
             .collect()
     }
 
-    /// If the current player controls a city at location `loc`, return it
-    async fn current_player_city_by_loc(self, _: Context, loc: Location) -> Option<City> {
+    async fn player_city_by_loc(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<City>> {
         self.game
             .read()
             .unwrap()
-            .current_player_city_by_loc(loc)
-            .cloned()
+            .player_city_by_loc(player_secret, loc)
+            .map(|city| city.cloned())
     }
 
     /// If the current player controls a city with ID `city_id`, return it
@@ -190,13 +214,17 @@ impl UmpireRpc for UmpireServer {
         self.game.read().unwrap().current_player_unit_loc(id)
     }
 
-    /// If the current player controls the top-level unit at location `loc`, return it
-    async fn current_player_toplevel_unit_by_loc(self, _: Context, loc: Location) -> Option<Unit> {
+    async fn player_toplevel_unit_by_loc(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Unit>> {
         self.game
             .read()
             .unwrap()
-            .current_player_toplevel_unit_by_loc(loc)
-            .cloned()
+            .player_toplevel_unit_by_loc(player_secret, loc)
+            .map(|unit| unit.cloned())
     }
 
     async fn production_set_requests(self, _: Context) -> Vec<Location> {
@@ -367,13 +395,14 @@ impl UmpireRpc for UmpireServer {
     async fn clear_production(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> Result<Option<UnitType>, GameError> {
+    ) -> UmpireResult<Option<UnitType>> {
         self.game
             .write()
             .unwrap()
-            .clear_production(loc, ignore_cleared_production)
+            .clear_production(player_secret, loc, ignore_cleared_production)
     }
 
     async fn turn(self, _: Context) -> TurnNum {
@@ -478,7 +507,7 @@ impl UmpireRpc for UmpireServer {
     ///
     async fn features(self, _: Context) -> Vec<fX> {
         let g = self.game.read().unwrap();
-        player_features(&g, g.current_player())
+        player_features(&g, g.current_player(), self.player_secret)
     }
 
     async fn player_score(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<f64> {
@@ -488,9 +517,13 @@ impl UmpireRpc for UmpireServer {
     async fn take_simple_action(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         action: AiPlayerAction,
-    ) -> Result<PlayerActionOutcome, GameError> {
-        self.game.write().unwrap().take_simple_action(action)
+    ) -> UmpireResult<PlayerActionOutcome> {
+        self.game
+            .write()
+            .unwrap()
+            .take_simple_action(player_secret, action)
     }
 
     async fn take_action(

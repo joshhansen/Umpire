@@ -398,12 +398,16 @@ impl Game {
         }
     }
 
+    /// Begin the turn of the specified player, claring productions
     fn begin_turn_clearing(&mut self) -> TurnStart {
         let result = self.begin_turn();
 
+        let current_player_secret = self.player_secrets[self.current_player];
+
         for prod in result.production_outcomes.iter() {
             if let UnitProductionOutcome::UnitProduced { city, .. } = prod {
-                self.clear_production(city.loc, false).unwrap();
+                self.clear_production(current_player_secret, city.loc, false)
+                    .unwrap();
             }
         }
 
@@ -577,8 +581,21 @@ impl Game {
     }
 
     /// The current player's most recent observation of the tile at location `loc`, if any
-    pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
-        if let Obs::Observed { tile, .. } = self.current_player_obs(loc) {
+    pub fn player_tile(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<&Tile>> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.player_tile_by_idx(player, loc))
+    }
+
+    fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
+        self.player_tile_by_idx(self.current_player, loc)
+    }
+
+    fn player_tile_by_idx(&self, player: PlayerNum, loc: Location) -> Option<&Tile> {
+        if let Obs::Observed { tile, .. } = self.player_obs_by_idx(player, loc) {
             Some(tile)
         } else {
             None
@@ -586,18 +603,33 @@ impl Game {
     }
 
     /// The current player's observation at location `loc`
-    pub fn current_player_obs(&self, loc: Location) -> &Obs {
+    pub fn player_obs(&self, player_secret: PlayerSecret, loc: Location) -> UmpireResult<&Obs> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.player_obs_by_idx(player, loc))
+    }
+
+    fn player_obs_by_idx(&self, player: PlayerNum, loc: Location) -> &Obs {
+        self.player_observations_by_idx(player).get(loc)
+    }
+
+    fn current_player_observations(&self) -> &ObsTracker {
+        let secret = self.player_secrets[self.current_player];
+        self.player_observations(secret).unwrap()
+    }
+
+    fn current_player_obs(&self, loc: Location) -> &Obs {
         self.player_observations
             .tracker(self.current_player)
             .unwrap()
             .get(loc)
     }
 
-    pub fn current_player_observations(&self) -> &ObsTracker {
-        self.player_observations(self.current_player)
+    pub fn player_observations(&self, player_secret: PlayerSecret) -> UmpireResult<&ObsTracker> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.player_observations_by_idx(player))
     }
 
-    pub fn player_observations(&self, player: PlayerNum) -> &ObsTracker {
+    fn player_observations_by_idx(&self, player: PlayerNum) -> &ObsTracker {
         self.player_observations.tracker(player).unwrap()
     }
 
@@ -715,10 +747,14 @@ impl Game {
         // self.map.units().filter(move |unit| unit.alignment != Alignment::Belligerent{player:current_player})
     }
 
-    /// If the current player controls a city at location `loc`, return it
-    pub fn current_player_city_by_loc(&self, loc: Location) -> Option<&City> {
-        self.current_player_tile(loc)
-            .and_then(|tile| tile.city.as_ref())
+    /// If the specified player controls a city at location `loc`, return it
+    pub fn player_city_by_loc(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<&City>> {
+        self.player_tile(player_secret, loc)
+            .map(|tile| tile.and_then(|tile| tile.city.as_ref()))
     }
 
     /// If the current player controls a city with ID `city_id`, return it
@@ -752,8 +788,17 @@ impl Game {
     }
 
     /// If the current player controls the top-level unit at location `loc`, return it
-    pub fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
-        self.current_player_tile(loc)
+    pub fn player_toplevel_unit_by_loc(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<&Unit>> {
+        self.player_tile(player_secret, loc)
+            .map(|tile| tile.and_then(|tile| tile.unit.as_ref()))
+    }
+
+    fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
+        self.player_tile_by_idx(self.current_player, loc)
             .and_then(|tile| tile.unit.as_ref())
     }
 
@@ -1324,15 +1369,17 @@ impl Game {
     }
 
     /// Clears the production of a city at location `loc` if one exists and is controlled by the
-    /// current player.
+    /// specified player.
     ///
     /// Returns the prior production (if any) on success, otherwise `GameError::NoCityAtLocation`
     pub fn clear_production(
         &mut self,
+        player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> Result<Option<UnitType>, GameError> {
-        if self.current_player_city_by_loc(loc).is_none() {
+    ) -> UmpireResult<Option<UnitType>> {
+        let city = self.player_city_by_loc(player_secret, loc)?;
+        if city.is_none() {
             return Err(GameError::NoCityAtLocation { loc });
         }
 
@@ -1593,12 +1640,16 @@ impl Game {
 
     pub fn take_simple_action(
         &mut self,
+        player_secret: PlayerSecret,
         action: AiPlayerAction,
-    ) -> Result<PlayerActionOutcome, GameError> {
+    ) -> UmpireResult<PlayerActionOutcome> {
         self.take_action(match action {
             AiPlayerAction::SetNextCityProduction { unit_type } => {
                 let city_loc = self.production_set_requests().next().unwrap();
-                let city_id = self.current_player_city_by_loc(city_loc).unwrap().id;
+                let city_id = self
+                    .player_city_by_loc(player_secret, city_loc)?
+                    .unwrap()
+                    .id;
                 PlayerAction::SetCityProduction {
                     city_id,
                     production: unit_type,
@@ -1638,9 +1689,9 @@ impl Game {
     }
 
     /// A cloned copy of the specified player's view of the game
-    fn player_game_view(&self, player: PlayerNum) -> Result<PlayerGameView, GameError> {
+    fn player_game_view(&self, player: PlayerNum) -> UmpireResult<PlayerGameView> {
         Ok(PlayerGameView {
-            observations: self.player_observations(player).clone(),
+            observations: self.player_observations_by_idx(player).clone(),
             turn: self.turn,
             num_players: self.num_players,
             current_player: self.current_player,
@@ -1755,7 +1806,11 @@ impl fmt::Debug for Game {
 
 impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<fX> {
-        player_features(self, self.current_player)
+        player_features(
+            self,
+            self.current_player,
+            self.player_secrets[self.current_player],
+        )
     }
 }
 
@@ -3042,7 +3097,7 @@ mod test {
     fn test_disband_unit_by_id() {
         {
             let map = MapData::try_from("i").unwrap();
-            let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+            let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
             let id = UnitID::new(0);
 
             let unit = game.current_player_unit_by_id(id).cloned().unwrap();

@@ -37,13 +37,11 @@ pub trait UmpireRpc {
         unit_id: UnitID,
     ) -> Result<Vec<Direction>, GameError>;
 
-    /// The current player's most recent observation of the tile at location `loc`, if any
-    async fn current_player_tile(loc: Location) -> Option<Tile>;
+    async fn player_tile(player_secret: PlayerSecret, loc: Location) -> UmpireResult<Option<Tile>>;
 
-    /// The current player's observation at location `loc`
-    async fn current_player_obs(loc: Location) -> Obs;
+    async fn player_obs(player_secret: PlayerSecret, loc: Location) -> UmpireResult<Obs>;
 
-    async fn current_player_observations() -> ObsTracker;
+    async fn player_observations(player_secret: PlayerSecret) -> UmpireResult<ObsTracker>;
 
     /// Every city controlled by the player whose secret is provided
     async fn player_cities(player_secret: PlayerSecret) -> UmpireResult<Vec<City>>;
@@ -62,8 +60,10 @@ pub trait UmpireRpc {
     /// Every unit controlled by the current player
     async fn current_player_units() -> Vec<Unit>;
 
-    /// If the current player controls a city at location `loc`, return it
-    async fn current_player_city_by_loc(loc: Location) -> Option<City>;
+    async fn player_city_by_loc(
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<City>>;
 
     /// If the current player controls a city with ID `city_id`, return it
     async fn current_player_city_by_id(city_id: CityID) -> Option<City>;
@@ -73,9 +73,6 @@ pub trait UmpireRpc {
 
     /// If the current player controls a unit with ID `id`, return its location
     async fn current_player_unit_loc(id: UnitID) -> Option<Location>;
-
-    /// If the current player controls the top-level unit at location `loc`, return it
-    async fn current_player_toplevel_unit_by_loc(loc: Location) -> Option<Unit>;
 
     async fn production_set_requests() -> Vec<Location>;
 
@@ -90,6 +87,11 @@ pub trait UmpireRpc {
     async fn units_with_orders_requests() -> Vec<Unit>;
 
     async fn units_with_pending_orders() -> Vec<UnitID>;
+
+    async fn player_toplevel_unit_by_loc(
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Unit>>;
 
     // Movement-related methods
 
@@ -140,6 +142,7 @@ pub trait UmpireRpc {
     ) -> Result<Option<UnitType>, GameError>;
 
     async fn clear_production(
+        player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
     ) -> Result<Option<UnitType>, GameError>;
@@ -199,7 +202,10 @@ pub trait UmpireRpc {
 
     async fn player_score(player_secret: PlayerSecret) -> UmpireResult<f64>;
 
-    async fn take_simple_action(action: AiPlayerAction) -> Result<PlayerActionOutcome, GameError>;
+    async fn take_simple_action(
+        player_secret: PlayerSecret,
+        action: AiPlayerAction,
+    ) -> UmpireResult<PlayerActionOutcome>;
 
     async fn take_action(action: PlayerAction) -> Result<PlayerActionOutcome, GameError>;
 }
