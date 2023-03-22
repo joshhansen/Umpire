@@ -142,9 +142,9 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.current_player_unit_legal_directions(unit_id)
     }
 
-    /// The current player's most recent observation of the tile at location `loc`, if any
-    pub fn current_player_tile(&self, loc: Location) -> Option<&Tile> {
-        self.game.current_player_tile(loc)
+    /// The tile at the given location, as present in the player's observations (or not)
+    pub fn tile(&self, loc: Location) -> Option<&Tile> {
+        self.game.player_tile(self.secret, loc).unwrap()
     }
 
     pub fn obs(&self, loc: Location) -> &Obs {

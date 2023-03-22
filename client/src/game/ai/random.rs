@@ -68,7 +68,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             let possible: Vec<Direction> = match ctrl.current_player_unit_legal_directions(unit_id) {
                 Ok(it) => it,
                 Err(e) => {
-                    let tile = ctrl.current_player_tile(unit.loc);
+                    let tile = ctrl.tile(unit.loc);
                     panic!("Error getting destinations for unit with orders request: {}\nunit: {:?}\ntile: {:?}\ntile unit: {:?}\ntile city: {:?}",
                            e, unit, tile, tile.as_ref().map(|t| t.unit.as_ref()), tile.as_ref().map(|t| t.city.as_ref()))
                 }

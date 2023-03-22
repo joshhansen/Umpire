@@ -477,7 +477,7 @@ impl Map {
         // let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
         // game.current_player_tile(tile_loc)
         self.viewport_to_map_coords(game, viewport_loc)
-            .and_then(|map_loc| game.current_player_tile(map_loc))
+            .and_then(|map_loc| game.tile(map_loc))
     }
 }
 
@@ -541,8 +541,7 @@ impl Draw for Map {
 
                 let old_tile = self.displayed_tiles[viewport_loc].as_ref();
                 // let new_tile = &game.current_player_tile(new_map_loc);
-                let new_tile =
-                    new_map_loc.and_then(|new_map_loc| game.current_player_tile(new_map_loc));
+                let new_tile = new_map_loc.and_then(|new_map_loc| game.tile(new_map_loc));
                 // let new_tile = &new_obs.tile;
 
                 (old_currentness != new_currentness)
