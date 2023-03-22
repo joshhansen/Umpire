@@ -34,9 +34,10 @@ pub trait UmpireRpc {
         unit_id: UnitID,
     ) -> UmpireResult<HashSet<Location>>;
 
-    async fn current_player_unit_legal_directions(
+    async fn player_unit_legal_directions(
+        player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> Result<Vec<Direction>, GameError>;
+    ) -> UmpireResult<Vec<Direction>>;
 
     async fn player_tile(player_secret: PlayerSecret, loc: Location) -> UmpireResult<Option<Tile>>;
 

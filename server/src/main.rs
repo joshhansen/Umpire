@@ -84,15 +84,16 @@ impl UmpireRpc for UmpireServer {
             .player_unit_legal_one_step_destinations(player_secret, unit_id)
     }
 
-    async fn current_player_unit_legal_directions(
+    async fn player_unit_legal_directions(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> Result<Vec<Direction>, GameError> {
+    ) -> UmpireResult<Vec<Direction>> {
         self.game
             .read()
             .unwrap()
-            .current_player_unit_legal_directions(unit_id)
+            .player_unit_legal_directions(player_secret, unit_id)
             .map(|d| d.collect())
     }
 

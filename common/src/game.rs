@@ -566,12 +566,21 @@ impl Game {
         )
     }
 
-    pub fn current_player_unit_legal_directions<'a>(
+    fn current_player_unit_legal_directions<'a>(
         &'a self,
         unit_id: UnitID,
-    ) -> Result<impl Iterator<Item = Direction> + 'a, GameError> {
+    ) -> UmpireResult<impl Iterator<Item = Direction> + 'a> {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_unit_legal_directions(player_secret, unit_id)
+    }
+
+    pub fn player_unit_legal_directions<'a>(
+        &'a self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<impl Iterator<Item = Direction> + 'a> {
         let unit = self
-            .current_player_unit_by_id(unit_id)
+            .player_unit_by_id(player_secret, unit_id)?
             .ok_or_else(|| GameError::NoSuchUnit { id: unit_id })?;
 
         Ok(directions_unit_could_move_iter(
