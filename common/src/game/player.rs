@@ -162,28 +162,17 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.current_player_cities_producing_or_not_ignored()
     }
 
-    /// If the specified player controls a city at location `loc`, return it
-    pub fn player_city_by_loc(
-        &self,
-        player_secret: PlayerSecret,
-        loc: Location,
-    ) -> UmpireResult<Option<&City>> {
-        self.game.player_city_by_loc(player_secret, loc)
-    }
-
     /// The city at `loc` if controlled by this player
-    pub fn city_by_loc(&self, loc: Location) -> Option<&City> {
+    pub fn player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.game.player_city_by_loc(self.secret, loc).unwrap()
     }
 
-    /// If the current player controls a unit with ID `id`, return it
-    pub fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.game.current_player_unit_by_id(id)
+    pub fn player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
+        self.game.player_unit_by_id(self.secret, id).unwrap()
     }
 
-    /// If the current player controls a unit with ID `id`, return its location
-    pub fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
-        self.game.current_player_unit_loc(id)
+    pub fn player_unit_loc(&self, id: UnitID) -> Option<Location> {
+        self.game.player_unit_loc(self.secret, id).unwrap()
     }
 
     /// If the current player controls the top-level unit at location `loc`, return it

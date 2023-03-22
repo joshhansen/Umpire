@@ -72,15 +72,16 @@ impl UmpireRpc for UmpireServer {
         self.game.read().unwrap().victor()
     }
 
-    async fn current_player_unit_legal_one_step_destinations(
+    async fn player_unit_legal_one_step_destinations(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> Result<HashSet<Location>, GameError> {
+    ) -> UmpireResult<HashSet<Location>> {
         self.game
             .read()
             .unwrap()
-            .current_player_unit_legal_one_step_destinations(unit_id)
+            .player_unit_legal_one_step_destinations(player_secret, unit_id)
     }
 
     async fn current_player_unit_legal_directions(
@@ -200,18 +201,26 @@ impl UmpireRpc for UmpireServer {
             .cloned()
     }
 
-    /// If the current player controls a unit with ID `id`, return it
-    async fn current_player_unit_by_id(self, _: Context, id: UnitID) -> Option<Unit> {
+    async fn player_unit_by_id(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Unit>> {
         self.game
             .read()
             .unwrap()
-            .current_player_unit_by_id(id)
-            .cloned()
+            .player_unit_by_id(player_secret, id)
+            .map(|maybe_unit| maybe_unit.cloned())
     }
 
-    /// If the current player controls a unit with ID `id`, return its location
-    async fn current_player_unit_loc(self, _: Context, id: UnitID) -> Option<Location> {
-        self.game.read().unwrap().current_player_unit_loc(id)
+    async fn player_unit_loc(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Location>> {
+        self.game.read().unwrap().player_unit_loc(player_secret, id)
     }
 
     async fn player_toplevel_unit_by_loc(

@@ -29,9 +29,10 @@ pub trait UmpireRpc {
     /// has won.
     async fn victor() -> Option<PlayerNum>;
 
-    async fn current_player_unit_legal_one_step_destinations(
+    async fn player_unit_legal_one_step_destinations(
+        player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> Result<HashSet<Location>, GameError>;
+    ) -> UmpireResult<HashSet<Location>>;
 
     async fn current_player_unit_legal_directions(
         unit_id: UnitID,
@@ -68,11 +69,15 @@ pub trait UmpireRpc {
     /// If the current player controls a city with ID `city_id`, return it
     async fn current_player_city_by_id(city_id: CityID) -> Option<City>;
 
-    /// If the current player controls a unit with ID `id`, return it
-    async fn current_player_unit_by_id(id: UnitID) -> Option<Unit>;
+    async fn player_unit_by_id(
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Unit>>;
 
-    /// If the current player controls a unit with ID `id`, return its location
-    async fn current_player_unit_loc(id: UnitID) -> Option<Location>;
+    async fn player_unit_loc(
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Location>>;
 
     async fn production_set_requests() -> Vec<Location>;
 

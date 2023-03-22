@@ -886,7 +886,7 @@ impl UI for TermUI {
         match *mode {
             Mode::SetProduction { city_loc } => Some(city_loc),
             Mode::GetUnitOrders { unit_id, .. } => {
-                let unit_loc = game.current_player_unit_loc(unit_id).unwrap();
+                let unit_loc = game.player_unit_loc(unit_id).unwrap();
                 Some(unit_loc)
             }
             _ => None,
@@ -899,7 +899,7 @@ impl UI for TermUI {
         match *mode {
             Mode::SetProduction { city_loc } => map.map_to_viewport_coords(city_loc),
             Mode::GetUnitOrders { unit_id, .. } => {
-                let unit_loc = game.current_player_unit_loc(unit_id).unwrap();
+                let unit_loc = game.player_unit_loc(unit_id).unwrap();
                 map.map_to_viewport_coords(unit_loc)
             }
             _ => None,

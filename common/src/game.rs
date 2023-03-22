@@ -548,12 +548,13 @@ impl Game {
 
     /// The set of destinations that the specified unit could actually attempt a move onto in exactly one movement step.
     /// This excludes the unit's original location
-    pub fn current_player_unit_legal_one_step_destinations(
+    pub fn player_unit_legal_one_step_destinations(
         &self,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> Result<HashSet<Location>, GameError> {
+    ) -> UmpireResult<HashSet<Location>> {
         let unit = self
-            .current_player_unit_by_id(unit_id)
+            .player_unit_by_id(player_secret, unit_id)?
             .ok_or_else(|| GameError::NoSuchUnit { id: unit_id })?;
 
         Ok(
@@ -699,13 +700,21 @@ impl Game {
             .count()
     }
 
-    fn player_units(&self, player: PlayerNum) -> impl Iterator<Item = &Unit> {
+    pub fn player_units(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<impl Iterator<Item = &Unit>> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.player_units_by_idx(player))
+    }
+
+    fn player_units_by_idx(&self, player: PlayerNum) -> impl Iterator<Item = &Unit> {
         self.map.player_units(player)
     }
 
     /// Every unit controlled by the current player
     pub fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
-        self.player_units(self.current_player())
+        self.player_units_by_idx(self.current_player())
     }
 
     /// The counts of unit types controlled by the current player
@@ -768,23 +777,38 @@ impl Game {
     // }
 
     /// If the current player controls a unit with ID `id`, return it
-    pub fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.player_unit_by_id(self.current_player, id)
+    fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
+        self.player_unit_by_id_by_idx(self.current_player, id)
     }
 
     /// If the specified player controls a unit with ID `id`, return it
-    pub fn player_unit_by_id(&self, player: PlayerNum, id: UnitID) -> Option<&Unit> {
+    pub fn player_unit_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<&Unit>> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.player_unit_by_id_by_idx(player, id))
+    }
+
+    fn player_unit_by_id_by_idx(&self, player: PlayerNum, id: UnitID) -> Option<&Unit> {
         self.map.player_unit_by_id(player, id)
     }
 
     /// If the current player controls a unit with ID `id`, return its location
-    pub fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
-        self.player_unit_loc(self.current_player, id)
+    fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_unit_loc(player_secret, id).unwrap()
     }
 
     /// If the specified player controls a unit with ID `id`, return its location
-    pub fn player_unit_loc(&self, player: PlayerNum, id: UnitID) -> Option<Location> {
-        self.player_unit_by_id(player, id).map(|unit| unit.loc)
+    pub fn player_unit_loc(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Location>> {
+        self.player_unit_by_id(player_secret, id)
+            .map(|maybe_unit| maybe_unit.map(|unit| unit.loc))
     }
 
     /// If the current player controls the top-level unit at location `loc`, return it
@@ -1600,7 +1624,7 @@ impl Game {
         score += observed_tiles as f64 * TILE_OBSERVED_BASE_SCORE;
 
         // Controlled units
-        for unit in self.player_units(player) {
+        for unit in self.player_units_by_idx(player) {
             // The cost of the unit scaled by the unit's current hitpoints relative to maximum
             score += UNIT_MULTIPLIER * (unit.type_.cost() as f64) * (unit.hp() as f64)
                 / (unit.max_hp() as f64);
@@ -2494,7 +2518,7 @@ mod test {
                                         let map = MapData::try_from(s.clone()).unwrap();
                                         assert_eq!(map.dims(), Dims::new(3, 3));
 
-                                        let (game, _secrets) =
+                                        let (game, secrets) =
                                             Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
 
                                         let id = game
@@ -2516,7 +2540,7 @@ mod test {
 
                                         let src = Location::new(1, 1);
                                         let dests: HashSet<Location> = game
-                                            .current_player_unit_legal_one_step_destinations(id)
+                                            .player_unit_legal_one_step_destinations(secrets[0], id)
                                             .unwrap();
 
                                         for (i, loc) in dirs
@@ -2571,10 +2595,10 @@ mod test {
                         "Eunice",
                     )
                     .unwrap();
-                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 assert!(game
-                    .current_player_unit_legal_one_step_destinations(unit_id)
+                    .player_unit_legal_one_step_destinations(secrets[0], unit_id)
                     .unwrap()
                     .is_empty());
             }
@@ -2590,10 +2614,10 @@ mod test {
                         "Eunice",
                     )
                     .unwrap();
-                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game
-                    .current_player_unit_legal_one_step_destinations(unit_id)
+                    .player_unit_legal_one_step_destinations(secrets[0], unit_id)
                     .unwrap();
                 assert_eq!(
                     dests.len(),
@@ -2616,10 +2640,10 @@ mod test {
                         "Eunice",
                     )
                     .unwrap();
-                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game
-                    .current_player_unit_legal_one_step_destinations(unit_id)
+                    .player_unit_legal_one_step_destinations(secrets[0], unit_id)
                     .unwrap();
                 assert_eq!(
                     dests.len(),
@@ -2639,10 +2663,10 @@ mod test {
                 let inf_id = map.toplevel_unit_id_by_loc(Location::new(2, 0)).unwrap();
                 map.carry_unit_by_id(transport_id, inf_id).unwrap();
 
-                let (game, _secrets) = Game::new_with_map(map, 1, false, None, wrapping);
+                let (game, secrets) = Game::new_with_map(map, 1, false, None, wrapping);
 
                 let dests: HashSet<Location> = game
-                    .current_player_unit_legal_one_step_destinations(inf_id)
+                    .player_unit_legal_one_step_destinations(secrets[0], inf_id)
                     .unwrap();
                 assert_eq!(
                     dests.len(),

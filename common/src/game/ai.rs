@@ -117,8 +117,9 @@ pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecr
     let city_loc = game.player_production_set_requests(player).next();
 
     let unit_type = unit_id.and_then(|unit_id| {
-        game.player_unit_by_id(player, unit_id)
-            .map(|unit| unit.type_)
+        game.player_unit_by_id(player_secret, unit_id)
+            .map(|maybe_unit| maybe_unit.map(|unit| unit.type_))
+            .unwrap()
     });
 
     // We also add a context around the currently active unit (if any)
@@ -172,12 +173,14 @@ pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecr
     // Relatively positioned around next unit (if any) or city
 
     let loc = unit_id
-        .map(|unit_id| match game.player_unit_loc(player, unit_id) {
-            Some(loc) => loc,
-            None => {
-                panic!("Unit was in orders requests but not in current player observations")
-            }
-        })
+        .map(
+            |unit_id| match game.player_unit_loc(player_secret, unit_id).unwrap() {
+                Some(loc) => loc,
+                None => {
+                    panic!("Unit was in orders requests but not in current player observations")
+                }
+            },
+        )
         .or(city_loc);
 
     let mut is_enemy_belligerent = Vec::new();

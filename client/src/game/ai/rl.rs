@@ -246,8 +246,9 @@ impl UmpireDomain {
         action.take(&mut self.game).unwrap();
 
         if self.verbosity > 1 {
+            let player_secret = self.player_secrets[self.game.current_player()];
             let loc = if let Some(unit_id) = self.game.unit_orders_requests().next() {
-                self.game.current_player_unit_loc(unit_id)
+                self.game.player_unit_loc(player_secret, unit_id).unwrap()
             } else {
                 self.game.production_set_requests().next()
             };

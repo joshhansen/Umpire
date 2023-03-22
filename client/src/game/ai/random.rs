@@ -53,7 +53,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
         }
 
         if let Some(unit_id) = ctrl.unit_orders_requests().next() {
-            let unit = ctrl.current_player_unit_by_id(unit_id).unwrap();
+            let unit = ctrl.player_unit_by_id(unit_id).unwrap();
             // let unit_id = unit.id;
 
             // let possible: Vec<Location> = match ctrl.current_player_unit_legal_one_step_destinations(unit_id) {
@@ -133,7 +133,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                 return Some(AiPlayerAction::SkipNextUnit);
             } else {
                 if self.verbosity > 1 {
-                    let loc = ctrl.current_player_unit_loc(unit_id).unwrap();
+                    let loc = ctrl.player_unit_loc(unit_id).unwrap();
                     println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
                 }
                 return Some(AiPlayerAction::DisbandNextUnit);
@@ -318,7 +318,7 @@ mod test {
                     for rqst_unit_id in orders_requests.iter().cloned() {
                         // Assert that all orders requests correspond to units still present and that the IDs still
                         // match
-                        let unit = ctrl.current_player_unit_by_id(rqst_unit_id).expect(
+                        let unit = ctrl.player_unit_by_id(rqst_unit_id).expect(
                             format!("Unit not found in iteration {}, round {}", i, r).as_str(),
                         );
 

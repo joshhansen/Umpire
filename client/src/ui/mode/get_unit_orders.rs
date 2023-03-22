@@ -30,7 +30,7 @@ impl IVisibleMode for GetUnitOrdersMode {
 }
 impl GetUnitOrdersMode {
     fn write_buf<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
-        let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
+        let unit = game.player_unit_by_id(self.unit_id).unwrap();
 
         ui.set_sidebar_row(0, format!("Get Orders for {}", unit));
         ui.set_sidebar_row(
@@ -77,7 +77,7 @@ impl IMode for GetUnitOrdersMode {
     ) -> ModeStatus {
         let unit_loc = {
             let unit = {
-                let unit = game.current_player_unit_by_id(self.unit_id).unwrap();
+                let unit = game.player_unit_by_id(self.unit_id).unwrap();
                 ui.log_message(format!(
                     "Requesting orders for {} at {}",
                     unit.medium_desc(),
