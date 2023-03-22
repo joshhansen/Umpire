@@ -147,9 +147,8 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.current_player_tile(loc)
     }
 
-    /// The current player's observation at location `loc`
-    pub fn current_player_obs(&self, loc: Location) -> &Obs {
-        self.game.current_player_obs(loc)
+    pub fn obs(&self, loc: Location) -> &Obs {
+        self.game.player_obs(self.secret, loc).unwrap()
     }
 
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
