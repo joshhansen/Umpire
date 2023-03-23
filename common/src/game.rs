@@ -672,9 +672,17 @@ impl Game {
     }
 
     /// All cities controlled by the current player which have a production target set
-    pub fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City> {
+    fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City> {
         self.map
             .player_cities_with_production_target(self.current_player())
+    }
+
+    pub fn player_cities_with_production_target(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<impl Iterator<Item = &City>> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.map.player_cities_with_production_target(player))
     }
 
     /// How many cities does the current player control?

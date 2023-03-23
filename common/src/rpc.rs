@@ -48,8 +48,10 @@ pub trait UmpireRpc {
     /// Every city controlled by the player whose secret is provided
     async fn player_cities(player_secret: PlayerSecret) -> UmpireResult<Vec<City>>;
 
-    /// All cities controlled by the current player which have a production target set
-    async fn current_player_cities_with_production_target() -> Vec<City>;
+    /// All cities controlled by the specified player which have a production target set
+    async fn player_cities_with_production_target(
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<City>>;
 
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
     ///

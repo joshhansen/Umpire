@@ -149,13 +149,16 @@ impl UmpireRpc for UmpireServer {
     }
 
     /// All cities controlled by the current player which have a production target set
-    async fn current_player_cities_with_production_target(self, _: Context) -> Vec<City> {
+    async fn player_cities_with_production_target(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<City>> {
         self.game
             .read()
             .unwrap()
-            .current_player_cities_with_production_target()
-            .cloned()
-            .collect()
+            .player_cities_with_production_target(player_secret)
+            .map(|cities_iter| cities_iter.cloned().collect())
     }
 
     /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
