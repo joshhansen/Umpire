@@ -162,7 +162,9 @@ pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecr
     // NOTE The unit counts are not included in dnn::ADDED_WIDE_FEATURES
     // - number of each type of unit controlled by player
     let empty_map = HashMap::new();
-    let type_counts = game.player_unit_type_counts(player).unwrap_or(&empty_map);
+    let type_counts = game
+        .player_unit_type_counts(player_secret)
+        .unwrap_or(&empty_map);
     let counts_vec: Vec<fX> = UnitType::values()
         .iter()
         .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)

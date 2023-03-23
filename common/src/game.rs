@@ -744,15 +744,17 @@ impl Game {
     }
 
     /// The counts of unit types controlled by the current player
-    pub fn current_player_unit_type_counts(&self) -> Result<&HashMap<UnitType, usize>, GameError> {
-        self.player_unit_type_counts(self.current_player)
+    fn current_player_unit_type_counts(&self) -> Result<&HashMap<UnitType, usize>, GameError> {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_unit_type_counts(player_secret)
     }
 
     /// The counts of unit types controlled by the specified player
     pub fn player_unit_type_counts(
         &self,
-        player: PlayerNum,
-    ) -> Result<&HashMap<UnitType, usize>, GameError> {
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<&HashMap<UnitType, usize>> {
+        let player = self.player_with_secret(player_secret)?;
         self.map.player_unit_type_counts(player)
     }
 
