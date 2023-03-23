@@ -57,8 +57,7 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
     ) -> UmpireResult<usize>;
 
-    /// Every unit controlled by the current player
-    async fn current_player_units() -> Vec<Unit>;
+    async fn player_units(player_secret: PlayerSecret) -> UmpireResult<Vec<Unit>>;
 
     async fn player_city_by_loc(
         player_secret: PlayerSecret,
@@ -90,7 +89,9 @@ pub trait UmpireRpc {
     /// In other words, which of the current player's units have no orders and have moves remaining?
     async fn units_with_orders_requests() -> Vec<Unit>;
 
-    async fn units_with_pending_orders() -> Vec<UnitID>;
+    async fn player_units_with_pending_orders(
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitID>>;
 
     async fn player_toplevel_unit_by_loc(
         player_secret: PlayerSecret,

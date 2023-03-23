@@ -442,7 +442,9 @@ pub mod test {
 
         assert!(game.current_player_units().any(|x| x.id == unit.id));
         assert!(game.unit_orders_requests().any(|x| x == unit.id));
-        assert!(!game.units_with_pending_orders().any(|x| x == unit.id));
+        assert!(!game
+            .current_player_units_with_pending_orders()
+            .any(|x| x == unit.id));
     }
 
     #[test]

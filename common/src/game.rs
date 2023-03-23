@@ -739,7 +739,7 @@ impl Game {
     }
 
     /// Every unit controlled by the current player
-    pub fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
+    fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
         self.player_units_by_idx(self.current_player())
     }
 
@@ -891,14 +891,25 @@ impl Game {
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
     }
 
-    pub fn units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
-        self.current_player_units()
-            .filter(|unit| {
-                unit.moves_remaining() > 0
-                    && unit.orders.is_some()
-                    && *unit.orders.as_ref().unwrap() != Orders::Sentry
-            })
-            .map(|unit| unit.id)
+    fn current_player_units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_units_with_pending_orders(player_secret)
+            .unwrap()
+    }
+
+    pub fn player_units_with_pending_orders<'a>(
+        &'a self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<impl Iterator<Item = UnitID> + 'a> {
+        self.player_units(player_secret).map(|units| {
+            units
+                .filter(|unit| {
+                    unit.moves_remaining() > 0
+                        && unit.orders.is_some()
+                        && *unit.orders.as_ref().unwrap() != Orders::Sentry
+                })
+                .map(|unit| unit.id)
+        })
     }
 
     // Movement-related methods
@@ -1566,7 +1577,7 @@ impl Game {
     }
 
     fn follow_pending_orders(&mut self) -> Vec<OrdersResult> {
-        let pending_orders: Vec<UnitID> = self.units_with_pending_orders().collect();
+        let pending_orders: Vec<UnitID> = self.current_player_units_with_pending_orders().collect();
 
         pending_orders
             .iter()

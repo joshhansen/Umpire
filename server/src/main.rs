@@ -171,14 +171,16 @@ impl UmpireRpc for UmpireServer {
             .player_cities_producing_or_not_ignored(player_secret)
     }
 
-    /// Every unit controlled by the current player
-    async fn current_player_units(self, _: Context) -> Vec<Unit> {
+    async fn player_units(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Unit>> {
         self.game
             .read()
             .unwrap()
-            .current_player_units()
-            .cloned()
-            .collect()
+            .player_units(player_secret)
+            .map(|units| units.cloned().collect())
     }
 
     async fn player_city_by_loc(
@@ -265,12 +267,16 @@ impl UmpireRpc for UmpireServer {
             .collect()
     }
 
-    async fn units_with_pending_orders(self, _: Context) -> Vec<UnitID> {
+    async fn player_units_with_pending_orders(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitID>> {
         self.game
             .read()
             .unwrap()
-            .units_with_pending_orders()
-            .collect()
+            .player_units_with_pending_orders(player_secret)
+            .map(|units| units.collect())
     }
 
     // Movement-related methods

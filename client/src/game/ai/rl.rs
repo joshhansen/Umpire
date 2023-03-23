@@ -253,8 +253,6 @@ impl UmpireDomain {
                 self.game.production_set_requests().next()
             };
 
-            let player_secret = self.player_secrets[self.game.current_player()];
-
             if self.fix_output_loc {
                 let mut stdout = stdout();
                 {
@@ -278,7 +276,7 @@ impl UmpireDomain {
             println!(
                 "Cities: {} | Units: {}     ",
                 self.game.player_cities(player_secret).unwrap().count(),
-                self.game.current_player_units().count()
+                self.game.player_units(player_secret).unwrap().count()
             );
             println!(
                 "Considering move for: {}     ",

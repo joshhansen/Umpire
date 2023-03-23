@@ -157,6 +157,12 @@ impl<'a> PlayerTurnControl<'a> {
             .unwrap()
     }
 
+    pub fn player_units_with_pending_orders<'b>(&'b self) -> impl Iterator<Item = UnitID> + 'b {
+        self.game
+            .player_units_with_pending_orders(self.secret)
+            .unwrap()
+    }
+
     /// The city at `loc` if controlled by this player
     pub fn player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.game.player_city_by_loc(self.secret, loc).unwrap()
