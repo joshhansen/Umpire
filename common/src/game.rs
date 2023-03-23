@@ -643,6 +643,7 @@ impl Game {
         self.player_observations.tracker(player).unwrap()
     }
 
+    /// FIXME Make this private
     /// NOTE: Don't include this in the RPC API - could allow searches for secrets, however improbable of success
     pub fn player_with_secret(&self, player_secret: PlayerSecret) -> UmpireResult<PlayerNum> {
         self.player_secrets
