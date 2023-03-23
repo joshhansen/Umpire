@@ -113,7 +113,10 @@ pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecr
     //   what is the unit type? (one hot encoded, could be none---all zeros)
     //
 
-    let unit_id = game.player_unit_orders_requests(player).next();
+    let unit_id = game
+        .player_unit_orders_requests(player_secret)
+        .unwrap()
+        .next();
     let city_loc = game
         .player_production_set_requests(player_secret)
         .unwrap()

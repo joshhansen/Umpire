@@ -418,7 +418,7 @@ impl Game {
         self.current_player_production_set_requests()
             .next()
             .is_none()
-            && self.unit_orders_requests().next().is_none()
+            && self.current_player_unit_orders_requests().next().is_none()
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -875,18 +875,21 @@ impl Game {
     /// Which if the current player's units need orders?
     ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn unit_orders_requests<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
-        self.player_unit_orders_requests(self.current_player)
+    fn current_player_unit_orders_requests<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_unit_orders_requests(player_secret).unwrap()
     }
 
     pub fn player_unit_orders_requests<'a>(
         &'a self,
-        player: PlayerNum,
-    ) -> impl Iterator<Item = UnitID> + 'a {
-        self.map
-            .player_units(player)
-            .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
-            .map(|unit| unit.id)
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<impl Iterator<Item = UnitID> + 'a> {
+        self.player_with_secret(player_secret).map(|player| {
+            self.map
+                .player_units(player)
+                .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
+                .map(|unit| unit.id)
+        })
     }
 
     /// Which if the current player's units need orders?
@@ -1727,7 +1730,7 @@ impl Game {
                 }
             }
             AiPlayerAction::MoveNextUnit { direction } => {
-                let unit_id = self.unit_orders_requests().next().unwrap();
+                let unit_id = self.current_player_unit_orders_requests().next().unwrap();
                 debug_assert!({
                     let legal: HashSet<Direction> = self
                         .current_player_unit_legal_directions(unit_id)
@@ -1742,11 +1745,11 @@ impl Game {
                 PlayerAction::MoveUnitInDirection { unit_id, direction }
             }
             AiPlayerAction::DisbandNextUnit => {
-                let unit_id = self.unit_orders_requests().next().unwrap();
+                let unit_id = self.current_player_unit_orders_requests().next().unwrap();
                 PlayerAction::DisbandUnit { unit_id }
             }
             AiPlayerAction::SkipNextUnit => {
-                let unit_id = self.unit_orders_requests().next().unwrap();
+                let unit_id = self.current_player_unit_orders_requests().next().unwrap();
                 PlayerAction::OrderUnit {
                     unit_id,
                     orders: Orders::Skip,
@@ -1910,7 +1913,7 @@ pub mod test_support {
 
         let (game, _secrets) = game_two_cities_two_infantry();
 
-        let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+        let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
         {
             let unit = game.current_player_unit_by_id(unit_id).unwrap();
@@ -2116,8 +2119,8 @@ mod test {
         let (mut game, _secrets) = game_two_cities_two_infantry();
 
         for player in 0..2 {
-            assert_eq!(game.unit_orders_requests().count(), 1);
-            let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+            assert_eq!(game.current_player_unit_orders_requests().count(), 1);
+            let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
             let loc = game.current_player_unit_loc(unit_id).unwrap();
             let new_x = (loc.x + 1) % game.dims().width;
             let new_loc = Location { x: new_x, y: loc.y };
@@ -2233,8 +2236,8 @@ mod test {
 
         // Move the armor unit to the right until it attacks the opposing city
         for round in 0..3 {
-            assert_eq!(game.unit_orders_requests().count(), 1);
-            let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+            assert_eq!(game.current_player_unit_orders_requests().count(), 1);
+            let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
             let loc = {
                 let unit = game.current_player_unit_by_id(unit_id).unwrap();
                 assert_eq!(unit.type_, productions[0]);
@@ -2430,7 +2433,7 @@ mod test {
                     .current_player_units()
                     .any(|unit| unit.id == battleship_id));
                 assert!(!game
-                    .unit_orders_requests()
+                    .current_player_unit_orders_requests()
                     .any(|unit_id| unit_id == battleship_id));
             } else {
                 defeated = true;
@@ -2475,7 +2478,7 @@ mod test {
                     .current_player_units()
                     .any(|unit| unit.id == battleship_id));
                 assert!(game
-                    .unit_orders_requests()
+                    .current_player_unit_orders_requests()
                     .any(|unit_id| unit_id == battleship_id));
             }
         }
@@ -2485,7 +2488,7 @@ mod test {
     fn test_set_orders() {
         let map = MapData::try_from("i").unwrap();
         let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
-        let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+        let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
         assert_eq!(
             game.current_player_unit_by_id(unit_id).unwrap().orders,
@@ -2509,7 +2512,7 @@ mod test {
         let map = MapData::try_from("i--------------------").unwrap();
         let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
-        let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+        let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
         let outcome = game.order_unit_explore(unit_id).unwrap();
         assert_eq!(outcome.ordered_unit.id, unit_id);
@@ -2836,7 +2839,10 @@ mod test {
         game.order_unit_skip(unit_id).unwrap();
         game.end_turn().unwrap();
 
-        assert_eq!(game.unit_orders_requests().next(), Some(unit_id));
+        assert_eq!(
+            game.current_player_unit_orders_requests().next(),
+            Some(unit_id)
+        );
 
         game.current_player_unit_by_id(unit_id).unwrap();
     }
@@ -3189,7 +3195,7 @@ mod test {
             let unit = game.current_player_unit_by_id(id).cloned().unwrap();
 
             assert!(game
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == id)
                 .is_some());
 
@@ -3203,7 +3209,7 @@ mod test {
             );
 
             assert!(game
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == id)
                 .is_none());
         }
@@ -3216,11 +3222,11 @@ mod test {
             let (mut game2, _secrets) = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
 
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == infantry_id)
                 .is_some());
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == transport_id)
                 .is_some());
 
@@ -3236,22 +3242,22 @@ mod test {
                 .unwrap();
 
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == infantry_id)
                 .is_some());
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == transport_id)
                 .is_some());
 
             assert_eq!(game2.disband_unit_by_id(infantry_id), Ok(infantry));
 
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == infantry_id)
                 .is_none());
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == transport_id)
                 .is_some());
 
@@ -3263,11 +3269,11 @@ mod test {
             assert_eq!(game2.disband_unit_by_id(transport_id), Ok(transport));
 
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == infantry_id)
                 .is_none());
             assert!(game2
-                .unit_orders_requests()
+                .current_player_unit_orders_requests()
                 .find(|unit_id| *unit_id == transport_id)
                 .is_none());
         }

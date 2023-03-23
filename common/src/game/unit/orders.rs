@@ -326,13 +326,13 @@ pub mod test_support {
             .unwrap();
 
         // Wait until the fighter is produced
-        while game.unit_orders_requests().count() == 0 {
+        while game.current_player_unit_orders_requests().count() == 0 {
             game.end_turn().unwrap();
         }
 
         game.clear_production(secrets[0], city_loc, true).unwrap();
 
-        let fighter_id = game.unit_orders_requests().next().unwrap();
+        let fighter_id = game.current_player_unit_orders_requests().next().unwrap();
 
         let outcome = game.order_unit_explore(fighter_id).unwrap();
         assert_eq!(outcome.status, OrdersStatus::InProgress);
@@ -346,7 +346,7 @@ pub mod test_support {
 
         let mut done = false;
 
-        while game.unit_orders_requests().count() == 0 {
+        while game.current_player_unit_orders_requests().count() == 0 {
             let turn_start = game.end_turn().unwrap();
             assert_eq!(turn_start.orders_results.len(), 1);
 
@@ -422,7 +422,7 @@ pub mod test {
         assert_eq!(result3.unwrap().status, OrdersStatus::InProgress);
 
         // Wait while the go-to order is carried out
-        while game.unit_orders_requests().next().is_none() {
+        while game.current_player_unit_orders_requests().next().is_none() {
             let turn_start = game.end_turn().unwrap();
             assert_eq!(turn_start.current_player, 0);
 
@@ -444,7 +444,9 @@ pub mod test {
         assert!(unit.belongs_to_player(0));
 
         assert!(game.current_player_units().any(|x| x.id == unit.id));
-        assert!(game.unit_orders_requests().any(|x| x == unit.id));
+        assert!(game
+            .current_player_unit_orders_requests()
+            .any(|x| x == unit.id));
         assert!(!game
             .current_player_units_with_pending_orders()
             .any(|x| x == unit.id));
@@ -462,7 +464,7 @@ pub mod test {
         let map = MapData::try_from("i--------------------").unwrap();
         let (game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
-        let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+        let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
         let outcome = game.propose_order_unit_explore(unit_id).unwrap().outcome;
 

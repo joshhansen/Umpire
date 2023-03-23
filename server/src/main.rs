@@ -256,11 +256,16 @@ impl UmpireRpc for UmpireServer {
             .map(|rqsts| rqsts.collect())
     }
 
-    /// Which if the current player's units need orders?
-    ///
-    /// In other words, which of the current player's units have no orders and have moves remaining?
-    async fn unit_orders_requests(self, _: Context) -> Vec<UnitID> {
-        self.game.read().unwrap().unit_orders_requests().collect()
+    async fn player_unit_orders_requests(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitID>> {
+        self.game
+            .read()
+            .unwrap()
+            .player_unit_orders_requests(player_secret)
+            .map(|rqsts| rqsts.collect())
     }
 
     /// Which if the current player's units need orders?

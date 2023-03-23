@@ -18,7 +18,7 @@ impl IMode for TurnResumeMode {
             return ModeStatus::Continue;
         }
 
-        if game.unit_orders_requests().next().is_some() {
+        if game.player_unit_orders_requests().next().is_some() {
             *mode = Mode::GetOrders;
             return ModeStatus::Continue;
         }

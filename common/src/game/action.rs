@@ -40,7 +40,7 @@ impl AiPlayerAction {
         }
 
         //TODO Possibly consider actions for all units instead of just the next one that needs orders
-        if let Some(unit_id) = game.unit_orders_requests().next() {
+        if let Some(unit_id) = game.current_player_unit_orders_requests().next() {
             for direction in game.current_player_unit_legal_directions(unit_id).unwrap() {
                 a.insert(AiPlayerAction::MoveNextUnit { direction });
             }
@@ -129,7 +129,7 @@ impl AiPlayerAction {
                 game.set_production_by_loc(city_loc, unit_type).map(|_| ())
             }
             AiPlayerAction::MoveNextUnit { direction } => {
-                let unit_id = game.unit_orders_requests().next().unwrap();
+                let unit_id = game.current_player_unit_orders_requests().next().unwrap();
                 debug_assert!({
                     let legal: HashSet<Direction> = game
                         .current_player_unit_legal_directions(unit_id)
@@ -146,11 +146,11 @@ impl AiPlayerAction {
                     .map_err(GameError::MoveError)
             }
             AiPlayerAction::DisbandNextUnit => {
-                let unit_id = game.unit_orders_requests().next().unwrap();
+                let unit_id = game.current_player_unit_orders_requests().next().unwrap();
                 game.disband_unit_by_id(unit_id).map(|_| ())
             }
             AiPlayerAction::SkipNextUnit => {
-                let unit_id = game.unit_orders_requests().next().unwrap();
+                let unit_id = game.current_player_unit_orders_requests().next().unwrap();
                 game.order_unit_skip(unit_id).map(|_| ())
             }
         }

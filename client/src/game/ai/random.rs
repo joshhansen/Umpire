@@ -52,7 +52,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             });
         }
 
-        if let Some(unit_id) = ctrl.unit_orders_requests().next() {
+        if let Some(unit_id) = ctrl.player_unit_orders_requests().next() {
             let unit = ctrl.player_unit_by_id(unit_id).unwrap();
             // let unit_id = unit.id;
 
@@ -313,7 +313,7 @@ mod test {
                     let mut ctrl = game.player_turn_control(secrets[player]).unwrap();
                     ai.take_turn(&mut ctrl, false);
 
-                    let orders_requests: Vec<UnitID> = ctrl.unit_orders_requests().collect();
+                    let orders_requests: Vec<UnitID> = ctrl.player_unit_orders_requests().collect();
 
                     for rqst_unit_id in orders_requests.iter().cloned() {
                         // Assert that all orders requests correspond to units still present and that the IDs still

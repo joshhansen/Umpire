@@ -139,7 +139,7 @@ impl IMode for GetUnitOrdersMode {
                                                 city_loc: conquered_city.loc,
                                             };
                                         } else if game
-                                            .unit_orders_requests()
+                                            .player_unit_orders_requests()
                                             .any(|unit_id| unit_id == self.unit_id)
                                         {
                                             *mode = Mode::GetUnitOrders {

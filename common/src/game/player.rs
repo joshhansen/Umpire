@@ -185,11 +185,8 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.current_player_production_set_requests()
     }
 
-    /// Which if the current player's units need orders?
-    ///
-    /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {
-        self.game.unit_orders_requests()
+    pub fn player_unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+        self.game.player_unit_orders_requests(self.secret).unwrap()
     }
 
     // Movement-related methods
