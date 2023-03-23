@@ -29,7 +29,6 @@ use tarpc::{
     server::{self, incoming::Incoming, Channel},
     tokio_serde::formats::Json,
 };
-use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize)]
 enum ServerEvent {
