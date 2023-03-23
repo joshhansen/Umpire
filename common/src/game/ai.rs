@@ -114,7 +114,10 @@ pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecr
     //
 
     let unit_id = game.player_unit_orders_requests(player).next();
-    let city_loc = game.player_production_set_requests(player).next();
+    let city_loc = game
+        .player_production_set_requests(player_secret)
+        .unwrap()
+        .next();
 
     let unit_type = unit_id.and_then(|unit_id| {
         game.player_unit_by_id(player_secret, unit_id)

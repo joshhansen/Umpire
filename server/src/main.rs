@@ -244,12 +244,16 @@ impl UmpireRpc for UmpireServer {
             .map(|unit| unit.cloned())
     }
 
-    async fn production_set_requests(self, _: Context) -> Vec<Location> {
+    async fn player_production_set_requests(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Location>> {
         self.game
             .read()
             .unwrap()
-            .production_set_requests()
-            .collect()
+            .player_production_set_requests(player_secret)
+            .map(|rqsts| rqsts.collect())
     }
 
     /// Which if the current player's units need orders?

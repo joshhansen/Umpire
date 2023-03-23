@@ -33,7 +33,7 @@ impl AiPlayerAction {
         debug_assert!(!game.turn_is_done());
 
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
-        if let Some(city_loc) = game.production_set_requests().next() {
+        if let Some(city_loc) = game.current_player_production_set_requests().next() {
             for unit_type in game.valid_productions_conservative(city_loc) {
                 a.insert(AiPlayerAction::SetNextCityProduction { unit_type });
             }
@@ -122,7 +122,10 @@ impl AiPlayerAction {
     pub fn take(self, game: &mut Game) -> Result<(), GameError> {
         match self {
             AiPlayerAction::SetNextCityProduction { unit_type } => {
-                let city_loc = game.production_set_requests().next().unwrap();
+                let city_loc = game
+                    .current_player_production_set_requests()
+                    .next()
+                    .unwrap();
                 game.set_production_by_loc(city_loc, unit_type).map(|_| ())
             }
             AiPlayerAction::MoveNextUnit { direction } => {

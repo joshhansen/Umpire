@@ -79,7 +79,9 @@ pub trait UmpireRpc {
         id: UnitID,
     ) -> UmpireResult<Option<Location>>;
 
-    async fn production_set_requests() -> Vec<Location>;
+    async fn player_production_set_requests(
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Location>>;
 
     /// Which if the current player's units need orders?
     ///

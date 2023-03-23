@@ -415,7 +415,9 @@ impl Game {
     }
 
     pub fn turn_is_done(&self) -> bool {
-        self.production_set_requests().next().is_none()
+        self.current_player_production_set_requests()
+            .next()
+            .is_none()
             && self.unit_orders_requests().next().is_none()
     }
 
@@ -804,11 +806,6 @@ impl Game {
             .map(|mut cities| cities.find(|city| city.id == city_id))
     }
 
-    // /// If the current player controls a city with ID `city_id`, return it mutably
-    // pub fn current_player_city_by_id_mut(&mut self, city_id: CityID) -> Option<&mut City> {
-    //     self.map.player_cities_mut(self.current_player()).find(|city| city.id==city_id)
-    // }
-
     /// If the current player controls a unit with ID `id`, return it
     fn current_player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
         self.player_unit_by_id_by_idx(self.current_player, id)
@@ -859,17 +856,20 @@ impl Game {
             .and_then(|tile| tile.unit.as_ref())
     }
 
-    pub fn production_set_requests<'a>(&'a self) -> impl Iterator<Item = Location> + 'a {
-        self.player_production_set_requests(self.current_player)
+    fn current_player_production_set_requests<'a>(&'a self) -> impl Iterator<Item = Location> + 'a {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_production_set_requests(player_secret).unwrap()
     }
 
     pub fn player_production_set_requests<'a>(
         &'a self,
-        player: PlayerNum,
-    ) -> impl Iterator<Item = Location> + 'a {
-        self.map
-            .player_cities_lacking_production_target(player)
-            .map(|city| city.loc)
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<impl Iterator<Item = Location> + 'a> {
+        self.player_with_secret(player_secret).map(|player| {
+            self.map
+                .player_cities_lacking_production_target(player)
+                .map(|city| city.loc)
+        })
     }
 
     /// Which if the current player's units need orders?
@@ -1713,7 +1713,10 @@ impl Game {
     ) -> UmpireResult<PlayerActionOutcome> {
         self.take_action(match action {
             AiPlayerAction::SetNextCityProduction { unit_type } => {
-                let city_loc = self.production_set_requests().next().unwrap();
+                let city_loc = self
+                    .current_player_production_set_requests()
+                    .next()
+                    .unwrap();
                 let city_id = self
                     .player_city_by_loc(player_secret, city_loc)?
                     .unwrap()
@@ -1990,7 +1993,10 @@ pub mod test_support {
             Wrap2d::BOTH,
         );
 
-        let loc: Location = game.production_set_requests().next().unwrap();
+        let loc: Location = game
+            .current_player_production_set_requests()
+            .next()
+            .unwrap();
 
         // println!("Setting production at {:?} to infantry", loc);
         game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
@@ -1998,7 +2004,10 @@ pub mod test_support {
         let player = game.end_turn().unwrap().current_player;
         assert_eq!(player, 1);
 
-        let loc: Location = game.production_set_requests().next().unwrap();
+        let loc: Location = game
+            .current_player_production_set_requests()
+            .next()
+            .unwrap();
         // println!("Setting production at {:?} to infantry", loc);
         game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
 
@@ -2197,7 +2206,10 @@ mod test {
         let players = vec![1, 0];
 
         for i in 0..2 {
-            let loc: Location = game.production_set_requests().next().unwrap();
+            let loc: Location = game
+                .current_player_production_set_requests()
+                .next()
+                .unwrap();
             assert_eq!(game.set_production_by_loc(loc, productions[i]), Ok(None));
 
             let result = game.end_turn();
@@ -3086,7 +3098,10 @@ mod test {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
         let (game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
-        let city_loc = game.production_set_requests().next().unwrap();
+        let city_loc = game
+            .current_player_production_set_requests()
+            .next()
+            .unwrap();
 
         let prods: HashSet<UnitType> = game.valid_productions(city_loc).collect();
 
@@ -3115,7 +3130,10 @@ mod test {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
         let (game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
-        let city_loc = game.production_set_requests().next().unwrap();
+        let city_loc = game
+            .current_player_production_set_requests()
+            .next()
+            .unwrap();
 
         let prods: HashSet<UnitType> = game.valid_productions_conservative(city_loc).collect();
 

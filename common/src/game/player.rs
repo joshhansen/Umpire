@@ -182,7 +182,7 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     pub fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a {
-        self.game.production_set_requests()
+        self.game.current_player_production_set_requests()
     }
 
     /// Which if the current player's units need orders?

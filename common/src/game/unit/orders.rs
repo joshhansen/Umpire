@@ -318,7 +318,10 @@ pub mod test_support {
         let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
         // Request a fighter to be produced
-        let city_loc = game.production_set_requests().next().unwrap();
+        let city_loc = game
+            .current_player_production_set_requests()
+            .next()
+            .unwrap();
         game.set_production_by_loc(city_loc, UnitType::Fighter)
             .unwrap();
 
