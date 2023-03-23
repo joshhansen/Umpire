@@ -757,7 +757,7 @@ impl Game {
     }
 
     /// Every enemy unit known to the current player (as of most recent observations)
-    pub fn observed_enemy_units<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
+    fn current_player_observed_enemy_units<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
         let current_player = self.current_player();
         self.current_player_observations()
             .iter()
