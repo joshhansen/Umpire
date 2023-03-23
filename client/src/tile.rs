@@ -15,9 +15,9 @@ use crate::ui::Draw;
 impl Draw for Tile {
     fn draw_no_flush(
         &mut self,
-        game: &common::game::PlayerTurnControl,
+        _game: &common::game::PlayerTurnControl,
         stdout: &mut std::io::Stdout,
-        palette: &crate::color::Palette,
+        _palette: &crate::color::Palette,
     ) -> IoResult<()> {
         // If there's a unit, show the unit
         if let Some(ref unit) = self.unit {
