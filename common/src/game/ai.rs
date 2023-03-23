@@ -133,7 +133,7 @@ pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecr
     x.push(game.turn as fX);
 
     // - number of cities player controls
-    x.push(game.player_city_count(player) as fX);
+    x.push(game.player_city_count(player_secret).unwrap() as fX);
 
     let observations = game.player_observations(player_secret).unwrap();
 

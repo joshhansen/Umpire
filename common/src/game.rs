@@ -687,13 +687,15 @@ impl Game {
     }
 
     /// How many cities does the current player control?
-    pub fn current_player_city_count(&self) -> usize {
-        self.player_city_count(self.current_player)
+    fn current_player_city_count(&self) -> usize {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_city_count(player_secret).unwrap()
     }
 
     /// How many cities does the specified player control?
-    pub fn player_city_count(&self, player: PlayerNum) -> usize {
-        self.map.player_city_count(player).unwrap_or_default()
+    pub fn player_city_count(&self, player_secret: PlayerSecret) -> UmpireResult<usize> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.map.player_city_count(player).unwrap_or_default())
     }
 
     // /// All cities controlled by the current player which have a production target set, mutably
