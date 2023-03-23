@@ -64,8 +64,10 @@ pub trait UmpireRpc {
         loc: Location,
     ) -> UmpireResult<Option<City>>;
 
-    /// If the current player controls a city with ID `city_id`, return it
-    async fn current_player_city_by_id(city_id: CityID) -> Option<City>;
+    async fn player_city_by_id(
+        player_secret: PlayerSecret,
+        city_id: CityID,
+    ) -> UmpireResult<Option<City>>;
 
     async fn player_unit_by_id(
         player_secret: PlayerSecret,

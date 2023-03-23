@@ -794,9 +794,14 @@ impl Game {
             .map(|tile| tile.and_then(|tile| tile.city.as_ref()))
     }
 
-    /// If the current player controls a city with ID `city_id`, return it
-    pub fn current_player_city_by_id(&self, city_id: CityID) -> Option<&City> {
-        self.current_player_cities().find(|city| city.id == city_id)
+    /// If the specified player controls a city with ID `city_id`, return it
+    pub fn player_city_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        city_id: CityID,
+    ) -> UmpireResult<Option<&City>> {
+        self.player_cities(player_secret)
+            .map(|mut cities| cities.find(|city| city.id == city_id))
     }
 
     // /// If the current player controls a city with ID `city_id`, return it mutably

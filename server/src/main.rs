@@ -196,13 +196,17 @@ impl UmpireRpc for UmpireServer {
             .map(|city| city.cloned())
     }
 
-    /// If the current player controls a city with ID `city_id`, return it
-    async fn current_player_city_by_id(self, _: Context, city_id: CityID) -> Option<City> {
+    async fn player_city_by_id(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        city_id: CityID,
+    ) -> UmpireResult<Option<City>> {
         self.game
             .read()
             .unwrap()
-            .current_player_city_by_id(city_id)
-            .cloned()
+            .player_city_by_id(player_secret, city_id)
+            .map(|city| city.cloned())
     }
 
     async fn player_unit_by_id(
