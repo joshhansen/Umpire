@@ -160,16 +160,15 @@ impl UmpireRpc for UmpireServer {
             .map(|cities_iter| cities_iter.cloned().collect())
     }
 
-    /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
-    ///
-    /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
-    ///
-    /// FIXME Get rid of this and just make the UI smarter
-    async fn player_cities_producing_or_not_ignored(self, _: Context) -> usize {
+    async fn player_cities_producing_or_not_ignored(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<usize> {
         self.game
             .read()
             .unwrap()
-            .current_player_cities_producing_or_not_ignored()
+            .player_cities_producing_or_not_ignored(player_secret)
     }
 
     /// Every unit controlled by the current player

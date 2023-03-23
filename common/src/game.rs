@@ -708,16 +708,22 @@ impl Game {
     //     self.map.player_units_mut(self.current_player(), callback);
     // }
 
-    /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
+    /// The number of cities controlled by the current player which either have a production target or
+    /// are NOT set to be ignored when requesting productions to be set
     ///
-    /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
+    /// This basically lets us make sure a player doesn't set all their cities' productions to none since
+    /// right now the UI has no way of getting out of that situation
     ///
-    /// FIXME Get rid of this and just make the UI smarter
-    #[deprecated]
-    pub fn current_player_cities_producing_or_not_ignored(&self) -> usize {
-        self.current_player_cities()
-            .filter(|city| city.production().is_some() || !city.ignore_cleared_production())
-            .count()
+    /// NOTE Maybe we could make the UI smarter and get rid of this?
+    pub fn player_cities_producing_or_not_ignored(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<usize> {
+        self.player_cities(player_secret).map(|cities| {
+            cities
+                .filter(|city| city.production().is_some() || !city.ignore_cleared_production())
+                .count()
+        })
     }
 
     pub fn player_units(

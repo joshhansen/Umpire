@@ -53,13 +53,9 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
     ) -> UmpireResult<Vec<City>>;
 
-    /// The number of cities controlled by the current player which either have a production target or are NOT set to be ignored when requesting productions to be set
-    ///
-    /// This basically lets us make sure a player doesn't set all their cities' productions to none since right now the UI has no way of getting out of that situation
-    ///
-    /// FIXME Get rid of this and just make the UI smarter
-    #[deprecated]
-    async fn player_cities_producing_or_not_ignored() -> usize;
+    async fn player_cities_producing_or_not_ignored(
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<usize>;
 
     /// Every unit controlled by the current player
     async fn current_player_units() -> Vec<Unit>;
