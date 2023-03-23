@@ -85,10 +85,9 @@ pub trait UmpireRpc {
 
     async fn player_unit_orders_requests(player_secret: PlayerSecret) -> UmpireResult<Vec<UnitID>>;
 
-    /// Which if the current player's units need orders?
-    ///
-    /// In other words, which of the current player's units have no orders and have moves remaining?
-    async fn units_with_orders_requests() -> Vec<Unit>;
+    async fn player_units_with_orders_requests(
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Unit>>;
 
     async fn player_units_with_pending_orders(
         player_secret: PlayerSecret,

@@ -895,10 +895,21 @@ impl Game {
     /// Which if the current player's units need orders?
     ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn units_with_orders_requests<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
-        self.map
-            .player_units(self.current_player())
-            .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
+    fn current_player_units_with_orders_requests<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_units_with_orders_requests(player_secret)
+            .unwrap()
+    }
+
+    pub fn player_units_with_orders_requests<'a>(
+        &'a self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<impl Iterator<Item = &Unit> + 'a> {
+        self.player_with_secret(player_secret).map(|player| {
+            self.map
+                .player_units(player)
+                .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
+        })
     }
 
     fn current_player_units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
