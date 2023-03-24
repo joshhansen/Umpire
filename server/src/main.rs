@@ -49,12 +49,18 @@ enum ServerEvent {
 // Implementation of the server API
 #[derive(Clone)]
 struct UmpireServer {
-    player_secret: PlayerSecret,
     game: Arc<RwLock<Game>>,
+
+    /// The player secrets for players controlled by this connection will be given, the rest omitted
+    known_secrets: Vec<Option<PlayerSecret>>,
 }
 
 #[tarpc::server]
 impl UmpireRpc for UmpireServer {
+    async fn player_secrets_known(self, _: Context) -> Vec<Option<PlayerSecret>> {
+        self.known_secrets
+    }
+
     async fn num_players(self, _: Context) -> PlayerNum {
         self.game.read().unwrap().num_players()
     }
@@ -694,15 +700,21 @@ async fn main() -> anyhow::Result<()> {
         .map(|channel| {
             let cc = connection_count.clone();
 
+            let player = *cc.read().unwrap();
+
             *cc.write().unwrap() += 1;
 
-            let player_secret = secrets[*cc.read().unwrap()];
+            let known_secrets: Vec<Option<PlayerSecret>> = secrets
+                .iter()
+                .enumerate()
+                .map(|(i, secret)| if i == player { Some(*secret) } else { None })
+                .collect();
 
-            println!("Player secret: {}", player_secret);
+            println!("Serving player {}", player);
 
             let server = UmpireServer {
-                player_secret,
                 game: game.clone(),
+                known_secrets,
             };
 
             println!(
