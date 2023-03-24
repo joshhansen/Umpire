@@ -243,10 +243,11 @@ impl UmpireDomain {
     fn update_state(&mut self, action: AiPlayerAction) {
         debug_assert!(!self.game.turn_is_done());
 
-        action.take(&mut self.game).unwrap();
+        let player_secret = self.player_secrets[self.game.current_player()];
+
+        action.take(&mut self.game, player_secret).unwrap();
 
         if self.verbosity > 1 {
-            let player_secret = self.player_secrets[self.game.current_player()];
             let loc = if let Some(unit_id) = self
                 .game
                 .player_unit_orders_requests(player_secret)
@@ -264,7 +265,7 @@ impl UmpireDomain {
             if self.fix_output_loc {
                 let mut stdout = stdout();
                 {
-                    let ctrl = self
+                    let (ctrl, _turn_start) = self
                         .game
                         .player_turn_control_nonending(player_secret)
                         .unwrap();
@@ -297,7 +298,7 @@ impl UmpireDomain {
         // for this user to do or the game is over
         while self.game.victor().is_none() && self.game.turn_is_done() {
             // End this user's turn
-            self.game.end_turn_clearing().unwrap();
+            self.game.end_turn(player_secret).unwrap();
         }
     }
 }

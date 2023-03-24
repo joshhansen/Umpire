@@ -14,7 +14,7 @@ use super::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError, TurnStart,
+    Game, GameError, PlayerSecret, TurnStart,
 };
 
 /// Bare-bones actions, reduced for machine learning purposes
@@ -119,7 +119,7 @@ impl AiPlayerAction {
             .unwrap()
     }
 
-    pub fn take(self, game: &mut Game) -> Result<(), GameError> {
+    pub fn take(self, game: &mut Game, player_secret: PlayerSecret) -> Result<(), GameError> {
         match self {
             AiPlayerAction::SetNextCityProduction { unit_type } => {
                 let city_loc = game
@@ -141,9 +141,8 @@ impl AiPlayerAction {
                     legal.contains(&direction)
                 });
 
-                game.move_unit_by_id_in_direction(unit_id, direction)
+                game.move_unit_by_id_in_direction(player_secret, unit_id, direction)
                     .map(|_| ())
-                    .map_err(GameError::MoveError)
             }
             AiPlayerAction::DisbandNextUnit => {
                 let unit_id = game.current_player_unit_orders_requests().next().unwrap();
@@ -159,6 +158,7 @@ impl AiPlayerAction {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum PlayerAction {
+    BeginTurn,
     EndTurn,
     SetCityProduction {
         city_id: CityID,
@@ -183,7 +183,8 @@ pub enum PlayerAction {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum PlayerActionOutcome {
-    TurnEnded(TurnStart),
+    TurnStarted(TurnStart),
+    TurnEnded,
     SetCityProduction {
         city_id: CityID,
         production: UnitType,
@@ -206,11 +207,18 @@ pub enum PlayerActionOutcome {
 }
 
 impl PlayerAction {
-    pub fn take(self, game: &mut Game) -> Result<PlayerActionOutcome, GameError> {
+    pub fn take(
+        self,
+        game: &mut Game,
+        player_secret: PlayerSecret,
+    ) -> Result<PlayerActionOutcome, GameError> {
         match self {
+            PlayerAction::BeginTurn => game
+                .begin_turn(player_secret)
+                .map(|turn_start| PlayerActionOutcome::TurnStarted(turn_start)),
             PlayerAction::EndTurn => game
-                .end_turn()
-                .map(|turn_start| PlayerActionOutcome::TurnEnded(turn_start)),
+                .end_turn(player_secret)
+                .map(|_| PlayerActionOutcome::TurnEnded),
             PlayerAction::SetCityProduction {
                 city_id,
                 production,
@@ -222,32 +230,30 @@ impl PlayerAction {
                     prior_production,
                 }),
             PlayerAction::MoveUnit { unit_id, dest } => game
-                .move_unit_by_id(unit_id, dest)
+                .move_unit_by_id(player_secret, unit_id, dest)
                 .map(|move_| PlayerActionOutcome::MoveUnit {
                     unit_id,
                     dest: Some(dest),
                     move_,
-                })
-                .map_err(|move_err| GameError::MoveError(move_err)),
+                }),
             PlayerAction::MoveUnitInDirection { unit_id, direction } => {
                 let dest = game
                     .current_player_unit_by_id(unit_id)
                     .unwrap()
                     .loc
                     .shift_wrapped(direction, game.dims(), game.wrapping);
-                game.move_unit_by_id_in_direction(unit_id, direction)
+                game.move_unit_by_id_in_direction(player_secret, unit_id, direction)
                     .map(|move_| PlayerActionOutcome::MoveUnit {
                         unit_id,
                         dest,
                         move_,
                     })
-                    .map_err(|move_err| GameError::MoveError(move_err))
             }
             PlayerAction::DisbandUnit { unit_id } => game
                 .disband_unit_by_id(unit_id)
                 .map(|disbanded| PlayerActionOutcome::DisbandUnit { disbanded }),
             PlayerAction::OrderUnit { unit_id, orders } => game
-                .set_and_follow_orders(unit_id, orders)
+                .set_and_follow_orders(player_secret, unit_id, orders)
                 .map(|orders_outcome| PlayerActionOutcome::OrderUnit {
                     unit_id,
                     orders,

@@ -7,7 +7,7 @@ use crate::{
         city::{City, CityID},
         error::GameError,
         map::Tile,
-        move_::MoveResult,
+        move_::Move,
         obs::{Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
         PlayerNum, PlayerSecret, TurnNum, UmpireResult,
@@ -100,28 +100,52 @@ pub trait UmpireRpc {
 
     // Movement-related methods
 
-    async fn move_toplevel_unit_by_id(unit_id: UnitID, dest: Location) -> MoveResult;
-
-    async fn move_toplevel_unit_by_id_avoiding_combat(
+    async fn move_toplevel_unit_by_id(
+        player_secret: PlayerSecret,
         unit_id: UnitID,
         dest: Location,
-    ) -> MoveResult;
+    ) -> UmpireResult<Move>;
 
-    async fn move_toplevel_unit_by_loc(src: Location, dest: Location) -> MoveResult;
+    async fn move_toplevel_unit_by_id_avoiding_combat(
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move>;
 
-    async fn move_toplevel_unit_by_loc_avoiding_combat(src: Location, dest: Location)
-        -> MoveResult;
+    async fn move_toplevel_unit_by_loc(
+        player_secret: PlayerSecret,
+        src: Location,
+        dest: Location,
+    ) -> UmpireResult<Move>;
 
-    async fn move_unit_by_id_in_direction(id: UnitID, direction: Direction) -> MoveResult;
+    async fn move_toplevel_unit_by_loc_avoiding_combat(
+        player_secret: PlayerSecret,
+        src: Location,
+        dest: Location,
+    ) -> UmpireResult<Move>;
 
-    async fn move_unit_by_id(unit_id: UnitID, dest: Location) -> MoveResult;
+    async fn move_unit_by_id_in_direction(
+        player_secret: PlayerSecret,
+        id: UnitID,
+        direction: Direction,
+    ) -> UmpireResult<Move>;
+
+    async fn move_unit_by_id(
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move>;
 
     // async fn propose_move_unit_by_id(
     //     id: UnitID,
     //     dest: Location,
     // ) -> Proposed2<Result<Move, MoveError>>;
 
-    async fn move_unit_by_id_avoiding_combat(id: UnitID, dest: Location) -> MoveResult;
+    async fn move_unit_by_id_avoiding_combat(
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move>;
 
     // async fn propose_move_unit_by_id_avoiding_combat(
     //     id: UnitID,
@@ -173,12 +197,16 @@ pub trait UmpireRpc {
 
     async fn order_unit_skip(unit_id: UnitID) -> OrdersResult;
 
-    async fn order_unit_go_to(unit_id: UnitID, dest: Location) -> OrdersResult;
+    async fn order_unit_go_to(
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> OrdersResult;
 
     /// Simulate ordering the specified unit to go to the given location
     // async fn propose_order_unit_go_to(unit_id: UnitID, dest: Location) -> Proposed<OrdersResult>;
 
-    async fn order_unit_explore(unit_id: UnitID) -> OrdersResult;
+    async fn order_unit_explore(player_secret: PlayerSecret, unit_id: UnitID) -> OrdersResult;
 
     /// Simulate ordering the specified unit to explore.
     // async fn propose_order_unit_explore(unit_id: UnitID) -> Proposed<OrdersResult>;
@@ -212,5 +240,8 @@ pub trait UmpireRpc {
         action: AiPlayerAction,
     ) -> UmpireResult<PlayerActionOutcome>;
 
-    async fn take_action(action: PlayerAction) -> Result<PlayerActionOutcome, GameError>;
+    async fn take_action(
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> UmpireResult<PlayerActionOutcome>;
 }

@@ -293,7 +293,7 @@ mod test {
             .unwrap();
 
             let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
-            let mut ctrl = game.player_turn_control(secrets[0]).unwrap();
+            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
 
             for _ in 0..1000 {
                 ai.take_turn(&mut ctrl, false);
@@ -310,7 +310,8 @@ mod test {
 
             for i in 0..300 {
                 for player in 0..=1 {
-                    let mut ctrl = game.player_turn_control(secrets[player]).unwrap();
+                    let (mut ctrl, _turn_start) =
+                        game.player_turn_control(secrets[player]).unwrap();
                     ai.take_turn(&mut ctrl, false);
 
                     let orders_requests: Vec<UnitID> = ctrl.player_unit_orders_requests().collect();
@@ -354,10 +355,10 @@ mod test {
             let mut game = game.clone();
 
             if game.current_player() == 0 {
-                let _ctrl = game.player_turn_control(secrets[0]).unwrap();
+                let (_ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
                 // drop this to end first player's turn without moving the infantry or transport
             } else {
-                let mut ctrl = game.player_turn_control(secrets[1]).unwrap();
+                let (mut ctrl, _turn_start) = game.player_turn_control(secrets[1]).unwrap();
 
                 ai.take_turn(&mut ctrl, false);
             }

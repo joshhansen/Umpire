@@ -13,7 +13,7 @@ use common::{
         city::{City, CityID},
         error::GameError,
         map::Tile,
-        move_::MoveResult,
+        move_::Move,
         obs::{LocatedObs, Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
         Game, PlayerNum, PlayerSecret, PlayerType, TurnNum, TurnStart, UmpireResult,
@@ -297,65 +297,79 @@ impl UmpireRpc for UmpireServer {
     async fn move_toplevel_unit_by_id(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
         dest: Location,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         self.game
             .write()
             .unwrap()
-            .move_toplevel_unit_by_id(unit_id, dest)
+            .move_toplevel_unit_by_id(player_secret, unit_id, dest)
     }
 
     async fn move_toplevel_unit_by_id_avoiding_combat(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
         dest: Location,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         self.game
             .write()
             .unwrap()
-            .move_toplevel_unit_by_id_avoiding_combat(unit_id, dest)
+            .move_toplevel_unit_by_id_avoiding_combat(player_secret, unit_id, dest)
     }
 
     async fn move_toplevel_unit_by_loc(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         src: Location,
         dest: Location,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         self.game
             .write()
             .unwrap()
-            .move_toplevel_unit_by_loc(src, dest)
+            .move_toplevel_unit_by_loc(player_secret, src, dest)
     }
 
     async fn move_toplevel_unit_by_loc_avoiding_combat(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         src: Location,
         dest: Location,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         self.game
             .write()
             .unwrap()
-            .move_toplevel_unit_by_loc_avoiding_combat(src, dest)
+            .move_toplevel_unit_by_loc_avoiding_combat(player_secret, src, dest)
     }
 
     async fn move_unit_by_id_in_direction(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         id: UnitID,
         direction: Direction,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         self.game
             .write()
             .unwrap()
-            .move_unit_by_id_in_direction(id, direction)
+            .move_unit_by_id_in_direction(player_secret, id, direction)
     }
 
-    async fn move_unit_by_id(self, _: Context, unit_id: UnitID, dest: Location) -> MoveResult {
-        self.game.write().unwrap().move_unit_by_id(unit_id, dest)
+    async fn move_unit_by_id(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        self.game
+            .write()
+            .unwrap()
+            .move_unit_by_id(player_secret, unit_id, dest)
     }
 
     // async fn propose_move_unit_by_id(
@@ -370,13 +384,14 @@ impl UmpireRpc for UmpireServer {
     async fn move_unit_by_id_avoiding_combat(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         id: UnitID,
         dest: Location,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         self.game
             .write()
             .unwrap()
-            .move_unit_by_id_avoiding_combat(id, dest)
+            .move_unit_by_id_avoiding_combat(player_secret, id, dest)
     }
 
     // async fn propose_move_unit_by_id_avoiding_combat(
@@ -476,8 +491,17 @@ impl UmpireRpc for UmpireServer {
         self.game.write().unwrap().order_unit_skip(unit_id)
     }
 
-    async fn order_unit_go_to(self, _: Context, unit_id: UnitID, dest: Location) -> OrdersResult {
-        self.game.write().unwrap().order_unit_go_to(unit_id, dest)
+    async fn order_unit_go_to(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> OrdersResult {
+        self.game
+            .write()
+            .unwrap()
+            .order_unit_go_to(player_secret, unit_id, dest)
     }
 
     /// Simulate ordering the specified unit to go to the given location
@@ -490,8 +514,16 @@ impl UmpireRpc for UmpireServer {
     //     self.game.propose_order_unit_go_to(unit_id, dest)
     // }
 
-    async fn order_unit_explore(self, _: Context, unit_id: UnitID) -> OrdersResult {
-        self.game.write().unwrap().order_unit_explore(unit_id)
+    async fn order_unit_explore(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        self.game
+            .write()
+            .unwrap()
+            .order_unit_explore(player_secret, unit_id)
     }
 
     /// Simulate ordering the specified unit to explore.
@@ -559,9 +591,13 @@ impl UmpireRpc for UmpireServer {
     async fn take_action(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         action: PlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {
-        self.game.write().unwrap().take_action(action)
+        self.game
+            .write()
+            .unwrap()
+            .take_action(player_secret, action)
     }
 }
 

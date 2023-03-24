@@ -369,7 +369,8 @@ fn main() -> Result<(), String> {
 
             if verbosity > 1 {
                 if fix_output_loc {
-                    let ctrl = game.player_turn_control_nonending(secrets[0]).unwrap();
+                    let (ctrl, _turn_start) =
+                        game.player_turn_control_nonending(secrets[0]).unwrap();
 
                     map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
                 } else {
@@ -404,7 +405,8 @@ fn main() -> Result<(), String> {
 
                     if verbosity > 1 {
                         if fix_output_loc {
-                            let ctrl = game.player_turn_control_nonending(secrets[i]).unwrap();
+                            let (ctrl, _turn_start) =
+                                game.player_turn_control_nonending(secrets[i]).unwrap();
 
                             map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
                             execute!(stdout, MoveTo(0, map_height + 2)).unwrap();

@@ -12,7 +12,7 @@ use crate::{
         },
         move_::{Move, MoveComponent, MoveError},
         unit::UnitID,
-        Game, GameError,
+        Game, GameError, PlayerSecret,
     },
     util::Location,
 };
@@ -95,7 +95,12 @@ pub enum Orders {
 }
 
 impl Orders {
-    pub fn carry_out(self, unit_id: UnitID, game: &mut Game) -> OrdersResult {
+    pub fn carry_out(
+        self,
+        unit_id: UnitID,
+        game: &mut Game,
+        player_secret: PlayerSecret,
+    ) -> OrdersResult {
         match self {
             Orders::Skip => {
                 let unit = game.map.unit_by_id(unit_id).unwrap().clone();
@@ -107,8 +112,8 @@ impl Orders {
                 let unit = game.map.unit_by_id(unit_id).unwrap().clone();
                 Ok(OrdersOutcome::in_progress_without_move(unit, self))
             }
-            Orders::GoTo { dest } => go_to(self, game, unit_id, dest),
-            Orders::Explore => explore(self, game, unit_id),
+            Orders::GoTo { dest } => go_to(self, game, player_secret, unit_id, dest),
+            Orders::Explore => explore(self, game, player_secret, unit_id),
         }
     }
 
@@ -129,7 +134,12 @@ impl Orders {
 /// Keep moving toward the nearest unobserved tile we can see a path
 /// to, until either there is no such tile or we run out of moves
 /// If there are no such tiles then set the unit's orders to None
-pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult {
+pub fn explore(
+    orders: Orders,
+    game: &mut Game,
+    player_secret: PlayerSecret,
+    unit_id: UnitID,
+) -> OrdersResult {
     // Clone the unit and simulate exploration using the clone
     let mut unit: Unit = game
         .current_player_unit_by_id(unit_id)
@@ -172,9 +182,8 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
                 dist_to_real_goal -= 1;
             }
 
-            let mut move_ = game
-                .move_unit_by_id_using_filter(unit.id, goal, &filter)
-                .map_err(GameError::MoveError)?;
+            let mut move_ =
+                game.move_unit_by_id_using_filter(player_secret, unit.id, goal, &filter)?;
 
             if move_.moved_successfully() {
                 unit = move_.unit;
@@ -209,7 +218,13 @@ pub fn explore(orders: Orders, game: &mut Game, unit_id: UnitID) -> OrdersResult
 /// So, in all cases, the right thing to do is to go to the observed, accessible tile nearest the
 /// target, going there by way of the shortest route we know of. Once we're there, clear the unit's
 /// orders.
-pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -> OrdersResult {
+pub fn go_to(
+    orders: Orders,
+    game: &mut Game,
+    player_secret: PlayerSecret,
+    unit_id: UnitID,
+    dest: Location,
+) -> OrdersResult {
     if !game.dims().contain(dest) {
         return Err(GameError::MoveError(MoveError::DestinationOutOfBounds {}));
     }
@@ -270,7 +285,7 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
         }));
     }
 
-    game.move_unit_by_id(unit_id, dest2)
+    game.move_unit_by_id(player_secret, unit_id, dest2)
         .map(|move_| {
             let status = if let Some(ending_loc) = move_.ending_loc() {
                 // survived the immediate move
@@ -293,7 +308,6 @@ pub fn go_to(orders: Orders, game: &mut Game, unit_id: UnitID, dest: Location) -
                 status,
             }
         })
-        .map_err(GameError::MoveError)
 }
 
 pub mod test_support {
@@ -327,14 +341,14 @@ pub mod test_support {
 
         // Wait until the fighter is produced
         while game.current_player_unit_orders_requests().count() == 0 {
-            game.end_turn().unwrap();
+            game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
         }
 
         game.clear_production(secrets[0], city_loc, true).unwrap();
 
         let fighter_id = game.current_player_unit_orders_requests().next().unwrap();
 
-        let outcome = game.order_unit_explore(fighter_id).unwrap();
+        let outcome = game.order_unit_explore(secrets[0], fighter_id).unwrap();
         assert_eq!(outcome.status, OrdersStatus::InProgress);
         assert!(outcome.move_.is_some());
         assert!(!outcome.move_.as_ref().unwrap().components.is_empty());
@@ -347,7 +361,7 @@ pub mod test_support {
         let mut done = false;
 
         while game.current_player_unit_orders_requests().count() == 0 {
-            let turn_start = game.end_turn().unwrap();
+            let turn_start = game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
             assert_eq!(turn_start.orders_results.len(), 1);
 
             let orders_result = turn_start.orders_results.get(0).unwrap();
@@ -403,27 +417,27 @@ pub mod test {
             .id;
 
         let dest = Location { x: 0, y: 0 };
-        let result1 = game.order_unit_go_to(id, dest);
+        let result1 = game.order_unit_go_to(secrets[0], id, dest);
         assert_eq!(
             result1,
             Err(GameError::MoveError(MoveError::ZeroLengthMove))
         );
 
         let dest2 = Location { x: 255, y: 255 };
-        let result2 = game.order_unit_go_to(id, dest2);
+        let result2 = game.order_unit_go_to(secrets[0], id, dest2);
         assert_eq!(
             result2,
             Err(GameError::MoveError(MoveError::DestinationOutOfBounds {}))
         );
 
         let dest3 = Location { x: 5, y: 0 };
-        let result3 = game.order_unit_go_to(id, dest3);
+        let result3 = game.order_unit_go_to(secrets[0], id, dest3);
         assert!(result3.is_ok());
         assert_eq!(result3.unwrap().status, OrdersStatus::InProgress);
 
         // Wait while the go-to order is carried out
         while game.current_player_unit_orders_requests().next().is_none() {
-            let turn_start = game.end_turn().unwrap();
+            let turn_start = game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
             assert_eq!(turn_start.current_player, 0);
 
             match turn_start.orders_results.len() {
@@ -466,7 +480,10 @@ pub mod test {
 
         let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
-        let outcome = game.propose_order_unit_explore(unit_id).unwrap().outcome;
+        let outcome = game
+            .propose_order_unit_explore(secrets[0], unit_id)
+            .unwrap()
+            .outcome;
 
         //         /// The ID of the ordered unit
         // pub ordered_unit_id: UnitID,

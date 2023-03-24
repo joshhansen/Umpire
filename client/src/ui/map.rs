@@ -662,7 +662,7 @@ mod test {
 
         let (mut game, secrets) = game1();
 
-        let ctrl = game.player_turn_control(secrets[0]).unwrap();
+        let (ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
 
         let rect = Rect {
             left: 0,

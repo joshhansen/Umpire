@@ -277,7 +277,7 @@ impl AI {
                 })
                 .unwrap();
             let action = AiPlayerAction::from_idx(action_idx).unwrap();
-            action.take(game).unwrap();
+            action.take(game, player_secret).unwrap();
 
             if generate_data {
                 let post_score = game.player_score(player_secret).unwrap();
@@ -305,19 +305,22 @@ impl TurnTaker for AI {
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
+        let player = game.current_player();
         match self {
             Self::Random(ai) => ai.take_turn_not_clearing(game, &player_secrets, generate_data),
             Self::LFA(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 
-                game.end_turn().unwrap();
+                game.end_then_begin_turn(player_secrets[player], player_secrets[player + 1 % 2])
+                    .unwrap();
 
                 result
             }
             Self::DNN(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 
-                game.end_turn().unwrap();
+                game.end_then_begin_turn(player_secrets[player], player_secrets[player + 1 % 2])
+                    .unwrap();
 
                 result
             }
@@ -330,19 +333,28 @@ impl TurnTaker for AI {
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
+        let player = game.current_player();
         match self {
             Self::Random(ai) => ai.take_turn_clearing(game, player_secrets, generate_data),
             Self::LFA(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 
-                game.end_turn_clearing().unwrap();
+                game.end_then_begin_turn_clearing(
+                    player_secrets[player],
+                    player_secrets[player + 1 % 2],
+                )
+                .unwrap();
 
                 result
             }
             Self::DNN(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 
-                game.end_turn_clearing().unwrap();
+                game.end_then_begin_turn_clearing(
+                    player_secrets[player],
+                    player_secrets[player + 1 % 2],
+                )
+                .unwrap();
 
                 result
             }

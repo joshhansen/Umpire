@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features, AISpec},
+    move_::Move,
     obs::PlayerObsTracker,
-    PlayerSecret, ProposedMoveResult, ProposedOrdersResult, UmpireResult,
+    PlayerSecret, ProposedOrdersResult, ProposedUmpireResult, TurnStart, UmpireResult,
 };
 use crate::{
     cli::Specified,
@@ -14,7 +15,7 @@ use crate::{
         map::tile::Tile,
         obs::{Obs, ObsTracker},
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
-        Game, GameError, TurnNum, TurnStart,
+        Game, GameError, TurnNum,
     },
     util::{sparsify, Dims, Direction, Location, Wrap2d},
 };
@@ -83,44 +84,33 @@ pub struct PlayerTurnControl<'a> {
 
     observations: PlayerObsTracker,
 
-    /// Which player is this control shim representing? A copy of `Game::current_player`'s result. Shouldn't get stale
-    /// since we lock down anything that would change who the current player is. We do this for convenience.
-    pub player: PlayerNum,
-
-    clear_completed_productions: bool,
-
     end_turn_on_drop: bool,
 }
 impl<'a> PlayerTurnControl<'a> {
     pub fn new(
-        secret: PlayerSecret,
         game: &'a mut Game,
+        secret: PlayerSecret,
         end_turn_on_drop: bool,
-        clear_completed_productions: bool,
-    ) -> Self {
-        let observations = PlayerObsTracker::new(game.num_players(), game.dims());
-        let player = game.current_player();
-        Self {
-            game,
-            secret,
-            observations,
-            player,
-            clear_completed_productions,
-            end_turn_on_drop,
-        }
-    }
+        clearing: bool,
+    ) -> UmpireResult<(Self, TurnStart)> {
+        game.validate_is_player_turn(secret)?;
 
-    pub fn new_clearing(secret: PlayerSecret, game: &'a mut Game) -> Self {
+        let turn_start = if clearing {
+            game.begin_turn_clearing(secret)
+        } else {
+            game.begin_turn(secret)
+        }?;
+
         let observations = PlayerObsTracker::new(game.num_players(), game.dims());
-        let player = game.current_player();
-        Self {
-            secret,
-            game,
-            observations,
-            player,
-            clear_completed_productions: true,
-            end_turn_on_drop: true,
-        }
+        Ok((
+            Self {
+                game,
+                secret,
+                observations,
+                end_turn_on_drop,
+            },
+            turn_start,
+        ))
     }
 
     pub fn turn_is_done(&self) -> bool {
@@ -191,8 +181,12 @@ impl<'a> PlayerTurnControl<'a> {
 
     // Movement-related methods
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
-        self.game.propose_move_unit_by_id(id, dest)
+    pub fn propose_move_unit_by_id(
+        &self,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedUmpireResult<Move> {
+        self.game.propose_move_unit_by_id(self.secret, id, dest)
     }
 
     pub fn disband_unit_by_id(&mut self, id: UnitID) -> Result<Unit, GameError> {
@@ -265,12 +259,13 @@ impl<'a> PlayerTurnControl<'a> {
         unit_id: UnitID,
         dest: Location,
     ) -> ProposedOrdersResult {
-        self.game.propose_order_unit_go_to(unit_id, dest)
+        self.game
+            .propose_order_unit_go_to(self.secret, unit_id, dest)
     }
 
     /// Simulate ordering the specified unit to explore.
     pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult {
-        self.game.propose_order_unit_explore(unit_id)
+        self.game.propose_order_unit_explore(self.secret, unit_id)
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
@@ -278,8 +273,12 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.activate_unit_by_loc(loc)
     }
 
-    pub fn end_turn(&mut self) -> Result<TurnStart, GameError> {
-        self.game.end_turn()
+    pub fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
+        self.game.begin_turn(self.secret)
+    }
+
+    pub fn end_turn(&mut self) -> UmpireResult<()> {
+        self.game.end_turn(self.secret)
     }
 
     fn player_score(&self) -> UmpireResult<f64> {
@@ -299,7 +298,7 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {
-        self.game.take_action(action)
+        self.game.take_action(self.secret, action)
     }
 }
 
@@ -308,12 +307,8 @@ impl<'a> PlayerTurnControl<'a> {
 /// This forces the turn to end regardless of the state of production and orders requests.
 impl<'a> Drop for PlayerTurnControl<'a> {
     fn drop(&mut self) {
-        if self.end_turn_on_drop {
-            if self.clear_completed_productions {
-                self.game.force_end_turn_clearing();
-            } else {
-                self.game.force_end_turn();
-            }
+        if self.end_turn_on_drop && self.game.is_player_turn(self.secret).unwrap() {
+            self.game.force_end_turn(self.secret).unwrap();
         }
     }
 }
@@ -374,7 +369,7 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         let player_secret = player_secrets[game.current_player()];
-        let mut ctrl = game.player_turn_control(player_secret).unwrap();
+        let (mut ctrl, _turn_start) = game.player_turn_control(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -404,7 +399,7 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         let player_secret = player_secrets[game.current_player()];
-        let mut ctrl = game.player_turn_control_clearing(player_secret).unwrap();
+        let (mut ctrl, _turn_start) = game.player_turn_control_clearing(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {

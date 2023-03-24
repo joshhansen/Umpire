@@ -60,7 +60,7 @@ use self::{
     action::{PlayerAction, PlayerActionOutcome},
     ai::{fX, player_features},
     alignment::{Aligned, AlignedMaybe},
-    move_::{Move, MoveComponent, MoveError, MoveResult},
+    move_::{Move, MoveComponent, MoveError},
     player::PlayerGameView,
     proposed::Proposed2,
 };
@@ -123,9 +123,9 @@ pub type UmpireResult<T> = Result<T, GameError>;
 
 type ProposedResult<Outcome, E> = Result<Proposed2<Outcome>, E>;
 
-type ProposedActionResult = ProposedResult<PlayerActionOutcome, GameError>;
+pub type ProposedUmpireResult<T> = UmpireResult<Proposed2<T>>;
 
-type ProposedMoveResult = ProposedResult<Move, MoveError>;
+type ProposedActionResult = ProposedResult<PlayerActionOutcome, GameError>;
 
 type ProposedOrdersResult = ProposedResult<OrdersOutcome, GameError>; //TODO Make error type orders-specific
 
@@ -223,7 +223,7 @@ impl Game {
             .map(|_player| game.register_player().unwrap())
             .collect();
 
-        game.begin_turn();
+        game.begin_turn(secrets[0]).unwrap();
         (game, secrets)
     }
 
@@ -254,29 +254,40 @@ impl Game {
         }
     }
 
-    fn validate_player_secret(&self, secret: PlayerSecret) -> UmpireResult<()> {
-        self.player_with_secret(secret).map(|_| ())
+    fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool> {
+        self.player_with_secret(secret)
+            .map(|player| player == self.current_player)
     }
 
-    pub fn player_turn_control(&mut self, secret: PlayerSecret) -> UmpireResult<PlayerTurnControl> {
-        self.validate_player_secret(secret)
-            .map(|_| PlayerTurnControl::new(secret, self, true, false))
+    fn validate_is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<()> {
+        let player = self.player_with_secret(secret)?;
+
+        if player != self.current_player {
+            Err(GameError::NotPlayersTurn { player })
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn player_turn_control(
+        &mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl, TurnStart)> {
+        PlayerTurnControl::new(self, secret, true, false)
     }
 
     pub fn player_turn_control_clearing(
         &mut self,
         secret: PlayerSecret,
-    ) -> UmpireResult<PlayerTurnControl> {
-        self.validate_player_secret(secret)
-            .map(|_| PlayerTurnControl::new_clearing(secret, self))
+    ) -> UmpireResult<(PlayerTurnControl, TurnStart)> {
+        PlayerTurnControl::new(self, secret, true, true)
     }
 
     pub fn player_turn_control_nonending(
         &mut self,
         secret: PlayerSecret,
-    ) -> UmpireResult<PlayerTurnControl> {
-        self.validate_player_secret(secret)
-            .map(|_| PlayerTurnControl::new(secret, self, false, false))
+    ) -> UmpireResult<(PlayerTurnControl, TurnStart)> {
+        PlayerTurnControl::new(self, secret, false, true)
     }
 
     fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
@@ -381,26 +392,28 @@ impl Game {
         self.defeated_unit_hitpoints[self.current_player] += max_hp as u64;
     }
 
-    fn begin_turn(&mut self) -> TurnStart {
+    fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
+        self.validate_is_player_turn(player_secret)?;
+
         let production_outcomes = self.produce_units();
 
         self.refresh_moves_remaining();
 
         self.update_current_player_observations();
 
-        let orders_results = self.follow_pending_orders();
+        let orders_results = self.follow_pending_orders(player_secret);
 
-        TurnStart {
+        Ok(TurnStart {
             turn: self.turn,
             current_player: self.current_player(),
             orders_results,
             production_outcomes,
-        }
+        })
     }
 
     /// Begin the turn of the specified player, claring productions
-    fn begin_turn_clearing(&mut self) -> TurnStart {
-        let result = self.begin_turn();
+    fn begin_turn_clearing(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
+        let result = self.begin_turn(player_secret)?;
 
         let current_player_secret = self.player_secrets[self.current_player];
 
@@ -411,7 +424,7 @@ impl Game {
             }
         }
 
-        result
+        Ok(result)
     }
 
     pub fn turn_is_done(&self) -> bool {
@@ -457,6 +470,18 @@ impl Game {
         None
     }
 
+    pub fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.validate_is_player_turn(player_secret)?;
+
+        if self.turn_is_done() {
+            Ok(self.force_end_turn(player_secret)?)
+        } else {
+            Err(GameError::TurnEndRequirementsNotMet {
+                player: self.current_player,
+            })
+        }
+    }
+
     /// End the current human player's turn and begin the next human player's turn
     ///
     /// Returns the number of the now-current player.
@@ -472,9 +497,15 @@ impl Game {
     /// necessary, and production and movement requests will be created as necessary.
     ///
     /// At the end of a turn, production counts will be incremented.
-    pub fn end_turn(&mut self) -> Result<TurnStart, GameError> {
+    pub fn end_then_begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.validate_is_player_turn(player_secret)?;
+
         if self.turn_is_done() {
-            Ok(self.force_end_turn())
+            Ok(self.force_end_then_begin_turn(player_secret, next_player_secret)?)
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
                 player: self.current_player(),
@@ -482,11 +513,19 @@ impl Game {
         }
     }
 
-    pub fn end_turn_clearing(&mut self) -> Result<TurnStart, PlayerNum> {
+    pub fn end_then_begin_turn_clearing(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.validate_is_player_turn(player_secret)?;
+
         if self.turn_is_done() {
-            Ok(self.force_end_turn_clearing())
+            self.force_end_then_begin_turn_clearing(player_secret, next_player_secret)
         } else {
-            Err(self.current_player())
+            Err(GameError::TurnEndRequirementsNotMet {
+                player: self.current_player,
+            })
         }
     }
 
@@ -497,28 +536,38 @@ impl Game {
         }
     }
 
-    /// End the turn without checking that the player has filled all production and orders requests.
-    fn force_end_turn(&mut self) -> TurnStart {
-        self.player_observations
-            .tracker_mut(self.current_player())
+    fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.validate_is_player_turn(player_secret)?;
+
+        self.player_observations_mut(player_secret)
             .unwrap()
             .archive();
 
         self._inc_current_player();
 
-        self.begin_turn()
+        Ok(())
     }
 
     /// End the turn without checking that the player has filled all production and orders requests.
-    fn force_end_turn_clearing(&mut self) -> TurnStart {
-        self.player_observations
-            .tracker_mut(self.current_player())
-            .unwrap()
-            .archive();
+    fn force_end_then_begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.force_end_turn(player_secret)?;
 
-        self._inc_current_player();
+        self.begin_turn(next_player_secret)
+    }
 
-        self.begin_turn_clearing()
+    /// End the turn without checking that the player has filled all production and orders requests.
+    fn force_end_then_begin_turn_clearing(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.force_end_turn(player_secret)?;
+
+        self.begin_turn_clearing(next_player_secret)
     }
 
     /// Register the current observations of current player units
@@ -643,6 +692,18 @@ impl Game {
 
     fn player_observations_by_idx(&self, player: PlayerNum) -> &ObsTracker {
         self.player_observations.tracker(player).unwrap()
+    }
+
+    pub fn player_observations_mut(
+        &mut self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<&mut ObsTracker> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.player_observations_by_idx_mut(player))
+    }
+
+    fn player_observations_by_idx_mut(&mut self, player: PlayerNum) -> &mut ObsTracker {
+        self.player_observations.tracker_mut(player).unwrap()
     }
 
     /// FIXME Make this private
@@ -935,18 +996,32 @@ impl Game {
 
     // Movement-related methods
 
-    pub fn move_toplevel_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
-        let src = self.map.unit_loc(unit_id).unwrap();
-        self.move_toplevel_unit_by_loc(src, dest)
+    pub fn move_toplevel_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        let src = self
+            .player_unit_loc(player_secret, unit_id)?
+            .ok_or(GameError::MoveError(MoveError::SourceUnitDoesNotExist {
+                id: unit_id,
+            }))?;
+        self.move_toplevel_unit_by_loc(player_secret, src, dest)
     }
 
     pub fn move_toplevel_unit_by_id_avoiding_combat(
         &mut self,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
         dest: Location,
-    ) -> MoveResult {
-        let src = self.map.unit_loc(unit_id).unwrap();
-        self.move_toplevel_unit_by_loc_avoiding_combat(src, dest)
+    ) -> UmpireResult<Move> {
+        let src = self
+            .player_unit_loc(player_secret, unit_id)?
+            .ok_or(GameError::MoveError(MoveError::SourceUnitDoesNotExist {
+                id: unit_id,
+            }))?;
+        self.move_toplevel_unit_by_loc_avoiding_combat(player_secret, src, dest)
     }
 
     /*
@@ -959,23 +1034,35 @@ impl Game {
 
         FIXME This function checks two separate times whether a unit exists at src
     */
-    pub fn move_toplevel_unit_by_loc(&mut self, src: Location, dest: Location) -> MoveResult {
+    pub fn move_toplevel_unit_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        src: Location,
+        dest: Location,
+    ) -> UmpireResult<Move> {
         let unit = self
-            .map
-            .toplevel_unit_by_loc(src)
-            .ok_or(MoveError::SourceUnitNotAtLocation { src })?
+            .player_toplevel_unit_by_loc(player_secret, src)?
+            .ok_or(GameError::MoveError(MoveError::SourceUnitNotAtLocation {
+                src,
+            }))?
             .clone();
 
         let filter = UnitMovementFilter::new(&unit);
-        self.move_toplevel_unit_by_loc_using_filter(src, dest, &filter)
+        self.move_toplevel_unit_by_loc_using_filter(player_secret, src, dest, &filter)
     }
 
     pub fn move_toplevel_unit_by_loc_avoiding_combat(
         &mut self,
+        player_secret: PlayerSecret,
         src: Location,
         dest: Location,
-    ) -> MoveResult {
-        let unit = self.map.toplevel_unit_by_loc(src).unwrap().clone();
+    ) -> UmpireResult<Move> {
+        let unit = self
+            .player_toplevel_unit_by_loc(player_secret, src)?
+            .ok_or(GameError::MoveError(MoveError::SourceUnitNotAtLocation {
+                src,
+            }))?
+            .clone();
         let unit_filter = AndFilter::new(
             AndFilter::new(
                 NoUnitsFilter {},
@@ -985,21 +1072,24 @@ impl Game {
             ),
             UnitMovementFilter { unit: &unit },
         );
-        self.move_toplevel_unit_by_loc_using_filter(src, dest, &unit_filter)
+        self.move_toplevel_unit_by_loc_using_filter(player_secret, src, dest, &unit_filter)
     }
 
     fn move_toplevel_unit_by_loc_using_filter<F: Filter<Obs>>(
         &mut self,
+        player_secret: PlayerSecret,
         src: Location,
         dest: Location,
         filter: &F,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         let unit_id = self
-            .current_player_toplevel_unit_by_loc(src)
+            .player_toplevel_unit_by_loc(player_secret, src)?
             .map(|unit| unit.id)
-            .ok_or(MoveError::SourceUnitNotAtLocation { src })?;
+            .ok_or(GameError::MoveError(MoveError::SourceUnitNotAtLocation {
+                src,
+            }))?;
 
-        self.move_unit_by_id_using_filter(unit_id, dest, filter)
+        self.move_unit_by_id_using_filter(player_secret, unit_id, dest, filter)
     }
 
     // fn propose_move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&self, src: Location, dest: Location, filter: &F) -> MoveResult {
@@ -1010,14 +1100,17 @@ impl Game {
     /// Move a unit one step in a particular direction
     pub fn move_unit_by_id_in_direction(
         &mut self,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
         direction: Direction,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
         // let unit_loc = self.map.unit_by_id(id)
         // .ok_or_else(|| MoveError::SourceUnitDoesNotExist {id})?.loc;
         let unit = self
-            .current_player_unit_by_id(unit_id)
-            .ok_or(MoveError::SourceUnitDoesNotExist { id: unit_id })?
+            .player_unit_by_id(player_secret, unit_id)?
+            .ok_or(GameError::MoveError(MoveError::SourceUnitDoesNotExist {
+                id: unit_id,
+            }))?
             .clone();
 
         let filter = UnitMovementFilter::new(&unit);
@@ -1025,34 +1118,51 @@ impl Game {
         let dest = unit
             .loc
             .shift_wrapped(direction, self.dims(), self.wrapping())
-            .ok_or_else(|| MoveError::DestinationOutOfBounds {})?;
+            .ok_or_else(|| GameError::MoveError(MoveError::DestinationOutOfBounds {}))?;
 
         // self.move_unit_by_id(id, dest)
-        self.move_unit_by_id_using_filter(unit_id, dest, &filter)
+        self.move_unit_by_id_using_filter(player_secret, unit_id, dest, &filter)
     }
 
-    pub fn move_unit_by_id(&mut self, unit_id: UnitID, dest: Location) -> MoveResult {
+    pub fn move_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
         // self.propose_move_unit_by_id(unit_id, dest).map(|proposed_move| proposed_move.take(self))
         // let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
         let unit = self
-            .current_player_unit_by_id(unit_id)
-            .ok_or(MoveError::SourceUnitDoesNotExist { id: unit_id })?
+            .player_unit_by_id(player_secret, unit_id)?
+            .ok_or(GameError::MoveError(MoveError::SourceUnitDoesNotExist {
+                id: unit_id,
+            }))?
             .clone();
 
         let filter = UnitMovementFilterXenophile::new(&unit);
-        self.move_unit_by_id_using_filter(unit_id, dest, &filter)
+        self.move_unit_by_id_using_filter(player_secret, unit_id, dest, &filter)
     }
 
-    pub fn propose_move_unit_by_id(&self, id: UnitID, dest: Location) -> ProposedMoveResult {
+    pub fn propose_move_unit_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedResult<Move, GameError> {
         let mut new = self.clone();
-        let move_ = new.move_unit_by_id(id, dest)?;
+        let move_ = new.move_unit_by_id(player_secret, id, dest)?;
         Ok(Proposed2 {
             action: PlayerAction::MoveUnit { unit_id: id, dest },
             outcome: move_,
         })
     }
 
-    pub fn move_unit_by_id_avoiding_combat(&mut self, id: UnitID, dest: Location) -> MoveResult {
+    pub fn move_unit_by_id_avoiding_combat(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
         let unit = self.map.unit_by_id(id).unwrap().clone();
         let unit_filter = AndFilter::new(
             AndFilter::new(
@@ -1063,16 +1173,17 @@ impl Game {
             ),
             UnitMovementFilter { unit: &unit },
         );
-        self.move_unit_by_id_using_filter(id, dest, &unit_filter)
+        self.move_unit_by_id_using_filter(player_secret, id, dest, &unit_filter)
     }
 
     pub fn propose_move_unit_by_id_avoiding_combat(
         &self,
+        player_secret: PlayerSecret,
         id: UnitID,
         dest: Location,
-    ) -> ProposedMoveResult {
+    ) -> ProposedResult<Move, GameError> {
         self.clone()
-            .move_unit_by_id_avoiding_combat(id, dest)
+            .move_unit_by_id_avoiding_combat(player_secret, id, dest)
             .map(|move_| Proposed2 {
                 action: PlayerAction::MoveUnit { unit_id: id, dest },
                 outcome: move_,
@@ -1083,31 +1194,43 @@ impl Game {
     /// the given tile filter. This is necessary because, as the unit advances, it observes tiles which may have been
     /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
     /// potentially other behaviors like unit carrying and combat.
+    ///
+    /// *player* is the number of the player attempting to make the move; they must control the specified unit, however
+    /// this function does not check that such is the case.
     fn move_unit_by_id_using_filter<F: Filter<Obs>>(
         &mut self,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
         dest: Location,
         tile_filter: &F,
-    ) -> MoveResult {
+    ) -> UmpireResult<Move> {
+        let player = self.player_with_secret(player_secret)?;
+
+        // FIXME Return error when it's not user's turn
+        debug_assert_eq!(player, self.current_player);
+
+        if player != self.current_player {
+            return Err(GameError::NotPlayersTurn { player });
+        }
+
         if !self.dims().contain(dest) {
-            return Err(MoveError::DestinationOutOfBounds {});
+            return Err(MoveError::DestinationOutOfBounds {}).map_err(GameError::MoveError);
         }
 
         // Grab a copy of the unit to work with
         let mut unit = self
-            .current_player_unit_by_id(unit_id)
-            .ok_or(MoveError::SourceUnitDoesNotExist { id: unit_id })?
+            .player_unit_by_id_by_idx(player, unit_id)
+            .ok_or(GameError::MoveError(MoveError::SourceUnitDoesNotExist {
+                id: unit_id,
+            }))?
             .clone();
 
         if unit.loc == dest {
-            return Err(MoveError::ZeroLengthMove);
+            return Err(MoveError::ZeroLengthMove).map_err(GameError::MoveError);
         }
 
         // let obs_tracker = self.current_player_observations_mut();
-        let obs_tracker = self
-            .player_observations
-            .tracker_mut(self.current_player)
-            .unwrap();
+        let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
 
         // Keep a copy of the source location around
         let src = unit.loc;
@@ -1156,7 +1279,8 @@ impl Game {
                         dest,
                         intended_distance: distance,
                         moves_remaining: unit.moves_remaining(),
-                    });
+                    })
+                    .map_err(GameError::MoveError);
                 }
 
                 let shortest_path: Vec<Location> = shortest_paths
@@ -1366,7 +1490,8 @@ impl Game {
                     src,
                     dest,
                     id: unit_id,
-                });
+                })
+                .map_err(GameError::MoveError);
             }
         } // while
 
@@ -1394,7 +1519,7 @@ impl Game {
 
         self.action_taken();
 
-        Move::new(unit, src, moves)
+        Move::new(unit, src, moves).map_err(GameError::MoveError)
     }
 
     /// Disbands
@@ -1542,26 +1667,40 @@ impl Game {
         result
     }
 
-    pub fn order_unit_go_to(&mut self, unit_id: UnitID, dest: Location) -> OrdersResult {
-        self.set_and_follow_orders(unit_id, Orders::GoTo { dest })
+    pub fn order_unit_go_to(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> OrdersResult {
+        self.set_and_follow_orders(player_secret, unit_id, Orders::GoTo { dest })
     }
 
     /// Simulate ordering the specified unit to go to the given location
     pub fn propose_order_unit_go_to(
         &self,
+        player_secret: PlayerSecret,
         unit_id: UnitID,
         dest: Location,
     ) -> ProposedOrdersResult {
-        self.propose_set_and_follow_orders(unit_id, Orders::GoTo { dest })
+        self.propose_set_and_follow_orders(player_secret, unit_id, Orders::GoTo { dest })
     }
 
-    pub fn order_unit_explore(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.set_and_follow_orders(unit_id, Orders::Explore)
+    pub fn order_unit_explore(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        self.set_and_follow_orders(player_secret, unit_id, Orders::Explore)
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult {
-        self.propose_set_and_follow_orders(unit_id, Orders::Explore)
+    pub fn propose_order_unit_explore(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> ProposedOrdersResult {
+        self.propose_set_and_follow_orders(player_secret, unit_id, Orders::Explore)
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
@@ -1597,12 +1736,12 @@ impl Game {
         self.map.clear_player_unit_orders(self.current_player(), id)
     }
 
-    fn follow_pending_orders(&mut self) -> Vec<OrdersResult> {
+    fn follow_pending_orders(&mut self, player_secret: PlayerSecret) -> Vec<OrdersResult> {
         let pending_orders: Vec<UnitID> = self.current_player_units_with_pending_orders().collect();
 
         pending_orders
             .iter()
-            .map(|unit_id| self.follow_unit_orders(*unit_id))
+            .map(|unit_id| self.follow_unit_orders(player_secret, *unit_id))
             .collect()
     }
 
@@ -1611,15 +1750,15 @@ impl Game {
     /// # Panics
     /// This will panic if the current player does not control such a unit.
     ///
-    fn follow_unit_orders(&mut self, id: UnitID) -> OrdersResult {
+    fn follow_unit_orders(&mut self, player_secret: PlayerSecret, id: UnitID) -> OrdersResult {
         let orders = self
-            .current_player_unit_by_id(id)
+            .player_unit_by_id(player_secret, id)?
             .unwrap()
             .orders
             .as_ref()
             .unwrap();
 
-        let result = orders.carry_out(id, self);
+        let result = orders.carry_out(id, self, player_secret);
 
         // If the orders are already complete, clear them out
         if let Ok(OrdersOutcome {
@@ -1635,9 +1774,14 @@ impl Game {
     }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
-    fn propose_set_and_follow_orders(&self, id: UnitID, orders: Orders) -> ProposedOrdersResult {
+    fn propose_set_and_follow_orders(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> ProposedOrdersResult {
         self.clone()
-            .set_and_follow_orders(id, orders)
+            .set_and_follow_orders(player_secret, id, orders)
             .map(|orders_outcome| Proposed2 {
                 action: PlayerAction::OrderUnit {
                     unit_id: id,
@@ -1647,10 +1791,15 @@ impl Game {
             })
     }
 
-    fn set_and_follow_orders(&mut self, id: UnitID, orders: Orders) -> OrdersResult {
+    fn set_and_follow_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> OrdersResult {
         self.set_orders(id, orders)?;
 
-        let result = self.follow_unit_orders(id);
+        let result = self.follow_unit_orders(player_secret, id);
 
         if result.is_ok() {
             self.action_taken();
@@ -1725,52 +1874,59 @@ impl Game {
         player_secret: PlayerSecret,
         action: AiPlayerAction,
     ) -> UmpireResult<PlayerActionOutcome> {
-        self.take_action(match action {
-            AiPlayerAction::SetNextCityProduction { unit_type } => {
-                let city_loc = self
-                    .current_player_production_set_requests()
-                    .next()
-                    .unwrap();
-                let city_id = self
-                    .player_city_by_loc(player_secret, city_loc)?
-                    .unwrap()
-                    .id;
-                PlayerAction::SetCityProduction {
-                    city_id,
-                    production: unit_type,
-                }
-            }
-            AiPlayerAction::MoveNextUnit { direction } => {
-                let unit_id = self.current_player_unit_orders_requests().next().unwrap();
-                debug_assert!({
-                    let legal: HashSet<Direction> = self
-                        .current_player_unit_legal_directions(unit_id)
+        self.take_action(
+            player_secret,
+            match action {
+                AiPlayerAction::SetNextCityProduction { unit_type } => {
+                    let city_loc = self
+                        .current_player_production_set_requests()
+                        .next()
+                        .unwrap();
+                    let city_id = self
+                        .player_city_by_loc(player_secret, city_loc)?
                         .unwrap()
-                        .collect();
-
-                    // println!("legal moves: {}", legal.len());
-
-                    legal.contains(&direction)
-                });
-
-                PlayerAction::MoveUnitInDirection { unit_id, direction }
-            }
-            AiPlayerAction::DisbandNextUnit => {
-                let unit_id = self.current_player_unit_orders_requests().next().unwrap();
-                PlayerAction::DisbandUnit { unit_id }
-            }
-            AiPlayerAction::SkipNextUnit => {
-                let unit_id = self.current_player_unit_orders_requests().next().unwrap();
-                PlayerAction::OrderUnit {
-                    unit_id,
-                    orders: Orders::Skip,
+                        .id;
+                    PlayerAction::SetCityProduction {
+                        city_id,
+                        production: unit_type,
+                    }
                 }
-            }
-        })
+                AiPlayerAction::MoveNextUnit { direction } => {
+                    let unit_id = self.current_player_unit_orders_requests().next().unwrap();
+                    debug_assert!({
+                        let legal: HashSet<Direction> = self
+                            .current_player_unit_legal_directions(unit_id)
+                            .unwrap()
+                            .collect();
+
+                        // println!("legal moves: {}", legal.len());
+
+                        legal.contains(&direction)
+                    });
+
+                    PlayerAction::MoveUnitInDirection { unit_id, direction }
+                }
+                AiPlayerAction::DisbandNextUnit => {
+                    let unit_id = self.current_player_unit_orders_requests().next().unwrap();
+                    PlayerAction::DisbandUnit { unit_id }
+                }
+                AiPlayerAction::SkipNextUnit => {
+                    let unit_id = self.current_player_unit_orders_requests().next().unwrap();
+                    PlayerAction::OrderUnit {
+                        unit_id,
+                        orders: Orders::Skip,
+                    }
+                }
+            },
+        )
     }
 
-    pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {
-        action.take(self)
+    pub fn take_action(
+        &mut self,
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> Result<PlayerActionOutcome, GameError> {
+        action.take(self, player_secret)
     }
 
     /// A cloned copy of the specified player's view of the game
@@ -1786,9 +1942,13 @@ impl Game {
         })
     }
 
-    pub fn propose_action(&self, action: PlayerAction) -> ProposedActionResult {
+    pub fn propose_action(
+        &self,
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> ProposedActionResult {
         let mut game = self.clone();
-        let outcome = game.take_action(action)?;
+        let outcome = game.take_action(player_secret, action)?;
 
         Ok(Proposed2 { action, outcome })
     }
@@ -1922,7 +2082,7 @@ pub mod test_support {
         let src = Location { x: 0, y: 0 };
         let dest = Location { x: 1, y: 0 };
 
-        let (game, _secrets) = game_two_cities_two_infantry();
+        let (game, secrets) = game_two_cities_two_infantry();
 
         let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
@@ -1931,7 +2091,10 @@ pub mod test_support {
             assert_eq!(unit.loc, src);
         }
 
-        let proposed_move = game.propose_move_unit_by_id(unit_id, dest).unwrap().outcome;
+        let proposed_move = game
+            .propose_move_unit_by_id(secrets[0], unit_id, dest)
+            .unwrap()
+            .outcome;
 
         let component = proposed_move.components.get(0).unwrap();
 
@@ -2015,7 +2178,10 @@ pub mod test_support {
         // println!("Setting production at {:?} to infantry", loc);
         game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn().unwrap().current_player;
+        let player = game
+            .end_then_begin_turn(secrets[0], secrets[1])
+            .unwrap()
+            .current_player;
         assert_eq!(player, 1);
 
         let loc: Location = game
@@ -2025,7 +2191,10 @@ pub mod test_support {
         // println!("Setting production at {:?} to infantry", loc);
         game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
 
-        let player = game.end_turn().unwrap().current_player;
+        let player = game
+            .end_then_begin_turn(secrets[1], secrets[0])
+            .unwrap()
+            .current_player;
         assert_eq!(player, 0);
 
         (game, secrets)
@@ -2074,18 +2243,24 @@ pub mod test_support {
         let (mut game, secrets) = game_two_cities_dims(dims);
 
         for _ in 0..5 {
-            let player = game.end_turn().unwrap().current_player;
+            let player = game
+                .end_then_begin_turn(secrets[0], secrets[1])
+                .unwrap()
+                .current_player;
             assert_eq!(player, 1);
-            let player = game.end_turn().unwrap().current_player;
+            let player = game
+                .end_then_begin_turn(secrets[1], secrets[0])
+                .unwrap()
+                .current_player;
             assert_eq!(player, 0);
         }
 
         assert_eq!(
-            game.end_turn(),
+            game.end_then_begin_turn(secrets[0], secrets[1]),
             Err(GameError::TurnEndRequirementsNotMet { player: 0 })
         );
         assert_eq!(
-            game.end_turn(),
+            game.end_then_begin_turn(secrets[0], secrets[1]),
             Err(GameError::TurnEndRequirementsNotMet { player: 0 })
         );
 
@@ -2127,7 +2302,7 @@ mod test {
 
     #[test]
     fn test_game() {
-        let (mut game, _secrets) = game_two_cities_two_infantry();
+        let (mut game, secrets) = game_two_cities_two_infantry();
 
         for player in 0..2 {
             assert_eq!(game.current_player_unit_orders_requests().count(), 1);
@@ -2137,7 +2312,7 @@ mod test {
             let new_loc = Location { x: new_x, y: loc.y };
             println!("Moving unit from {} to {}", loc, new_loc);
 
-            match game.move_toplevel_unit_by_loc(loc, new_loc) {
+            match game.move_toplevel_unit_by_loc(secrets[player], loc, new_loc) {
                 Ok(move_result) => {
                     println!("{:?}", move_result);
                 }
@@ -2146,7 +2321,7 @@ mod test {
                 }
             }
 
-            let result = game.end_turn();
+            let result = game.end_then_begin_turn(secrets[player], secrets[(player + 1) % 2]);
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1 - player);
         }
@@ -2164,7 +2339,7 @@ mod test {
             )
             .unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
         let mut rand = thread_rng();
         for _ in 0..10 {
@@ -2179,11 +2354,12 @@ mod test {
                 .wrapping()
                 .wrapped_add(game.dims(), unit_loc, delta)
                 .unwrap();
-            let result = game.move_unit_by_id(unit_id, dest).unwrap();
+            let result = game.move_unit_by_id(secrets[0], unit_id, dest).unwrap();
             assert!(result.moved_successfully());
             assert_eq!(result.ending_loc(), Some(dest));
 
-            game.force_end_turn();
+            game.force_end_then_begin_turn(secrets[0], secrets[0])
+                .unwrap();
         }
     }
 
@@ -2207,7 +2383,7 @@ mod test {
             assert_eq!(city2.loc, loc2);
         }
 
-        let (mut game, _secrets) = Game::new_with_map(
+        let (mut game, secrets) = Game::new_with_map(
             map,
             2,
             false,
@@ -2216,32 +2392,47 @@ mod test {
         );
         assert_eq!(game.current_player(), 0);
 
-        let productions = vec![UnitType::Armor, UnitType::Carrier];
-        let players = vec![1, 0];
-
-        for i in 0..2 {
-            let loc: Location = game
-                .current_player_production_set_requests()
+        {
+            let loc = game
+                .player_production_set_requests(secrets[0])
+                .unwrap()
                 .next()
                 .unwrap();
-            assert_eq!(game.set_production_by_loc(loc, productions[i]), Ok(None));
 
-            let result = game.end_turn();
+            assert_eq!(game.set_production_by_loc(loc, UnitType::Armor), Ok(None));
+
+            let result = game.end_then_begin_turn(secrets[0], secrets[1]);
+
             assert!(result.is_ok());
-            assert_eq!(result.unwrap().current_player, players[i]);
+            assert_eq!(result.unwrap().current_player, 1);
+        }
+
+        {
+            let loc = game
+                .player_production_set_requests(secrets[1])
+                .unwrap()
+                .next()
+                .unwrap();
+
+            assert_eq!(game.set_production_by_loc(loc, UnitType::Carrier), Ok(None));
+
+            let result = game.end_then_begin_turn(secrets[1], secrets[0]);
+
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().current_player, 0);
         }
 
         for _ in 0..11 {
-            let result = game.end_turn();
+            let result = game.end_then_begin_turn(secrets[0], secrets[1]);
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1);
 
-            let result = game.end_turn();
+            let result = game.end_then_begin_turn(secrets[1], secrets[0]);
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 0);
         }
         assert_eq!(
-            game.end_turn(),
+            game.end_then_begin_turn(secrets[0], secrets[1]),
             Err(GameError::TurnEndRequirementsNotMet { player: 0 })
         );
 
@@ -2251,7 +2442,7 @@ mod test {
             let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
             let loc = {
                 let unit = game.current_player_unit_by_id(unit_id).unwrap();
-                assert_eq!(unit.type_, productions[0]);
+                assert_eq!(unit.type_, UnitType::Armor);
                 unit.loc
             };
 
@@ -2260,7 +2451,9 @@ mod test {
                 y: loc.y,
             };
             println!("Moving from {} to {}", loc, dest_loc);
-            let move_result = game.move_toplevel_unit_by_loc(loc, dest_loc).unwrap();
+            let move_result = game
+                .move_toplevel_unit_by_loc(secrets[0], loc, dest_loc)
+                .unwrap();
             println!("Result: {:?}", move_result);
 
             assert_eq!(move_result.unit.type_, UnitType::Armor);
@@ -2303,18 +2496,18 @@ mod test {
                     let conquered_city = move_result.conquered_city().unwrap();
                     let production_set_result =
                         game.set_production_by_loc(conquered_city.loc, UnitType::Fighter);
-                    assert_eq!(production_set_result, Ok(productions.get(1).cloned()));
+                    assert_eq!(production_set_result, Ok(Some(UnitType::Carrier)));
                 }
             } else {
                 // The unit was destroyed
                 assert_eq!(move_result.unit.moves_remaining(), 1);
             }
 
-            let result = game.end_turn();
+            let result = game.end_then_begin_turn(secrets[0], secrets[1]);
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 1);
 
-            let result = game.end_turn();
+            let result = game.end_then_begin_turn(secrets[1], secrets[0]);
             assert!(result.is_ok());
             assert_eq!(result.unwrap().current_player, 0);
         }
@@ -2328,20 +2521,20 @@ mod test {
 
         let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
 
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
-        game.move_unit_by_id_in_direction(transport_id, Direction::Left)
+        game.move_unit_by_id_in_direction(secrets[0], transport_id, Direction::Left)
             .unwrap();
-        game.move_unit_by_id_in_direction(transport_id, Direction::Right)
+        game.move_unit_by_id_in_direction(secrets[0], transport_id, Direction::Right)
             .unwrap();
 
         assert_eq!(
-            game.move_unit_by_id_in_direction(transport_id, Direction::Right),
-            Err(MoveError::NoRoute {
+            game.move_unit_by_id_in_direction(secrets[0], transport_id, Direction::Right),
+            Err(GameError::MoveError(MoveError::NoRoute {
                 id: transport_id,
                 src: Location::new(1, 0),
                 dest: Location::new(2, 0),
-            })
+            }))
         );
     }
 
@@ -2353,9 +2546,9 @@ mod test {
 
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
         let move_result = game
-            .move_toplevel_unit_by_loc(infantry_loc, transport_loc)
+            .move_toplevel_unit_by_loc(secrets[0], infantry_loc, transport_loc)
             .unwrap();
         assert_eq!(move_result.starting_loc, infantry_loc);
         assert_eq!(move_result.ending_loc(), Some(transport_loc));
@@ -2374,11 +2567,11 @@ mod test {
             let transport_id = map.toplevel_unit_by_loc(Location::new(1, 0)).unwrap().id;
             let battleship_id = map.toplevel_unit_by_loc(Location::new(2, 0)).unwrap().id;
 
-            let (mut game, _secrets) = Game::new_with_map(map, 2, false, None, Wrap2d::NEITHER);
+            let (mut game, secrets) = Game::new_with_map(map, 2, false, None, Wrap2d::NEITHER);
 
             // Load the infantry onto the transport
             let inf_move = game
-                .move_unit_by_id_in_direction(infantry_id, Direction::Right)
+                .move_unit_by_id_in_direction(secrets[0], infantry_id, Direction::Right)
                 .unwrap();
             assert!(inf_move.moved_successfully());
             assert_eq!(
@@ -2389,7 +2582,7 @@ mod test {
 
             // Attack the battleship with the transport
             let move_ = game
-                .move_unit_by_id_in_direction(transport_id, Direction::Right)
+                .move_unit_by_id_in_direction(secrets[0], transport_id, Direction::Right)
                 .unwrap();
             if move_.moved_successfully() {
                 victorious = true;
@@ -2438,7 +2631,8 @@ mod test {
                         .any(|carried_unit| carried_unit.id == infantry_id));
                 }
 
-                game.force_end_turn(); // ignore remaining moves
+                game.force_end_then_begin_turn(secrets[0], secrets[1])
+                    .unwrap(); // ignore remaining moves
 
                 assert!(!game
                     .current_player_units()
@@ -2483,7 +2677,7 @@ mod test {
                     battleship_id
                 );
 
-                game.end_turn().unwrap();
+                game.end_then_begin_turn(secrets[0], secrets[1]).unwrap();
 
                 assert!(game
                     .current_player_units()
@@ -2521,11 +2715,11 @@ mod test {
     #[test]
     pub fn test_order_unit_explore() {
         let map = MapData::try_from("i--------------------").unwrap();
-        let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
         let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
-        let outcome = game.order_unit_explore(unit_id).unwrap();
+        let outcome = game.order_unit_explore(secrets[0], unit_id).unwrap();
         assert_eq!(outcome.ordered_unit.id, unit_id);
         assert_eq!(outcome.orders, Orders::Explore);
         assert_eq!(outcome.status, OrdersStatus::InProgress);
@@ -2763,7 +2957,7 @@ mod test {
             )
             .unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
         // let mut rand = thread_rng();
 
@@ -2776,9 +2970,9 @@ mod test {
 
             // Recenter the unit on `src`
             if i > 0 {
-                game.move_unit_by_id(unit_id, src).unwrap();
+                game.move_unit_by_id(secrets[0], unit_id, src).unwrap();
                 game.order_unit_skip(unit_id).unwrap();
-                game.end_turn().unwrap();
+                game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
             }
 
             for dir in Direction::values().iter().cloned() {
@@ -2788,7 +2982,7 @@ mod test {
                     .wrapped_add(game.dims(), src, dir.into())
                     .unwrap();
 
-                game.move_unit_by_id(unit_id, dest).expect(
+                game.move_unit_by_id(secrets[0], unit_id, dest).expect(
                     format!(
                         "Error moving unit with ID {:?} from {} to {}",
                         unit_id, src, dest
@@ -2804,16 +2998,17 @@ mod test {
                     dest
                 );
 
-                game.move_unit_by_id(unit_id, src).expect(
+                game.move_unit_by_id(secrets[0], unit_id, src).expect(
                     format!(
                         "Error moving unit with ID {:?} from {} to {}",
                         unit_id, dest, src
                     )
                     .as_str(),
                 );
-                game.end_turn().unwrap();
+                game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
 
-                game.move_unit_by_id_in_direction(unit_id, dir).unwrap();
+                game.move_unit_by_id_in_direction(secrets[0], unit_id, dir)
+                    .unwrap();
                 assert_eq!(
                     game.current_player_unit_loc(unit_id),
                     Some(dest),
@@ -2823,9 +3018,9 @@ mod test {
                     dest
                 );
 
-                game.move_unit_by_id_in_direction(unit_id, dir.opposite())
+                game.move_unit_by_id_in_direction(secrets[0], unit_id, dir.opposite())
                     .unwrap();
-                game.end_turn().unwrap();
+                game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
             }
         }
     }
@@ -2841,14 +3036,14 @@ mod test {
                 "Skipper",
             )
             .unwrap();
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
-        game.move_unit_by_id_in_direction(unit_id, Direction::Right)
+        game.move_unit_by_id_in_direction(secrets[0], unit_id, Direction::Right)
             .unwrap();
-        game.end_turn().unwrap();
+        game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
 
         game.order_unit_skip(unit_id).unwrap();
-        game.end_turn().unwrap();
+        game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
 
         assert_eq!(
             game.current_player_unit_orders_requests().next(),
@@ -2887,8 +3082,8 @@ mod test {
                 map.set_unit(l1, u1.clone());
                 map.set_unit(l2, u2.clone());
 
-                let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
-                let result = game.move_unit_by_id_in_direction(u1.id, Direction::Right);
+                let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+                let result = game.move_unit_by_id_in_direction(secrets[0], u1.id, Direction::Right);
 
                 if u2.can_carry_unit(&u1) {
                     assert!(result.is_ok());
@@ -2913,10 +3108,10 @@ mod test {
             )
             .unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         for _ in 0..9 {
-            game.move_unit_by_id_in_direction(unit_id, Direction::Right)
+            game.move_unit_by_id_in_direction(secrets[0], unit_id, Direction::Right)
                 .unwrap();
             loc = loc
                 .shift_wrapped(Direction::Right, game.dims(), game.wrapping())
@@ -2925,7 +3120,8 @@ mod test {
             let unit = game.current_player_toplevel_unit_by_loc(loc).unwrap();
             assert_eq!(unit.id, unit_id);
 
-            game.force_end_turn();
+            game.force_end_then_begin_turn(secrets[0], secrets[0])
+                .unwrap();
         }
     }
 
@@ -2939,10 +3135,10 @@ mod test {
         let t1_id = map.toplevel_unit_id_by_loc(l1).unwrap();
 
         {
-            let (mut game, _secrets) =
+            let (mut game, secrets) =
                 Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
 
-            game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+            game.move_unit_by_id_in_direction(secrets[0], t1_id, Direction::Right)
                 .expect_err("Transport should not be able to move onto transport");
         }
 
@@ -2950,9 +3146,9 @@ mod test {
         map2.new_city(l2, Alignment::Belligerent { player: 0 }, "city")
             .unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
-        game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+        game.move_unit_by_id_in_direction(secrets[0], t1_id, Direction::Right)
             .expect_err("Transport should not be able to move onto transport");
     }
 
@@ -2992,13 +3188,13 @@ mod test {
         }
 
         {
-            let (mut game, _secrets) =
+            let (mut game, secrets) =
                 Game::new_with_map(map.clone(), 1, false, None, Wrap2d::NEITHER);
 
-            game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+            game.move_unit_by_id_in_direction(secrets[0], t1_id, Direction::Right)
                 .expect_err("Transport should not be able to move onto transport");
 
-            game.move_unit_by_id_in_direction(t2_id, Direction::Left)
+            game.move_unit_by_id_in_direction(secrets[0], t2_id, Direction::Left)
                 .expect_err("Transport should not be able to move onto transport");
         }
 
@@ -3006,9 +3202,9 @@ mod test {
         map2.new_city(l2, Alignment::Belligerent { player: 0 }, "city")
             .unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map2, 1, false, None, Wrap2d::NEITHER);
 
-        game.move_unit_by_id_in_direction(t1_id, Direction::Right)
+        game.move_unit_by_id_in_direction(secrets[0], t1_id, Direction::Right)
             .expect_err("Transport should not be able to move onto transport");
     }
 
@@ -3017,10 +3213,10 @@ mod test {
         let map = MapData::try_from("at -").unwrap();
         let armor_id = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
         let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         // Embark
-        game.move_unit_by_id_in_direction(armor_id, Direction::Right)
+        game.move_unit_by_id_in_direction(secrets[0], armor_id, Direction::Right)
             .unwrap();
         assert_eq!(
             game.current_player_unit_loc(armor_id),
@@ -3032,7 +3228,7 @@ mod test {
         );
 
         // Move transport
-        game.move_unit_by_id_in_direction(transport_id, Direction::Right)
+        game.move_unit_by_id_in_direction(secrets[0], transport_id, Direction::Right)
             .unwrap();
         assert_eq!(
             game.current_player_unit_loc(armor_id),
@@ -3044,7 +3240,7 @@ mod test {
         );
 
         // Disembark
-        game.move_unit_by_id_in_direction(armor_id, Direction::Right)
+        game.move_unit_by_id_in_direction(secrets[0], armor_id, Direction::Right)
             .unwrap();
         assert_eq!(
             game.current_player_unit_loc(armor_id),
@@ -3061,10 +3257,10 @@ mod test {
         let map = MapData::try_from("at -").unwrap();
         let armor_id = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
         let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         // Embark
-        game.order_unit_go_to(armor_id, Location::new(1, 0))
+        game.order_unit_go_to(secrets[0], armor_id, Location::new(1, 0))
             .unwrap();
         assert_eq!(
             game.current_player_unit_loc(armor_id),
@@ -3076,7 +3272,7 @@ mod test {
         );
 
         // Move transport
-        game.order_unit_go_to(transport_id, Location::new(2, 0))
+        game.order_unit_go_to(secrets[0], transport_id, Location::new(2, 0))
             .unwrap();
         assert_eq!(
             game.current_player_unit_loc(armor_id),
@@ -3088,7 +3284,7 @@ mod test {
         );
 
         // Disembark
-        game.order_unit_go_to(armor_id, Location::new(3, 0))
+        game.order_unit_go_to(secrets[0], armor_id, Location::new(3, 0))
             .unwrap();
         assert_eq!(
             game.current_player_unit_loc(armor_id),
@@ -3104,9 +3300,9 @@ mod test {
     fn test_shortest_paths_carrying() {
         let map = MapData::try_from("t t  ").unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
-        game.move_toplevel_unit_by_loc(Location::new(0, 0), Location::new(4, 0))
+        game.move_toplevel_unit_by_loc(secrets[0], Location::new(0, 0), Location::new(4, 0))
             .expect_err("Transports shouldn't traverse transports on their way somewhere");
     }
 
@@ -3186,14 +3382,14 @@ mod test {
             )
             .unwrap();
 
-        let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+        let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
         let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
         let dest = game
             .wrapping()
             .wrapped_add(game.dims(), unit_loc, Vec2d::new(5, 5))
             .unwrap();
-        game.move_unit_by_id(unit_id, dest).unwrap();
+        game.move_unit_by_id(secrets[0], unit_id, dest).unwrap();
     }
 
     #[test]
@@ -3230,7 +3426,7 @@ mod test {
             let infantry_id = map2.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
             let transport_id = map2.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
-            let (mut game2, _secrets) = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
+            let (mut game2, secrets) = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
 
             assert!(game2
                 .current_player_unit_orders_requests()
@@ -3242,10 +3438,12 @@ mod test {
                 .is_some());
 
             game2
-                .move_unit_by_id_in_direction(infantry_id, Direction::Right)
+                .move_unit_by_id_in_direction(secrets[0], infantry_id, Direction::Right)
                 .unwrap();
 
-            game2.force_end_turn();
+            game2
+                .force_end_then_begin_turn(secrets[0], secrets[0])
+                .unwrap();
 
             let infantry = game2
                 .current_player_unit_by_id(infantry_id)
@@ -3294,14 +3492,14 @@ mod test {
             let a = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
             let b = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
-            let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+            let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
             assert!(game.disband_unit_by_id(a).is_ok());
 
             assert!(game.current_player_unit_by_id(a).is_none());
 
             assert!(game
-                .move_unit_by_id_in_direction(b, Direction::Left)
+                .move_unit_by_id_in_direction(secrets[0], b, Direction::Left)
                 .is_ok());
         }
     }
