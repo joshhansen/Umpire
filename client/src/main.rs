@@ -212,13 +212,11 @@ async fn main() {
             x => panic!("Unsupported color depth {}", x),
         };
 
-        let map_dims = game.dims();
-
         {
             // Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
 
             let mut ui = TermUI::new(
-                map_dims,
+                game.dims(),
                 palette,
                 unicode,
                 confirm_turn_end,
