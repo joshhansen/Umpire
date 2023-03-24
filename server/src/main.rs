@@ -403,8 +403,16 @@ impl UmpireRpc for UmpireServer {
     //     self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
     // }
 
-    async fn disband_unit_by_id(self, _: Context, id: UnitID) -> Result<Unit, GameError> {
-        self.game.write().unwrap().disband_unit_by_id(id)
+    async fn disband_unit_by_id(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Unit> {
+        self.game
+            .write()
+            .unwrap()
+            .disband_unit_by_id(player_secret, id)
     }
 
     /// Sets the production of the current player's city at location `loc` to `production`.

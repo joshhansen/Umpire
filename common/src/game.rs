@@ -259,13 +259,16 @@ impl Game {
             .map(|player| player == self.current_player)
     }
 
-    fn validate_is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<()> {
+    /// Ensure that it is the specified player's turn
+    ///
+    /// Returns the PlayerNum on success
+    fn validate_is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<PlayerNum> {
         let player = self.player_with_secret(secret)?;
 
         if player != self.current_player {
             Err(GameError::NotPlayersTurn { player })
         } else {
-            Ok(())
+            Ok(player)
         }
     }
 
@@ -1523,7 +1526,12 @@ impl Game {
     }
 
     /// Disbands
-    pub fn disband_unit_by_id(&mut self, unit_id: UnitID) -> Result<Unit, GameError> {
+    pub fn disband_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<Unit> {
+        let player = self.validate_is_player_turn(player_secret)?;
         let unit = self
             .map
             .pop_player_unit_by_id(self.current_player, unit_id)
@@ -3396,7 +3404,7 @@ mod test {
     fn test_disband_unit_by_id() {
         {
             let map = MapData::try_from("i").unwrap();
-            let (mut game, _secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+            let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
             let id = UnitID::new(0);
 
             let unit = game.current_player_unit_by_id(id).cloned().unwrap();
@@ -3406,12 +3414,12 @@ mod test {
                 .find(|unit_id| *unit_id == id)
                 .is_some());
 
-            assert_eq!(game.disband_unit_by_id(id), Ok(unit));
+            assert_eq!(game.disband_unit_by_id(secrets[0], id), Ok(unit));
 
             let id2 = UnitID::new(1);
 
             assert_eq!(
-                game.disband_unit_by_id(id2),
+                game.disband_unit_by_id(secrets[0], id2),
                 Err(GameError::NoSuchUnit { id: id2 })
             );
 
@@ -3459,7 +3467,10 @@ mod test {
                 .find(|unit_id| *unit_id == transport_id)
                 .is_some());
 
-            assert_eq!(game2.disband_unit_by_id(infantry_id), Ok(infantry));
+            assert_eq!(
+                game2.disband_unit_by_id(secrets[0], infantry_id),
+                Ok(infantry)
+            );
 
             assert!(game2
                 .current_player_unit_orders_requests()
@@ -3475,7 +3486,10 @@ mod test {
                 .cloned()
                 .unwrap();
 
-            assert_eq!(game2.disband_unit_by_id(transport_id), Ok(transport));
+            assert_eq!(
+                game2.disband_unit_by_id(secrets[0], transport_id),
+                Ok(transport)
+            );
 
             assert!(game2
                 .current_player_unit_orders_requests()
@@ -3494,7 +3508,7 @@ mod test {
 
             let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
-            assert!(game.disband_unit_by_id(a).is_ok());
+            assert!(game.disband_unit_by_id(secrets[0], a).is_ok());
 
             assert!(game.current_player_unit_by_id(a).is_none());
 

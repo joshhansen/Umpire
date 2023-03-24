@@ -152,7 +152,7 @@ pub trait UmpireRpc {
     //     dest: Location,
     // ) -> Proposed2<MoveResult>;
 
-    async fn disband_unit_by_id(id: UnitID) -> Result<Unit, GameError>;
+    async fn disband_unit_by_id(player_secret: PlayerSecret, id: UnitID) -> UmpireResult<Unit>;
 
     /// Sets the production of the current player's city at location `loc` to `production`.
     ///

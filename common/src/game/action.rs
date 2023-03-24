@@ -146,7 +146,7 @@ impl AiPlayerAction {
             }
             AiPlayerAction::DisbandNextUnit => {
                 let unit_id = game.current_player_unit_orders_requests().next().unwrap();
-                game.disband_unit_by_id(unit_id).map(|_| ())
+                game.disband_unit_by_id(player_secret, unit_id).map(|_| ())
             }
             AiPlayerAction::SkipNextUnit => {
                 let unit_id = game.current_player_unit_orders_requests().next().unwrap();
@@ -250,7 +250,7 @@ impl PlayerAction {
                     })
             }
             PlayerAction::DisbandUnit { unit_id } => game
-                .disband_unit_by_id(unit_id)
+                .disband_unit_by_id(player_secret, unit_id)
                 .map(|disbanded| PlayerActionOutcome::DisbandUnit { disbanded }),
             PlayerAction::OrderUnit { unit_id, orders } => game
                 .set_and_follow_orders(player_secret, unit_id, orders)
