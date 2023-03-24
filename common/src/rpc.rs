@@ -191,11 +191,17 @@ pub trait UmpireRpc {
     async fn wrapping() -> Wrap2d;
 
     /// Units that could be produced by a city located at the given location
-    async fn valid_productions(loc: Location) -> Vec<UnitType>;
+    async fn valid_productions(
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>>;
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-    async fn valid_productions_conservative(loc: Location) -> Vec<UnitType>;
+    async fn valid_productions_conservative(
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>>;
 
     /// If the current player controls a unit with ID `id`, order it to sentry
     async fn order_unit_sentry(player_secret: PlayerSecret, unit_id: UnitID) -> OrdersResult;

@@ -233,7 +233,7 @@ impl<'a> PlayerTurnControl<'a> {
 
     /// Units that could be produced by a city located at the given location
     pub fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
-        self.game.valid_productions(loc)
+        self.game.valid_productions(self.secret, loc).unwrap()
     }
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
@@ -242,7 +242,9 @@ impl<'a> PlayerTurnControl<'a> {
         &'b self,
         loc: Location,
     ) -> impl Iterator<Item = UnitType> + 'b {
-        self.game.valid_productions_conservative(loc)
+        self.game
+            .valid_productions_conservative(self.secret, loc)
+            .unwrap()
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry

@@ -34,7 +34,7 @@ impl AiPlayerAction {
 
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
         if let Some(city_loc) = game.current_player_production_set_requests().next() {
-            for unit_type in game.valid_productions_conservative(city_loc) {
+            for unit_type in game.current_player_valid_productions_conservative(city_loc) {
                 a.insert(AiPlayerAction::SetNextCityProduction { unit_type });
             }
         }

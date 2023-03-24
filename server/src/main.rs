@@ -484,18 +484,32 @@ impl UmpireRpc for UmpireServer {
     }
 
     /// Units that could be produced by a city located at the given location
-    async fn valid_productions(self, _: Context, loc: Location) -> Vec<UnitType> {
-        self.game.read().unwrap().valid_productions(loc).collect()
+    async fn valid_productions(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>> {
+        self.game
+            .read()
+            .unwrap()
+            .valid_productions(player_secret, loc)
+            .map(|prods| prods.collect())
     }
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-    async fn valid_productions_conservative(self, _: Context, loc: Location) -> Vec<UnitType> {
+    async fn valid_productions_conservative(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>> {
         self.game
             .read()
             .unwrap()
-            .valid_productions_conservative(loc)
-            .collect()
+            .valid_productions_conservative(player_secret, loc)
+            .map(|prods| prods.collect())
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry

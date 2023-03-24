@@ -816,6 +816,11 @@ impl MapData {
         }
     }
 
+    pub fn player_city_by_loc(&self, player: PlayerNum, loc: Location) -> Option<&City> {
+        self.city_by_loc(loc)
+            .filter(|city| city.belongs_to_player(player))
+    }
+
     pub fn pop_city_by_loc(&mut self, loc: Location) -> Option<City> {
         if let Some(tile) = self.tiles.get_mut(loc) {
             let old_city = tile.city.take();

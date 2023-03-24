@@ -711,6 +711,9 @@ impl Game {
 
     /// FIXME Make this private
     /// NOTE: Don't include this in the RPC API - could allow searches for secrets, however improbable of success
+    ///
+    /// ## Errors
+    /// * GameError::NoPlayerIdentifiedBySecret
     pub fn player_with_secret(&self, player_secret: PlayerSecret) -> UmpireResult<PlayerNum> {
         self.player_secrets
             .iter()
@@ -1585,38 +1588,79 @@ impl Game {
         self.wrapping
     }
 
-    /// Units that could be produced by a city located at the given location
+    /// Units that could be produced by a city located at the given location controlled by the specified player
     ///
-    /// FIXME Access control
-    pub fn valid_productions<'a>(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
-        UNIT_TYPES.iter().cloned().filter(move |unit_type| {
+    /// ## Parameters
+    /// * `conservative`: only consider unit types which can actually leave the city (rather
+    ///   than just attacking neighbor cities, potentially not occupying them)
+    ///
+    /// ## Errors
+    /// * `GameError::NoPlayerIdentifiedBySecret`: If no such player exists
+    /// * `GameError::NoCityAtLocation`: If a city controlled by the player doesn't exist at `loc`
+    fn _valid_productions<'a>(
+        &'a self,
+        player_secret: PlayerSecret,
+        loc: Location,
+        conservative: bool,
+    ) -> UmpireResult<impl Iterator<Item = UnitType> + 'a> {
+        let player = self.player_with_secret(player_secret)?;
+
+        // Make sure there's a city controlled by the player at the given location
+        self.map
+            .player_city_by_loc(player, loc)
+            .ok_or(GameError::NoCityAtLocation { loc })?;
+
+        Ok(UNIT_TYPES.iter().cloned().filter(move |unit_type| {
             for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
                 let tile = self.map.tile(neighb_loc).unwrap();
-                if unit_type.can_move_on_tile(&tile) {
+
+                let include = if conservative {
+                    unit_type.can_occupy_tile(tile)
+                } else {
+                    unit_type.can_move_on_tile(tile)
+                };
+
+                if include {
                     return true;
                 }
             }
             false
-        })
+        }))
     }
 
-    /// Units that could be produced by a city located at the given location, allowing only those which can actually
-    /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-    ///
-    /// FIXME Access control
+    pub fn valid_productions<'a>(
+        &'a self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<impl Iterator<Item = UnitType> + 'a> {
+        self._valid_productions(player_secret, loc, false)
+    }
+
     pub fn valid_productions_conservative<'a>(
+        &'a self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<impl Iterator<Item = UnitType> + 'a> {
+        self._valid_productions(player_secret, loc, true)
+    }
+
+    fn current_player_valid_productions<'a>(
         &'a self,
         loc: Location,
     ) -> impl Iterator<Item = UnitType> + 'a {
-        UNIT_TYPES.iter().cloned().filter(move |unit_type| {
-            for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
-                let tile = self.map.tile(neighb_loc).unwrap();
-                if unit_type.can_occupy_tile(&tile) {
-                    return true;
-                }
-            }
-            false
-        })
+        let player_secret = self.player_secrets[self.current_player];
+
+        self.valid_productions(player_secret, loc).unwrap()
+    }
+
+    fn current_player_valid_productions_conservative<'a>(
+        &'a self,
+        loc: Location,
+    ) -> impl Iterator<Item = UnitType> + 'a {
+        let player_secret = self.player_secrets[self.current_player];
+
+        self.valid_productions_conservative(player_secret, loc)
+            .unwrap()
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
@@ -3341,14 +3385,17 @@ mod test {
     #[test]
     fn test_valid_productions() {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
-        let (game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         let city_loc = game
             .current_player_production_set_requests()
             .next()
             .unwrap();
 
-        let prods: HashSet<UnitType> = game.valid_productions(city_loc).collect();
+        let prods: HashSet<UnitType> = game
+            .valid_productions(secrets[0], city_loc)
+            .unwrap()
+            .collect();
 
         for t in UnitType::values().iter().cloned() {
             if match t {
@@ -3373,14 +3420,17 @@ mod test {
     #[test]
     fn test_valid_productions_conservative() {
         let map = MapData::try_from("...\n.0.\n...").unwrap();
-        let (game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
         let city_loc = game
             .current_player_production_set_requests()
             .next()
             .unwrap();
 
-        let prods: HashSet<UnitType> = game.valid_productions_conservative(city_loc).collect();
+        let prods: HashSet<UnitType> = game
+            .valid_productions_conservative(secrets[0], city_loc)
+            .unwrap()
+            .collect();
 
         for t in UnitType::values().iter().cloned() {
             if match t {
