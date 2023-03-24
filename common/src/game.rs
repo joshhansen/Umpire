@@ -293,7 +293,10 @@ impl Game {
         PlayerTurnControl::new(self, secret, false, true)
     }
 
-    fn produce_units(&mut self) -> Vec<UnitProductionOutcome> {
+    fn produce_units(
+        &mut self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitProductionOutcome>> {
         // let max_unit_cost: u16 = UnitType::values().iter().map(|ut| ut.cost()).max().unwrap();
 
         // for city in self.current_player_cities_with_production_target_mut() {
@@ -304,11 +307,12 @@ impl Game {
         //     }
         // }
 
-        self.map
-            .increment_player_city_production_targets(self.current_player());
+        let player = self.validate_is_player_turn(player_secret)?;
+
+        self.map.increment_player_city_production_targets(player);
 
         let producing_city_locs: Vec<Location> = self
-            .current_player_cities_with_production_target()
+            .player_cities_with_production_target(player_secret)?
             .filter(|city| {
                 let unit_under_production = city.production().unwrap();
 
@@ -317,7 +321,7 @@ impl Game {
             .map(|city| city.loc)
             .collect();
 
-        producing_city_locs
+        Ok(producing_city_locs
             .iter()
             .cloned()
             .map(|city_loc| {
@@ -375,13 +379,12 @@ impl Game {
                     },
                 }
             })
-            .collect()
+            .collect())
     }
 
-    fn refresh_moves_remaining(&mut self) {
-        // self.current_player_units_mut(|unit: &mut Unit| unit.refresh_moves_remaining());
-        self.map
-            .refresh_player_unit_moves_remaining(self.current_player());
+    fn refresh_moves_remaining(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        let player = self.validate_is_player_turn(player_secret)?;
+        Ok(self.map.refresh_player_unit_moves_remaining(player))
     }
 
     /// Mark for accounting purposes that the current player took an action
@@ -396,13 +399,13 @@ impl Game {
     }
 
     fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
-        self.validate_is_player_turn(player_secret)?;
+        let player = self.validate_is_player_turn(player_secret)?;
 
-        let production_outcomes = self.produce_units();
+        let production_outcomes = self.produce_units(player_secret)?;
 
-        self.refresh_moves_remaining();
+        self.refresh_moves_remaining(player_secret)?;
 
-        self.update_current_player_observations();
+        self.update_player_observations(player);
 
         let orders_results = self.follow_pending_orders(player_secret)?;
 
@@ -430,6 +433,7 @@ impl Game {
         Ok(result)
     }
 
+    /// FIXME Access control?
     pub fn turn_is_done(&self) -> bool {
         self.current_player_production_set_requests()
             .next()
@@ -573,22 +577,18 @@ impl Game {
         self.begin_turn_clearing(next_player_secret)
     }
 
-    /// Register the current observations of current player units
+    /// Register the current observations of player units
     ///
     /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
-    fn update_current_player_observations(&mut self) {
-        let current_player = self.current_player();
-        let obs_tracker = self
-            .player_observations
-            .tracker_mut(current_player)
-            .unwrap();
+    fn update_player_observations(&mut self, player: PlayerNum) {
+        let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
 
         if self.fog_of_war {
-            for city in self.map.player_cities(self.current_player) {
+            for city in self.map.player_cities(player) {
                 city.observe(&self.map, self.turn, self.wrapping, obs_tracker);
             }
 
-            for unit in self.map.player_units(self.current_player) {
+            for unit in self.map.player_units(player) {
                 unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
             }
         } else {
@@ -733,17 +733,6 @@ impl Game {
             .map(|_| self.map.player_cities(player))
     }
 
-    /// Every city controlled by the current player
-    fn current_player_cities(&self) -> impl Iterator<Item = &City> {
-        self.map.player_cities(self.current_player)
-    }
-
-    /// All cities controlled by the current player which have a production target set
-    fn current_player_cities_with_production_target(&self) -> impl Iterator<Item = &City> {
-        self.map
-            .player_cities_with_production_target(self.current_player())
-    }
-
     pub fn player_cities_with_production_target(
         &self,
         player_secret: PlayerSecret,
@@ -752,27 +741,11 @@ impl Game {
             .map(|player| self.map.player_cities_with_production_target(player))
     }
 
-    /// How many cities does the current player control?
-    fn current_player_city_count(&self) -> usize {
-        let player_secret = self.player_secrets[self.current_player];
-        self.player_city_count(player_secret).unwrap()
-    }
-
     /// How many cities does the specified player control?
     pub fn player_city_count(&self, player_secret: PlayerSecret) -> UmpireResult<usize> {
         self.player_with_secret(player_secret)
             .map(|player| self.map.player_city_count(player).unwrap_or_default())
     }
-
-    // /// All cities controlled by the current player which have a production target set, mutably
-    // fn current_player_cities_with_production_target_mut(&mut self) -> impl Iterator<Item=&mut City> {
-    //     self.map.player_cities_with_production_target_mut(self.current_player())
-    // }
-
-    // /// Mutate all units controlled by the current player according to the callback `callback`
-    // fn current_player_units_mut<F:FnMut(&mut Unit)>(&mut self, callback: F) {
-    //     self.map.player_units_mut(self.current_player(), callback);
-    // }
 
     /// The number of cities controlled by the current player which either have a production target or
     /// are NOT set to be ignored when requesting productions to be set
@@ -805,14 +778,9 @@ impl Game {
     }
 
     /// Every unit controlled by the current player
+    #[cfg(test)]
     fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
         self.player_units_by_idx(self.current_player())
-    }
-
-    /// The counts of unit types controlled by the current player
-    fn current_player_unit_type_counts(&self) -> Result<&HashMap<UnitType, usize>, GameError> {
-        let player_secret = self.player_secrets[self.current_player];
-        self.player_unit_type_counts(player_secret)
     }
 
     /// The counts of unit types controlled by the specified player
@@ -824,31 +792,31 @@ impl Game {
         self.map.player_unit_type_counts(player)
     }
 
-    /// Every enemy unit known to the current player (as of most recent observations)
-    fn current_player_observed_enemy_units<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
-        let current_player = self.current_player();
-        self.current_player_observations()
-            .iter()
-            .filter_map(move |obs| match obs {
-                Obs::Observed { tile, .. } => {
-                    if let Some(ref unit) = tile.unit {
-                        if let Alignment::Belligerent { player } = unit.alignment {
-                            if player != current_player {
-                                Some(unit)
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-        // self.map.units().filter(move |unit| unit.alignment != Alignment::Belligerent{player:current_player})
-    }
+    // /// Every enemy unit known to the current player (as of most recent observations)
+    // fn current_player_observed_enemy_units<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
+    //     let current_player = self.current_player();
+    //     self.current_player_observations()
+    //         .iter()
+    //         .filter_map(move |obs| match obs {
+    //             Obs::Observed { tile, .. } => {
+    //                 if let Some(ref unit) = tile.unit {
+    //                     if let Alignment::Belligerent { player } = unit.alignment {
+    //                         if player != current_player {
+    //                             Some(unit)
+    //                         } else {
+    //                             None
+    //                         }
+    //                     } else {
+    //                         None
+    //                     }
+    //                 } else {
+    //                     None
+    //                 }
+    //             }
+    //             _ => None,
+    //         })
+    //     // self.map.units().filter(move |unit| unit.alignment != Alignment::Belligerent{player:current_player})
+    // }
 
     /// If the specified player controls a city at location `loc`, return it
     pub fn player_city_by_loc(
@@ -890,6 +858,7 @@ impl Game {
     }
 
     /// If the current player controls a unit with ID `id`, return its location
+    #[cfg(test)]
     fn current_player_unit_loc(&self, id: UnitID) -> Option<Location> {
         let player_secret = self.player_secrets[self.current_player];
         self.player_unit_loc(player_secret, id).unwrap()
@@ -1678,7 +1647,10 @@ impl Game {
         unit_id: UnitID,
     ) -> OrdersResult {
         let orders = Orders::Skip;
-        let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
+        let unit = self
+            .player_unit_by_id(player_secret, unit_id)?
+            .unwrap()
+            .clone();
         let result = self
             .set_orders(player_secret, unit_id, orders)
             .map(|_| OrdersOutcome::in_progress_without_move(unit, orders));
@@ -1730,20 +1702,21 @@ impl Game {
         player_secret: PlayerSecret,
         loc: Location,
     ) -> UmpireResult<()> {
+        let player = self.validate_is_player_turn(player_secret)?;
+
         let unit_id = {
             let unit = self
                 .player_toplevel_unit_by_loc(player_secret, loc)?
                 .ok_or(GameError::NoUnitAtLocation { loc })?;
 
-            if !unit.belongs_to_player(self.current_player()) {
+            if !unit.belongs_to_player(player) {
                 return Err(GameError::UnitNotControlledByCurrentPlayer {});
             }
 
             unit.id
         };
 
-        self.map
-            .activate_player_unit(self.current_player(), unit_id)
+        self.map.activate_player_unit(player, unit_id)
     }
 
     /// If the current player controls a unit with ID `id`, set its orders to `orders`
@@ -1796,7 +1769,7 @@ impl Game {
     /// This will panic if the current player does not control such a unit.
     ///
     fn follow_unit_orders(&mut self, player_secret: PlayerSecret, id: UnitID) -> OrdersResult {
-        self.validate_is_player_turn(player_secret)?;
+        let player = self.validate_is_player_turn(player_secret)?;
 
         let orders = self
             .player_unit_by_id(player_secret, id)?
@@ -1813,8 +1786,7 @@ impl Game {
             ..
         }) = result
         {
-            self.map
-                .clear_player_unit_orders(self.current_player(), id)?;
+            self.map.clear_player_unit_orders(player, id)?;
         }
 
         result
@@ -2009,11 +1981,14 @@ impl Dimensioned for Game {
     }
 }
 
+/// FIXME Unimplement this so we don't leak information? Or audit usage.
 impl Source<Tile> for Game {
     fn get(&self, loc: Location) -> &Tile {
         self.current_player_tile(loc).unwrap()
     }
 }
+
+/// FIXME Unimplement this so we don't leak information? Or audit usage.
 impl Source<Obs> for Game {
     fn get(&self, loc: Location) -> &Obs {
         self.current_player_obs(loc)
