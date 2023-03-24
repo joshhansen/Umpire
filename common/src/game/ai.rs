@@ -12,6 +12,7 @@ use super::{
     map::dijkstra::Source, obs::Obs, unit::UnitType, Game, PlayerNum, PlayerSecret, PlayerType,
 };
 
+#[allow(non_camel_case_types)]
 pub type fX = f64;
 
 //FIXME Someday compute this at compile time
