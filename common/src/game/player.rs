@@ -295,7 +295,7 @@ impl<'a> PlayerTurnControl<'a> {
 
     /// FIXME Maintain this vector in the client, incrementally
     pub fn player_features(&self) -> Vec<fX> {
-        player_features(self.game, self.secret)
+        player_features(self.game, self.secret).unwrap()
     }
 
     pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {

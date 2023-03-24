@@ -357,10 +357,10 @@ impl Domain for UmpireDomain {
                 let from_state = from.state();
                 let to_state = to.state();
                 let memory = Memory {
-                    from: player_features(&from_state.game, player_secret),
+                    from: player_features(&from_state.game, player_secret).unwrap(),
                     action: action_idx,
                     reward,
-                    to: player_features(&to_state.game, player_secret),
+                    to: player_features(&to_state.game, player_secret).unwrap(),
                 };
 
                 let bytes = bincode::serialize(&memory).unwrap();

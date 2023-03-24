@@ -233,7 +233,7 @@ pub trait UmpireRpc {
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
     ///
-    async fn features() -> Vec<fX>;
+    async fn features(player_secret: PlayerSecret) -> UmpireResult<Vec<fX>>;
 
     async fn player_score(player_secret: PlayerSecret) -> UmpireResult<f64>;
 

@@ -2075,7 +2075,7 @@ impl fmt::Debug for Game {
 
 impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<fX> {
-        player_features(self, self.player_secrets[self.current_player])
+        player_features(self, self.player_secrets[self.current_player]).unwrap()
     }
 }
 

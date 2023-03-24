@@ -601,9 +601,9 @@ impl UmpireRpc for UmpireServer {
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
     ///
-    async fn features(self, _: Context) -> Vec<fX> {
+    async fn features(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
         let g = self.game.read().unwrap();
-        player_features(&g, self.player_secret)
+        player_features(&g, player_secret)
     }
 
     async fn player_score(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<f64> {

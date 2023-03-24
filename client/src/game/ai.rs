@@ -258,7 +258,7 @@ impl AI {
             let player = game.player_with_secret(player_secret).unwrap();
 
             let (num_features, features, pre_score) = if generate_data {
-                let features = player_features(game, player_secret);
+                let features = player_features(game, player_secret).unwrap();
                 let (num_features, features) = sparsify(features);
 
                 (

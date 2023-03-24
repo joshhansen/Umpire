@@ -10,6 +10,7 @@ use crate::{
 
 use super::{
     map::dijkstra::Source, obs::Obs, unit::UnitType, Game, PlayerNum, PlayerSecret, PlayerType,
+    UmpireResult,
 };
 
 #[allow(non_camel_case_types)]
@@ -104,7 +105,7 @@ impl TrainingInstance {
 /// * 121: is_observed (11x11)
 /// * 121: is_neutral (11x11)
 ///
-pub fn player_features(game: &Game, player_secret: PlayerSecret) -> Vec<fX> {
+pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
     // For every tile we add these f64's:
     // is the tile observed or not?
     // which player controls the tile (one hot encoded)
@@ -113,6 +114,9 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> Vec<fX> {
     // for each of the five potential carried units:
     //   what is the unit type? (one hot encoded, could be none---all zeros)
     //
+
+    // Make sure the player exists
+    game.player_with_secret(player_secret)?;
 
     let unit_id = game
         .player_unit_orders_requests(player_secret)
@@ -248,7 +252,7 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> Vec<fX> {
     x.extend(is_neutral);
     x.extend(is_city);
 
-    x
+    Ok(x)
 }
 
 /// A user specification of an AI
