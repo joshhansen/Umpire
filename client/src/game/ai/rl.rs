@@ -333,8 +333,7 @@ impl Domain for UmpireDomain {
 
     /// Transition the environment forward a single step given an action, `a`.
     fn step(&mut self, action_idx: usize) -> Transition<State<Self>, Action<Self>> {
-        let current_player = self.game.current_player();
-        let player_secret = self.player_secrets[current_player];
+        let player_secret = self.player_secrets[self.game.current_player()];
         let start_score = self.game.player_score(player_secret).unwrap();
         let from = self.emit();
 
@@ -358,10 +357,10 @@ impl Domain for UmpireDomain {
                 let from_state = from.state();
                 let to_state = to.state();
                 let memory = Memory {
-                    from: player_features(&from_state.game, current_player, player_secret),
+                    from: player_features(&from_state.game, player_secret),
                     action: action_idx,
                     reward,
-                    to: player_features(&to_state.game, current_player, player_secret),
+                    to: player_features(&to_state.game, player_secret),
                 };
 
                 let bytes = bincode::serialize(&memory).unwrap();

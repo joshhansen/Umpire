@@ -493,12 +493,28 @@ impl UmpireRpc for UmpireServer {
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    async fn order_unit_sentry(self, _: Context, unit_id: UnitID) -> OrdersResult {
-        self.game.write().unwrap().order_unit_sentry(unit_id)
+    async fn order_unit_sentry(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        self.game
+            .write()
+            .unwrap()
+            .order_unit_sentry(player_secret, unit_id)
     }
 
-    async fn order_unit_skip(self, _: Context, unit_id: UnitID) -> OrdersResult {
-        self.game.write().unwrap().order_unit_skip(unit_id)
+    async fn order_unit_skip(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        self.game
+            .write()
+            .unwrap()
+            .order_unit_skip(player_secret, unit_id)
     }
 
     async fn order_unit_go_to(
@@ -546,8 +562,16 @@ impl UmpireRpc for UmpireServer {
     // }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    async fn activate_unit_by_loc(self, _: Context, loc: Location) -> Result<(), GameError> {
-        self.game.write().unwrap().activate_unit_by_loc(loc)
+    async fn activate_unit_by_loc(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<()> {
+        self.game
+            .write()
+            .unwrap()
+            .activate_unit_by_loc(player_secret, loc)
     }
 
     // async fn propose_end_turn(self, _: Context) -> (Game, Result<TurnStart, PlayerNum>) {
@@ -579,7 +603,7 @@ impl UmpireRpc for UmpireServer {
     ///
     async fn features(self, _: Context) -> Vec<fX> {
         let g = self.game.read().unwrap();
-        player_features(&g, g.current_player(), self.player_secret)
+        player_features(&g, self.player_secret)
     }
 
     async fn player_score(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<f64> {

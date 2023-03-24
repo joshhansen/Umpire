@@ -404,7 +404,7 @@ impl Game {
 
         self.update_current_player_observations();
 
-        let orders_results = self.follow_pending_orders(player_secret);
+        let orders_results = self.follow_pending_orders(player_secret)?;
 
         Ok(TurnStart {
             turn: self.turn,
@@ -956,15 +956,9 @@ impl Game {
         })
     }
 
-    /// Which if the current player's units need orders?
+    /// Which if the specified player's units need orders?
     ///
-    /// In other words, which of the current player's units have no orders and have moves remaining?
-    fn current_player_units_with_orders_requests<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
-        let player_secret = self.player_secrets[self.current_player];
-        self.player_units_with_orders_requests(player_secret)
-            .unwrap()
-    }
-
+    /// In other words, which of the specified player's units have no orders and have moves remaining?
     pub fn player_units_with_orders_requests<'a>(
         &'a self,
         player_secret: PlayerSecret,
@@ -999,6 +993,7 @@ impl Game {
 
     // Movement-related methods
 
+    /// Must be player's turn
     pub fn move_toplevel_unit_by_id(
         &mut self,
         player_secret: PlayerSecret,
@@ -1013,6 +1008,7 @@ impl Game {
         self.move_toplevel_unit_by_loc(player_secret, src, dest)
     }
 
+    /// Must be player's turn
     pub fn move_toplevel_unit_by_id_avoiding_combat(
         &mut self,
         player_secret: PlayerSecret,
@@ -1027,16 +1023,16 @@ impl Game {
         self.move_toplevel_unit_by_loc_avoiding_combat(player_secret, src, dest)
     }
 
-    /*
-        Errors:
-        * If unit at `src` doesn't exist
-        * If requested move requires more moves than the unit has remaining
-        * If `dest` is unreachable from `src` (may be subsumed by previous)
-
-        FIXME Make the unit observe at each point along its path
-
-        FIXME This function checks two separate times whether a unit exists at src
-    */
+    /// Must be player's turn
+    ///
+    /// ## Errors
+    /// * If unit at `src` doesn't exist
+    /// * If requested move requires more moves than the unit has remaining
+    /// * If `dest` is unreachable from `src` (may be subsumed by previous)
+    ///
+    /// FIXME Make the unit observe at each point along its path
+    ///
+    /// FIXME This function checks two separate times whether a unit exists at src
     pub fn move_toplevel_unit_by_loc(
         &mut self,
         player_secret: PlayerSecret,
@@ -1054,6 +1050,7 @@ impl Game {
         self.move_toplevel_unit_by_loc_using_filter(player_secret, src, dest, &filter)
     }
 
+    /// Must be user's turn
     pub fn move_toplevel_unit_by_loc_avoiding_combat(
         &mut self,
         player_secret: PlayerSecret,
@@ -1078,6 +1075,7 @@ impl Game {
         self.move_toplevel_unit_by_loc_using_filter(player_secret, src, dest, &unit_filter)
     }
 
+    /// Must be player's turn
     fn move_toplevel_unit_by_loc_using_filter<F: Filter<Obs>>(
         &mut self,
         player_secret: PlayerSecret,
@@ -1095,12 +1093,9 @@ impl Game {
         self.move_unit_by_id_using_filter(player_secret, unit_id, dest, filter)
     }
 
-    // fn propose_move_toplevel_unit_by_loc_using_filter<F:Filter<Obs>>(&self, src: Location, dest: Location, filter: &F) -> MoveResult {
-    //     let mut new = self.clone();
-    //     new.move_toplevel_unit_by_loc_using_filter(src, dest, filter)
-    // }
-
     /// Move a unit one step in a particular direction
+    ///
+    /// Must be player's turn
     pub fn move_unit_by_id_in_direction(
         &mut self,
         player_secret: PlayerSecret,
@@ -1127,6 +1122,7 @@ impl Game {
         self.move_unit_by_id_using_filter(player_secret, unit_id, dest, &filter)
     }
 
+    /// Must be player's turn
     pub fn move_unit_by_id(
         &mut self,
         player_secret: PlayerSecret,
@@ -1160,6 +1156,7 @@ impl Game {
         })
     }
 
+    /// Must be player's turn
     pub fn move_unit_by_id_avoiding_combat(
         &mut self,
         player_secret: PlayerSecret,
@@ -1200,6 +1197,8 @@ impl Game {
     ///
     /// *player* is the number of the player attempting to make the move; they must control the specified unit, however
     /// this function does not check that such is the case.
+    ///
+    /// Must be player's turn
     fn move_unit_by_id_using_filter<F: Filter<Obs>>(
         &mut self,
         player_secret: PlayerSecret,
@@ -1207,14 +1206,7 @@ impl Game {
         dest: Location,
         tile_filter: &F,
     ) -> UmpireResult<Move> {
-        let player = self.player_with_secret(player_secret)?;
-
-        // FIXME Return error when it's not user's turn
-        debug_assert_eq!(player, self.current_player);
-
-        if player != self.current_player {
-            return Err(GameError::NotPlayersTurn { player });
-        }
+        let player = self.validate_is_player_turn(player_secret)?;
 
         if !self.dims().contain(dest) {
             return Err(MoveError::DestinationOutOfBounds {}).map_err(GameError::MoveError);
@@ -1526,22 +1518,22 @@ impl Game {
     }
 
     /// Disbands
+    ///
+    /// Must be player's turn
     pub fn disband_unit_by_id(
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
     ) -> UmpireResult<Unit> {
         let player = self.validate_is_player_turn(player_secret)?;
+
         let unit = self
             .map
-            .pop_player_unit_by_id(self.current_player, unit_id)
+            .pop_player_unit_by_id(player, unit_id)
             .ok_or(GameError::NoSuchUnit { id: unit_id })?;
 
         // Make a fresh observation with the disbanding unit so that its absence is noted.
-        let obs_tracker = self
-            .player_observations
-            .tracker_mut(self.current_player)
-            .unwrap();
+        let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
         unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
 
         self.action_taken();
@@ -1579,9 +1571,9 @@ impl Game {
         production: UnitType,
     ) -> UmpireResult<Option<UnitType>> {
         let player = self.player_with_secret(player_secret)?;
-        let result =
-            self.map
-                .set_player_city_production_by_id(self.current_player(), city_id, production);
+        let result = self
+            .map
+            .set_player_city_production_by_id(player, city_id, production);
         if result.is_ok() {
             self.action_taken();
         }
@@ -1625,6 +1617,8 @@ impl Game {
     }
 
     /// Units that could be produced by a city located at the given location
+    ///
+    /// FIXME Access control
     pub fn valid_productions<'a>(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
         UNIT_TYPES.iter().cloned().filter(move |unit_type| {
             for neighb_loc in neighbors_terrain_only(&self.map, loc, *unit_type, self.wrapping) {
@@ -1639,6 +1633,8 @@ impl Game {
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
+    ///
+    /// FIXME Access control
     pub fn valid_productions_conservative<'a>(
         &'a self,
         loc: Location,
@@ -1655,24 +1651,36 @@ impl Game {
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
+    pub fn order_unit_sentry(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        let player = self.player_with_secret(player_secret)?;
+
         let orders = Orders::Sentry;
 
-        self.map
-            .set_player_unit_orders(self.current_player(), unit_id, orders)?;
+        self.map.set_player_unit_orders(player, unit_id, orders)?;
 
-        let ordered_unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
+        let ordered_unit = self
+            .player_unit_by_id(player_secret, unit_id)?
+            .unwrap()
+            .clone();
 
         self.action_taken();
 
         Ok(OrdersOutcome::completed_without_move(ordered_unit, orders))
     }
 
-    pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
+    pub fn order_unit_skip(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
         let orders = Orders::Skip;
         let unit = self.current_player_unit_by_id(unit_id).unwrap().clone();
         let result = self
-            .set_orders(unit_id, orders)
+            .set_orders(player_secret, unit_id, orders)
             .map(|_| OrdersOutcome::in_progress_without_move(unit, orders));
         if result.is_ok() {
             self.action_taken();
@@ -1717,11 +1725,14 @@ impl Game {
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(), GameError> {
+    pub fn activate_unit_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<()> {
         let unit_id = {
             let unit = self
-                .map
-                .toplevel_unit_by_loc(loc)
+                .player_toplevel_unit_by_loc(player_secret, loc)?
                 .ok_or(GameError::NoUnitAtLocation { loc })?;
 
             if !unit.belongs_to_player(self.current_player()) {
@@ -1739,9 +1750,15 @@ impl Game {
     ///
     /// # Errors
     /// `OrdersError::OrderedUnitDoesNotExist` if the order is not present under the control of the current player
-    fn set_orders(&mut self, id: UnitID, orders: Orders) -> Result<Option<Orders>, GameError> {
-        self.map
-            .set_player_unit_orders(self.current_player(), id, orders)
+    fn set_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> UmpireResult<Option<Orders>> {
+        let player = self.player_with_secret(player_secret)?;
+
+        self.map.set_player_unit_orders(player, id, orders)
     }
 
     /// Clear the orders of the unit controlled by the current player with ID `id`.
@@ -1757,13 +1774,20 @@ impl Game {
         self.map.clear_player_unit_orders(player, id)
     }
 
-    fn follow_pending_orders(&mut self, player_secret: PlayerSecret) -> Vec<OrdersResult> {
-        let pending_orders: Vec<UnitID> = self.current_player_units_with_pending_orders().collect();
+    fn follow_pending_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<OrdersResult>> {
+        self.validate_is_player_turn(player_secret)?;
 
-        pending_orders
+        let pending_orders: Vec<UnitID> = self
+            .player_units_with_pending_orders(player_secret)?
+            .collect();
+
+        Ok(pending_orders
             .iter()
             .map(|unit_id| self.follow_unit_orders(player_secret, *unit_id))
-            .collect()
+            .collect())
     }
 
     /// Make the unit with ID `id` under the current player's control follow its orders
@@ -1772,6 +1796,8 @@ impl Game {
     /// This will panic if the current player does not control such a unit.
     ///
     fn follow_unit_orders(&mut self, player_secret: PlayerSecret, id: UnitID) -> OrdersResult {
+        self.validate_is_player_turn(player_secret)?;
+
         let orders = self
             .player_unit_by_id(player_secret, id)?
             .unwrap()
@@ -1818,7 +1844,9 @@ impl Game {
         id: UnitID,
         orders: Orders,
     ) -> OrdersResult {
-        self.set_orders(id, orders)?;
+        self.validate_is_player_turn(player_secret)?;
+
+        self.set_orders(player_secret, id, orders)?;
 
         let result = self.follow_unit_orders(player_secret, id);
 
@@ -1839,7 +1867,7 @@ impl Game {
         self.player_score_by_idx(player)
     }
 
-    fn player_score_by_idx(&self, player: PlayerNum) -> UmpireResult<f64> {
+    pub fn player_score_by_idx(&self, player: PlayerNum) -> UmpireResult<f64> {
         let mut score = 0.0;
 
         // Observations
@@ -2072,11 +2100,7 @@ impl fmt::Debug for Game {
 
 impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<fX> {
-        player_features(
-            self,
-            self.current_player,
-            self.player_secrets[self.current_player],
-        )
+        player_features(self, self.player_secrets[self.current_player])
     }
 }
 
@@ -2724,7 +2748,7 @@ mod test {
     #[test]
     fn test_set_orders() {
         let map = MapData::try_from("i").unwrap();
-        let (mut game, _secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
         let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
         assert_eq!(
@@ -2736,7 +2760,8 @@ mod test {
             &String::from("Unit_0_0")
         );
 
-        game.set_orders(unit_id, Orders::Sentry).unwrap();
+        game.set_orders(secrets[0], unit_id, Orders::Sentry)
+            .unwrap();
 
         assert_eq!(
             game.current_player_unit_by_id(unit_id).unwrap().orders,
@@ -3003,7 +3028,7 @@ mod test {
             // Recenter the unit on `src`
             if i > 0 {
                 game.move_unit_by_id(secrets[0], unit_id, src).unwrap();
-                game.order_unit_skip(unit_id).unwrap();
+                game.order_unit_skip(secrets[0], unit_id).unwrap();
                 game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
             }
 
@@ -3074,7 +3099,7 @@ mod test {
             .unwrap();
         game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
 
-        game.order_unit_skip(unit_id).unwrap();
+        game.order_unit_skip(secrets[0], unit_id).unwrap();
         game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
 
         assert_eq!(

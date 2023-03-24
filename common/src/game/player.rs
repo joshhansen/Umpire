@@ -247,11 +247,11 @@ impl<'a> PlayerTurnControl<'a> {
 
     /// If the current player controls a unit with ID `id`, order it to sentry
     pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.game.order_unit_sentry(unit_id)
+        self.game.order_unit_sentry(self.secret, unit_id)
     }
 
     pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.game.order_unit_skip(unit_id)
+        self.game.order_unit_skip(self.secret, unit_id)
     }
 
     /// Simulate ordering the specified unit to go to the given location
@@ -270,8 +270,8 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    pub fn activate_unit_by_loc(&mut self, loc: Location) -> Result<(), GameError> {
-        self.game.activate_unit_by_loc(loc)
+    pub fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()> {
+        self.game.activate_unit_by_loc(self.secret, loc)
     }
 
     pub fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
@@ -295,7 +295,7 @@ impl<'a> PlayerTurnControl<'a> {
 
     /// FIXME Maintain this vector in the client, incrementally
     pub fn player_features(&self) -> Vec<fX> {
-        player_features(self.game, self.current_player(), self.secret)
+        player_features(self.game, self.secret)
     }
 
     pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {

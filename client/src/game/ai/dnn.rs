@@ -58,7 +58,7 @@ impl DNN {
 
         //NOTE We could avoid this extra allocation if we could figure out how to use 64-bit weights in PyTorch
         //     or 32-bit weights in `rsrl`
-        let features_f64 = player_features(&state.game, state.game.current_player(), player_secret);
+        let features_f64 = player_features(&state.game, player_secret);
         let mut features: Vec<f32> = Vec::with_capacity(features_f64.len());
         for feat in features_f64 {
             features.push(feat as f32);

@@ -195,9 +195,9 @@ pub trait UmpireRpc {
     async fn valid_productions_conservative(loc: Location) -> Vec<UnitType>;
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    async fn order_unit_sentry(unit_id: UnitID) -> OrdersResult;
+    async fn order_unit_sentry(player_secret: PlayerSecret, unit_id: UnitID) -> OrdersResult;
 
-    async fn order_unit_skip(unit_id: UnitID) -> OrdersResult;
+    async fn order_unit_skip(player_secret: PlayerSecret, unit_id: UnitID) -> OrdersResult;
 
     async fn order_unit_go_to(
         player_secret: PlayerSecret,
@@ -214,7 +214,7 @@ pub trait UmpireRpc {
     // async fn propose_order_unit_explore(unit_id: UnitID) -> Proposed<OrdersResult>;
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    async fn activate_unit_by_loc(loc: Location) -> Result<(), GameError>;
+    async fn activate_unit_by_loc(player_secret: PlayerSecret, loc: Location) -> UmpireResult<()>;
 
     /// Feature vector for use in AI training
     ///

@@ -14,7 +14,7 @@ use super::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError, PlayerSecret, TurnStart,
+    Game, GameError, PlayerSecret, TurnStart, UmpireResult,
 };
 
 /// Bare-bones actions, reduced for machine learning purposes
@@ -119,22 +119,24 @@ impl AiPlayerAction {
             .unwrap()
     }
 
-    pub fn take(self, game: &mut Game, player_secret: PlayerSecret) -> Result<(), GameError> {
+    pub fn take(self, game: &mut Game, player_secret: PlayerSecret) -> UmpireResult<()> {
         match self {
             AiPlayerAction::SetNextCityProduction { unit_type } => {
                 let city_loc = game
-                    .current_player_production_set_requests()
+                    .player_production_set_requests(player_secret)?
                     .next()
                     .unwrap();
                 game.set_production_by_loc(player_secret, city_loc, unit_type)
                     .map(|_| ())
             }
             AiPlayerAction::MoveNextUnit { direction } => {
-                let unit_id = game.current_player_unit_orders_requests().next().unwrap();
+                let unit_id = game
+                    .player_unit_orders_requests(player_secret)?
+                    .next()
+                    .unwrap();
                 debug_assert!({
                     let legal: HashSet<Direction> = game
-                        .current_player_unit_legal_directions(unit_id)
-                        .unwrap()
+                        .player_unit_legal_directions(player_secret, unit_id)?
                         .collect();
 
                     // println!("legal moves: {}", legal.len());
@@ -146,12 +148,18 @@ impl AiPlayerAction {
                     .map(|_| ())
             }
             AiPlayerAction::DisbandNextUnit => {
-                let unit_id = game.current_player_unit_orders_requests().next().unwrap();
+                let unit_id = game
+                    .player_unit_orders_requests(player_secret)?
+                    .next()
+                    .unwrap();
                 game.disband_unit_by_id(player_secret, unit_id).map(|_| ())
             }
             AiPlayerAction::SkipNextUnit => {
-                let unit_id = game.current_player_unit_orders_requests().next().unwrap();
-                game.order_unit_skip(unit_id).map(|_| ())
+                let unit_id = game
+                    .player_unit_orders_requests(player_secret)?
+                    .next()
+                    .unwrap();
+                game.order_unit_skip(player_secret, unit_id).map(|_| ())
             }
         }
     }

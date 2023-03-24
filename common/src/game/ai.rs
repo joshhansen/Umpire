@@ -103,7 +103,7 @@ impl TrainingInstance {
 /// * 121: is_observed (11x11)
 /// * 121: is_neutral (11x11)
 ///
-pub fn player_features(game: &Game, player: PlayerNum, player_secret: PlayerSecret) -> Vec<fX> {
+pub fn player_features(game: &Game, player_secret: PlayerSecret) -> Vec<fX> {
     // For every tile we add these f64's:
     // is the tile observed or not?
     // which player controls the tile (one hot encoded)
