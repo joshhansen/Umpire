@@ -421,13 +421,14 @@ impl UmpireRpc for UmpireServer {
     async fn set_production_by_loc(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         loc: Location,
         production: UnitType,
-    ) -> Result<Option<UnitType>, GameError> {
+    ) -> UmpireResult<Option<UnitType>> {
         self.game
             .write()
             .unwrap()
-            .set_production_by_loc(loc, production)
+            .set_production_by_loc(player_secret, loc, production)
     }
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
@@ -436,13 +437,14 @@ impl UmpireRpc for UmpireServer {
     async fn set_production_by_id(
         self,
         _: Context,
+        player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> Result<Option<UnitType>, GameError> {
+    ) -> UmpireResult<Option<UnitType>> {
         self.game
             .write()
             .unwrap()
-            .set_production_by_id(city_id, production)
+            .set_production_by_id(player_secret, city_id, production)
     }
 
     async fn clear_production(

@@ -201,7 +201,8 @@ impl<'a> PlayerTurnControl<'a> {
         loc: Location,
         production: UnitType,
     ) -> UmpireResult<Option<UnitType>> {
-        self.game.set_production_by_loc(loc, production)
+        self.game
+            .set_production_by_loc(self.secret, loc, production)
     }
 
     pub fn clear_production(

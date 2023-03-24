@@ -104,7 +104,7 @@ impl Orders {
         match self {
             Orders::Skip => {
                 let unit = game.map.unit_by_id(unit_id).unwrap().clone();
-                game.clear_orders(unit_id)
+                game.clear_orders(player_secret, unit_id)
                     .map(|_| OrdersOutcome::completed_without_move(unit, self))
             }
             Orders::Sentry => {
@@ -336,7 +336,7 @@ pub mod test_support {
             .current_player_production_set_requests()
             .next()
             .unwrap();
-        game.set_production_by_loc(city_loc, UnitType::Fighter)
+        game.set_production_by_loc(secrets[0], city_loc, UnitType::Fighter)
             .unwrap();
 
         // Wait until the fighter is produced

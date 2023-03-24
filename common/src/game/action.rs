@@ -126,7 +126,8 @@ impl AiPlayerAction {
                     .current_player_production_set_requests()
                     .next()
                     .unwrap();
-                game.set_production_by_loc(city_loc, unit_type).map(|_| ())
+                game.set_production_by_loc(player_secret, city_loc, unit_type)
+                    .map(|_| ())
             }
             AiPlayerAction::MoveNextUnit { direction } => {
                 let unit_id = game.current_player_unit_orders_requests().next().unwrap();
@@ -223,7 +224,7 @@ impl PlayerAction {
                 city_id,
                 production,
             } => game
-                .set_production_by_id(city_id, production)
+                .set_production_by_id(player_secret, city_id, production)
                 .map(|prior_production| PlayerActionOutcome::SetCityProduction {
                     city_id,
                     production,

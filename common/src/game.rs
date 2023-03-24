@@ -1554,12 +1554,15 @@ impl Game {
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
     pub fn set_production_by_loc(
         &mut self,
+        player_secret: PlayerSecret,
         loc: Location,
         production: UnitType,
-    ) -> Result<Option<UnitType>, GameError> {
-        let result =
-            self.map
-                .set_player_city_production_by_loc(self.current_player, loc, production);
+    ) -> UmpireResult<Option<UnitType>> {
+        let player = self.player_with_secret(player_secret)?;
+
+        let result = self
+            .map
+            .set_player_city_production_by_loc(player, loc, production);
         if result.is_ok() {
             self.action_taken();
         }
@@ -1571,9 +1574,11 @@ impl Game {
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
     pub fn set_production_by_id(
         &mut self,
+        player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> Result<Option<UnitType>, GameError> {
+    ) -> UmpireResult<Option<UnitType>> {
+        let player = self.player_with_secret(player_secret)?;
         let result =
             self.map
                 .set_player_city_production_by_id(self.current_player(), city_id, production);
@@ -1740,8 +1745,16 @@ impl Game {
     }
 
     /// Clear the orders of the unit controlled by the current player with ID `id`.
-    fn clear_orders(&mut self, id: UnitID) -> Result<Option<Orders>, GameError> {
-        self.map.clear_player_unit_orders(self.current_player(), id)
+    ///
+    /// Can happen at any time
+    fn clear_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Orders>> {
+        let player = self.player_with_secret(player_secret)?;
+
+        self.map.clear_player_unit_orders(player, id)
     }
 
     fn follow_pending_orders(&mut self, player_secret: PlayerSecret) -> Vec<OrdersResult> {
@@ -2184,7 +2197,8 @@ pub mod test_support {
             .unwrap();
 
         // println!("Setting production at {:?} to infantry", loc);
-        game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
+        game.set_production_by_loc(secrets[0], loc, UnitType::Infantry)
+            .unwrap();
 
         let player = game
             .end_then_begin_turn(secrets[0], secrets[1])
@@ -2197,7 +2211,8 @@ pub mod test_support {
             .next()
             .unwrap();
         // println!("Setting production at {:?} to infantry", loc);
-        game.set_production_by_loc(loc, UnitType::Infantry).unwrap();
+        game.set_production_by_loc(secrets[1], loc, UnitType::Infantry)
+            .unwrap();
 
         let player = game
             .end_then_begin_turn(secrets[1], secrets[0])
@@ -2407,7 +2422,10 @@ mod test {
                 .next()
                 .unwrap();
 
-            assert_eq!(game.set_production_by_loc(loc, UnitType::Armor), Ok(None));
+            assert_eq!(
+                game.set_production_by_loc(secrets[0], loc, UnitType::Armor),
+                Ok(None)
+            );
 
             let result = game.end_then_begin_turn(secrets[0], secrets[1]);
 
@@ -2422,7 +2440,10 @@ mod test {
                 .next()
                 .unwrap();
 
-            assert_eq!(game.set_production_by_loc(loc, UnitType::Carrier), Ok(None));
+            assert_eq!(
+                game.set_production_by_loc(secrets[1], loc, UnitType::Carrier),
+                Ok(None)
+            );
 
             let result = game.end_then_begin_turn(secrets[1], secrets[0]);
 
@@ -2502,8 +2523,11 @@ mod test {
 
                     // Since the armor defeated the city, set its production so we can end the turn
                     let conquered_city = move_result.conquered_city().unwrap();
-                    let production_set_result =
-                        game.set_production_by_loc(conquered_city.loc, UnitType::Fighter);
+                    let production_set_result = game.set_production_by_loc(
+                        secrets[0],
+                        conquered_city.loc,
+                        UnitType::Fighter,
+                    );
                     assert_eq!(production_set_result, Ok(Some(UnitType::Carrier)));
                 }
             } else {

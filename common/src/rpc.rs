@@ -158,17 +158,19 @@ pub trait UmpireRpc {
     ///
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
     async fn set_production_by_loc(
+        player_secret: PlayerSecret,
         loc: Location,
         production: UnitType,
-    ) -> Result<Option<UnitType>, GameError>;
+    ) -> UmpireResult<Option<UnitType>>;
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
     ///
     /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
     async fn set_production_by_id(
+        player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> Result<Option<UnitType>, GameError>;
+    ) -> UmpireResult<Option<UnitType>>;
 
     async fn clear_production(
         player_secret: PlayerSecret,
