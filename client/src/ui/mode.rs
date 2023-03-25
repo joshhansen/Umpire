@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use common::{
@@ -6,7 +7,7 @@ use common::{
     util::{Direction, Location, Rect},
 };
 
-use crate::ui::{sidebar_rect, TermUI, UI};
+use crate::ui::{sidebar_rect, UI};
 
 use self::{
     examine::ExamineMode, get_orders::GetOrdersMode, get_unit_orders::GetUnitOrdersMode,
@@ -42,9 +43,9 @@ pub enum Mode {
 
 impl Mode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    pub fn run<U: UI>(
+    pub async fn run<U: UI + Send>(
         &mut self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         prev_mode: &mut Option<Mode>,
     ) -> ModeStatus {
@@ -57,21 +58,22 @@ impl Mode {
         }
 
         let continue_ = match *self {
-            Mode::TurnStart => TurnStartMode {}.run(game, ui, self, prev_mode),
-            Mode::TurnResume => TurnResumeMode {}.run(game, ui, self, prev_mode),
-            Mode::TurnOver => TurnOverMode {}.run(game, ui, self, prev_mode),
-            Mode::SetProductions => SetProductionsMode {}.run(game, ui, self, prev_mode),
+            Mode::TurnStart => TurnStartMode {}.run(game, ui, self, prev_mode).await,
+            Mode::TurnResume => TurnResumeMode {}.run(game, ui, self, prev_mode).await,
+            Mode::TurnOver => TurnOverMode {}.run(game, ui, self, prev_mode).await,
+            Mode::SetProductions => SetProductionsMode {}.run(game, ui, self, prev_mode).await,
             Mode::SetProduction { city_loc } => {
                 let viewport_rect = ui.viewport_rect();
                 let rect = sidebar_rect(viewport_rect, ui.term_dims());
-                SetProductionMode {
+                let mode = SetProductionMode {
                     rect,
                     loc: city_loc,
                     unicode: ui.unicode(),
-                }
-                .run(game, ui, self, prev_mode)
+                };
+
+                mode.run(game, ui, self, prev_mode).await
             }
-            Mode::GetOrders => GetOrdersMode {}.run(game, ui, self, prev_mode),
+            Mode::GetOrders => GetOrdersMode {}.run(game, ui, self, prev_mode).await,
             Mode::GetUnitOrders {
                 unit_id,
                 first_move,
@@ -84,15 +86,19 @@ impl Mode {
                     first_move,
                 }
                 .run(game, ui, self, prev_mode)
+                .await
             }
-            Mode::Quit => QuitMode {}.run(game, ui, self, prev_mode),
+            Mode::Quit => QuitMode {}.run(game, ui, self, prev_mode).await,
             Mode::Examine {
                 cursor_viewport_loc,
                 most_recently_active_unit_id,
                 first,
-            } => ExamineMode::new(cursor_viewport_loc, most_recently_active_unit_id, first)
-                .run(game, ui, self, prev_mode),
-            Mode::Victory { victor } => VictoryMode { victor }.run(game, ui, self, prev_mode),
+            } => {
+                ExamineMode::new(cursor_viewport_loc, most_recently_active_unit_id, first)
+                    .run(game, ui, self, prev_mode)
+                    .await
+            }
+            Mode::Victory { victor } => VictoryMode { victor }.run(game, ui, self, prev_mode).await,
         };
 
         *prev_mode = Some(*self);
@@ -133,9 +139,10 @@ pub enum KeyStatus {
     Unhandled(KeyEvent),
 }
 
+#[async_trait]
 pub trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    fn run<U: UI>(
+    async fn run<U: UI + Send>(
         &self,
         game: &mut PlayerTurnControl,
         ui: &mut U,
@@ -189,11 +196,6 @@ pub trait IMode {
             }
         }
         KeyStatus::Unhandled(key)
-    }
-
-    fn map_loc_to_viewport_loc(ui: &mut TermUI, map_loc: Location) -> Option<Location> {
-        let map = &ui.map_scroller.scrollable;
-        map.map_to_viewport_coords(map_loc)
     }
 }
 

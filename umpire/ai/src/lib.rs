@@ -1,5 +1,7 @@
 use std::{fmt, fs::File, io::Write, path::Path};
 
+use async_trait::async_trait;
+
 use common::game::{
     action::AiPlayerAction,
     ai::{player_features, AISpec, TrainingInstance},
@@ -298,8 +300,9 @@ impl AI {
     }
 }
 
+#[async_trait]
 impl TurnTaker for AI {
-    fn take_turn_not_clearing(
+    async fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
         player_secrets: &Vec<PlayerSecret>,
@@ -307,7 +310,10 @@ impl TurnTaker for AI {
     ) -> Option<Vec<TrainingInstance>> {
         let player = game.current_player();
         match self {
-            Self::Random(ai) => ai.take_turn_not_clearing(game, &player_secrets, generate_data),
+            Self::Random(ai) => {
+                ai.take_turn_not_clearing(game, &player_secrets, generate_data)
+                    .await
+            }
             Self::LFA(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 
@@ -327,7 +333,7 @@ impl TurnTaker for AI {
         }
     }
 
-    fn take_turn_clearing(
+    async fn take_turn_clearing(
         &mut self,
         game: &mut Game,
         player_secrets: &Vec<PlayerSecret>,
@@ -335,7 +341,10 @@ impl TurnTaker for AI {
     ) -> Option<Vec<TrainingInstance>> {
         let player = game.current_player();
         match self {
-            Self::Random(ai) => ai.take_turn_clearing(game, player_secrets, generate_data),
+            Self::Random(ai) => {
+                ai.take_turn_clearing(game, player_secrets, generate_data)
+                    .await
+            }
             Self::LFA(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 

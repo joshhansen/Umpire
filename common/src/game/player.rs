@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -321,8 +322,9 @@ impl<'a> Drop for PlayerTurnControl<'a> {
 ///
 /// # Arguments
 /// * generate_data: whether or not training data for a state-action-value model should be returned
+#[async_trait]
 pub trait LimitedTurnTaker {
-    fn take_turn(
+    async fn take_turn(
         &mut self,
         ctrl: &mut PlayerTurnControl,
         generate_data: bool,
@@ -334,22 +336,23 @@ pub trait LimitedTurnTaker {
 /// This is a kludgey escape hatch for an issue in AI training where we need the whole state. It is crucial for
 /// implementors to guarantee that the player's turn is ended (and only the player's turn---no further turns) by the
 /// end of the `take_turn` function call.
+#[async_trait]
 pub trait TurnTaker {
-    fn take_turn_not_clearing(
+    async fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
-    fn take_turn_clearing(
+    async fn take_turn_clearing(
         &mut self,
         game: &mut Game,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
-    fn take_turn(
+    async fn take_turn(
         &mut self,
         game: &mut Game,
         player_secrets: &Vec<PlayerSecret>,
@@ -358,14 +361,17 @@ pub trait TurnTaker {
     ) -> Option<Vec<TrainingInstance>> {
         if clear_at_end_of_turn {
             self.take_turn_clearing(game, player_secrets, generate_data)
+                .await
         } else {
             self.take_turn_not_clearing(game, player_secrets, generate_data)
+                .await
         }
     }
 }
 
-impl<T: LimitedTurnTaker> TurnTaker for T {
-    fn take_turn_not_clearing(
+#[async_trait]
+impl<T: LimitedTurnTaker + Send> TurnTaker for T {
+    async fn take_turn_not_clearing(
         &mut self,
         game: &mut Game,
         player_secrets: &Vec<PlayerSecret>,
@@ -380,7 +386,8 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
         };
 
         loop {
-            let result = <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data);
+            let result =
+                <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data).await;
             if let Some(mut instances) = result {
                 training_instances
                     .as_mut()
@@ -395,7 +402,7 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
         training_instances
     }
 
-    fn take_turn_clearing(
+    async fn take_turn_clearing(
         &mut self,
         game: &mut Game,
         player_secrets: &Vec<PlayerSecret>,
@@ -410,7 +417,8 @@ impl<T: LimitedTurnTaker> TurnTaker for T {
         };
 
         loop {
-            let result = <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data);
+            let result =
+                <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data).await;
             if let Some(mut instances) = result {
                 training_instances
                     .as_mut()
@@ -433,8 +441,9 @@ pub trait ActionwiseLimitedTurnTaker {
     fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction>;
 }
 
-impl<T: ActionwiseLimitedTurnTaker> LimitedTurnTaker for T {
-    fn take_turn(
+#[async_trait]
+impl<T: ActionwiseLimitedTurnTaker + Send> LimitedTurnTaker for T {
+    async fn take_turn(
         &mut self,
         ctrl: &mut PlayerTurnControl,
         generate_data: bool,

@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use common::{
     colors::Colors,
     game::{
@@ -11,8 +13,9 @@ use crate::ui::UI;
 use super::{IMode, Mode, ModeStatus};
 
 pub(in crate::ui) struct TurnStartMode {}
+#[async_trait]
 impl IMode for TurnStartMode {
-    fn run<U: UI>(
+    async fn run<U: UI + Send>(
         &self,
         game: &mut PlayerTurnControl,
         ui: &mut U,

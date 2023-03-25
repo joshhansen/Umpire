@@ -7,11 +7,11 @@
 use std::{
     cmp,
     io::{stdout, Result as IoResult, Stdout, Write},
-    rc::Rc,
     sync::mpsc::{channel, Receiver, Sender},
     thread::{self, JoinHandle},
 };
 
+use async_trait::async_trait;
 use crossterm::{
     cursor::{Hide, MoveTo},
     event::{read as read_event, Event, KeyCode, KeyEvent},
@@ -452,7 +452,7 @@ pub struct TermUI {
     current_player: CurrentPlayer,
     turn: Turn,
     first_draw: bool,
-    palette: Rc<Palette>,
+    palette: Palette,
     unicode: bool,
     confirm_turn_end: bool,
 
@@ -491,8 +491,6 @@ impl TermUI {
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
         let sidebar_rect = sidebar_rect(viewport_rect, term_dims);
-
-        let palette = Rc::new(palette);
 
         let map = Map::new(viewport_rect, map_dims, unicode);
 
@@ -1055,8 +1053,9 @@ impl UI for TermUI {
     }
 }
 
+#[async_trait]
 impl LimitedTurnTaker for TermUI {
-    fn take_turn(
+    async fn take_turn(
         &mut self,
         ctrl: &mut PlayerTurnControl,
         generate_data: bool,
@@ -1068,7 +1067,7 @@ impl LimitedTurnTaker for TermUI {
 
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
-        while mode.run(ctrl, self, &mut prev_mode) == ModeStatus::Continue {
+        while mode.run(ctrl, self, &mut prev_mode).await == ModeStatus::Continue {
             // nothing here
         }
 

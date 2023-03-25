@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use crossterm::event::KeyCode;
 
 use common::{
@@ -67,8 +68,10 @@ impl GetUnitOrdersMode {
         ui.set_sidebar_row(16, cols("Quit:", conf::KEY_QUIT));
     }
 }
+
+#[async_trait]
 impl IMode for GetUnitOrdersMode {
-    fn run<U: UI>(
+    async fn run<U: UI + Send>(
         &self,
         game: &mut PlayerTurnControl,
         ui: &mut U,

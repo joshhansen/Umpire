@@ -8,6 +8,7 @@ default-run = "umpire-client"
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 bincode = "1.2.1"
 clap = { workspace = true }
 common = { path = "../common" }
