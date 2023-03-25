@@ -6,8 +6,9 @@ use common::{
     log::{Message, MessageSource},
     util::{Location, Rect},
 };
+use umpire_tui::sym::Sym;
 
-use crate::ui::{audio::Sounds, sym::Sym, UI};
+use crate::ui::{audio::Sounds, UI};
 
 use super::{IMode, IVisibleMode, KeyStatus, Mode, ModeStatus, StateDisposition, COL_WIDTH};
 

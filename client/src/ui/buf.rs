@@ -11,7 +11,7 @@ use crossterm::{
 
 use common::{game::player::PlayerTurnControl, util::Rect};
 
-use crate::{color::Palette, ui::Draw};
+use umpire_tui::{color::Palette, Draw};
 
 /// A buffer to help with smooth drawing of rectangular regions
 ///

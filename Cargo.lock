@@ -2697,6 +2697,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "umpire-ai"
+version = "0.5.0-pre"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "blas-src 0.2.1",
+ "clap 4.1.4",
+ "common",
+ "crossterm",
+ "failure",
+ "openblas-src",
+ "rand 0.7.3",
+ "rsrl",
+ "serde",
+ "tarpc",
+ "tch",
+ "tokio",
+ "umpire-tui",
+ "uuid",
+]
+
+[[package]]
 name = "umpire-client"
 version = "0.5.0-pre"
 dependencies = [
@@ -2719,6 +2741,8 @@ dependencies = [
  "tarpc",
  "tch",
  "tokio",
+ "umpire-ai",
+ "umpire-tui",
  "uuid",
 ]
 
@@ -2733,6 +2757,22 @@ dependencies = [
  "serde",
  "tarpc",
  "tokio",
+ "umpire-ai",
+ "uuid",
+]
+
+[[package]]
+name = "umpire-tui"
+version = "0.5.0-pre"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "clap 4.1.4",
+ "common",
+ "crossterm",
+ "failure",
+ "pastel",
+ "rand 0.7.3",
  "uuid",
 ]
 

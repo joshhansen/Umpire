@@ -20,11 +20,12 @@ repository = "https://github.com/joshhansen/Umpire"
 homepage = "https://github.com/joshhansen/Umpire"
 
 [workspace]
-members = ["common", "client", "server"]
+members = ["common", "client", "server", "umpire/ai", "umpire/tui"]
 
 [workspace.dependencies]
 anyhow = "1.0"
 clap = "4.1.4"
+crossterm = "0.25.0"
 failure = "0.1.6"
 rand = "0.7.3"
 #rsrl = "0.7.1"

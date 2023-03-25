@@ -40,18 +40,19 @@ use common::{
     util::{sleep_millis, Dims, Location, Rect, Vec2d},
 };
 
-use crate::color::Palette;
+use umpire_tui::{
+    color::Palette,
+    map::Map,
+    scroll::{ScrollableComponent, Scroller},
+    sym::Sym,
+    Component, Draw,
+};
 
 use self::{
     audio::{play_sounds, Sounds},
     buf::RectBuffer,
     mode::ModeStatus,
-    scroll::ScrollableComponent,
-    sym::Sym,
 };
-
-// Public so AI training can have a nice output
-pub use self::map::Map;
 
 pub trait MoveAnimator {
     fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move);
@@ -344,69 +345,15 @@ impl UI for DefaultUI {
     }
 }
 
-pub trait Draw {
-    fn draw(
-        &mut self,
-        game: &PlayerTurnControl,
-        stdout: &mut Stdout,
-        palette: &Palette,
-    ) -> IoResult<()> {
-        self.draw_no_flush(game, stdout, palette)?;
-        stdout.flush()
-    }
-    fn draw_no_flush(
-        &mut self,
-        game: &PlayerTurnControl,
-        stdout: &mut Stdout,
-        palette: &Palette,
-    ) -> IoResult<()>;
-}
-
-pub trait Component: Draw {
-    fn set_rect(&mut self, rect: Rect);
-
-    fn rect(&self) -> Rect;
-
-    fn is_done(&self) -> bool;
-
-    // fn goto(&self, x: u16, y: u16) -> termion::cursor::Goto {
-    //     let rect = self.rect();
-    //     goto(rect.left + x, rect.top + y)
-    // }
-
-    fn goto(&self, x: u16, y: u16) -> MoveTo {
-        let rect = self.rect();
-        MoveTo(rect.left + x, rect.top + y)
-    }
-
-    fn clear(&self, stdout: &mut Stdout) {
-        let rect = self.rect();
-        let blank_string = (0..rect.width).map(|_| " ").collect::<String>();
-        for y in 0..rect.height {
-            // write!(*stdout, "{}{}", self.goto(0, y), blank_string).unwrap();
-            queue!(*stdout, self.goto(0, y), Print(blank_string.clone())).unwrap();
-            //FIXME clear component without cloning a bunch of strings
-        }
-    }
-
-    // fn draw_window_frame(&self, title: &str, stdout: &mut termion::raw::RawTerminal<StdoutLock>) {
-    //
-    // }
-}
-
 mod audio;
 mod buf;
 mod indicators;
 mod log;
-mod map;
 mod mode;
-mod scroll;
-mod sym;
 
 use self::indicators::{CurrentPlayer, Turn};
 use self::log::LogArea;
 use self::mode::Mode;
-use self::scroll::Scroller;
 
 const MAX_MID_HEIGHT: u16 = 25;
 

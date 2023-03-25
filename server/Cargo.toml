@@ -14,3 +14,4 @@ serde = { workspace = true }
 tarpc = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true}
+umpire-ai = { path = "../umpire/ai" }

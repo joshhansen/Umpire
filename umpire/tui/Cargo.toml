@@ -1,0 +1,17 @@
+[package]
+name = "umpire-tui"
+version = "0.5.0-pre"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+bincode = "1.2.1"
+clap = { workspace = true }
+common = { path = "../../common" }
+crossterm = { workspace = true }
+failure = { workspace = true }
+pastel = "0.7.0"
+rand = { workspace = true }
+uuid = { workspace = true }

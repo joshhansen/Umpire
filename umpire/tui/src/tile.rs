@@ -10,7 +10,7 @@ use common::game::{
     map::{Terrain, Tile},
 };
 
-use crate::ui::Draw;
+use crate::Draw;
 
 impl Draw for Tile {
     fn draw_no_flush(

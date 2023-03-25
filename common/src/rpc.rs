@@ -18,6 +18,8 @@ use crate::{
 /// The Umpire RPC interface. The macro generates a client impl called `UmpireRpcClient`.
 #[tarpc::service]
 pub trait UmpireRpc {
+    async fn wait_my_turn() -> PlayerNum;
+
     /// For each player in the game, gives the player secret if the player is controlled by this connection
     async fn player_secrets_known() -> Vec<Option<PlayerSecret>>;
 

@@ -45,9 +45,10 @@ use common::{
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
 
-use crate::{
+use umpire_tui::{
     color::{palette16, Palette},
-    ui::{Component, Draw, Map},
+    map::Map,
+    Component, Draw,
 };
 
 use super::{dnn::DNN, GameWithSecrets, AI};
@@ -837,7 +838,7 @@ mod test {
         util::{Dims, Direction, Location, Wrap2d},
     };
 
-    use crate::game::ai::{
+    use crate::{
         rl::{trained_agent, AiPlayerAction, UmpireDomain},
         AI,
     };

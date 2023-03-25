@@ -19,10 +19,7 @@ use common::{
     util::{Dims, Location, Rect, Vec2d},
 };
 
-use crate::{
-    color::Palette,
-    ui::{scroll::ScrollableComponent, sym::Sym, Component, Draw},
-};
+use crate::{color::Palette, scroll::ScrollableComponent, sym::Sym, Component, Draw};
 
 fn nonnegative_mod(x: i32, max: u16) -> u16 {
     let mut result = x;
@@ -609,7 +606,7 @@ mod test {
         util::{Dims, Location, Rect, Vec2d},
     };
 
-    use crate::ui::map::map_to_viewport_coord;
+    use crate::map::map_to_viewport_coord;
 
     use super::Map;
 

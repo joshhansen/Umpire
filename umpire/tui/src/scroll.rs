@@ -11,17 +11,14 @@ use common::{
     util::{Rect, Vec2d},
 };
 
-use crate::{
-    color::Palette,
-    ui::{Component, Draw},
-};
+use crate::{color::Palette, Component, Draw};
 
-pub(in crate::ui) trait ScrollableComponent: Component {
+pub trait ScrollableComponent: Component {
     fn offset(&self) -> Vec2d<u16>;
     fn scroll_relative<V: Into<Vec2d<i32>>>(&mut self, offset: V);
 }
 
-pub(in crate::ui) struct Scroller<S: ScrollableComponent> {
+pub struct Scroller<S: ScrollableComponent> {
     rect: Rect,
     pub scrollable: S,
     old_h_scroll_x: Option<u16>,

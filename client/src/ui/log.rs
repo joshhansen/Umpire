@@ -15,10 +15,7 @@ use common::{
     util::{grapheme_len, grapheme_substr, Rect},
 };
 
-use crate::{
-    color::Palette,
-    ui::{Component, Draw},
-};
+use umpire_tui::{color::Palette, Component, Draw};
 
 //TODO Use a RectBuffer to improve draw performance
 pub(in crate::ui) struct LogArea {

@@ -6,12 +6,12 @@ use common::game::{
     unit::{Unit, UnitType},
 };
 
-pub(in crate::ui) trait Sym {
+pub trait Sym {
     fn sym(&self, unicode: bool) -> &'static str;
 }
 
 #[derive(Copy, Clone)]
-pub(in crate::ui) enum Symbols {
+pub enum Symbols {
     Land,
     Ocean,
     City,

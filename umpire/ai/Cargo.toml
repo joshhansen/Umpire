@@ -1,8 +1,7 @@
 [package]
-name = "umpire-client"
+name = "umpire-ai"
 version = "0.5.0-pre"
 edition = "2021"
-default-run = "umpire-client"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,23 +9,16 @@ default-run = "umpire-client"
 anyhow = { workspace = true }
 bincode = "1.2.1"
 clap = { workspace = true }
-common = { path = "../common" }
+common = { path = "../../common" }
 crossterm = { workspace = true }
 failure = { workspace = true }
-pastel = "0.7.0"
 rand = { workspace = true }
 serde = { workspace = true }
 tarpc = { workspace = true }
 tokio = { workspace = true }
-umpire-ai = { path = "../umpire/ai" }
-umpire-tui = { path = "../umpire/tui" }
 uuid = { workspace = true }
 
-# Audio
-cpal = "0.10.0"
-dasp = "0.11.0"
-pitch_calc = "0.11.1"
-synth = { git = "https://github.com/dritory/synth" }
+umpire-tui = { path = "../tui" }
 
 # AI/ML
 rsrl = { workspace = true }

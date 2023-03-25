@@ -2,7 +2,7 @@ use std::io::Write;
 
 use common::game::obs::Obs;
 
-use crate::ui::Draw;
+use crate::Draw;
 
 impl Draw for Obs {
     fn draw_no_flush(

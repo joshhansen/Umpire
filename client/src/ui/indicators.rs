@@ -7,10 +7,7 @@ use crossterm::{
 
 use common::{game::player::PlayerTurnControl, util::Rect};
 
-use crate::{
-    color::Palette,
-    ui::{Component, Draw},
-};
+use umpire_tui::{color::Palette, Component, Draw};
 
 pub struct CurrentPlayer {
     rect: Rect,

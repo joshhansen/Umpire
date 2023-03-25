@@ -31,11 +31,11 @@ use tarpc::{client, context, tokio_serde::formats::Json};
 //     },
 // };
 
-use self::{
-    color::{palette16, palette24, palette256},
-    game::ai::AI,
-    ui::TermUI,
-};
+use self::ui::TermUI;
+
+use umpire_ai::AI;
+
+use umpire_tui::color::{palette16, palette24, palette256};
 
 use common::{
     cli::{self, players_arg},
@@ -47,9 +47,6 @@ use common::{
     util::{Dims, Wrap2d},
 };
 
-pub mod color;
-pub mod game;
-pub mod tile;
 pub mod ui;
 
 const MIN_LOAD_SCREEN_DISPLAY_TIME: Duration = Duration::from_secs(3);
