@@ -1,10 +1,7 @@
 use std::{
-    cell::RefCell,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     net::{IpAddr, Ipv6Addr},
-    rc::Rc,
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
 use common::{
@@ -18,6 +15,7 @@ use common::{
         map::Tile,
         move_::Move,
         obs::{LocatedObs, Obs, ObsTracker},
+        player::TurnTaker,
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
         Game, PlayerNum, PlayerSecret, PlayerType, TurnNum, TurnStart, UmpireResult,
     },
@@ -32,7 +30,6 @@ use tarpc::{
     server::{self, incoming::Incoming, Channel},
     tokio_serde::formats::Json,
 };
-use tokio::task::JoinHandle;
 use umpire_ai::AI;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -682,7 +679,10 @@ async fn main() -> anyhow::Result<()> {
 
     let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
 
-    let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
+    let player_types = matches
+        .get_one::<Vec<PlayerType>>("players")
+        .unwrap()
+        .clone();
 
     let num_players: PlayerNum = player_types.len();
     let map_width = matches.get_one::<u16>("map_width").unwrap().clone();
@@ -708,6 +708,8 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let game: Arc<RwLock<Game>> = Arc::new(RwLock::new(game));
+    let secrets = Arc::new(RwLock::new(secrets));
+    let player_types = Arc::new(RwLock::new(player_types));
 
     let connection_count = Arc::new(RwLock::new(0usize));
 
@@ -720,26 +722,46 @@ async fn main() -> anyhow::Result<()> {
     // tracing::info!("Listening on port {}", listener.local_addr().port());
     listener.config_mut().max_frame_length(usize::MAX);
 
-    // Set up AI clients
-    let mut ai_threads: Vec<JoinHandle<()>> = Vec::new();
+    let ai_thread = {
+        let game = Arc::clone(&game);
+        let secrets = Arc::clone(&secrets);
+        let player_types = Arc::clone(&player_types);
+        tokio::spawn(async move {
+            let unique_ai_ptypes: HashSet<PlayerType> = player_types
+                .read()
+                .unwrap()
+                .iter()
+                .filter(|ptype| **ptype != PlayerType::Human)
+                .cloned()
+                .collect();
 
-    for ptype in player_types.iter() {
-        if let PlayerType::AI(ai_type) = ptype {
-            let ai: AI = ai_type.clone().into();
-            // let ai = Rc::new(RefCell::new(ai));
+            let mut ais: HashMap<PlayerType, AI> = HashMap::with_capacity(unique_ai_ptypes.len());
 
-            let handle = tokio::spawn(async move {
-                // tokio::time::delay_for(Duration::from_millis(500)).await;
-                // if let Err(e) = self.peer.ping(context::current(), count + 1).await {
-                //     eprintln!("Ping failed: {}", e);
-                // }
+            for ptype in unique_ai_ptypes.iter() {
+                let ai: AI = match ptype {
+                    PlayerType::AI(aispec) => aispec.clone().into(),
+                    _ => unreachable!(),
+                };
+                ais.insert(ptype.clone(), ai);
+            }
 
-                println!("Spawned AI: {:?}", ai);
-            });
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-            ai_threads.push(handle);
-        }
-    }
+                let mut g = game.write().unwrap();
+
+                let player = g.current_player();
+
+                let ptype = &player_types.read().unwrap()[player];
+
+                let secrets = secrets.read().unwrap();
+
+                if let Some(ai) = ais.get_mut(&ptype) {
+                    ai.take_turn_clearing(&mut g, &secrets, false);
+                }
+            }
+        })
+    };
 
     listener
         // Ignore accept errors.
@@ -757,6 +779,8 @@ async fn main() -> anyhow::Result<()> {
             *cc.write().unwrap() += 1;
 
             let known_secrets: Vec<Option<PlayerSecret>> = secrets
+                .read()
+                .unwrap()
                 .iter()
                 .enumerate()
                 .map(|(i, secret)| if i == player { Some(*secret) } else { None })
@@ -780,6 +804,8 @@ async fn main() -> anyhow::Result<()> {
         .buffer_unordered(num_players)
         .for_each(|_| async {})
         .await;
+
+    ai_thread.await.unwrap();
 
     Ok(())
 }
