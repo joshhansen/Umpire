@@ -49,7 +49,7 @@ pub struct DNN {
     dense0: nn::Linear,
     dense1: nn::Linear,
     dense2: nn::Linear,
-    optimizer: Optimizer<nn::Adam>,
+    optimizer: Optimizer,
 }
 
 impl DNN {
@@ -161,11 +161,13 @@ impl StateActionFunction<GameWithSecrets, usize> for DNN {
     ) {
         let features = self.tensor_for(state);
 
+        let exponent = Tensor::from(2.0f64);
+
         let actual_estimate: Tensor =
             self.forward_t(&features, true)
                 .slice(0, *action as i64, *action as i64 + 1, 1);
 
-        let loss: Tensor = (value - actual_estimate).pow(2.0f64); // we're doing mean squared error
+        let loss: Tensor = (value - actual_estimate).pow(&exponent); // we're doing mean squared error
 
         self.optimizer.backward_step(&loss);
     }

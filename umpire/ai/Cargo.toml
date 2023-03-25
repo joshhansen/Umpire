@@ -15,6 +15,7 @@ failure = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 tarpc = { workspace = true }
+tch = "~0.11.0"
 tokio = { workspace = true }
 uuid = { workspace = true }
 
@@ -22,7 +23,7 @@ umpire-tui = { path = "../tui" }
 
 # AI/ML
 rsrl = { workspace = true }
-tch = "0.1.7"
+
 #tch = { path = "/home/josh/Projects/External/tch-rs" }
 
 # BLAS for rsrl
