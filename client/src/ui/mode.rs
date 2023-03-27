@@ -112,7 +112,7 @@ impl Mode {
 /// Says whether we keep going in this user's turn, move to the next user's turn, or quit the game
 ///
 /// FIXME: Why is this separate from StateDisposition?
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ModeStatus {
     /// Continue to the next mode
     Continue,
