@@ -96,7 +96,7 @@ impl IMode for GetUnitOrdersMode {
             }
 
             self.write_buf(game, ui);
-            ui.draw_no_flush(game).await;
+            ui.draw_no_flush(game).await.unwrap();
 
             let viewport_loc = ui.map_to_viewport_coords(unit.loc).unwrap();
             ui.draw_map_tile_and_flush(
@@ -129,7 +129,7 @@ impl IMode for GetUnitOrdersMode {
                                     Ok(ref proposed_move_result) => {
                                         let move_ = &proposed_move_result.outcome;
 
-                                        ui.animate_move(game, move_);
+                                        ui.animate_move(game, move_).await.unwrap();
 
                                         let move_ = match
                                             game.take_action(proposed_move_result.action).unwrap() {
@@ -185,7 +185,7 @@ impl IMode for GetUnitOrdersMode {
                             let proposed_orders_outcome = proposed_orders_result.outcome;
 
                             if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
-                                ui.animate_move(game, &proposed_move);
+                                ui.animate_move(game, &proposed_move).await.unwrap();
                                 // proposed_move.take(game);
                             }
 

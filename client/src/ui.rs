@@ -54,8 +54,9 @@ use self::{
     mode::ModeStatus,
 };
 
+#[async_trait]
 pub trait MoveAnimator {
-    fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move);
+    async fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move) -> IoResult<()>;
 }
 
 /// An abstraction on the terminal UI, basically for test mocking purposes
@@ -84,15 +85,15 @@ pub trait UI: LogTarget + MoveAnimator {
         viewport_loc: Location,
     ) -> Option<&'a Tile>;
 
-    async fn draw(&mut self, game: &PlayerTurnControl);
+    async fn draw(&mut self, game: &PlayerTurnControl) -> IoResult<()>;
 
-    async fn draw_no_flush(&mut self, game: &PlayerTurnControl);
+    async fn draw_no_flush(&mut self, game: &PlayerTurnControl) -> IoResult<()>;
 
-    fn draw_current_player(&mut self, ctrl: &PlayerTurnControl);
+    async fn draw_current_player(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()>;
 
-    fn draw_log(&mut self, ctrl: &PlayerTurnControl);
+    async fn draw_log(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()>;
 
-    fn draw_map(&mut self, ctrl: &PlayerTurnControl);
+    async fn draw_map(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()>;
 
     /// Renders a particular location in the map viewport
     ///
@@ -149,7 +150,7 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn pop_log_message(&mut self) -> Option<Message>;
 
-    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl);
+    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) -> IoResult<()>;
 
     // fn sidebar_buf_mut(&mut self) -> &mut RectBuffer;
 
@@ -185,9 +186,14 @@ impl LogTarget for DefaultUI {
     }
 }
 
+#[async_trait]
 impl MoveAnimator for DefaultUI {
-    fn animate_move(&mut self, _game: &PlayerTurnControl, _move_result: &Move) {
-        // do nothing
+    async fn animate_move(
+        &mut self,
+        _game: &PlayerTurnControl,
+        _move_result: &Move,
+    ) -> IoResult<()> {
+        Ok(()) // do nothing
     }
 }
 
@@ -233,24 +239,24 @@ impl UI for DefaultUI {
         None
     }
 
-    async fn draw(&mut self, _game: &PlayerTurnControl) {
-        // do nothing
+    async fn draw(&mut self, _game: &PlayerTurnControl) -> IoResult<()> {
+        Ok(()) // do nothing
     }
 
-    async fn draw_no_flush(&mut self, _game: &PlayerTurnControl) {
-        // do nothing
+    async fn draw_no_flush(&mut self, _game: &PlayerTurnControl) -> IoResult<()> {
+        Ok(()) // do nothing
     }
 
-    fn draw_current_player(&mut self, _ctrl: &PlayerTurnControl) {
-        // do nothing
+    async fn draw_current_player(&mut self, _ctrl: &PlayerTurnControl) -> IoResult<()> {
+        Ok(()) // do nothing
     }
 
-    fn draw_log(&mut self, _ctrl: &PlayerTurnControl) {
-        // do nothing
+    async fn draw_log(&mut self, _ctrl: &PlayerTurnControl) -> IoResult<()> {
+        Ok(()) // do nothing
     }
 
-    fn draw_map(&mut self, _ctrl: &PlayerTurnControl) {
-        // do nothing
+    async fn draw_map(&mut self, _ctrl: &PlayerTurnControl) -> IoResult<()> {
+        Ok(()) // do nothing
     }
 
     /// Renders a particular location in the map viewport
@@ -322,8 +328,8 @@ impl UI for DefaultUI {
         None
     }
 
-    async fn rotate_viewport_size(&mut self, _game: &PlayerTurnControl) {
-        // do nothing
+    async fn rotate_viewport_size(&mut self, _game: &PlayerTurnControl) -> IoResult<()> {
+        Ok(()) // do nothing
     }
 
     fn set_sidebar_row(&mut self, _row_idx: usize, _row: String) {
@@ -623,14 +629,22 @@ impl TermUI {
         // }
     }
 
-    fn set_viewport_size(&mut self, game: &PlayerTurnControl, viewport_size: ViewportSize) {
+    async fn set_viewport_size(
+        &mut self,
+        game: &PlayerTurnControl<'_>,
+        viewport_size: ViewportSize,
+    ) -> IoResult<()> {
         self.viewport_size = viewport_size;
         self.map_scroller
             .set_rect(self.viewport_size.rect(self.term_dims));
-        self.draw(game);
+        self.draw(game).await
     }
 
-    fn draw_located_observations(&mut self, game: &PlayerTurnControl, located_obs: &[LocatedObs]) {
+    fn draw_located_observations(
+        &mut self,
+        game: &PlayerTurnControl<'_>,
+        located_obs: &[LocatedObs],
+    ) -> IoResult<()> {
         for located_obs in located_obs {
             if let Some(viewport_loc) = self
                 .map_scroller
@@ -654,9 +668,10 @@ impl TermUI {
                     None,
                     Some(&located_obs.obs),
                     &self.palette,
-                );
+                )?;
             }
         }
+        Ok(())
     }
 
     fn animate_combat<A: CombatCapable + Sym, D: CombatCapable + Sym>(
@@ -665,7 +680,7 @@ impl TermUI {
         outcome: &CombatOutcome<A, D>,
         attacker_loc: Location,
         defender_loc: Location,
-    ) {
+    ) -> IoResult<()> {
         let map = &mut self.map_scroller.scrollable;
 
         let attacker_viewport_loc = map.map_to_viewport_coords(attacker_loc);
@@ -695,7 +710,7 @@ impl TermUI {
                     Some(sym),
                     None,
                     &self.palette,
-                );
+                )?;
                 sleep_millis(100);
                 map.draw_tile_and_flush(
                     game,
@@ -708,11 +723,13 @@ impl TermUI {
                     Some(sym),
                     None,
                     &self.palette,
-                );
+                )?;
             } else {
                 sleep_millis(100);
             }
         }
+
+        Ok(())
     }
 
     fn ensure_map_loc_visible(&mut self, map_loc: Location) {
@@ -742,12 +759,13 @@ impl LogTarget for TermUI {
     }
 }
 
+#[async_trait]
 impl MoveAnimator for TermUI {
-    fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move) {
+    async fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move) -> IoResult<()> {
         let mut current_loc = move_result.starting_loc;
 
         self.ensure_map_loc_visible(current_loc);
-        self.draw(game);
+        self.draw(game).await?;
 
         for (move_idx, move_) in move_result.components.iter().enumerate() {
             let target_loc = move_.loc;
@@ -758,12 +776,12 @@ impl MoveAnimator for TermUI {
 
             let mut was_combat = false;
             if let Some(ref combat) = move_.unit_combat {
-                self.animate_combat(game, combat, current_loc, target_loc);
+                self.animate_combat(game, combat, current_loc, target_loc)?;
                 was_combat = true;
             }
 
             if let Some(ref combat) = move_.city_combat {
-                self.animate_combat(game, combat, current_loc, target_loc);
+                self.animate_combat(game, combat, current_loc, target_loc)?;
                 was_combat = true;
             }
 
@@ -790,7 +808,7 @@ impl MoveAnimator for TermUI {
             }
 
             if move_.moved_successfully() {
-                self.draw_located_observations(game, &move_.observations_after_move);
+                self.draw_located_observations(game, &move_.observations_after_move)?;
             }
 
             current_loc = target_loc;
@@ -805,6 +823,8 @@ impl MoveAnimator for TermUI {
         if move_result.unit.moves_remaining() == 0 {
             sleep_millis(250);
         }
+
+        Ok(())
     }
 }
 
@@ -864,27 +884,29 @@ impl UI for TermUI {
             .current_player_tile(ctrl, viewport_loc)
     }
 
-    fn draw_current_player(&mut self, ctrl: &PlayerTurnControl) {
+    async fn draw_current_player(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()> {
         self.current_player
-            .draw(ctrl, &mut self.stdout, &self.palette);
+            .draw(ctrl, &mut self.stdout, &self.palette)
+            .await
     }
 
-    fn draw_log(&mut self, ctrl: &PlayerTurnControl) {
-        self.log.draw(ctrl, &mut self.stdout, &self.palette); // this will flush
+    async fn draw_log(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()> {
+        self.log.draw(ctrl, &mut self.stdout, &self.palette).await // this will flush
     }
 
-    fn draw_map(&mut self, ctrl: &PlayerTurnControl) {
+    async fn draw_map(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()> {
         self.map_scroller
-            .draw(ctrl, &mut self.stdout, &self.palette);
+            .draw(ctrl, &mut self.stdout, &self.palette)
+            .await
     }
 
     fn confirm_turn_end(&self) -> bool {
         self.confirm_turn_end
     }
 
-    async fn draw(&mut self, game: &PlayerTurnControl) {
-        self.draw_no_flush(game).await;
-        self.stdout.flush().unwrap();
+    async fn draw(&mut self, game: &PlayerTurnControl) -> IoResult<()> {
+        self.draw_no_flush(game).await?;
+        self.stdout.flush()
     }
 
     fn draw_map_tile_and_flush(
@@ -955,7 +977,7 @@ impl UI for TermUI {
         )
     }
 
-    async fn draw_no_flush(&mut self, game: &PlayerTurnControl) {
+    async fn draw_no_flush(&mut self, game: &PlayerTurnControl) -> IoResult<()> {
         if self.first_draw {
             // write!(self.stdout, "{}{}{}{}",
             //     // termion::clear::All,
@@ -971,27 +993,26 @@ impl UI for TermUI {
                 Print(conf::APP_NAME.to_string()),
                 SetAttribute(Attribute::Reset),
                 SetBackgroundColor(self.palette.get_single(Colors::Background))
-            )
-            .unwrap();
+            )?;
 
             self.first_draw = false;
         }
 
         self.log
             .draw_no_flush(game, &mut self.stdout, &self.palette)
-            .await;
+            .await?;
         self.current_player
             .draw_no_flush(game, &mut self.stdout, &self.palette)
-            .await;
+            .await?;
         self.map_scroller
             .draw_no_flush(game, &mut self.stdout, &self.palette)
-            .await;
+            .await?;
         self.turn
             .draw_no_flush(game, &mut self.stdout, &self.palette)
-            .await;
+            .await?;
         self.sidebar_buf
             .draw_no_flush(game, &mut self.stdout, &self.palette)
-            .await;
+            .await?;
 
         // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         queue!(
@@ -999,8 +1020,9 @@ impl UI for TermUI {
             SetAttribute(Attribute::Reset),
             SetBackgroundColor(self.palette.get_single(Colors::Background)),
             Hide
-        )
-        .unwrap();
+        )?;
+
+        Ok(())
     }
 
     /// Block until a key is pressed; return that key
@@ -1027,15 +1049,15 @@ impl UI for TermUI {
         self.log.pop_message()
     }
 
-    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) {
+    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) -> IoResult<()> {
         let new_size = match self.viewport_size {
             ViewportSize::REGULAR => ViewportSize::THEATER,
             ViewportSize::THEATER => ViewportSize::FULLSCREEN,
             ViewportSize::FULLSCREEN => ViewportSize::REGULAR,
         };
 
-        self.set_viewport_size(game, new_size);
-        self.draw(game).await;
+        self.set_viewport_size(game, new_size).await?;
+        self.draw(game).await
     }
 
     fn scroll_map_relative<V: Into<Vec2d<i32>>>(&mut self, direction: V) {

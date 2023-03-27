@@ -33,7 +33,7 @@ impl IMode for VictoryMode {
             bg_color: None,
             source: None,
         });
-        ui.draw_log(ctrl); // this will flush
+        ui.draw_log(ctrl).await.unwrap(); // this will flush
 
         // Wait for a keypress
         self.get_key(ctrl, ui, mode).await;

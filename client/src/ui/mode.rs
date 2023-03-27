@@ -160,7 +160,7 @@ pub trait IMode {
         if let KeyCode::Char(c) = key.code {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 ui.scroll_map_relative(dir);
-                ui.draw_map(game);
+                ui.draw_map(game).await.unwrap();
                 return KeyStatus::Handled(StateDisposition::Stay);
             }
 
@@ -194,7 +194,7 @@ pub trait IMode {
                     return KeyStatus::Handled(StateDisposition::Next);
                 }
                 conf::KEY_VIEWPORT_SIZE_ROTATE => {
-                    ui.rotate_viewport_size(game).await;
+                    ui.rotate_viewport_size(game).await.unwrap();
                     return KeyStatus::Handled(StateDisposition::Stay);
                 }
                 _ => {}

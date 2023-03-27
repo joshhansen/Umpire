@@ -1,3 +1,5 @@
+use std::io::Result as IoResult;
+
 use async_trait::async_trait;
 
 use common::{
@@ -25,7 +27,7 @@ impl IMode for TurnStartMode {
         let turn_start = game.begin_turn().unwrap();
         self.process_turn_start(game, ui, &turn_start).await;
 
-        ui.draw_current_player(game);
+        ui.draw_current_player(game).await.unwrap();
 
         // A newline for spacing
         ui.log_message("");
@@ -50,7 +52,7 @@ impl TurnStartMode {
         game: &PlayerTurnControl<'_>,
         ui: &mut U,
         orders_outcome: &OrdersOutcome,
-    ) {
+    ) -> IoResult<()> {
         let ordered_unit = &orders_outcome.ordered_unit;
         let orders = orders_outcome.orders;
 
@@ -68,11 +70,13 @@ impl TurnStartMode {
             None,
         ));
 
-        ui.draw(game).await;
+        ui.draw(game).await?;
 
         if let Some(move_) = orders_outcome.move_() {
-            ui.animate_move(game, &move_);
+            ui.animate_move(game, &move_).await?;
         }
+
+        Ok(())
     }
 
     async fn process_turn_start<U: UI>(
@@ -83,7 +87,7 @@ impl TurnStartMode {
     ) {
         for orders_result in &turn_start.orders_results {
             match orders_result {
-                Ok(orders_outcome) => self.animate_orders(game, ui, orders_outcome).await,
+                Ok(orders_outcome) => self.animate_orders(game, ui, orders_outcome).await.unwrap(),
                 Err(e) => ui.log_message(Message {
                     text: format!("{:?}", e),
                     mark: None,

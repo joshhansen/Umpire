@@ -1,3 +1,5 @@
+use std::io::Result as IoResult;
+
 use async_trait::async_trait;
 
 use crossterm::event::KeyCode;
@@ -34,7 +36,7 @@ impl ExamineMode {
             first,
         }
     }
-    fn clean_up<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
+    fn clean_up<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U) -> IoResult<()> {
         ui.draw_map_tile_and_flush(
             game,
             self.cursor_viewport_loc,
@@ -44,7 +46,7 @@ impl ExamineMode {
             None,
             None,
             None,
-        );
+        )
     }
 
     /// The tile visible to the current player under the examine cursor, if any
@@ -56,7 +58,7 @@ impl ExamineMode {
         ui.current_player_map_tile(game, self.cursor_viewport_loc)
     }
 
-    fn draw_tile<'a, U: UI>(&'a self, game: &'a PlayerTurnControl, ui: &mut U) {
+    fn draw_tile<'a, U: UI>(&'a self, game: &'a PlayerTurnControl, ui: &mut U) -> IoResult<()> {
         ui.draw_map_tile_and_flush(
             game,
             self.cursor_viewport_loc,
@@ -66,7 +68,7 @@ impl ExamineMode {
             None,
             None,
             None,
-        );
+        )
     }
 
     fn next_examine_mode(&self, new_loc: Location) -> Mode {
@@ -87,7 +89,7 @@ impl IMode for ExamineMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        self.draw_tile(game, ui);
+        self.draw_tile(game, ui).unwrap();
 
         let description = {
             if let Some(tile) = self.current_player_tile(game, ui) {
@@ -103,7 +105,7 @@ impl IMode for ExamineMode {
         } else {
             ui.replace_message(message);
         }
-        ui.draw_log(game); // this will flush
+        ui.draw_log(game).await.unwrap(); // this will flush
 
         match self.get_key(game, ui, mode).await {
             KeyStatus::Unhandled(key) => {
@@ -149,7 +151,7 @@ impl IMode for ExamineMode {
                         } else if let Some(ref city) = tile.city {
                             if city.belongs_to_player(game.current_player()) {
                                 *mode = Mode::SetProduction { city_loc: city.loc };
-                                self.clean_up(game, ui);
+                                self.clean_up(game, ui).unwrap();
                                 return ModeStatus::Continue;
                             }
                         }
@@ -168,7 +170,7 @@ impl IMode for ExamineMode {
                             Ok(ref proposed_orders_outcome) => {
                                 let move_ = proposed_orders_outcome.outcome.move_.as_ref();
                                 if let Some(proposed_move) = move_ {
-                                    ui.animate_move(game, proposed_move);
+                                    ui.animate_move(game, proposed_move).await.unwrap();
                                 }
                                 ui.log_message(format!("Ordered unit to go to {}", dest));
 
@@ -185,16 +187,16 @@ impl IMode for ExamineMode {
 
                         *mode = Mode::TurnResume;
 
-                        self.clean_up(game, ui);
+                        self.clean_up(game, ui).unwrap();
                         return ModeStatus::Continue;
                     }
                 } else if let KeyCode::Char(c) = key.code {
                     if let Ok(dir) = Direction::try_from(c) {
-                        if let Some(new_loc) = self.cursor_viewport_loc.shift_wrapped(
-                            dir,
-                            ui.viewport_rect().dims(),
-                            Wrap2d::NEITHER,
-                        ) {
+                        let dims = ui.viewport_rect().dims();
+                        if let Some(new_loc) =
+                            self.cursor_viewport_loc
+                                .shift_wrapped(dir, dims, Wrap2d::NEITHER)
+                        {
                             let viewport_rect = ui.viewport_rect();
                             if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height
                             {
@@ -207,13 +209,13 @@ impl IMode for ExamineMode {
                             // ui.map_scroller.scrollable.shift_viewport(dir.into());
                             ui.shift_map_viewport(dir);
                             // ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
-                            ui.draw_map(game);
+                            ui.draw_map(game).await.unwrap();
                             // Don't change `mode` since we'll basically pick up where we left off
                         }
                     }
                 }
 
-                self.clean_up(game, ui);
+                self.clean_up(game, ui).unwrap();
                 ModeStatus::Continue
             }
             KeyStatus::Handled(state_disposition) => match state_disposition {

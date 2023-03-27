@@ -78,7 +78,7 @@ impl IMode for SetProductionMode {
         ui.play_sound(Sounds::Silence);
 
         self.write_buf(game, ui);
-        ui.draw_no_flush(game).await;
+        ui.draw_no_flush(game).await.unwrap();
 
         let city = {
             let city = game.player_city_by_loc(self.loc).unwrap();
@@ -86,7 +86,7 @@ impl IMode for SetProductionMode {
                 "Requesting production target for {}",
                 city.short_desc()
             ));
-            ui.draw_no_flush(game).await;
+            ui.draw_no_flush(game).await.unwrap();
 
             city
         };
@@ -101,7 +101,8 @@ impl IMode for SetProductionMode {
             None,
             None,
             None,
-        );
+        )
+        .unwrap();
 
         loop {
             match self.get_key(game, ui, mode).await {
@@ -122,7 +123,7 @@ impl IMode for SetProductionMode {
                                 fg_color: None,
                                 source: Some(MessageSource::Mode),
                             });
-                            ui.draw_log(game);
+                            ui.draw_log(game).await.unwrap();
 
                             Self::clear_buf(ui);
 
