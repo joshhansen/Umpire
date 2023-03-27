@@ -17,7 +17,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use clap::Arg;
+use clap::{builder::BoolishValueParser, Arg, ArgAction};
 
 use tarpc::{client, context, tokio_serde::formats::Json};
 
@@ -76,8 +76,8 @@ async fn main() {
                 .short('a')
                 .long("altscreen")
                 .help("Use alternate screen")
-                .default_value(conf::USE_ALTERNATE_SCREEN)
-                .value_parser(["on", "off"]),
+                .default_value("on")
+                .value_parser(BoolishValueParser::new()),
         )
         .arg(
             Arg::new("colors")
@@ -102,7 +102,8 @@ async fn main() {
             Arg::new("nosplash")
                 .short('n')
                 .long("nosplash")
-                .help("Don't show the splash screen"),
+                .help("Don't show the splash screen")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("quiet")
@@ -143,7 +144,7 @@ async fn main() {
         let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap(); //FIXME take from server
 
         let num_players: PlayerNum = player_types.len(); //FIXME take from server
-        let use_alt_screen = matches.get_one::<String>("use_alt_screen").unwrap() == "on";
+        let use_alt_screen = matches.get_one::<bool>("use_alt_screen").cloned().unwrap();
         let map_width = matches.get_one::<u16>("map_width").unwrap().clone(); //FIXME take from server
         let map_height = matches.get_one::<u16>("map_height").unwrap().clone(); //FIXME take from server
         let color_depth: u16 = matches

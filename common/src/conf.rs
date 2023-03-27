@@ -83,8 +83,6 @@ pub const NUM_PLAYERS: &str = "4";
 
 pub const FOG_OF_WAR: &str = "on";
 
-pub const USE_ALTERNATE_SCREEN: &str = "on";
-
 // pub const HUMAN_PLAYER: PlayerNum = 0;
 
 // Key mappings
