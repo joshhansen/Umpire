@@ -104,7 +104,7 @@ impl IMode for SetProductionMode {
         );
 
         loop {
-            match self.get_key(game, ui, mode) {
+            match self.get_key(game, ui, mode).await {
                 KeyStatus::Unhandled(key) => {
                     if let KeyCode::Char(c) = key.code {
                         if let Ok(unit_type) = UnitType::try_from_key(c) {

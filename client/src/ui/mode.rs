@@ -150,7 +150,12 @@ pub trait IMode {
         prev_mode: &Option<Mode>,
     ) -> ModeStatus;
 
-    fn get_key<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U, mode: &mut Mode) -> KeyStatus {
+    async fn get_key<U: UI + Send>(
+        &self,
+        game: &PlayerTurnControl,
+        ui: &mut U,
+        mode: &mut Mode,
+    ) -> KeyStatus {
         let key = ui.get_key();
         if let KeyCode::Char(c) = key.code {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
@@ -189,7 +194,7 @@ pub trait IMode {
                     return KeyStatus::Handled(StateDisposition::Next);
                 }
                 conf::KEY_VIEWPORT_SIZE_ROTATE => {
-                    ui.rotate_viewport_size(game);
+                    ui.rotate_viewport_size(game).await;
                     return KeyStatus::Handled(StateDisposition::Stay);
                 }
                 _ => {}

@@ -36,7 +36,7 @@ impl IMode for VictoryMode {
         ui.draw_log(ctrl); // this will flush
 
         // Wait for a keypress
-        self.get_key(ctrl, ui, mode);
+        self.get_key(ctrl, ui, mode).await;
 
         ModeStatus::Quit
     }

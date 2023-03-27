@@ -105,7 +105,7 @@ impl IMode for ExamineMode {
         }
         ui.draw_log(game); // this will flush
 
-        match self.get_key(game, ui, mode) {
+        match self.get_key(game, ui, mode).await {
             KeyStatus::Unhandled(key) => {
                 if key.code == KeyCode::Esc {
                     // Don't leave the examine-mode log message hanging around. They accumulate and get really ugly.

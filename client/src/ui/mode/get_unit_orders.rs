@@ -115,7 +115,7 @@ impl IMode for GetUnitOrdersMode {
         };
 
         loop {
-            match self.get_key(game, ui, mode) {
+            match self.get_key(game, ui, mode).await {
                 KeyStatus::Unhandled(key) => {
                     if let KeyCode::Char(c) = key.code {
                         if let Ok(dir) = Direction::try_from(c) {

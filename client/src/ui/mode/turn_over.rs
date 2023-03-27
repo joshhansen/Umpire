@@ -70,7 +70,7 @@ impl IMode for TurnOverMode {
             });
 
             loop {
-                match self.get_key(game, ui, mode) {
+                match self.get_key(game, ui, mode).await {
                     KeyStatus::Unhandled(key) => {
                         if let KeyCode::Char('\n') = key.code {
                             // If the user has altered productions using examine mode then the turn might not be over anymore
