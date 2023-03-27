@@ -130,11 +130,11 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.victor()
     }
 
-    pub fn current_player_unit_legal_directions<'b>(
+    pub fn player_unit_legal_directions<'b>(
         &'b self,
         unit_id: UnitID,
-    ) -> Result<impl Iterator<Item = Direction> + 'b, GameError> {
-        self.game.current_player_unit_legal_directions(unit_id)
+    ) -> UmpireResult<impl Iterator<Item = Direction> + 'b> {
+        self.game.player_unit_legal_directions(self.secret, unit_id)
     }
 
     /// The tile at the given location, as present in the player's observations (or not)
@@ -171,9 +171,10 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_unit_loc(self.secret, id).unwrap()
     }
 
-    /// If the current player controls the top-level unit at location `loc`, return it
-    pub fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
-        self.game.current_player_toplevel_unit_by_loc(loc)
+    pub fn player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
+        self.game
+            .player_toplevel_unit_by_loc(self.secret, loc)
+            .unwrap()
     }
 
     pub fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a {

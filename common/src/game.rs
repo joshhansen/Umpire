@@ -916,6 +916,7 @@ impl Game {
             .map(|tile| tile.and_then(|tile| tile.unit.as_ref()))
     }
 
+    #[cfg(test)]
     fn current_player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
         self.player_tile_by_idx(self.current_player, loc)
             .and_then(|tile| tile.unit.as_ref())
@@ -979,6 +980,7 @@ impl Game {
         })
     }
 
+    #[cfg(test)]
     fn current_player_units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
         let player_secret = self.player_secrets[self.current_player];
         self.player_units_with_pending_orders(player_secret)
@@ -1679,15 +1681,6 @@ impl Game {
         loc: Location,
     ) -> UmpireResult<impl Iterator<Item = UnitType> + 'a> {
         self._valid_productions(player_secret, loc, true)
-    }
-
-    fn current_player_valid_productions<'a>(
-        &'a self,
-        loc: Location,
-    ) -> impl Iterator<Item = UnitType> + 'a {
-        let player_secret = self.player_secrets[self.current_player];
-
-        self.valid_productions(player_secret, loc).unwrap()
     }
 
     fn current_player_valid_productions_conservative<'a>(

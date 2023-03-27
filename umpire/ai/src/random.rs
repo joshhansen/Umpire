@@ -68,7 +68,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             //     }
             // }.drain().collect();
 
-            let possible: Vec<Direction> = match ctrl.current_player_unit_legal_directions(unit_id) {
+            let possible: Vec<Direction> = match ctrl.player_unit_legal_directions(unit_id) {
                 Ok(it) => it,
                 Err(e) => {
                     let tile = ctrl.tile(unit.loc);
