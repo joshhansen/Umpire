@@ -2796,10 +2796,6 @@ name = "umpire"
 version = "0.5.0-pre"
 dependencies = [
  "criterion",
- "half 1.8.2",
- "lfa",
- "ndarray 0.12.1",
- "spaces",
 ]
 
 [[package]]
