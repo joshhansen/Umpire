@@ -248,7 +248,7 @@ impl AI {
             None
         };
 
-        while !game.turn_is_done() {
+        while !game.current_turn_is_done() {
             // features: Vec<f64>,// the view on the game state
             // pre_score: f64,// the player's score prior to the action
             // action_idx: usize,// the action taken

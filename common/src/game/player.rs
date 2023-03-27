@@ -114,8 +114,12 @@ impl<'a> PlayerTurnControl<'a> {
         ))
     }
 
-    pub fn turn_is_done(&self) -> bool {
-        self.game.turn_is_done()
+    pub fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool> {
+        self.game.turn_is_done(player, turn)
+    }
+
+    pub fn current_turn_is_done(&self) -> bool {
+        self.game.current_turn_is_done()
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -377,7 +381,9 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player_secret = player_secrets[game.current_player()];
+        let player = game.current_player();
+        let player_secret = player_secrets[player];
+        let turn = game.turn;
         let (mut ctrl, _turn_start) = game.player_turn_control(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())
@@ -394,7 +400,7 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
                     .map(|v| v.append(&mut instances));
             }
 
-            if ctrl.turn_is_done() {
+            if ctrl.turn_is_done(player, turn).unwrap() {
                 break;
             }
         }
@@ -408,7 +414,9 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player_secret = player_secrets[game.current_player()];
+        let player = game.current_player();
+        let player_secret = player_secrets[player];
+        let turn = game.turn;
         let (mut ctrl, _turn_start) = game.player_turn_control_clearing(player_secret).unwrap();
         let mut training_instances = if generate_data {
             Some(Vec::new())
@@ -425,7 +433,7 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
                     .map(|v| v.append(&mut instances));
             }
 
-            if ctrl.turn_is_done() {
+            if ctrl.turn_is_done(player, turn).unwrap() {
                 break;
             }
         }
@@ -456,6 +464,7 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
         };
 
         let player = ctrl.current_player();
+        let turn = ctrl.turn();
 
         loop {
             let (num_features, features, pre_score) = if generate_data {
@@ -489,7 +498,7 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
                 }
             }
 
-            if ctrl.turn_is_done() {
+            if ctrl.turn_is_done(player, turn).unwrap() {
                 break;
             }
         }

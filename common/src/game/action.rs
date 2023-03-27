@@ -30,7 +30,7 @@ impl AiPlayerAction {
     pub fn legal_actions(game: &Game) -> HashSet<Self> {
         let mut a = HashSet::new();
 
-        debug_assert!(!game.turn_is_done());
+        debug_assert!(!game.current_turn_is_done());
 
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
         if let Some(city_loc) = game.current_player_production_set_requests().next() {

@@ -79,8 +79,17 @@ impl UmpireRpc for UmpireServer {
         self.game.read().await.num_players()
     }
 
-    async fn turn_is_done(self, _: Context) -> bool {
-        self.game.read().await.turn_is_done()
+    async fn turn_is_done(
+        self,
+        _: Context,
+        player: PlayerNum,
+        turn: TurnNum,
+    ) -> UmpireResult<bool> {
+        self.game.read().await.turn_is_done(player, turn)
+    }
+
+    async fn current_turn_is_done(self, _: Context) -> bool {
+        self.game.read().await.current_turn_is_done()
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.

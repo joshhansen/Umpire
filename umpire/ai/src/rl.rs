@@ -242,7 +242,7 @@ impl UmpireDomain {
     }
 
     fn update_state(&mut self, action: AiPlayerAction) {
-        debug_assert!(!self.game.turn_is_done());
+        debug_assert!(!self.game.current_turn_is_done());
 
         let player_secret = self.player_secrets[self.game.current_player()];
 
@@ -297,7 +297,7 @@ impl UmpireDomain {
 
         // If the user's turn is done, end it and take a complete turn for the other player until there's something
         // for this user to do or the game is over
-        while self.game.victor().is_none() && self.game.turn_is_done() {
+        while self.game.victor().is_none() && self.game.current_turn_is_done() {
             // End this user's turn
             self.game.end_turn(player_secret).unwrap();
         }
@@ -423,7 +423,7 @@ impl Policy<GameWithSecrets> for UmpireRandom {
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &GameWithSecrets) -> usize {
         debug_assert!(
-            !state.game.turn_is_done(),
+            !state.game.current_turn_is_done(),
             "It makes no sense to sample actions for a game whose current turn is
                                               already done"
         );
@@ -453,7 +453,7 @@ impl<Q> UmpireGreedy<Q> {
 
     pub fn legal_argmax_qs(qs: &[f64], state: &GameWithSecrets) -> usize {
         debug_assert!(
-            !state.game.turn_is_done(),
+            !state.game.current_turn_is_done(),
             "It makes no sense to sample actions for a game whose current turn is
                                               already done"
         );

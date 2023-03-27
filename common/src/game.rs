@@ -433,12 +433,41 @@ impl Game {
         Ok(result)
     }
 
-    /// FIXME Access control?
-    pub fn turn_is_done(&self) -> bool {
-        self.current_player_production_set_requests()
-            .next()
-            .is_none()
-            && self.current_player_unit_orders_requests().next().is_none()
+    /// Indicates whether the given player has completed the specified turn, or not
+    ///
+    /// This is public information.
+    pub fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool> {
+        self.validate_player_num(player)?;
+
+        if self.turn > turn {
+            return Ok(true);
+        }
+
+        if self.turn < turn {
+            return Ok(false);
+        }
+
+        // self.turn == turn
+
+        if self.current_player > player {
+            return Ok(true);
+        }
+
+        if self.current_player < player {
+            return Ok(false);
+        }
+
+        // self.current_player == player
+        // In this case the turn is considered done if there are no production or orders requests remaining
+        self.player_production_set_requests_by_idx(player)
+            .map(|mut rqsts| {
+                rqsts.next().is_none()
+                    && self.current_player_unit_orders_requests().next().is_none()
+            })
+    }
+
+    pub fn current_turn_is_done(&self) -> bool {
+        self.turn_is_done(self.current_player, self.turn).unwrap()
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -480,7 +509,7 @@ impl Game {
     pub fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
         self.validate_is_player_turn(player_secret)?;
 
-        if self.turn_is_done() {
+        if self.current_turn_is_done() {
             Ok(self.force_end_turn(player_secret)?)
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
@@ -511,7 +540,7 @@ impl Game {
     ) -> UmpireResult<TurnStart> {
         self.validate_is_player_turn(player_secret)?;
 
-        if self.turn_is_done() {
+        if self.current_turn_is_done() {
             Ok(self.force_end_then_begin_turn(player_secret, next_player_secret)?)
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
@@ -527,7 +556,7 @@ impl Game {
     ) -> UmpireResult<TurnStart> {
         self.validate_is_player_turn(player_secret)?;
 
-        if self.turn_is_done() {
+        if self.current_turn_is_done() {
             self.force_end_then_begin_turn_clearing(player_secret, next_player_secret)
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
@@ -901,11 +930,19 @@ impl Game {
         &'a self,
         player_secret: PlayerSecret,
     ) -> UmpireResult<impl Iterator<Item = Location> + 'a> {
-        self.player_with_secret(player_secret).map(|player| {
-            self.map
-                .player_cities_lacking_production_target(player)
-                .map(|city| city.loc)
-        })
+        self.player_with_secret(player_secret)
+            .and_then(|player| self.player_production_set_requests_by_idx(player))
+    }
+
+    fn player_production_set_requests_by_idx<'a>(
+        &'a self,
+        player: PlayerNum,
+    ) -> UmpireResult<impl Iterator<Item = Location> + 'a> {
+        self.validate_player_num(player)?;
+        Ok(self
+            .map
+            .player_cities_lacking_production_target(player)
+            .map(|city| city.loc))
     }
 
     /// Which if the current player's units need orders?
