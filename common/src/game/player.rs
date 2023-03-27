@@ -114,7 +114,7 @@ impl<'a> PlayerTurnControl<'a> {
         ))
     }
 
-    pub fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool> {
+    pub async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool> {
         self.game.turn_is_done(player, turn)
     }
 
@@ -401,7 +401,7 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
                     .map(|v| v.append(&mut instances));
             }
 
-            if ctrl.turn_is_done(player, turn).unwrap() {
+            if ctrl.turn_is_done(player, turn).await.unwrap() {
                 break;
             }
         }
@@ -434,7 +434,7 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
                     .map(|v| v.append(&mut instances));
             }
 
-            if ctrl.turn_is_done(player, turn).unwrap() {
+            if ctrl.turn_is_done(player, turn).await.unwrap() {
                 break;
             }
         }
@@ -499,7 +499,7 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
                 }
             }
 
-            if ctrl.turn_is_done(player, turn).unwrap() {
+            if ctrl.turn_is_done(player, turn).await.unwrap() {
                 break;
             }
         }
