@@ -1,5 +1,7 @@
 use std::io::stdout;
 
+use async_trait::async_trait;
+
 use crossterm::{cursor::MoveTo, execute};
 
 use rand::{seq::SliceRandom, Rng};
@@ -31,8 +33,9 @@ impl RandomAI {
     }
 }
 
+#[async_trait]
 impl ActionwiseLimitedTurnTaker for RandomAI {
-    fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction> {
+    async fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction> {
         let mut rng = rand::thread_rng();
 
         let mut stdout = stdout();

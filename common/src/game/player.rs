@@ -434,15 +434,16 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
     }
 }
 
+#[async_trait]
 pub trait ActionwiseLimitedTurnTaker {
     /// The next action that should be taken
     ///
     /// Return None if there are no actions that should be taken
-    fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction>;
+    async fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction>;
 }
 
 #[async_trait]
-impl<T: ActionwiseLimitedTurnTaker + Send> LimitedTurnTaker for T {
+impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
     async fn take_turn(
         &mut self,
         ctrl: &mut PlayerTurnControl,
@@ -468,7 +469,7 @@ impl<T: ActionwiseLimitedTurnTaker + Send> LimitedTurnTaker for T {
                 (None, None, None)
             };
 
-            if let Some(action) = self.next_action(ctrl) {
+            if let Some(action) = self.next_action(ctrl).await {
                 // If an action was specified...
 
                 ctrl.take_simple_action(action).unwrap();
