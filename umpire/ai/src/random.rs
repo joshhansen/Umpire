@@ -299,7 +299,7 @@ mod test {
             let (mut ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
 
             for _ in 0..1000 {
-                ai.take_turn(&mut ctrl, false);
+                ai.take_turn(&mut ctrl, false).await;
             }
         }
 
