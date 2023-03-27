@@ -118,7 +118,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.turn_is_done(player, turn)
     }
 
-    pub fn current_turn_is_done(&self) -> bool {
+    pub async fn current_turn_is_done(&self) -> bool {
         self.game.current_turn_is_done()
     }
 

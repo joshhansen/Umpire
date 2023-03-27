@@ -27,7 +27,7 @@ impl IMode for TurnResumeMode {
             return ModeStatus::Continue;
         }
 
-        if game.current_turn_is_done() {
+        if game.current_turn_is_done().await {
             *mode = Mode::TurnOver;
         }
 
