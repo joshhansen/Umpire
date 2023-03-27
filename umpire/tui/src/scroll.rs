@@ -1,5 +1,7 @@
 use std::io::{Result as IoResult, Stdout};
 
+use async_trait::async_trait;
+
 use crossterm::{
     queue,
     style::{Attribute, Print, SetAttribute, SetBackgroundColor, SetForegroundColor},
@@ -18,14 +20,14 @@ pub trait ScrollableComponent: Component {
     fn scroll_relative<V: Into<Vec2d<i32>>>(&mut self, offset: V);
 }
 
-pub struct Scroller<S: ScrollableComponent> {
+pub struct Scroller<S: ScrollableComponent + Send> {
     rect: Rect,
     pub scrollable: S,
     old_h_scroll_x: Option<u16>,
     old_v_scroll_y: Option<u16>,
 }
 
-impl<S: ScrollableComponent> Scroller<S> {
+impl<S: ScrollableComponent + Send> Scroller<S> {
     pub fn new(rect: Rect, scrollable: S) -> Self {
         Scroller {
             rect,
@@ -127,19 +129,20 @@ impl<S: ScrollableComponent> Scroller<S> {
     // }
 }
 
-impl<S: ScrollableComponent> Draw for Scroller<S> {
-    fn draw_no_flush(
+#[async_trait]
+impl<S: ScrollableComponent + Send> Draw for Scroller<S> {
+    async fn draw_no_flush(
         &mut self,
         game: &PlayerTurnControl,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
         self.draw_scroll_bars(game, stdout, palette)?;
-        self.scrollable.draw_no_flush(game, stdout, palette)
+        self.scrollable.draw_no_flush(game, stdout, palette).await
     }
 }
 
-impl<S: ScrollableComponent> Component for Scroller<S> {
+impl<S: ScrollableComponent + Send> Component for Scroller<S> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
         self.scrollable.set_rect(rect);

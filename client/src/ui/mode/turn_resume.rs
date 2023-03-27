@@ -12,7 +12,7 @@ pub(in crate::ui) struct TurnResumeMode {}
 impl IMode for TurnResumeMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         _ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

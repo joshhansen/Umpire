@@ -1,5 +1,7 @@
 use std::io::{Result as IoResult, Stdout, Write};
 
+use async_trait::async_trait;
+
 use crossterm::{
     cursor::Hide,
     style::{Attribute, Print, SetAttribute, SetBackgroundColor, SetForegroundColor},
@@ -502,8 +504,9 @@ impl Component for Map {
     }
 }
 
+#[async_trait]
 impl Draw for Map {
-    fn draw_no_flush(
+    async fn draw_no_flush(
         &mut self,
         game: &PlayerTurnControl,
         stdout: &mut Stdout,

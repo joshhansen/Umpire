@@ -2,6 +2,8 @@
 
 use std::io::{Result as IoResult, Stdout, Write};
 
+use async_trait::async_trait;
+
 use color::Palette;
 use common::{game::PlayerTurnControl, util::Rect};
 use crossterm::{cursor::MoveTo, queue, style::Print};
@@ -13,17 +15,18 @@ pub mod scroll;
 pub mod sym;
 pub mod tile;
 
+#[async_trait]
 pub trait Draw {
-    fn draw(
+    async fn draw(
         &mut self,
         game: &PlayerTurnControl,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
-        self.draw_no_flush(game, stdout, palette)?;
+        self.draw_no_flush(game, stdout, palette).await?;
         stdout.flush()
     }
-    fn draw_no_flush(
+    async fn draw_no_flush(
         &mut self,
         game: &PlayerTurnControl,
         stdout: &mut Stdout,

@@ -50,7 +50,7 @@ impl TurnOverMode {
 impl IMode for TurnOverMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
@@ -135,8 +135,8 @@ mod test {
         //TODO
     }
 
-    #[test]
-    pub fn test_order_unit_skip() {
+    #[tokio::test]
+    pub async fn test_order_unit_skip() {
         let mut map = MapData::new(Dims::new(10, 10), |_loc| Terrain::Land);
         let unit_id = map
             .new_unit(
@@ -170,7 +170,7 @@ mod test {
 
             ctrl.order_unit_skip(other_unit_id).unwrap();
 
-            mode.run(&mut ctrl, &mut DefaultUI, &mut prev_mode);
+            mode.run(&mut ctrl, &mut DefaultUI, &mut prev_mode).await;
         }
     }
 }

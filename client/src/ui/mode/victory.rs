@@ -18,7 +18,7 @@ pub(in crate::ui) struct VictoryMode {
 impl IMode for VictoryMode {
     async fn run<U: UI + Send>(
         &self,
-        ctrl: &mut PlayerTurnControl,
+        ctrl: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

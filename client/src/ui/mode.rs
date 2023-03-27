@@ -144,7 +144,7 @@ pub trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         mode: &mut Mode,
         prev_mode: &Option<Mode>,

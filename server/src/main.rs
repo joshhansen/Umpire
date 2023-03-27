@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     net::{IpAddr, Ipv6Addr},
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock as RwLockStd},
 };
 
 use common::{
@@ -30,6 +30,7 @@ use tarpc::{
     server::{self, incoming::Incoming, Channel},
     tokio_serde::formats::Json,
 };
+use tokio::sync::RwLock as RwLockTokio;
 use umpire_ai::AI;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -51,7 +52,7 @@ enum ServerEvent {
 // Implementation of the server API
 #[derive(Clone)]
 struct UmpireServer {
-    game: Arc<RwLock<Game>>,
+    game: Arc<RwLockTokio<Game>>,
 
     /// The player secrets for players controlled by this connection will be given, the rest omitted
     known_secrets: Vec<Option<PlayerSecret>>,
@@ -62,7 +63,7 @@ impl UmpireRpc for UmpireServer {
     /// NOTE This is really aggressive!
     async fn wait_my_turn(self, _: Context) -> PlayerNum {
         loop {
-            let g = self.game.read().unwrap();
+            let g = self.game.read().await;
             let player = g.current_player();
             if self.known_secrets[player].is_some() {
                 return player;
@@ -75,11 +76,11 @@ impl UmpireRpc for UmpireServer {
     }
 
     async fn num_players(self, _: Context) -> PlayerNum {
-        self.game.read().unwrap().num_players()
+        self.game.read().await.num_players()
     }
 
     async fn turn_is_done(self, _: Context) -> bool {
-        self.game.read().unwrap().turn_is_done()
+        self.game.read().await.turn_is_done()
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -87,7 +88,7 @@ impl UmpireRpc for UmpireServer {
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
     async fn victor(self, _: Context) -> Option<PlayerNum> {
-        self.game.read().unwrap().victor()
+        self.game.read().await.victor()
     }
 
     async fn player_unit_legal_one_step_destinations(
@@ -98,7 +99,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<HashSet<Location>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_unit_legal_one_step_destinations(player_secret, unit_id)
     }
 
@@ -110,7 +111,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<Direction>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_unit_legal_directions(player_secret, unit_id)
             .map(|d| d.collect())
     }
@@ -123,7 +124,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<Tile>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_tile(player_secret, loc)
             .map(|tile| tile.cloned())
     }
@@ -136,7 +137,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Obs> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_obs(player_secret, loc)
             .map(|obs| obs.clone())
     }
@@ -148,7 +149,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<ObsTracker> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_observations(player_secret)
             .map(|observations| observations.clone())
     }
@@ -161,7 +162,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<City>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_cities(player_secret)
             .map(|cities| cities.cloned().collect())
     }
@@ -174,7 +175,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<City>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_cities_with_production_target(player_secret)
             .map(|cities_iter| cities_iter.cloned().collect())
     }
@@ -186,7 +187,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<usize> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_cities_producing_or_not_ignored(player_secret)
     }
 
@@ -197,7 +198,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<Unit>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_units(player_secret)
             .map(|units| units.cloned().collect())
     }
@@ -210,7 +211,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<City>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_city_by_loc(player_secret, loc)
             .map(|city| city.cloned())
     }
@@ -223,7 +224,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<City>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_city_by_id(player_secret, city_id)
             .map(|city| city.cloned())
     }
@@ -236,7 +237,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<Unit>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_unit_by_id(player_secret, id)
             .map(|maybe_unit| maybe_unit.cloned())
     }
@@ -247,7 +248,7 @@ impl UmpireRpc for UmpireServer {
         player_secret: PlayerSecret,
         id: UnitID,
     ) -> UmpireResult<Option<Location>> {
-        self.game.read().unwrap().player_unit_loc(player_secret, id)
+        self.game.read().await.player_unit_loc(player_secret, id)
     }
 
     async fn player_toplevel_unit_by_loc(
@@ -258,7 +259,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<Unit>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_toplevel_unit_by_loc(player_secret, loc)
             .map(|unit| unit.cloned())
     }
@@ -270,7 +271,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<Location>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_production_set_requests(player_secret)
             .map(|rqsts| rqsts.collect())
     }
@@ -282,7 +283,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<UnitID>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_unit_orders_requests(player_secret)
             .map(|rqsts| rqsts.collect())
     }
@@ -294,7 +295,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<Unit>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_units_with_orders_requests(player_secret)
             .map(|units| units.cloned().collect())
     }
@@ -306,7 +307,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<UnitID>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .player_units_with_pending_orders(player_secret)
             .map(|units| units.collect())
     }
@@ -322,7 +323,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Move> {
         self.game
             .write()
-            .unwrap()
+            .await
             .move_toplevel_unit_by_id(player_secret, unit_id, dest)
     }
 
@@ -335,7 +336,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Move> {
         self.game
             .write()
-            .unwrap()
+            .await
             .move_toplevel_unit_by_id_avoiding_combat(player_secret, unit_id, dest)
     }
 
@@ -348,7 +349,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Move> {
         self.game
             .write()
-            .unwrap()
+            .await
             .move_toplevel_unit_by_loc(player_secret, src, dest)
     }
 
@@ -361,7 +362,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Move> {
         self.game
             .write()
-            .unwrap()
+            .await
             .move_toplevel_unit_by_loc_avoiding_combat(player_secret, src, dest)
     }
 
@@ -374,7 +375,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Move> {
         self.game
             .write()
-            .unwrap()
+            .await
             .move_unit_by_id_in_direction(player_secret, id, direction)
     }
 
@@ -387,7 +388,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Move> {
         self.game
             .write()
-            .unwrap()
+            .await
             .move_unit_by_id(player_secret, unit_id, dest)
     }
 
@@ -409,7 +410,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Move> {
         self.game
             .write()
-            .unwrap()
+            .await
             .move_unit_by_id_avoiding_combat(player_secret, id, dest)
     }
 
@@ -430,7 +431,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Unit> {
         self.game
             .write()
-            .unwrap()
+            .await
             .disband_unit_by_id(player_secret, id)
     }
 
@@ -446,7 +447,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<UnitType>> {
         self.game
             .write()
-            .unwrap()
+            .await
             .set_production_by_loc(player_secret, loc, production)
     }
 
@@ -462,7 +463,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<UnitType>> {
         self.game
             .write()
-            .unwrap()
+            .await
             .set_production_by_id(player_secret, city_id, production)
     }
 
@@ -475,25 +476,25 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Option<UnitType>> {
         self.game
             .write()
-            .unwrap()
+            .await
             .clear_production(player_secret, loc, ignore_cleared_production)
     }
 
     async fn turn(self, _: Context) -> TurnNum {
-        self.game.read().unwrap().turn()
+        self.game.read().await.turn()
     }
 
     async fn current_player(self, _: Context) -> PlayerNum {
-        self.game.read().unwrap().current_player()
+        self.game.read().await.current_player()
     }
 
     /// The logical dimensions of the game map
     async fn dims(self, _: Context) -> Dims {
-        self.game.read().unwrap().dims()
+        self.game.read().await.dims()
     }
 
     async fn wrapping(self, _: Context) -> Wrap2d {
-        self.game.read().unwrap().wrapping()
+        self.game.read().await.wrapping()
     }
 
     /// Units that could be produced by a city located at the given location
@@ -505,7 +506,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<UnitType>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .valid_productions(player_secret, loc)
             .map(|prods| prods.collect())
     }
@@ -520,7 +521,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<Vec<UnitType>> {
         self.game
             .read()
-            .unwrap()
+            .await
             .valid_productions_conservative(player_secret, loc)
             .map(|prods| prods.collect())
     }
@@ -534,7 +535,7 @@ impl UmpireRpc for UmpireServer {
     ) -> OrdersResult {
         self.game
             .write()
-            .unwrap()
+            .await
             .order_unit_sentry(player_secret, unit_id)
     }
 
@@ -546,7 +547,7 @@ impl UmpireRpc for UmpireServer {
     ) -> OrdersResult {
         self.game
             .write()
-            .unwrap()
+            .await
             .order_unit_skip(player_secret, unit_id)
     }
 
@@ -559,7 +560,7 @@ impl UmpireRpc for UmpireServer {
     ) -> OrdersResult {
         self.game
             .write()
-            .unwrap()
+            .await
             .order_unit_go_to(player_secret, unit_id, dest)
     }
 
@@ -581,7 +582,7 @@ impl UmpireRpc for UmpireServer {
     ) -> OrdersResult {
         self.game
             .write()
-            .unwrap()
+            .await
             .order_unit_explore(player_secret, unit_id)
     }
 
@@ -603,7 +604,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<()> {
         self.game
             .write()
-            .unwrap()
+            .await
             .activate_unit_by_loc(player_secret, loc)
     }
 
@@ -635,12 +636,12 @@ impl UmpireRpc for UmpireServer {
     /// * 121: is_neutral (11x11)
     ///
     async fn features(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
-        let g = self.game.read().unwrap();
+        let g = self.game.read().await;
         player_features(&g, player_secret)
     }
 
     async fn player_score(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<f64> {
-        self.game.read().unwrap().player_score(player_secret)
+        self.game.read().await.player_score(player_secret)
     }
 
     async fn take_simple_action(
@@ -651,7 +652,7 @@ impl UmpireRpc for UmpireServer {
     ) -> UmpireResult<PlayerActionOutcome> {
         self.game
             .write()
-            .unwrap()
+            .await
             .take_simple_action(player_secret, action)
     }
 
@@ -661,10 +662,7 @@ impl UmpireRpc for UmpireServer {
         player_secret: PlayerSecret,
         action: PlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {
-        self.game
-            .write()
-            .unwrap()
-            .take_action(player_secret, action)
+        self.game.write().await.take_action(player_secret, action)
     }
 }
 
@@ -707,11 +705,22 @@ async fn main() -> anyhow::Result<()> {
         wrapping,
     );
 
-    let game: Arc<RwLock<Game>> = Arc::new(RwLock::new(game));
-    let secrets = Arc::new(RwLock::new(secrets));
-    let player_types = Arc::new(RwLock::new(player_types));
+    // Vector of known player secrets for each player's connection
+    let known_secrets: Vec<Vec<Option<PlayerSecret>>> = (0..num_players)
+        .map(|player| {
+            secrets
+                .iter()
+                .enumerate()
+                .map(|(i, secret)| if i == player { Some(*secret) } else { None })
+                .collect()
+        })
+        .collect();
 
-    let connection_count = Arc::new(RwLock::new(0usize));
+    let game: Arc<RwLockTokio<Game>> = Arc::new(RwLockTokio::new(game));
+    // let secrets = Arc::new(RwLockTokio::new(secrets));
+    // let player_types = Arc::new(RwLock::new(player_types));
+
+    let connection_count = Arc::new(RwLockStd::new(0usize));
 
     let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
 
@@ -724,12 +733,8 @@ async fn main() -> anyhow::Result<()> {
 
     let ai_thread = {
         let game = Arc::clone(&game);
-        let secrets = Arc::clone(&secrets);
-        let player_types = Arc::clone(&player_types);
         tokio::spawn(async move {
             let unique_ai_ptypes: HashSet<PlayerType> = player_types
-                .read()
-                .unwrap()
                 .iter()
                 .filter(|ptype| **ptype != PlayerType::Human)
                 .cloned()
@@ -748,16 +753,14 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-                let mut g = game.write().unwrap();
+                let mut g = game.write().await;
 
                 let player = g.current_player();
 
-                let ptype = &player_types.read().unwrap()[player];
-
-                let secrets = secrets.read().unwrap();
+                let ptype = &player_types[player];
 
                 if let Some(ai) = ais.get_mut(&ptype) {
-                    ai.take_turn_clearing(&mut g, &secrets, false);
+                    ai.take_turn_clearing(&mut g, &secrets, false).await;
                 }
             }
         })
@@ -778,25 +781,17 @@ async fn main() -> anyhow::Result<()> {
 
             *cc.write().unwrap() += 1;
 
-            let known_secrets: Vec<Option<PlayerSecret>> = secrets
-                .read()
-                .unwrap()
-                .iter()
-                .enumerate()
-                .map(|(i, secret)| if i == player { Some(*secret) } else { None })
-                .collect();
-
             println!("Serving player {}", player);
 
             let server = UmpireServer {
                 game: game.clone(),
-                known_secrets,
+                known_secrets: known_secrets[player].clone(),
             };
 
-            println!(
-                "Server sees num players: {}",
-                server.game.read().unwrap().num_players()
-            );
+            // println!(
+            //     "Server sees num players: {}",
+            //     server.game.read().unwrap().num_players()
+            // );
 
             channel.execute(server.serve())
         })

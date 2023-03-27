@@ -278,8 +278,8 @@ mod test {
 
     use super::RandomAI;
 
-    #[test]
-    pub fn test_random_ai() {
+    #[tokio::test]
+    pub async fn test_random_ai() {
         {
             let mut ai = RandomAI::new(0, false);
 
@@ -312,7 +312,7 @@ mod test {
                 for player in 0..=1 {
                     let (mut ctrl, _turn_start) =
                         game.player_turn_control(secrets[player]).unwrap();
-                    ai.take_turn(&mut ctrl, false);
+                    ai.take_turn(&mut ctrl, false).await;
 
                     let orders_requests: Vec<UnitID> = ctrl.player_unit_orders_requests().collect();
 
@@ -334,8 +334,8 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_random_ai_carried_unit_destruction() {
+    #[tokio::test]
+    async fn test_random_ai_carried_unit_destruction() {
         // Load an infantry unit into a transport, then try to get the transport destroyed by the random AI. This was
         // causing issues because RandomAI cached the list of unit orders requests, but it could go stale when a
         // carried unit was destroyed
@@ -360,7 +360,7 @@ mod test {
             } else {
                 let (mut ctrl, _turn_start) = game.player_turn_control(secrets[1]).unwrap();
 
-                ai.take_turn(&mut ctrl, false);
+                ai.take_turn(&mut ctrl, false).await;
             }
         }
     }

@@ -59,6 +59,7 @@ pub trait MoveAnimator {
 }
 
 /// An abstraction on the terminal UI, basically for test mocking purposes
+#[async_trait]
 pub trait UI: LogTarget + MoveAnimator {
     fn confirm_turn_end(&self) -> bool;
 
@@ -83,9 +84,9 @@ pub trait UI: LogTarget + MoveAnimator {
         viewport_loc: Location,
     ) -> Option<&'a Tile>;
 
-    fn draw(&mut self, game: &PlayerTurnControl);
+    async fn draw(&mut self, game: &PlayerTurnControl);
 
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl);
+    async fn draw_no_flush(&mut self, game: &PlayerTurnControl);
 
     fn draw_current_player(&mut self, ctrl: &PlayerTurnControl);
 
@@ -148,7 +149,7 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn pop_log_message(&mut self) -> Option<Message>;
 
-    fn rotate_viewport_size(&mut self, game: &PlayerTurnControl);
+    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl);
 
     // fn sidebar_buf_mut(&mut self) -> &mut RectBuffer;
 
@@ -190,6 +191,7 @@ impl MoveAnimator for DefaultUI {
     }
 }
 
+#[async_trait]
 impl UI for DefaultUI {
     fn confirm_turn_end(&self) -> bool {
         false
@@ -231,11 +233,11 @@ impl UI for DefaultUI {
         None
     }
 
-    fn draw(&mut self, _game: &PlayerTurnControl) {
+    async fn draw(&mut self, _game: &PlayerTurnControl) {
         // do nothing
     }
 
-    fn draw_no_flush(&mut self, _game: &PlayerTurnControl) {
+    async fn draw_no_flush(&mut self, _game: &PlayerTurnControl) {
         // do nothing
     }
 
@@ -320,7 +322,7 @@ impl UI for DefaultUI {
         None
     }
 
-    fn rotate_viewport_size(&mut self, _game: &PlayerTurnControl) {
+    async fn rotate_viewport_size(&mut self, _game: &PlayerTurnControl) {
         // do nothing
     }
 
@@ -806,6 +808,7 @@ impl MoveAnimator for TermUI {
     }
 }
 
+#[async_trait]
 impl UI for TermUI {
     fn viewport_rect(&self) -> Rect {
         self.viewport_size.rect(self.term_dims)
@@ -879,8 +882,8 @@ impl UI for TermUI {
         self.confirm_turn_end
     }
 
-    fn draw(&mut self, game: &PlayerTurnControl) {
-        self.draw_no_flush(game);
+    async fn draw(&mut self, game: &PlayerTurnControl) {
+        self.draw_no_flush(game).await;
         self.stdout.flush().unwrap();
     }
 
@@ -952,7 +955,7 @@ impl UI for TermUI {
         )
     }
 
-    fn draw_no_flush(&mut self, game: &PlayerTurnControl) {
+    async fn draw_no_flush(&mut self, game: &PlayerTurnControl) {
         if self.first_draw {
             // write!(self.stdout, "{}{}{}{}",
             //     // termion::clear::All,
@@ -975,15 +978,20 @@ impl UI for TermUI {
         }
 
         self.log
-            .draw_no_flush(game, &mut self.stdout, &self.palette);
+            .draw_no_flush(game, &mut self.stdout, &self.palette)
+            .await;
         self.current_player
-            .draw_no_flush(game, &mut self.stdout, &self.palette);
+            .draw_no_flush(game, &mut self.stdout, &self.palette)
+            .await;
         self.map_scroller
-            .draw_no_flush(game, &mut self.stdout, &self.palette);
+            .draw_no_flush(game, &mut self.stdout, &self.palette)
+            .await;
         self.turn
-            .draw_no_flush(game, &mut self.stdout, &self.palette);
+            .draw_no_flush(game, &mut self.stdout, &self.palette)
+            .await;
         self.sidebar_buf
-            .draw_no_flush(game, &mut self.stdout, &self.palette);
+            .draw_no_flush(game, &mut self.stdout, &self.palette)
+            .await;
 
         // write!(self.stdout, "{}{}", StrongReset::new(&self.palette), termion::cursor::Hide).unwrap();
         queue!(
@@ -1019,7 +1027,7 @@ impl UI for TermUI {
         self.log.pop_message()
     }
 
-    fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) {
+    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) {
         let new_size = match self.viewport_size {
             ViewportSize::REGULAR => ViewportSize::THEATER,
             ViewportSize::THEATER => ViewportSize::FULLSCREEN,
@@ -1027,7 +1035,7 @@ impl UI for TermUI {
         };
 
         self.set_viewport_size(game, new_size);
-        self.draw(game);
+        self.draw(game).await;
     }
 
     fn scroll_map_relative<V: Into<Vec2d<i32>>>(&mut self, direction: V) {

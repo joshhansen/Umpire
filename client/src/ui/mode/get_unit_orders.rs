@@ -73,7 +73,7 @@ impl GetUnitOrdersMode {
 impl IMode for GetUnitOrdersMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
@@ -96,7 +96,7 @@ impl IMode for GetUnitOrdersMode {
             }
 
             self.write_buf(game, ui);
-            ui.draw_no_flush(game);
+            ui.draw_no_flush(game).await;
 
             let viewport_loc = ui.map_to_viewport_coords(unit.loc).unwrap();
             ui.draw_map_tile_and_flush(

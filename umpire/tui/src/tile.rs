@@ -1,5 +1,7 @@
 use std::io::{Result as IoResult, Write};
 
+use async_trait::async_trait;
+
 use crossterm::{
     style::{Color, ResetColor, SetForegroundColor},
     QueueableCommand,
@@ -12,8 +14,9 @@ use common::game::{
 
 use crate::Draw;
 
+#[async_trait]
 impl Draw for Tile {
-    fn draw_no_flush(
+    async fn draw_no_flush(
         &mut self,
         _game: &common::game::PlayerTurnControl,
         stdout: &mut std::io::Stdout,

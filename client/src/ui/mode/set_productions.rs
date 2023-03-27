@@ -12,7 +12,7 @@ pub(in crate::ui) struct SetProductionsMode {}
 impl IMode for SetProductionsMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

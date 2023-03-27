@@ -17,7 +17,7 @@ pub(in crate::ui) struct TurnStartMode {}
 impl IMode for TurnStartMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
@@ -45,9 +45,9 @@ impl IMode for TurnStartMode {
 }
 
 impl TurnStartMode {
-    fn animate_orders<U: UI>(
+    async fn animate_orders<U: UI>(
         &self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurnControl<'_>,
         ui: &mut U,
         orders_outcome: &OrdersOutcome,
     ) {
@@ -68,22 +68,22 @@ impl TurnStartMode {
             None,
         ));
 
-        ui.draw(game);
+        ui.draw(game).await;
 
         if let Some(move_) = orders_outcome.move_() {
             ui.animate_move(game, &move_);
         }
     }
 
-    fn process_turn_start<U: UI>(
+    async fn process_turn_start<U: UI>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         turn_start: &TurnStart,
     ) {
         for orders_result in &turn_start.orders_results {
             match orders_result {
-                Ok(orders_outcome) => self.animate_orders(game, ui, orders_outcome),
+                Ok(orders_outcome) => self.animate_orders(game, ui, orders_outcome).await,
                 Err(e) => ui.log_message(Message {
                     text: format!("{:?}", e),
                     mark: None,

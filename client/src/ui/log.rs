@@ -3,6 +3,8 @@ use std::{
     io::{Result as IoResult, Stdout},
 };
 
+use async_trait::async_trait;
+
 use crossterm::{
     queue,
     style::{Attribute, Color, Print, SetAttribute, SetBackgroundColor, SetForegroundColor},
@@ -109,8 +111,9 @@ impl LogTarget for LogArea {
     }
 }
 
+#[async_trait]
 impl Draw for LogArea {
-    fn draw_no_flush(
+    async fn draw_no_flush(
         &mut self,
         _game: &PlayerTurnControl,
         stdout: &mut Stdout,

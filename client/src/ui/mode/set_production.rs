@@ -68,7 +68,7 @@ impl SetProductionMode {
 impl IMode for SetProductionMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl,
+        game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
@@ -78,7 +78,7 @@ impl IMode for SetProductionMode {
         ui.play_sound(Sounds::Silence);
 
         self.write_buf(game, ui);
-        ui.draw_no_flush(game);
+        ui.draw_no_flush(game).await;
 
         let city = {
             let city = game.player_city_by_loc(self.loc).unwrap();
@@ -86,7 +86,7 @@ impl IMode for SetProductionMode {
                 "Requesting production target for {}",
                 city.short_desc()
             ));
-            ui.draw_no_flush(game);
+            ui.draw_no_flush(game).await;
 
             city
         };

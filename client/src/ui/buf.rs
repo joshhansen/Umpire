@@ -3,6 +3,8 @@ use std::{
     io::{Result as IoResult, Stdout},
 };
 
+use async_trait::async_trait;
+
 use crossterm::{
     cursor::MoveTo,
     queue,
@@ -86,8 +88,9 @@ impl RectBuffer {
     }
 }
 
+#[async_trait]
 impl Draw for RectBuffer {
-    fn draw_no_flush(
+    async fn draw_no_flush(
         &mut self,
         _game: &PlayerTurnControl,
         stdout: &mut Stdout,

@@ -12,7 +12,7 @@ pub(in crate::ui) struct QuitMode;
 impl IMode for QuitMode {
     async fn run<U: UI + Send>(
         &self,
-        _game: &mut PlayerTurnControl,
+        _game: &mut PlayerTurnControl<'_>,
         _ui: &mut U,
         _mode: &mut Mode,
         _prev_mode: &Option<Mode>,

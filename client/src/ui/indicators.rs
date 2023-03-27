@@ -1,5 +1,7 @@
 use std::io::{Result as IoResult, Stdout};
 
+use async_trait::async_trait;
+
 use crossterm::{
     queue,
     style::{style, PrintStyledContent},
@@ -19,8 +21,9 @@ impl CurrentPlayer {
     }
 }
 
+#[async_trait]
 impl Draw for CurrentPlayer {
-    fn draw_no_flush(
+    async fn draw_no_flush(
         &mut self,
         game: &PlayerTurnControl,
         stdout: &mut Stdout,
@@ -66,8 +69,9 @@ impl Turn {
     }
 }
 
+#[async_trait]
 impl Draw for Turn {
-    fn draw_no_flush(
+    async fn draw_no_flush(
         &mut self,
         game: &PlayerTurnControl,
         stdout: &mut Stdout,
