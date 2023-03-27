@@ -51,7 +51,7 @@ impl Mode {
     ) -> ModeStatus {
         if let Mode::Victory { .. } = self {
             // nothing
-        } else if let Some(victor) = game.victor() {
+        } else if let Some(victor) = game.victor().await {
             *prev_mode = Some(*self);
             *self = Mode::Victory { victor };
             return ModeStatus::Continue;

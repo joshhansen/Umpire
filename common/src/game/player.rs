@@ -126,7 +126,7 @@ impl<'a> PlayerTurnControl<'a> {
     ///
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
-    pub fn victor(&self) -> Option<PlayerNum> {
+    pub async fn victor(&self) -> Option<PlayerNum> {
         self.game.victor()
     }
 
