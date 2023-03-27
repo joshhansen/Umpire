@@ -309,6 +309,7 @@ impl TurnTaker for AI {
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         let player = game.current_player();
+        let next_player = (player + 1) % game.num_players();
         match self {
             Self::Random(ai) => {
                 ai.take_turn_not_clearing(game, &player_secrets, generate_data)
@@ -317,7 +318,7 @@ impl TurnTaker for AI {
             Self::LFA(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 
-                game.end_then_begin_turn(player_secrets[player], player_secrets[player + 1 % 2])
+                game.end_then_begin_turn(player_secrets[player], player_secrets[next_player])
                     .unwrap();
 
                 result
@@ -325,7 +326,7 @@ impl TurnTaker for AI {
             Self::DNN(_fa) => {
                 let result = self._take_turn_unended(game, &player_secrets, generate_data);
 
-                game.end_then_begin_turn(player_secrets[player], player_secrets[player + 1 % 2])
+                game.end_then_begin_turn(player_secrets[player], player_secrets[next_player])
                     .unwrap();
 
                 result
