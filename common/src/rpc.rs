@@ -26,7 +26,9 @@ pub trait UmpireRpc {
     /// The number of players in the game
     async fn num_players() -> PlayerNum;
 
-    async fn turn_is_done() -> bool;
+    async fn turn_is_done(player: PlayerNum, turn: TurnNum) -> UmpireResult<bool>;
+
+    async fn current_turn_is_done() -> bool;
 
     /// The victor---if any---meaning the player who has defeated all other players.
     ///
