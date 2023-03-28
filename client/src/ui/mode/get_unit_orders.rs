@@ -144,6 +144,7 @@ impl IMode for GetUnitOrdersMode {
                                             };
                                         } else if game
                                             .player_unit_orders_requests()
+                                            .await
                                             .any(|unit_id| unit_id == self.unit_id)
                                         {
                                             *mode = Mode::GetUnitOrders {

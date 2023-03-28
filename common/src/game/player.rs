@@ -177,7 +177,7 @@ impl<'a> PlayerTurnControl<'a> {
             .unwrap()
     }
 
-    pub fn player_unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+    pub async fn player_unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {
         self.game.player_unit_orders_requests(self.secret).unwrap()
     }
 
