@@ -77,7 +77,7 @@ impl IMode for SetProductionMode {
 
         ui.play_sound(Sounds::Silence);
 
-        self.write_buf(game, ui);
+        self.write_buf(game, ui).await;
         ui.draw_no_flush(game).await.unwrap();
 
         let city = {
