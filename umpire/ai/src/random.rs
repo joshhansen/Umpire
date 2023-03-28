@@ -56,7 +56,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
         }
 
         if let Some(unit_id) = ctrl.player_unit_orders_requests().next() {
-            let unit = ctrl.player_unit_by_id(unit_id).unwrap();
+            let unit = ctrl.player_unit_by_id(unit_id).await.unwrap();
             // let unit_id = unit.id;
 
             // let possible: Vec<Location> = match ctrl.current_player_unit_legal_one_step_destinations(unit_id) {
@@ -322,7 +322,7 @@ mod test {
                     for rqst_unit_id in orders_requests.iter().cloned() {
                         // Assert that all orders requests correspond to units still present and that the IDs still
                         // match
-                        let unit = ctrl.player_unit_by_id(rqst_unit_id).expect(
+                        let unit = ctrl.player_unit_by_id(rqst_unit_id).await.expect(
                             format!("Unit not found in iteration {}, round {}", i, r).as_str(),
                         );
 

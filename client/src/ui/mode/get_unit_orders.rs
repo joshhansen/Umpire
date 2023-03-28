@@ -30,8 +30,8 @@ impl IVisibleMode for GetUnitOrdersMode {
     // }
 }
 impl GetUnitOrdersMode {
-    fn write_buf<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
-        let unit = game.player_unit_by_id(self.unit_id).unwrap();
+    async fn write_buf<U: UI>(&self, game: &PlayerTurnControl<'_>, ui: &mut U) {
+        let unit = game.player_unit_by_id(self.unit_id).await.unwrap();
 
         ui.set_sidebar_row(0, format!("Get Orders for {}", unit));
         ui.set_sidebar_row(
@@ -80,7 +80,7 @@ impl IMode for GetUnitOrdersMode {
     ) -> ModeStatus {
         let unit_loc = {
             let unit = {
-                let unit = game.player_unit_by_id(self.unit_id).unwrap();
+                let unit = game.player_unit_by_id(self.unit_id).await.unwrap();
                 ui.log_message(format!(
                     "Requesting orders for {} at {}",
                     unit.medium_desc(),
@@ -95,7 +95,7 @@ impl IMode for GetUnitOrdersMode {
                 ui.center_map(unit.loc);
             }
 
-            self.write_buf(game, ui);
+            self.write_buf(game, ui).await;
             ui.draw_no_flush(game).await.unwrap();
 
             let viewport_loc = ui.map_to_viewport_coords(unit.loc).unwrap();
