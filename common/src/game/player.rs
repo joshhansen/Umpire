@@ -274,23 +274,23 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    pub fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()> {
+    pub async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()> {
         self.game.activate_unit_by_loc(self.secret, loc)
     }
 
-    pub fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
+    pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
         self.game.begin_turn(self.secret)
     }
 
-    pub fn end_turn(&mut self) -> UmpireResult<()> {
+    pub async fn end_turn(&mut self) -> UmpireResult<()> {
         self.game.end_turn(self.secret)
     }
 
-    fn player_score(&self) -> UmpireResult<f64> {
+    async fn player_score(&self) -> UmpireResult<f64> {
         self.game.player_score(self.secret)
     }
 
-    fn take_simple_action(
+    async fn take_simple_action(
         &mut self,
         action: AiPlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {
@@ -298,11 +298,14 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// FIXME Maintain this vector in the client, incrementally
-    pub fn player_features(&self) -> Vec<fX> {
+    pub async fn player_features(&self) -> Vec<fX> {
         player_features(self.game, self.secret).unwrap()
     }
 
-    pub fn take_action(&mut self, action: PlayerAction) -> Result<PlayerActionOutcome, GameError> {
+    pub async fn take_action(
+        &mut self,
+        action: PlayerAction,
+    ) -> Result<PlayerActionOutcome, GameError> {
         self.game.take_action(self.secret, action)
     }
 }
@@ -465,11 +468,11 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
 
         loop {
             let (num_features, features, pre_score) = if generate_data {
-                let (num_features, features) = sparsify(ctrl.player_features());
+                let (num_features, features) = sparsify(ctrl.player_features().await);
                 (
                     Some(num_features),
                     Some(features),
-                    Some(ctrl.player_score().unwrap()),
+                    Some(ctrl.player_score().await.unwrap()),
                 )
             } else {
                 (None, None, None)
@@ -478,10 +481,10 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
             if let Some(action) = self.next_action(ctrl).await {
                 // If an action was specified...
 
-                ctrl.take_simple_action(action).unwrap();
+                ctrl.take_simple_action(action).await.unwrap();
 
                 if generate_data {
-                    let post_score = ctrl.player_score().unwrap();
+                    let post_score = ctrl.player_score().await.unwrap();
                     training_instances.as_mut().map(|v| {
                         v.push(TrainingInstance::undetermined(
                             player,

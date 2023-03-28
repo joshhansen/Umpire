@@ -24,7 +24,7 @@ impl IMode for TurnStartMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        let turn_start = game.begin_turn().unwrap();
+        let turn_start = game.begin_turn().await.unwrap();
         self.process_turn_start(game, ui, &turn_start).await;
 
         ui.draw_current_player(game).await.unwrap();

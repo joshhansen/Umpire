@@ -135,7 +135,7 @@ impl IMode for GetUnitOrdersMode {
                                         ui.animate_move(game, move_).await.unwrap();
 
                                         let move_ = match
-                                            game.take_action(proposed_move_result.action).unwrap() {
+                                            game.take_action(proposed_move_result.action).await.unwrap() {
                                                 PlayerActionOutcome::MoveUnit { move_, .. } => move_,
                                                 _ => panic!("Did not find PlayerActionOutcome::MoveUnit as expected"),
                                             };
@@ -193,7 +193,9 @@ impl IMode for GetUnitOrdersMode {
                                 // proposed_move.take(game);
                             }
 
-                            game.take_action(proposed_orders_result.action).unwrap();
+                            game.take_action(proposed_orders_result.action)
+                                .await
+                                .unwrap();
 
                             *mode = Mode::GetOrders;
                             return ModeStatus::Continue;

@@ -76,7 +76,7 @@ impl IMode for TurnOverMode {
                             // If the user has altered productions using examine mode then the turn might not be over anymore
                             // Recheck
 
-                            match game.end_turn() {
+                            match game.end_turn().await {
                                 Ok(_) => {
                                     // *mode = Mode::TurnStart;
                                     return ModeStatus::TurnOver;
@@ -98,7 +98,7 @@ impl IMode for TurnOverMode {
         } else {
             // We shouldn't be in the TurnOverMode state unless game.turn_is_done() is true
             // so this unwrap should always succeed
-            game.end_turn().unwrap();
+            game.end_turn().await.unwrap();
 
             // for orders_result in turn_start.orders_results.iter() {
             //     match orders_result {

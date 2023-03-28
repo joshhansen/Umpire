@@ -135,7 +135,7 @@ impl IMode for ExamineMode {
                             if unit.belongs_to_player(player) {
                                 // Since the unit we get from this tile may be a "memory" of an old observation, get the most recent one in order to activate it
 
-                                match game.activate_unit_by_loc(unit.loc) {
+                                match game.activate_unit_by_loc(unit.loc).await {
                                     Ok(()) => {
                                         ui.log_message(format!("Activated unit {}", unit));
                                         *mode = Mode::GetUnitOrders {
@@ -185,7 +185,9 @@ impl IMode for ExamineMode {
                                 }
                                 ui.log_message(format!("Ordered unit to go to {}", dest));
 
-                                game.take_action(proposed_orders_outcome.action).unwrap();
+                                game.take_action(proposed_orders_outcome.action)
+                                    .await
+                                    .unwrap();
                             }
                             Err(ref orders_err) => ui.log_message(Message {
                                 text: format!("{}", orders_err),
