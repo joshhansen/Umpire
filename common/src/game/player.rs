@@ -207,7 +207,7 @@ impl<'a> PlayerTurnControl<'a> {
             .set_production_by_loc(self.secret, loc, production)
     }
 
-    pub fn clear_production(
+    pub async fn clear_production(
         &mut self,
         loc: Location,
         ignore_cleared_production: bool,
