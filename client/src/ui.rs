@@ -101,7 +101,7 @@ pub trait UI: LogTarget + MoveAnimator {
     /// Renders a particular location in the map viewport
     ///
     /// Flushes stdout for convenience
-    fn draw_map_tile_and_flush(
+    async fn draw_map_tile_and_flush(
         &mut self,
         game: &PlayerTurnControl,
         viewport_loc: Location,
@@ -115,7 +115,7 @@ pub trait UI: LogTarget + MoveAnimator {
         unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        symbol_override: Option<&'static str>,
+        symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
@@ -123,7 +123,7 @@ pub trait UI: LogTarget + MoveAnimator {
     ) -> IoResult<()>;
 
     /// Renders a particular location in the map viewport
-    fn draw_map_tile_no_flush(
+    async fn draw_map_tile_no_flush(
         &mut self,
         game: &PlayerTurnControl,
         viewport_loc: Location,
@@ -137,7 +137,7 @@ pub trait UI: LogTarget + MoveAnimator {
         unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        symbol_override: Option<&'static str>,
+        symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
@@ -265,7 +265,7 @@ impl UI for DefaultUI {
     /// Renders a particular location in the map viewport
     ///
     /// Flushes stdout for convenience
-    fn draw_map_tile_and_flush(
+    async fn draw_map_tile_and_flush(
         &mut self,
         _game: &PlayerTurnControl,
         _viewport_loc: Location,
@@ -279,7 +279,7 @@ impl UI for DefaultUI {
         _unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        _symbol_override: Option<&'static str>,
+        _symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
@@ -290,7 +290,7 @@ impl UI for DefaultUI {
     }
 
     /// Renders a particular location in the map viewport
-    fn draw_map_tile_no_flush(
+    async fn draw_map_tile_no_flush(
         &mut self,
         _game: &PlayerTurnControl,
         _viewport_loc: Location,
@@ -304,7 +304,7 @@ impl UI for DefaultUI {
         _unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        _symbol_override: Option<&'static str>,
+        _symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
@@ -643,7 +643,7 @@ impl TermUI {
         self.draw(game).await
     }
 
-    fn draw_located_observations(
+    async fn draw_located_observations(
         &mut self,
         game: &PlayerTurnControl<'_>,
         located_obs: &[LocatedObs],
@@ -660,26 +660,29 @@ impl TermUI {
                 //     (Some(None),Some(None))
                 // };
 
-                self.map_scroller.scrollable.draw_tile_no_flush(
-                    game,
-                    &mut self.stdout,
-                    viewport_loc,
-                    false,
-                    false,
-                    None,
-                    None,
-                    None,
-                    Some(&located_obs.obs),
-                    &self.palette,
-                )?;
+                self.map_scroller
+                    .scrollable
+                    .draw_tile_no_flush(
+                        game,
+                        &mut self.stdout,
+                        viewport_loc,
+                        false,
+                        false,
+                        None,
+                        None,
+                        None,
+                        Some(&located_obs.obs),
+                        &self.palette,
+                    )
+                    .await?;
             }
         }
         Ok(())
     }
 
-    fn animate_combat<A: CombatCapable + Sym, D: CombatCapable + Sym>(
+    async fn animate_combat<A: CombatCapable + Sym, D: CombatCapable + Sym>(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurnControl<'_>,
         outcome: &CombatOutcome<A, D>,
         attacker_loc: Location,
         defender_loc: Location,
@@ -713,7 +716,8 @@ impl TermUI {
                     Some(sym),
                     None,
                     &self.palette,
-                )?;
+                )
+                .await?;
                 sleep_millis(100);
                 map.draw_tile_and_flush(
                     game,
@@ -726,7 +730,8 @@ impl TermUI {
                     Some(sym),
                     None,
                     &self.palette,
-                )?;
+                )
+                .await?;
             } else {
                 sleep_millis(100);
             }
@@ -779,12 +784,14 @@ impl MoveAnimator for TermUI {
 
             let mut was_combat = false;
             if let Some(ref combat) = move_.unit_combat {
-                self.animate_combat(game, combat, current_loc, target_loc)?;
+                self.animate_combat(game, combat, current_loc, target_loc)
+                    .await?;
                 was_combat = true;
             }
 
             if let Some(ref combat) = move_.city_combat {
-                self.animate_combat(game, combat, current_loc, target_loc)?;
+                self.animate_combat(game, combat, current_loc, target_loc)
+                    .await?;
                 was_combat = true;
             }
 
@@ -811,7 +818,8 @@ impl MoveAnimator for TermUI {
             }
 
             if move_.moved_successfully() {
-                self.draw_located_observations(game, &move_.observations_after_move)?;
+                self.draw_located_observations(game, &move_.observations_after_move)
+                    .await?;
             }
 
             current_loc = target_loc;
@@ -913,7 +921,7 @@ impl UI for TermUI {
         self.stdout.flush()
     }
 
-    fn draw_map_tile_and_flush(
+    async fn draw_map_tile_and_flush(
         &mut self,
         game: &PlayerTurnControl,
         viewport_loc: Location,
@@ -927,27 +935,30 @@ impl UI for TermUI {
         unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        symbol_override: Option<&'static str>,
+        symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         obs_override: Option<&Obs>,
     ) -> IoResult<()> {
-        self.map_scroller.scrollable.draw_tile_and_flush(
-            game,
-            &mut self.stdout,
-            viewport_loc,
-            highlight,
-            unit_active,
-            city_override,
-            unit_override,
-            symbol_override,
-            obs_override,
-            &self.palette,
-        )
+        self.map_scroller
+            .scrollable
+            .draw_tile_and_flush(
+                game,
+                &mut self.stdout,
+                viewport_loc,
+                highlight,
+                unit_active,
+                city_override,
+                unit_override,
+                symbol_override,
+                obs_override,
+                &self.palette,
+            )
+            .await
     }
 
-    fn draw_map_tile_no_flush(
+    async fn draw_map_tile_no_flush(
         &mut self,
         game: &PlayerTurnControl,
         viewport_loc: Location,
@@ -961,24 +972,27 @@ impl UI for TermUI {
         unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        symbol_override: Option<&'static str>,
+        symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
         obs_override: Option<&Obs>,
     ) -> IoResult<()> {
-        self.map_scroller.scrollable.draw_tile_no_flush(
-            game,
-            &mut self.stdout,
-            viewport_loc,
-            highlight,
-            unit_active,
-            city_override,
-            unit_override,
-            symbol_override,
-            obs_override,
-            &self.palette,
-        )
+        self.map_scroller
+            .scrollable
+            .draw_tile_no_flush(
+                game,
+                &mut self.stdout,
+                viewport_loc,
+                highlight,
+                unit_active,
+                city_override,
+                unit_override,
+                symbol_override,
+                obs_override,
+                &self.palette,
+            )
+            .await
     }
 
     async fn draw_no_flush(&mut self, game: &PlayerTurnControl) -> IoResult<()> {

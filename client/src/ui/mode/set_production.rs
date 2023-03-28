@@ -102,6 +102,7 @@ impl IMode for SetProductionMode {
             None,
             None,
         )
+        .await
         .unwrap();
 
         loop {

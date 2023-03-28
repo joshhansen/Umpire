@@ -109,6 +109,7 @@ impl IMode for GetUnitOrdersMode {
                 None,
                 None,
             )
+            .await
             .unwrap();
 
             unit.loc

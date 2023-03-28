@@ -299,9 +299,9 @@ impl Map {
     /// Renders a particular location in the viewport
     ///
     /// Flushes stdout for convenience
-    pub fn draw_tile_and_flush(
+    pub async fn draw_tile_and_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurnControl<'_>,
         stdout: &mut Stdout,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
@@ -314,7 +314,7 @@ impl Map {
         unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        symbol_override: Option<&'static str>,
+        symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
@@ -333,14 +333,15 @@ impl Map {
             symbol_override,
             obs_override,
             palette,
-        )?;
+        )
+        .await?;
         stdout.flush()
     }
 
     /// Renders a particular location in the viewport
-    pub fn draw_tile_no_flush(
+    pub async fn draw_tile_no_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurnControl<'_>,
         stdout: &mut Stdout,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
@@ -353,7 +354,7 @@ impl Map {
         unit_override: Option<Option<&Unit>>,
 
         // A symbol to display instead of what's really here
-        symbol_override: Option<&'static str>,
+        symbol_override: Option<&str>,
 
         // Override the entire observation that would be at this location, instead of using the current player's
         // observations.
@@ -371,7 +372,11 @@ impl Map {
                 stdout.queue(SetAttribute(Attribute::Underlined)).unwrap();
             }
 
-            let obs = obs_override.unwrap_or_else(|| game.obs(tile_loc));
+            let obs = if let Some(obs_override) = obs_override {
+                obs_override
+            } else {
+                game.obs(tile_loc).await
+            };
 
             if let Obs::Observed { tile, current, .. } = obs {
                 if highlight {
@@ -527,8 +532,11 @@ impl Draw for Map {
                 );
                 let new_map_loc: Option<Location> = self.viewport_to_map_coords(game, viewport_loc);
 
-                // let new_obs = game.current_player_obs(new_map_loc);
-                let new_obs = new_map_loc.map(|new_map_loc| game.obs(new_map_loc));
+                let new_obs = if let Some(new_map_loc) = new_map_loc {
+                    Some(game.obs(new_map_loc).await)
+                } else {
+                    None
+                };
 
                 let old_currentness = self.displayed_tile_currentness[viewport_loc];
                 // let new_currentness = if let Obs::Observed{current,..} = new_obs {
@@ -597,7 +605,8 @@ impl Draw for Map {
                     None,
                     None,
                     palette,
-                )?;
+                )
+                .await?;
             }
         }
 

@@ -36,7 +36,7 @@ impl ExamineMode {
             first,
         }
     }
-    fn clean_up<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U) -> IoResult<()> {
+    async fn clean_up<U: UI>(&self, game: &PlayerTurnControl<'_>, ui: &mut U) -> IoResult<()> {
         ui.draw_map_tile_and_flush(
             game,
             self.cursor_viewport_loc,
@@ -47,6 +47,7 @@ impl ExamineMode {
             None,
             None,
         )
+        .await
     }
 
     /// The tile visible to the current player under the examine cursor, if any
@@ -59,7 +60,11 @@ impl ExamineMode {
             .await
     }
 
-    fn draw_tile<'a, U: UI>(&'a self, game: &'a PlayerTurnControl, ui: &mut U) -> IoResult<()> {
+    async fn draw_tile<'a, U: UI>(
+        &'a self,
+        game: &'a PlayerTurnControl<'_>,
+        ui: &mut U,
+    ) -> IoResult<()> {
         ui.draw_map_tile_and_flush(
             game,
             self.cursor_viewport_loc,
@@ -70,6 +75,7 @@ impl ExamineMode {
             None,
             None,
         )
+        .await
     }
 
     fn next_examine_mode(&self, new_loc: Location) -> Mode {
@@ -90,7 +96,7 @@ impl IMode for ExamineMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        self.draw_tile(game, ui).unwrap();
+        self.draw_tile(game, ui).await.unwrap();
 
         let description = {
             if let Some(tile) = self.current_player_tile(game, ui).await {
@@ -152,7 +158,7 @@ impl IMode for ExamineMode {
                         } else if let Some(ref city) = tile.city {
                             if city.belongs_to_player(game.current_player()) {
                                 *mode = Mode::SetProduction { city_loc: city.loc };
-                                self.clean_up(game, ui).unwrap();
+                                self.clean_up(game, ui).await.unwrap();
                                 return ModeStatus::Continue;
                             }
                         }
@@ -188,7 +194,7 @@ impl IMode for ExamineMode {
 
                         *mode = Mode::TurnResume;
 
-                        self.clean_up(game, ui).unwrap();
+                        self.clean_up(game, ui).await.unwrap();
                         return ModeStatus::Continue;
                     }
                 } else if let KeyCode::Char(c) = key.code {
@@ -216,7 +222,7 @@ impl IMode for ExamineMode {
                     }
                 }
 
-                self.clean_up(game, ui).unwrap();
+                self.clean_up(game, ui).await.unwrap();
                 ModeStatus::Continue
             }
             KeyStatus::Handled(state_disposition) => match state_disposition {

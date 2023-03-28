@@ -142,7 +142,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_tile(self.secret, loc).unwrap()
     }
 
-    pub fn obs(&self, loc: Location) -> &Obs {
+    pub async fn obs(&self, loc: Location) -> &Obs {
         self.game.player_obs(self.secret, loc).unwrap()
     }
 
