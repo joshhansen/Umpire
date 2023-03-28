@@ -36,7 +36,7 @@ impl IMode for TurnStartMode {
             text: format!(
                 "Turn {}, player {} go!",
                 game.turn().await,
-                game.current_player()
+                game.current_player().await
             ),
             mark: Some('_'),
             fg_color: None,

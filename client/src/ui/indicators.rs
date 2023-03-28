@@ -29,18 +29,11 @@ impl Draw for CurrentPlayer {
         stdout: &mut Stdout,
         _palette: &Palette,
     ) -> IoResult<()> {
-        // write!(*stdout,
-        //     "{}Current Player: {}  ",
-        //     self.goto(0, 0),
-        //     game.current_player()
-        // ).unwrap();
+        let player = game.current_player().await;
         queue!(
             *stdout,
             self.goto(0, 0),
-            PrintStyledContent(style(format!(
-                "Current Player: {}  ",
-                game.current_player()
-            )))
+            PrintStyledContent(style(format!("Current Player: {}  ", player)))
         )
     }
 }

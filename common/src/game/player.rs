@@ -220,7 +220,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.turn()
     }
 
-    pub fn current_player(&self) -> PlayerNum {
+    pub async fn current_player(&self) -> PlayerNum {
         self.game.current_player()
     }
 
@@ -460,7 +460,7 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
             None
         };
 
-        let player = ctrl.current_player();
+        let player = ctrl.current_player().await;
         let turn = ctrl.turn().await;
 
         loop {

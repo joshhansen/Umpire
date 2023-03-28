@@ -55,7 +55,7 @@ impl IMode for TurnOverMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        let over_for: PlayerNum = game.current_player();
+        let over_for: PlayerNum = game.current_player().await;
 
         if ui.confirm_turn_end() {
             ui.log_message(Message {

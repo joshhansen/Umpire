@@ -131,7 +131,8 @@ impl IMode for ExamineMode {
                     if let Some(tile) = self.current_player_tile(game, ui).await.cloned() {
                         // We clone to ease mutating the unit within this block
                         if let Some(ref unit) = tile.unit {
-                            if unit.belongs_to_player(game.current_player()) {
+                            let player = game.current_player().await;
+                            if unit.belongs_to_player(player) {
                                 // Since the unit we get from this tile may be a "memory" of an old observation, get the most recent one in order to activate it
 
                                 match game.activate_unit_by_loc(unit.loc) {
@@ -156,7 +157,8 @@ impl IMode for ExamineMode {
                                 }
                             }
                         } else if let Some(ref city) = tile.city {
-                            if city.belongs_to_player(game.current_player()) {
+                            let player = game.current_player().await;
+                            if city.belongs_to_player(player) {
                                 *mode = Mode::SetProduction { city_loc: city.loc };
                                 self.clean_up(game, ui).await.unwrap();
                                 return ModeStatus::Continue;
