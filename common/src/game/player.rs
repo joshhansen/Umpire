@@ -216,7 +216,7 @@ impl<'a> PlayerTurnControl<'a> {
             .clear_production(self.secret, loc, ignore_cleared_production)
     }
 
-    pub fn turn(&self) -> TurnNum {
+    pub async fn turn(&self) -> TurnNum {
         self.game.turn()
     }
 
@@ -461,7 +461,7 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
         };
 
         let player = ctrl.current_player();
-        let turn = ctrl.turn();
+        let turn = ctrl.turn().await;
 
         loop {
             let (num_features, features, pre_score) = if generate_data {

@@ -78,10 +78,13 @@ impl Draw for Turn {
         _palette: &Palette,
     ) -> IoResult<()> {
         // write!(*stdout, "{}Turn: {}", self.goto(0, 0), game.turn()).unwrap();
+
+        let turn = game.turn().await;
+
         queue!(
             *stdout,
             self.goto(0, 0),
-            PrintStyledContent(style(format!("Turn: {}", game.turn())))
+            PrintStyledContent(style(format!("Turn: {}", turn)))
         )
     }
 }
