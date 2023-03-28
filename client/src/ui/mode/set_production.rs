@@ -81,7 +81,7 @@ impl IMode for SetProductionMode {
         ui.draw_no_flush(game).await.unwrap();
 
         let city = {
-            let city = game.player_city_by_loc(self.loc).unwrap();
+            let city = game.player_city_by_loc(self.loc).await.unwrap();
             ui.log_message(format!(
                 "Requesting production target for {}",
                 city.short_desc()
@@ -112,7 +112,7 @@ impl IMode for SetProductionMode {
                         if let Ok(unit_type) = UnitType::try_from_key(c) {
                             game.set_production_by_loc(self.loc, unit_type).unwrap();
 
-                            let city = game.player_city_by_loc(self.loc).unwrap();
+                            let city = game.player_city_by_loc(self.loc).await.unwrap();
                             ui.log_message(Message {
                                 text: format!(
                                     "Set {}'s production to {}",

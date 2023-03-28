@@ -153,7 +153,7 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// The city at `loc` if controlled by this player
-    pub fn player_city_by_loc(&self, loc: Location) -> Option<&City> {
+    pub async fn player_city_by_loc(&self, loc: Location) -> Option<&City> {
         self.game.player_city_by_loc(self.secret, loc).unwrap()
     }
 
