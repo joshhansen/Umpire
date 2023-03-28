@@ -48,7 +48,7 @@ impl TurnOverMode {
 
 #[async_trait]
 impl IMode for TurnOverMode {
-    async fn run<U: UI + Send>(
+    async fn run<U: UI + Send + Sync>(
         &self,
         game: &mut PlayerTurnControl<'_>,
         ui: &mut U,

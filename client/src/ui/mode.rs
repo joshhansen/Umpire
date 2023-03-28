@@ -150,7 +150,7 @@ pub trait IMode {
         prev_mode: &Option<Mode>,
     ) -> ModeStatus;
 
-    async fn get_key<U: UI + Send>(
+    async fn get_key<U: UI + Send + Sync>(
         &self,
         game: &PlayerTurnControl,
         ui: &mut U,
@@ -173,18 +173,20 @@ pub trait IMode {
                     // println!("Rect: {:?}", ui.viewport_rect());
                     // println!("Center: {:?}", ui.viewport_rect().center());
 
-                    let cursor_viewport_loc = ui
-                        .cursor_viewport_loc(mode, game)
-                        .unwrap_or(ui.viewport_rect().center());
+                    let cursor_viewport_loc = ui.cursor_viewport_loc(mode, game).await;
 
-                    let most_recently_active_unit_id = if let Some(most_recently_active_unit_loc) =
-                        ui.cursor_map_loc(mode, game)
-                    {
-                        game.player_toplevel_unit_by_loc(most_recently_active_unit_loc)
-                            .map(|unit| unit.id)
-                    } else {
-                        None
-                    };
+                    let cursor_viewport_loc =
+                        cursor_viewport_loc.unwrap_or(ui.viewport_rect().center());
+
+                    let cursor_map_loc = ui.cursor_map_loc(mode, game).await;
+
+                    let most_recently_active_unit_id =
+                        if let Some(most_recently_active_unit_loc) = cursor_map_loc {
+                            game.player_toplevel_unit_by_loc(most_recently_active_unit_loc)
+                                .map(|unit| unit.id)
+                        } else {
+                            None
+                        };
 
                     *mode = Mode::Examine {
                         cursor_viewport_loc,

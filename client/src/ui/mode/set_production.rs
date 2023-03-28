@@ -66,7 +66,7 @@ impl SetProductionMode {
 
 #[async_trait]
 impl IMode for SetProductionMode {
-    async fn run<U: UI + Send>(
+    async fn run<U: UI + Send + Sync>(
         &self,
         game: &mut PlayerTurnControl<'_>,
         ui: &mut U,

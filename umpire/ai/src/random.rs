@@ -136,7 +136,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                 return Some(AiPlayerAction::SkipNextUnit);
             } else {
                 if self.verbosity > 1 {
-                    let loc = ctrl.player_unit_loc(unit_id).unwrap();
+                    let loc = ctrl.player_unit_loc(unit_id).await.unwrap();
                     println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
                 }
                 return Some(AiPlayerAction::DisbandNextUnit);

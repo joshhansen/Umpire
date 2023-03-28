@@ -161,7 +161,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_unit_by_id(self.secret, id).unwrap()
     }
 
-    pub fn player_unit_loc(&self, id: UnitID) -> Option<Location> {
+    pub async fn player_unit_loc(&self, id: UnitID) -> Option<Location> {
         self.game.player_unit_loc(self.secret, id).unwrap()
     }
 

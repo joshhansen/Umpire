@@ -78,9 +78,9 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn unicode(&self) -> bool;
 
-    fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
+    async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
 
-    fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
+    async fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
 
     async fn current_player_map_tile<'a>(
         &self,
@@ -226,11 +226,15 @@ impl UI for DefaultUI {
         // do nothing
     }
 
-    fn cursor_map_loc(&self, _mode: &Mode, _game: &PlayerTurnControl) -> Option<Location> {
+    async fn cursor_map_loc(&self, _mode: &Mode, _game: &PlayerTurnControl) -> Option<Location> {
         None
     }
 
-    fn cursor_viewport_loc(&self, _mode: &Mode, _game: &PlayerTurnControl) -> Option<Location> {
+    async fn cursor_viewport_loc(
+        &self,
+        _mode: &Mode,
+        _game: &PlayerTurnControl,
+    ) -> Option<Location> {
         None
     }
 
@@ -861,24 +865,24 @@ impl UI for TermUI {
         self.sidebar_buf.clear();
     }
 
-    fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+    async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
         match *mode {
             Mode::SetProduction { city_loc } => Some(city_loc),
             Mode::GetUnitOrders { unit_id, .. } => {
-                let unit_loc = game.player_unit_loc(unit_id).unwrap();
+                let unit_loc = game.player_unit_loc(unit_id).await.unwrap();
                 Some(unit_loc)
             }
             _ => None,
         }
     }
 
-    fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+    async fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
         let map = &self.map_scroller.scrollable;
 
         match *mode {
             Mode::SetProduction { city_loc } => map.map_to_viewport_coords(city_loc),
             Mode::GetUnitOrders { unit_id, .. } => {
-                let unit_loc = game.player_unit_loc(unit_id).unwrap();
+                let unit_loc = game.player_unit_loc(unit_id).await.unwrap();
                 map.map_to_viewport_coords(unit_loc)
             }
             _ => None,
