@@ -170,6 +170,7 @@ impl IMode for ExamineMode {
                     if let Some(most_recently_active_unit_id) = self.most_recently_active_unit_id {
                         let dest = ui
                             .viewport_to_map_coords(game, self.cursor_viewport_loc)
+                            .await
                             .unwrap();
 
                         let proposed_result =

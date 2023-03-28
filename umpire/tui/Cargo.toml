@@ -16,3 +16,6 @@ failure = { workspace = true }
 pastel = "0.7.0"
 rand = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

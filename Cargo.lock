@@ -2874,6 +2874,7 @@ dependencies = [
  "failure",
  "pastel",
  "rand 0.7.3",
+ "tokio",
  "uuid",
 ]
 

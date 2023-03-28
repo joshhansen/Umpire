@@ -225,7 +225,7 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// The logical dimensions of the game map
-    pub fn dims(&self) -> Dims {
+    pub async fn dims(&self) -> Dims {
         self.game.dims()
     }
 

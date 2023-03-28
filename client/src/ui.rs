@@ -164,7 +164,7 @@ pub trait UI: LogTarget + MoveAnimator {
     #[deprecated]
     fn shift_map_viewport<V: Into<Vec2d<i32>>>(&mut self, direction: V);
 
-    fn viewport_to_map_coords(
+    async fn viewport_to_map_coords(
         &self,
         game: &PlayerTurnControl,
         viewport_loc: Location,
@@ -351,7 +351,7 @@ impl UI for DefaultUI {
         // do nothing
     }
 
-    fn viewport_to_map_coords(
+    async fn viewport_to_map_coords(
         &self,
         _game: &PlayerTurnControl,
         _viewport_loc: Location,
@@ -1096,12 +1096,12 @@ impl UI for TermUI {
         self.map_scroller.scrollable.shift_viewport(direction);
     }
 
-    fn viewport_to_map_coords(
+    async fn viewport_to_map_coords(
         &self,
         game: &PlayerTurnControl,
         viewport_loc: Location,
     ) -> Option<Location> {
-        self.map().viewport_to_map_coords(game, viewport_loc)
+        self.map().viewport_to_map_coords(game, viewport_loc).await
     }
 }
 

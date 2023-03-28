@@ -240,17 +240,18 @@ impl Map {
 
     /// If the viewport location given is within the currently visible view and a map location corresponds thereto,
     /// return the map location; otherwise return None.
-    pub fn viewport_to_map_coords(
+    pub async fn viewport_to_map_coords(
         &self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurnControl<'_>,
         viewport_loc: Location,
     ) -> Option<Location> {
         self.viewport_to_map_coords_by_offset(game, viewport_loc, self.viewport_offset)
+            .await
     }
 
-    fn viewport_to_map_coords_by_offset(
+    async fn viewport_to_map_coords_by_offset(
         &self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurnControl<'_>,
         viewport_loc: Location,
         offset: Vec2d<u16>,
     ) -> Option<Location> {
@@ -261,7 +262,7 @@ impl Map {
             };
             return game
                 .wrapping()
-                .wrapped_add(game.dims(), viewport_loc, offset);
+                .wrapped_add(game.dims().await, viewport_loc, offset);
             // let map_loc: Location = viewport_loc + offset;
             // if game.dims().contain(map_loc) {
             //     return Some(map_loc)
@@ -367,94 +368,95 @@ impl Map {
 
         stdout.queue(self.goto(viewport_loc.x, viewport_loc.y))?;
 
-        let should_clear = if let Some(tile_loc) = self.viewport_to_map_coords(game, viewport_loc) {
-            if tile_loc.y == game.dims().height - 1 {
-                stdout.queue(SetAttribute(Attribute::Underlined)).unwrap();
-            }
-
-            let obs = if let Some(obs_override) = obs_override {
-                obs_override
-            } else {
-                game.obs(tile_loc).await
-            };
-
-            if let Obs::Observed { tile, current, .. } = obs {
-                if highlight {
-                    stdout.queue(SetAttribute(Attribute::Reverse)).unwrap();
+        let should_clear =
+            if let Some(tile_loc) = self.viewport_to_map_coords(game, viewport_loc).await {
+                if tile_loc.y == game.dims().await.height - 1 {
+                    stdout.queue(SetAttribute(Attribute::Underlined)).unwrap();
                 }
 
-                if unit_active {
-                    stdout.queue(SetAttribute(Attribute::SlowBlink)).unwrap();
-                    stdout.queue(SetAttribute(Attribute::Bold)).unwrap();
-                }
-
-                let city: Option<&City> = if let Some(city_override) = city_override {
-                    city_override
+                let obs = if let Some(obs_override) = obs_override {
+                    obs_override
                 } else {
-                    tile.city.as_ref()
+                    game.obs(tile_loc).await
                 };
 
-                let unit: Option<&Unit> = if let Some(unit_override) = unit_override {
-                    unit_override
-                } else {
-                    tile.unit.as_ref()
-                };
-
-                // Incorporate the city and unit overrides (if any) into the tile we store for future reference
-                let tile = {
-                    let mut tile = tile.clone(); //CLONE
-
-                    if city_override.is_some() {
-                        tile.city = city.map(|city| city.clone()); //CLONE
+                if let Obs::Observed { tile, current, .. } = obs {
+                    if highlight {
+                        stdout.queue(SetAttribute(Attribute::Reverse)).unwrap();
                     }
-                    if unit_override.is_some() {
-                        tile.unit = unit.map(|unit| unit.clone()); //CLONE
-                    }
-                    tile
-                };
 
-                let (sym, fg_color, bg_color) = if let Some(ref unit) = unit {
-                    if let Some(orders) = unit.orders {
-                        if orders == Orders::Sentry {
-                            stdout.queue(SetAttribute(Attribute::Italic)).unwrap();
+                    if unit_active {
+                        stdout.queue(SetAttribute(Attribute::SlowBlink)).unwrap();
+                        stdout.queue(SetAttribute(Attribute::Bold)).unwrap();
+                    }
+
+                    let city: Option<&City> = if let Some(city_override) = city_override {
+                        city_override
+                    } else {
+                        tile.city.as_ref()
+                    };
+
+                    let unit: Option<&Unit> = if let Some(unit_override) = unit_override {
+                        unit_override
+                    } else {
+                        tile.unit.as_ref()
+                    };
+
+                    // Incorporate the city and unit overrides (if any) into the tile we store for future reference
+                    let tile = {
+                        let mut tile = tile.clone(); //CLONE
+
+                        if city_override.is_some() {
+                            tile.city = city.map(|city| city.clone()); //CLONE
                         }
+                        if unit_override.is_some() {
+                            tile.unit = unit.map(|unit| unit.clone()); //CLONE
+                        }
+                        tile
+                    };
+
+                    let (sym, fg_color, bg_color) = if let Some(ref unit) = unit {
+                        if let Some(orders) = unit.orders {
+                            if orders == Orders::Sentry {
+                                stdout.queue(SetAttribute(Attribute::Italic)).unwrap();
+                            }
+                        }
+
+                        (unit.sym(self.unicode), unit.color(), tile.terrain.color())
+                    } else if let Some(ref city) = city {
+                        (
+                            city.sym(self.unicode),
+                            city.alignment.color(),
+                            tile.terrain.color(),
+                        )
+                    } else {
+                        (tile.sym(self.unicode), None, tile.terrain.color())
+                    };
+
+                    if let Some(fg_color) = fg_color {
+                        stdout
+                            .queue(SetForegroundColor(palette.get(fg_color, *current)))
+                            .unwrap();
                     }
+                    if let Some(bg_color) = bg_color {
+                        stdout
+                            .queue(SetBackgroundColor(palette.get(bg_color, *current)))
+                            .unwrap();
+                    }
+                    stdout
+                        .queue(Print(String::from(symbol_override.unwrap_or(sym))))
+                        .unwrap();
 
-                    (unit.sym(self.unicode), unit.color(), tile.terrain.color())
-                } else if let Some(ref city) = city {
-                    (
-                        city.sym(self.unicode),
-                        city.alignment.color(),
-                        tile.terrain.color(),
-                    )
+                    self.displayed_tiles[viewport_loc] = Some(tile);
+                    self.displayed_tile_currentness[viewport_loc] = Some(*current);
+
+                    false
                 } else {
-                    (tile.sym(self.unicode), None, tile.terrain.color())
-                };
-
-                if let Some(fg_color) = fg_color {
-                    stdout
-                        .queue(SetForegroundColor(palette.get(fg_color, *current)))
-                        .unwrap();
+                    true
                 }
-                if let Some(bg_color) = bg_color {
-                    stdout
-                        .queue(SetBackgroundColor(palette.get(bg_color, *current)))
-                        .unwrap();
-                }
-                stdout
-                    .queue(Print(String::from(symbol_override.unwrap_or(sym))))
-                    .unwrap();
-
-                self.displayed_tiles[viewport_loc] = Some(tile);
-                self.displayed_tile_currentness[viewport_loc] = Some(*current);
-
-                false
             } else {
                 true
-            }
-        } else {
-            true
-        };
+            };
 
         if should_clear {
             if highlight {
@@ -480,7 +482,7 @@ impl Map {
     ) -> Option<&'a Tile> {
         // let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
         // game.current_player_tile(tile_loc)
-        if let Some(map_loc) = self.viewport_to_map_coords(game, viewport_loc) {
+        if let Some(map_loc) = self.viewport_to_map_coords(game, viewport_loc).await {
             game.tile(map_loc).await
         } else {
             None
@@ -525,12 +527,11 @@ impl Draw for Map {
                 // let old_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.old_viewport_offset);
                 // let new_map_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
 
-                let old_map_loc: Option<Location> = self.viewport_to_map_coords_by_offset(
-                    game,
-                    viewport_loc,
-                    self.old_viewport_offset,
-                );
-                let new_map_loc: Option<Location> = self.viewport_to_map_coords(game, viewport_loc);
+                let old_map_loc: Option<Location> = self
+                    .viewport_to_map_coords_by_offset(game, viewport_loc, self.old_viewport_offset)
+                    .await;
+                let new_map_loc: Option<Location> =
+                    self.viewport_to_map_coords(game, viewport_loc).await;
 
                 let new_obs = if let Some(new_map_loc) = new_map_loc {
                     Some(game.obs(new_map_loc).await)
@@ -573,10 +574,11 @@ impl Draw for Map {
                     })
                     || {
                         let redraw_for_border = if let Some(old_map_loc) = old_map_loc {
+                            let dims = game.dims().await;
                             if let Some(new_map_loc) = new_map_loc {
                                 old_map_loc.y != new_map_loc.y
-                                    && (old_map_loc.y == game.dims().height - 1
-                                        || new_map_loc.y == game.dims().height - 1)
+                                    && (old_map_loc.y == dims.height - 1
+                                        || new_map_loc.y == dims.height - 1)
                             } else {
                                 false
                             }
@@ -621,6 +623,8 @@ impl Draw for Map {
 
 #[cfg(test)]
 mod test {
+    use tokio;
+
     use common::{
         game::test_support::game1,
         util::{Dims, Location, Rect, Vec2d},
@@ -669,12 +673,12 @@ mod test {
         assert_eq!(map_to_viewport_coord(5, 95, 10, 100), Ok(None));
     }
 
-    #[test]
-    fn test_viewport_to_map_coords_by_offset() {
-        _test_viewport_to_map_coords(Dims::new(20, 20));
+    #[tokio::test]
+    async fn test_viewport_to_map_coords_by_offset() {
+        _test_viewport_to_map_coords(Dims::new(20, 20)).await;
     }
 
-    fn _test_viewport_to_map_coords(map_dims: Dims) {
+    async fn _test_viewport_to_map_coords(map_dims: Dims) {
         // pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
 
         let (mut game, secrets) = game1();
@@ -692,14 +696,14 @@ mod test {
         // fn viewport_to_map_coords_by_offset(&self, game: &Game, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
 
         assert_eq!(
-            map.viewport_to_map_coords(&ctrl, Location::new(0, 0)),
+            map.viewport_to_map_coords(&ctrl, Location::new(0, 0)).await,
             Some(Location::new(0, 0))
         );
 
         map.set_viewport_offset(Vec2d { x: 5, y: 6 });
 
         assert_eq!(
-            map.viewport_to_map_coords(&ctrl, Location::new(0, 0)),
+            map.viewport_to_map_coords(&ctrl, Location::new(0, 0)).await,
             Some(Location::new(5, 6))
         );
     }

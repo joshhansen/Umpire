@@ -47,19 +47,20 @@ impl<S: ScrollableComponent + Send> Scroller<S> {
             * (f32::from(self.scrollable.offset().y) / f32::from(map_height))) as u16
     }
 
-    fn draw_scroll_bars(
+    async fn draw_scroll_bars(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurnControl<'_>,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
+        let dims = game.dims().await;
         let viewport_rect = self.scrollable.rect();
-        let h_scroll_x: u16 = self.h_scroll_x(game.dims().width);
+        let h_scroll_x: u16 = self.h_scroll_x(dims.width);
         let h_scroll_y = viewport_rect.bottom();
 
         if self.old_h_scroll_x != Some(h_scroll_x) {
             if let Some(old_h_scroll_x) = self.old_h_scroll_x {
-                self.erase(stdout, old_h_scroll_x, h_scroll_y, palette);
+                self.erase(stdout, old_h_scroll_x, h_scroll_y, palette)?;
             }
             self.draw_scroll_mark(stdout, h_scroll_x, h_scroll_y, '^', palette)?;
 
@@ -67,11 +68,11 @@ impl<S: ScrollableComponent + Send> Scroller<S> {
         }
 
         let v_scroll_x = viewport_rect.right();
-        let v_scroll_y: u16 = self.v_scroll_y(game.dims().height);
+        let v_scroll_y: u16 = self.v_scroll_y(dims.height);
 
         if self.old_v_scroll_y != Some(v_scroll_y) {
             if let Some(old_v_scroll_y) = self.old_v_scroll_y {
-                self.erase(stdout, v_scroll_x, old_v_scroll_y, palette);
+                self.erase(stdout, v_scroll_x, old_v_scroll_y, palette)?;
             }
             self.draw_scroll_mark(stdout, v_scroll_x, v_scroll_y, '<', palette)?;
 
@@ -137,7 +138,7 @@ impl<S: ScrollableComponent + Send> Draw for Scroller<S> {
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
-        self.draw_scroll_bars(game, stdout, palette)?;
+        self.draw_scroll_bars(game, stdout, palette).await?;
         self.scrollable.draw_no_flush(game, stdout, palette).await
     }
 }
