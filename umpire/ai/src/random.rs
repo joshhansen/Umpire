@@ -41,8 +41,10 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
         let mut stdout = stdout();
 
         if let Some(city_loc) = ctrl.production_set_requests().await.next() {
-            let valid_productions: Vec<UnitType> =
-                ctrl.valid_productions_conservative(city_loc).collect();
+            let valid_productions: Vec<UnitType> = ctrl
+                .valid_productions_conservative(city_loc)
+                .await
+                .collect();
 
             let unit_type = valid_productions.choose(&mut self.rng).unwrap();
 

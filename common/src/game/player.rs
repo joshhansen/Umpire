@@ -240,7 +240,7 @@ impl<'a> PlayerTurnControl<'a> {
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-    pub fn valid_productions_conservative<'b>(
+    pub async fn valid_productions_conservative<'b>(
         &'b self,
         loc: Location,
     ) -> impl Iterator<Item = UnitType> + 'b {
