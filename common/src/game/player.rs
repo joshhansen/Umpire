@@ -146,7 +146,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_obs(self.secret, loc).unwrap()
     }
 
-    pub fn player_cities_producing_or_not_ignored(&self) -> usize {
+    pub async fn player_cities_producing_or_not_ignored(&self) -> usize {
         self.game
             .player_cities_producing_or_not_ignored(self.secret)
             .unwrap()

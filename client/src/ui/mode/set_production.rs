@@ -131,7 +131,7 @@ impl IMode for SetProductionMode {
                             *mode = Mode::TurnResume;
                             return ModeStatus::Continue;
                         } else if c == conf::KEY_NO_PRODUCTION {
-                            if game.player_cities_producing_or_not_ignored() <= 1 {
+                            if game.player_cities_producing_or_not_ignored().await <= 1 {
                                 game.clear_production(self.loc, false).unwrap();
                                 // let cursor_viewport_loc = ui.cursor_viewport_loc(mode, game).unwrap();
 
