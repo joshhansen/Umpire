@@ -120,9 +120,11 @@ impl IMode for GetUnitOrdersMode {
                 KeyStatus::Unhandled(key) => {
                     if let KeyCode::Char(c) = key.code {
                         if let Ok(dir) = Direction::try_from(c) {
-                            if let Some(dest) =
-                                unit_loc.shift_wrapped(dir, game.dims().await, game.wrapping())
-                            {
+                            if let Some(dest) = unit_loc.shift_wrapped(
+                                dir,
+                                game.dims().await,
+                                game.wrapping().await,
+                            ) {
                                 let proposed_move =
                                     game.propose_move_unit_by_id(self.unit_id, dest).await;
 

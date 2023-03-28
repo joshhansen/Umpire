@@ -229,7 +229,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.dims()
     }
 
-    pub fn wrapping(&self) -> Wrap2d {
+    pub async fn wrapping(&self) -> Wrap2d {
         self.game.wrapping()
     }
 

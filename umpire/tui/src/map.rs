@@ -262,6 +262,7 @@ impl Map {
             };
             return game
                 .wrapping()
+                .await
                 .wrapped_add(game.dims().await, viewport_loc, offset);
             // let map_loc: Location = viewport_loc + offset;
             // if game.dims().contain(map_loc) {
