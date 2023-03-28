@@ -159,7 +159,7 @@ mod test {
 
         {
             let (mut ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
-            ctrl.order_unit_skip(unit_id).unwrap();
+            ctrl.order_unit_skip(unit_id).await.unwrap();
         }
 
         let mut prev_mode = Some(Mode::TurnStart);
@@ -168,7 +168,7 @@ mod test {
         {
             let (mut ctrl, _turn_start) = game.player_turn_control(secrets[1]).unwrap();
 
-            ctrl.order_unit_skip(other_unit_id).unwrap();
+            ctrl.order_unit_skip(other_unit_id).await.unwrap();
 
             mode.run(&mut ctrl, &mut DefaultUI, &mut prev_mode).await;
         }

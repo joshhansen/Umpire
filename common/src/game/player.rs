@@ -250,16 +250,16 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    pub fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
+    pub async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_sentry(self.secret, unit_id)
     }
 
-    pub fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
+    pub async fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_skip(self.secret, unit_id)
     }
 
     /// Simulate ordering the specified unit to go to the given location
-    pub fn propose_order_unit_go_to(
+    pub async fn propose_order_unit_go_to(
         &self,
         unit_id: UnitID,
         dest: Location,
@@ -269,7 +269,7 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// Simulate ordering the specified unit to explore.
-    pub fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult {
+    pub async fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult {
         self.game.propose_order_unit_explore(self.secret, unit_id)
     }
 

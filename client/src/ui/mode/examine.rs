@@ -173,8 +173,9 @@ impl IMode for ExamineMode {
                             .await
                             .unwrap();
 
-                        let proposed_result =
-                            game.propose_order_unit_go_to(most_recently_active_unit_id, dest);
+                        let proposed_result = game
+                            .propose_order_unit_go_to(most_recently_active_unit_id, dest)
+                            .await;
 
                         match proposed_result {
                             Ok(ref proposed_orders_outcome) => {
