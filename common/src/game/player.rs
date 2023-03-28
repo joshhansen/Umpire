@@ -198,7 +198,7 @@ impl<'a> PlayerTurnControl<'a> {
     /// Sets the production of the current player's city at location `loc` to `production`.
     ///
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
-    pub fn set_production_by_loc(
+    pub async fn set_production_by_loc(
         &mut self,
         loc: Location,
         production: UnitType,

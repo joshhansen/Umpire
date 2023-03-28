@@ -110,7 +110,9 @@ impl IMode for SetProductionMode {
                 KeyStatus::Unhandled(key) => {
                     if let KeyCode::Char(c) = key.code {
                         if let Ok(unit_type) = UnitType::try_from_key(c) {
-                            game.set_production_by_loc(self.loc, unit_type).unwrap();
+                            game.set_production_by_loc(self.loc, unit_type)
+                                .await
+                                .unwrap();
 
                             let city = game.player_city_by_loc(self.loc).await.unwrap();
                             ui.log_message(Message {
