@@ -138,7 +138,7 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// The tile at the given location, as present in the player's observations (or not)
-    pub fn tile(&self, loc: Location) -> Option<&Tile> {
+    pub async fn tile(&self, loc: Location) -> Option<&Tile> {
         self.game.player_tile(self.secret, loc).unwrap()
     }
 

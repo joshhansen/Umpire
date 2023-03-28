@@ -50,12 +50,13 @@ impl ExamineMode {
     }
 
     /// The tile visible to the current player under the examine cursor, if any
-    fn current_player_tile<'a, U: UI>(
+    async fn current_player_tile<'a, U: UI>(
         &'a self,
-        game: &'a PlayerTurnControl,
+        game: &'a PlayerTurnControl<'_>,
         ui: &U,
     ) -> Option<&'a Tile> {
         ui.current_player_map_tile(game, self.cursor_viewport_loc)
+            .await
     }
 
     fn draw_tile<'a, U: UI>(&'a self, game: &'a PlayerTurnControl, ui: &mut U) -> IoResult<()> {
@@ -82,7 +83,7 @@ impl ExamineMode {
 
 #[async_trait]
 impl IMode for ExamineMode {
-    async fn run<U: UI + Send>(
+    async fn run<U: UI + Send + Sync>(
         &self,
         game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
@@ -92,7 +93,7 @@ impl IMode for ExamineMode {
         self.draw_tile(game, ui).unwrap();
 
         let description = {
-            if let Some(tile) = self.current_player_tile(game, ui) {
+            if let Some(tile) = self.current_player_tile(game, ui).await {
                 format!("{}", tile)
             } else {
                 "the horrifying void of the unknown (hic sunt dracones)".to_string()
@@ -121,7 +122,7 @@ impl IMode for ExamineMode {
 
                     *mode = Mode::TurnResume;
                 } else if key.code == KeyCode::Enter {
-                    if let Some(tile) = self.current_player_tile(game, ui).cloned() {
+                    if let Some(tile) = self.current_player_tile(game, ui).await.cloned() {
                         // We clone to ease mutating the unit within this block
                         if let Some(ref unit) = tile.unit {
                             if unit.belongs_to_player(game.current_player()) {

@@ -38,8 +38,8 @@ impl SetProductionMode {
         row
     }
 
-    fn write_buf<U: UI>(&self, game: &PlayerTurnControl, ui: &mut U) {
-        let tile = game.tile(self.loc).unwrap();
+    async fn write_buf<U: UI>(&self, game: &PlayerTurnControl<'_>, ui: &mut U) {
+        let tile = game.tile(self.loc).await.unwrap();
         let city = tile.city.as_ref().unwrap();
 
         ui.clear_sidebar();

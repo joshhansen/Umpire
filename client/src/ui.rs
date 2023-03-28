@@ -7,7 +7,10 @@
 use std::{
     cmp,
     io::{stdout, Result as IoResult, Stdout, Write},
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::{
+        mpsc::{channel, sync_channel, Receiver, SyncSender},
+        Mutex,
+    },
     thread::{self, JoinHandle},
 };
 
@@ -79,7 +82,7 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
 
-    fn current_player_map_tile<'a>(
+    async fn current_player_map_tile<'a>(
         &self,
         ctrl: &'a PlayerTurnControl,
         viewport_loc: Location,
@@ -231,7 +234,7 @@ impl UI for DefaultUI {
         None
     }
 
-    fn current_player_map_tile<'a>(
+    async fn current_player_map_tile<'a>(
         &self,
         _ctrl: &'a PlayerTurnControl,
         _viewport_loc: Location,
@@ -468,10 +471,10 @@ pub struct TermUI {
     use_alt_screen: bool,
 
     /// Sender by which to send sound events to the audio thread (if not quieted)
-    audio_thread_tx: Option<Sender<Sounds>>,
+    audio_thread_tx: Option<SyncSender<Sounds>>,
 
     /// Receiver by which to get input events from the input thread
-    input_thread_rx: Receiver<KeyEvent>,
+    input_thread_rx: Mutex<Receiver<KeyEvent>>,
 
     /// We need to keep the audio thread handle because the thread is killed when it goes out of scope.
     _audio_thread_handle: Option<JoinHandle<()>>,
@@ -560,7 +563,7 @@ impl TermUI {
 
         // The audio thread (if applicable)
         let (audio_thread_handle, audio_thread_tx) = if !quiet {
-            let (tx, rx) = channel();
+            let (tx, rx) = sync_channel(2048);
             let handle = thread::Builder::new()
                 .name("audio".to_string())
                 .spawn(move || {
@@ -601,7 +604,7 @@ impl TermUI {
             use_alt_screen,
 
             audio_thread_tx,
-            input_thread_rx,
+            input_thread_rx: Mutex::new(input_thread_rx),
             _audio_thread_handle: audio_thread_handle,
             _input_thread_handle: input_thread_handle,
         };
@@ -874,7 +877,7 @@ impl UI for TermUI {
         }
     }
 
-    fn current_player_map_tile<'a>(
+    async fn current_player_map_tile<'a>(
         &self,
         ctrl: &'a PlayerTurnControl,
         viewport_loc: Location,
@@ -882,6 +885,7 @@ impl UI for TermUI {
         self.map_scroller
             .scrollable
             .current_player_tile(ctrl, viewport_loc)
+            .await
     }
 
     async fn draw_current_player(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()> {
@@ -1027,7 +1031,7 @@ impl UI for TermUI {
 
     /// Block until a key is pressed; return that key
     fn get_key(&self) -> KeyEvent {
-        self.input_thread_rx.recv().unwrap()
+        self.input_thread_rx.lock().unwrap().recv().unwrap()
     }
 
     fn map_to_viewport_coords(&self, map_loc: Location) -> Option<Location> {

@@ -43,7 +43,7 @@ pub enum Mode {
 
 impl Mode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    pub async fn run<U: UI + Send>(
+    pub async fn run<U: UI + Send + Sync>(
         &mut self,
         game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
@@ -142,7 +142,7 @@ pub enum KeyStatus {
 #[async_trait]
 pub trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
-    async fn run<U: UI + Send>(
+    async fn run<U: UI + Send + Sync>(
         &self,
         game: &mut PlayerTurnControl<'_>,
         ui: &mut U,
