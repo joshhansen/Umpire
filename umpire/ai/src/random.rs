@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crossterm::{cursor::MoveTo, execute};
 
-use rand::{seq::SliceRandom, Rng};
+use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 use common::{
     game::{
@@ -21,12 +21,14 @@ const P_SKIP: f64 = 0.1;
 const P_MOVE: f64 = 1f64 - P_DISBAND - P_SKIP;
 
 pub struct RandomAI {
+    rng: StdRng,
     verbosity: usize,
     fix_output_loc: bool,
 }
 impl RandomAI {
     pub fn new(verbosity: usize, fix_output_loc: bool) -> Self {
         Self {
+            rng: StdRng::from_rng(rand::thread_rng()).unwrap(),
             verbosity,
             fix_output_loc,
         }
@@ -35,16 +37,14 @@ impl RandomAI {
 
 #[async_trait]
 impl ActionwiseLimitedTurnTaker for RandomAI {
-    async fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction> {
-        let mut rng = rand::thread_rng();
-
+    async fn next_action(&mut self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction> {
         let mut stdout = stdout();
 
         if let Some(city_loc) = ctrl.production_set_requests().next() {
             let valid_productions: Vec<UnitType> =
                 ctrl.valid_productions_conservative(city_loc).collect();
 
-            let unit_type = valid_productions.choose(&mut rng).unwrap();
+            let unit_type = valid_productions.choose(&mut self.rng).unwrap();
 
             if self.verbosity > 2 {
                 println!("{:?} -> {:?}", city_loc, unit_type);
@@ -68,7 +68,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             //     }
             // }.drain().collect();
 
-            let possible: Vec<Direction> = match ctrl.player_unit_legal_directions(unit_id) {
+            let possible: Vec<Direction> = match ctrl.player_unit_legal_directions(unit_id).await {
                 Ok(it) => it,
                 Err(e) => {
                     let tile = ctrl.tile(unit.loc);
@@ -97,14 +97,14 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             let move_prob = if possible.is_empty() { 0f64 } else { P_MOVE } / z;
             let skip_prob = P_SKIP / z;
 
-            let x: f64 = rng.gen();
+            let x: f64 = self.rng.gen();
 
             if self.fix_output_loc {
                 execute!(stdout, MoveTo(60, 3)).unwrap();
             }
 
             if x <= move_prob {
-                let direction = possible.choose(&mut rng).unwrap();
+                let direction = possible.choose(&mut self.rng).unwrap();
 
                 if self.verbosity > 1 {
                     println!("{:?} {} -> {:?}", unit_id, unit.loc, direction);

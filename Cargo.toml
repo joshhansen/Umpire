@@ -28,7 +28,7 @@ async-trait = "0.1.68"
 clap = "4.1.4"
 crossterm = "0.25.0"
 failure = "0.1.6"
-rand = "0.7.3"
+rand = "~0.7.3"
 #rsrl = "0.7.1"
 #rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }
 rsrl = { git = "https://github.com/joshhansen/rsrl", branch="master_deref_vec_explicit_update", features = ["serialize"] }

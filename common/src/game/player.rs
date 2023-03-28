@@ -130,7 +130,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.victor()
     }
 
-    pub fn player_unit_legal_directions<'b>(
+    pub async fn player_unit_legal_directions<'b>(
         &'b self,
         unit_id: UnitID,
     ) -> UmpireResult<impl Iterator<Item = Direction> + 'b> {
@@ -448,7 +448,7 @@ pub trait ActionwiseLimitedTurnTaker {
     /// The next action that should be taken
     ///
     /// Return None if there are no actions that should be taken
-    async fn next_action(&self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction>;
+    async fn next_action(&mut self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction>;
 }
 
 #[async_trait]
