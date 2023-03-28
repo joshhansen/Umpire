@@ -17,7 +17,7 @@ impl IMode for TurnResumeMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        if game.production_set_requests().next().is_some() {
+        if game.production_set_requests().await.next().is_some() {
             *mode = Mode::SetProductions;
             return ModeStatus::Continue;
         }

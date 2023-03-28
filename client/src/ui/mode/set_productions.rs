@@ -17,13 +17,13 @@ impl IMode for SetProductionsMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        if game.production_set_requests().next().is_none() {
+        if game.production_set_requests().await.next().is_none() {
             ui.log_message("Productions set.".to_string());
             *mode = Mode::TurnResume;
             return ModeStatus::Continue;
         }
 
-        let city_loc = game.production_set_requests().next().unwrap();
+        let city_loc = game.production_set_requests().await.next().unwrap();
 
         *mode = Mode::SetProduction { city_loc };
         ModeStatus::Continue

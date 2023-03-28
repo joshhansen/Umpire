@@ -171,8 +171,10 @@ impl<'a> PlayerTurnControl<'a> {
             .unwrap()
     }
 
-    pub fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a {
-        self.game.current_player_production_set_requests()
+    pub async fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a {
+        self.game
+            .player_production_set_requests(self.secret)
+            .unwrap()
     }
 
     pub fn player_unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {

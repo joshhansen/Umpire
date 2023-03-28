@@ -40,7 +40,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
     async fn next_action(&mut self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction> {
         let mut stdout = stdout();
 
-        if let Some(city_loc) = ctrl.production_set_requests().next() {
+        if let Some(city_loc) = ctrl.production_set_requests().await.next() {
             let valid_productions: Vec<UnitType> =
                 ctrl.valid_productions_conservative(city_loc).collect();
 
