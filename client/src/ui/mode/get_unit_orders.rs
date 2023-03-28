@@ -124,7 +124,7 @@ impl IMode for GetUnitOrdersMode {
                                 unit_loc.shift_wrapped(dir, game.dims(), game.wrapping())
                             {
                                 let proposed_move =
-                                    game.propose_move_unit_by_id(self.unit_id, dest);
+                                    game.propose_move_unit_by_id(self.unit_id, dest).await;
 
                                 match proposed_move {
                                     Ok(ref proposed_move_result) => {

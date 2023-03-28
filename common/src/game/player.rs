@@ -183,7 +183,7 @@ impl<'a> PlayerTurnControl<'a> {
 
     // Movement-related methods
 
-    pub fn propose_move_unit_by_id(
+    pub async fn propose_move_unit_by_id(
         &self,
         id: UnitID,
         dest: Location,
