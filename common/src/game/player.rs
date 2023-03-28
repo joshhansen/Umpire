@@ -234,7 +234,7 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// Units that could be produced by a city located at the given location
-    pub fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
+    pub async fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
         self.game.valid_productions(self.secret, loc).unwrap()
     }
 
