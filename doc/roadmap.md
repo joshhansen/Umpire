@@ -22,6 +22,7 @@
  - switch from async_trait to nightly async trait fn
 * CHORE: Replace failure with thiserror
 * CHORE: Audit dependencies, removing as possible
+* CHORE: Upgrade `pastel`
 
 ## 0.6 Milestones
 * TODO Make game states uniquely identifiable and restorable?
