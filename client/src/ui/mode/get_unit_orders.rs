@@ -175,7 +175,7 @@ impl IMode for GetUnitOrdersMode {
                             Self::clear_buf(ui);
                             return ModeStatus::Continue;
                         } else if c == conf::KEY_DISBAND {
-                            let unit = game.disband_unit_by_id(self.unit_id).unwrap();
+                            let unit = game.disband_unit_by_id(self.unit_id).await.unwrap();
                             ui.log_message(format!("Disbanded unit {}", unit.short_desc()));
                             *mode = Mode::GetOrders;
                             Self::clear_buf(ui);
