@@ -25,10 +25,11 @@ use std::{
 
 use async_trait::async_trait;
 
+use futures;
+
 use rsrl::DerefVec;
 
 use serde::{Deserialize, Serialize};
-use tokio::runtime::Handle;
 use uuid::Uuid;
 
 use crate::{
@@ -2767,11 +2768,13 @@ impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<fX> {
         let features_future = player_features(self, self.player_secrets[self.current_player]);
 
-        let rt = Handle::current();
+        // let rt = Handle::current();
 
         // Because `DerefVec` is synchronous, we grab a reference to the Tokio runtime and block on
         // the async call we need to compute the feature vector
-        rt.block_on(async { features_future.await.unwrap() })
+        // rt.block_on(async { features_future.await.unwrap() })
+
+        futures::executor::block_on(async { features_future.await.unwrap() })
     }
 }
 

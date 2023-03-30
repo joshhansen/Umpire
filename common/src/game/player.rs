@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use async_trait::async_trait;
-use tokio::runtime::Handle;
+use futures;
 
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
@@ -417,11 +417,11 @@ impl<'a> PlayerTurnControl<'a> {
 impl<'a> Drop for PlayerTurnControl<'a> {
     fn drop(&mut self) {
         if self.end_turn_on_drop {
-            let rt = Handle::current();
+            // let rt = Handle::current();
 
             // Because `Drop` is synchronous, we grab a reference to the Tokio runtime and block on
             // the async calls we need to end the user's turn
-            rt.block_on(async {
+            futures::executor::block_on(async {
                 self.game.end_turn(self.secret).await.unwrap();
             });
         }

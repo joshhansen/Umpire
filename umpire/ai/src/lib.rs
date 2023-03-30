@@ -2,21 +2,24 @@ use std::{fmt, fs::File, io::Write, path::Path};
 
 use async_trait::async_trait;
 
-use common::game::{
-    action::AiPlayerAction,
-    ai::{player_features, AISpec, TrainingInstance},
-    Game, IGame, PlayerSecret,
-};
-use rand::{thread_rng, Rng};
+use futures;
 
-use common::{game::player::TurnTaker, util::sparsify};
+use rand::{thread_rng, Rng};
 
 use rsrl::{
     fa::{EnumerableStateActionFunction, StateActionFunction},
     DerefVec,
 };
 
-use tokio::runtime::Handle;
+use common::{
+    game::{
+        action::AiPlayerAction,
+        ai::{player_features, AISpec, TrainingInstance},
+        player::TurnTaker,
+        Game, IGame, PlayerSecret,
+    },
+    util::sparsify,
+};
 
 pub trait Loadable: Sized {
     fn load<P: AsRef<Path>>(path: P) -> Result<Self, String>;
@@ -43,14 +46,12 @@ pub struct GameWithSecrets {
 impl DerefVec for GameWithSecrets {
     /// FYI This impl is roughly copy-pasted from the `Game` DerefVec impl; can we deduplicate?
     fn deref_vec(&self) -> Vec<f64> {
-        let rt = Handle::current();
-
         let player = self.game.current_player();
         let player_secret = self.secrets[player];
 
         // Because `DerefVec` is synchronous, we grab a reference to the Tokio runtime and block on
         // the async call we need to compute the feature vector
-        rt.block_on(async {
+        futures::executor::block_on(async {
             player_features(&self.game as &dyn IGame, player_secret)
                 .await
                 .unwrap()

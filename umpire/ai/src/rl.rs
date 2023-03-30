@@ -16,6 +16,8 @@ use crossterm::{
     terminal::{size, Clear, ClearType},
 };
 
+use futures;
+
 use rsrl::{
     control::{td::QLearning, Controller},
     domains::{Action, Domain, Observation, State, Transition},
@@ -45,7 +47,6 @@ use common::{
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
 
-use tokio::runtime::Handle;
 use umpire_tui::{
     color::{palette16, Palette},
     map::Map,
@@ -351,12 +352,9 @@ impl Domain for UmpireDomain {
 
         let action = AiPlayerAction::from_idx(action_idx).unwrap();
 
-        {
-            let handle = Handle::current();
-            handle.block_on(async {
-                self.update_state(action).await;
-            })
-        }
+        futures::executor::block_on(async {
+            self.update_state(action).await;
+        });
 
         let end_score = self.game.player_score(player_secret).unwrap();
         let to = self.emit();
@@ -374,8 +372,7 @@ impl Domain for UmpireDomain {
                 let from_state = from.state();
                 let to_state = to.state();
 
-                let handle = Handle::current();
-                let memory = handle.block_on(async {
+                let memory = futures::executor::block_on(async {
                     Memory {
                         from: player_features(&from_state.game, player_secret)
                             .await

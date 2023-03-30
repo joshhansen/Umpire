@@ -28,6 +28,7 @@ async-trait = "0.1.68"
 clap = "4.1.4"
 crossterm = "0.25.0"
 failure = "0.1.6"
+futures = "0.3.27"
 rand = "~0.7.3"
 #rsrl = "0.7.1"
 #rsrl = { path = "/home/josh/Projects/External/rsrl/rsrl", features = ["serialize"] }

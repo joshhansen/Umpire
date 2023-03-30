@@ -5,6 +5,8 @@ use std::{
     path::Path,
 };
 
+use futures;
+
 use rsrl::fa::{EnumerableStateActionFunction, StateActionFunction};
 
 use serde::de::{self, Visitor};
@@ -18,7 +20,6 @@ use common::game::{
     action::AiPlayerAction,
     ai::{player_features, DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
 };
-use tokio::runtime::Handle;
 
 use super::{GameWithSecrets, Loadable, Storable};
 
@@ -143,9 +144,7 @@ impl StateActionFunction<GameWithSecrets, usize> for DNN {
     type Output = f64;
 
     fn evaluate(&self, state: &GameWithSecrets, action: &usize) -> Self::Output {
-        let handle = Handle::current();
-
-        let features = handle.block_on(async { self.tensor_for(state).await });
+        let features = futures::executor::block_on(async { self.tensor_for(state).await });
 
         let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
 
@@ -162,8 +161,7 @@ impl StateActionFunction<GameWithSecrets, usize> for DNN {
         _raw_error: Self::Output,
         _learning_rate: Self::Output,
     ) {
-        let handle = Handle::current();
-        let features = handle.block_on(async { self.tensor_for(state).await });
+        let features = futures::executor::block_on(async { self.tensor_for(state).await });
 
         let exponent = Tensor::from(2.0f64);
 
