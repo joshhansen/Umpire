@@ -13,23 +13,12 @@ use std::{
     net::{IpAddr, Ipv6Addr},
     rc::Rc,
     sync::{Arc, RwLock},
-    thread,
     time::{Duration, SystemTime},
 };
 
 use clap::{builder::BoolishValueParser, Arg, ArgAction};
 
 use tarpc::{client, context, tokio_serde::formats::Json};
-
-// use rsrl::{
-//     fa::{
-//         linear::{
-//             optim::SGD,
-//             LFA,
-//             VectorFunction,
-//         },
-//     },
-// };
 
 use self::ui::TermUI;
 
@@ -40,10 +29,10 @@ use umpire_tui::color::{palette16, palette24, palette256};
 use common::{
     cli::{self, players_arg},
     conf,
-    game::{ai::AISpec, player::TurnTaker, Game, PlayerNum, PlayerType},
+    game::{ai::AISpec, player::TurnTaker, Game, IGame, PlayerNum, PlayerSecret, PlayerType},
     log::LogTarget,
     name::{city_namer, unit_namer},
-    rpc::UmpireRpcClient,
+    rpc::{RpcGame, UmpireRpcClient},
     util::{Dims, Wrap2d},
 };
 
@@ -138,25 +127,33 @@ async fn main() {
     //     .collect()
     // ;
 
-    if matches.contains_id("players") {
-        // We'll run our own server with the specified players, then connect this client to it
+    let nosplash = matches.contains_id("nosplash");
 
+    let start_time = SystemTime::now();
+    if !nosplash {
+        print_loading_screen();
+    }
+
+    let use_alt_screen = matches.get_one::<bool>("use_alt_screen").cloned().unwrap();
+    let color_depth: u16 = matches
+        .get_one::<String>("colors")
+        .unwrap()
+        .parse()
+        .unwrap();
+    let fog_darkness = matches.get_one::<f64>("fog_darkness").unwrap().clone();
+    let unicode = matches.contains_id("unicode");
+    let quiet = matches.contains_id("quiet");
+    let confirm_turn_end = matches.contains_id("confirm_turn_end");
+
+    let local_server = matches.contains_id("players");
+
+    let (mut game, secrets, num_players, dims, player_types) = if local_server {
         let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap(); //FIXME take from server
 
         let num_players: PlayerNum = player_types.len(); //FIXME take from server
-        let use_alt_screen = matches.get_one::<bool>("use_alt_screen").cloned().unwrap();
         let map_width = matches.get_one::<u16>("map_width").unwrap().clone(); //FIXME take from server
         let map_height = matches.get_one::<u16>("map_height").unwrap().clone(); //FIXME take from server
-        let color_depth: u16 = matches
-            .get_one::<String>("colors")
-            .unwrap()
-            .parse()
-            .unwrap();
-        let fog_darkness = matches.get_one::<f64>("fog_darkness").unwrap().clone();
-        let unicode = matches.contains_id("unicode");
-        let quiet = matches.contains_id("quiet");
-        let nosplash = matches.contains_id("nosplash");
-        let confirm_turn_end = matches.contains_id("confirm_turn_end");
+
         let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone(); //FIXME take from server
         let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone(); //FIXME take from server
 
@@ -167,14 +164,8 @@ async fn main() {
             return;
         }
 
-        let start_time = SystemTime::now();
-        if !nosplash {
-            print_loading_screen();
-        }
-
         let city_namer = city_namer();
         let unit_namer = unit_namer();
-
         let (game, secrets) = Game::new(
             map_dims,
             city_namer,
@@ -183,98 +174,17 @@ async fn main() {
             Some(Arc::new(RwLock::new(unit_namer))),
             wrapping,
         );
-
-        if !nosplash {
-            let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();
-            if elapsed_time < MIN_LOAD_SCREEN_DISPLAY_TIME {
-                let remaining = MIN_LOAD_SCREEN_DISPLAY_TIME - elapsed_time;
-                thread::sleep(remaining);
-            }
-        }
-
-        let palette = match color_depth {
-            16 | 256 => match color_depth {
-                16 => palette16(num_players)
-                    .expect(format!("Error loading 16-color palette").as_str()),
-                256 => palette256(num_players)
-                    .expect(format!("Error loading 256-color palette").as_str()),
-                x => panic!("Unsupported color depth {}", x),
-            },
-            24 => {
-                palette24(num_players, fog_darkness)
-                // match palette24(num_players, fog_darkness) {
-                //     Ok(palette) => run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
-                //     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
-                // }
-            }
-            x => panic!("Unsupported color depth {}", x),
-        };
-
-        {
-            // Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
-
-            let mut ui = TermUI::new(
-                game.dims(),
-                palette,
-                unicode,
-                confirm_turn_end,
-                quiet,
-                use_alt_screen,
-            )
-            .unwrap();
-
-            // We can share one instance of RandomAI across players since it's stateless
-            // let mut random_ai = RandomAI::new(0);
-
-            // AIs indexed by spec
-            // let mut ais: HashMap<String,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
-            let mut ais: HashMap<AISpec, Rc<RefCell<AI>>> = HashMap::new();
-
-            for ptype in player_types.iter() {
-                if let PlayerType::AI(ai_type) = ptype {
-                    let ai: AI = ai_type.clone().into();
-                    let ai = Rc::new(RefCell::new(ai));
-                    // let player: Rc<RefCell<dyn TurnTaker>> = ai_type.clone().into();
-                    ais.insert(ai_type.clone(), ai);
-                }
-            }
-
-            let mut game = game;
-
-            'outer: loop {
-                for (i, ptype) in player_types.iter().enumerate() {
-                    ui.log_message(format!("Player of type {:?}", ptype));
-
-                    if game.victor().is_some() {
-                        break 'outer;
-                    }
-
-                    let next_player = &player_types[(i + 1) % player_types.len()];
-                    let clear_at_end_of_turn = match next_player {
-                        PlayerType::Human => false,
-                        _ => true,
-                    };
-
-                    match ptype {
-                        PlayerType::Human => {
-                            let training_instances = ui
-                                .take_turn(&mut game, &secrets, clear_at_end_of_turn, false)
-                                .await;
-                            assert!(training_instances.is_none());
-                        }
-                        PlayerType::AI(ai_type) => {
-                            let training_instances = ais
-                                .get_mut(ai_type)
-                                .unwrap()
-                                .borrow_mut()
-                                .take_turn(&mut game, &secrets, clear_at_end_of_turn, false)
-                                .await;
-                            assert!(training_instances.is_none());
-                        }
-                    }
-                }
-            }
-        } // UI drops here, deinitializing the user interface
+        (
+            Box::new(game) as Box<dyn IGame>,
+            secrets
+                .iter()
+                .cloned()
+                .map(Some)
+                .collect::<Vec<Option<PlayerSecret>>>(),
+            num_players,
+            map_dims,
+            *player_types,
+        )
     } else {
         let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
 
@@ -286,16 +196,110 @@ async fn main() {
 
         let client = UmpireRpcClient::new(client::Config::default(), transport).spawn();
 
-        // The client has an RPC method for each RPC defined in the annotated trait. It takes the same
-        // args as defined, with the addition of a Context, which is always the first arg. The Context
-        // specifies a deadline and trace information which can be helpful in debugging requests.
-        // let hello = client.hello(context::current(), "Stim".to_string()).await?;
+        let secrets = client
+            .player_secrets_known(context::current())
+            .await
+            .unwrap();
 
-        // println!("{hello}");
+        let player_types = client.player_types(context::current()).await.unwrap();
 
-        let num_players = client.num_players(context::current()).await.unwrap();
-        println!("num_players: {}", num_players);
-    }
+        let game = Box::new(RpcGame::new(client)) as Box<dyn IGame>;
+
+        let num_players = game.num_players().await;
+
+        let dims = game.dims().await;
+
+        (game, secrets, num_players, dims, player_types)
+    };
+
+    let palette = match color_depth {
+        16 | 256 => match color_depth {
+            16 => palette16(num_players).expect(format!("Error loading 16-color palette").as_str()),
+            256 => {
+                palette256(num_players).expect(format!("Error loading 256-color palette").as_str())
+            }
+            x => panic!("Unsupported color depth {}", x),
+        },
+        24 => {
+            palette24(num_players, fog_darkness)
+            // match palette24(num_players, fog_darkness) {
+            //     Ok(palette) => run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
+            //     Err(err) => eprintln!("Error loading truecolor palette: {}", err)
+            // }
+        }
+        x => panic!("Unsupported color depth {}", x),
+    };
+
+    let dims = game.dims().await;
+
+    {
+        // Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
+
+        let mut ui = TermUI::new(
+            dims,
+            palette,
+            unicode,
+            confirm_turn_end,
+            quiet,
+            use_alt_screen,
+        )
+        .unwrap();
+
+        // We can share one instance of RandomAI across players since it's stateless
+        // let mut random_ai = RandomAI::new(0);
+
+        // AIs indexed by spec
+        // let mut ais: HashMap<String,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
+        let mut ais: HashMap<AISpec, Rc<RefCell<AI>>> = HashMap::new();
+
+        if local_server {
+            for ptype in player_types.iter() {
+                if let PlayerType::AI(ai_type) = ptype {
+                    let ai: AI = ai_type.clone().into();
+                    let ai = Rc::new(RefCell::new(ai));
+                    // let player: Rc<RefCell<dyn TurnTaker>> = ai_type.clone().into();
+                    ais.insert(ai_type.clone(), ai);
+                }
+            }
+        }
+
+        'outer: loop {
+            for (i, ptype) in player_types.iter().enumerate() {
+                ui.log_message(format!("Player of type {:?}", ptype));
+
+                if game.victor().await.is_some() {
+                    break 'outer;
+                }
+
+                let next_player = &player_types[(i + 1) % player_types.len()];
+                let clear_at_end_of_turn = match next_player {
+                    PlayerType::Human => false,
+                    _ => true,
+                };
+
+                // Only take the turn locally if we have the corresponding player's secret
+                if let Some(secret) = secrets[i] {
+                    match ptype {
+                        PlayerType::Human => {
+                            let training_instances = ui
+                                .take_turn(game.as_mut(), &secrets, clear_at_end_of_turn, false)
+                                .await;
+                            assert!(training_instances.is_none());
+                        }
+                        PlayerType::AI(ai_type) => {
+                            let training_instances = ais
+                                .get_mut(ai_type)
+                                .unwrap()
+                                .borrow_mut()
+                                .take_turn(game.as_mut(), &secrets, clear_at_end_of_turn, false)
+                                .await;
+                            assert!(training_instances.is_none());
+                        }
+                    }
+                }
+            }
+        }
+    } // UI drops here, deinitializing the user interface
 
     println!(
         "\n\n\tHe rules a moment: Chaos umpire sits,

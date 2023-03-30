@@ -19,7 +19,7 @@ use crate::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, PlayerNum, PlayerSecret, PlayerTurnControl, ProposedActionResult,
+        Game, IGame, PlayerNum, PlayerSecret, PlayerTurnControl, PlayerType, ProposedActionResult,
         ProposedOrdersResult, ProposedResult, TurnNum, TurnStart, UmpireResult,
     },
     util::{Dims, Direction, Location, Wrap2d},
@@ -32,6 +32,8 @@ pub trait UmpireRpc {
 
     /// For each player in the game, gives the player secret if the player is controlled by this connection
     async fn player_secrets_known() -> Vec<Option<PlayerSecret>>;
+
+    async fn player_types() -> Vec<PlayerType>;
 
     /// The number of players in the game
     async fn num_players() -> PlayerNum;
@@ -330,14 +332,18 @@ pub trait UmpireRpc {
     async fn player_features(player_secret: PlayerSecret) -> UmpireResult<Vec<fX>>;
 }
 
-pub struct RpcGame<'a> {
-    game: &'a mut UmpireRpcClient,
+pub struct RpcGame {
+    game: UmpireRpcClient,
 }
 
-impl<'a> RpcGame<'a> {}
+impl RpcGame {
+    pub fn new(game: UmpireRpcClient) -> Self {
+        Self { game }
+    }
+}
 
 #[async_trait]
-impl<'a> IGame for RpcGame<'a> {
+impl IGame for RpcGame {
     async fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool> {
         self.game
             .is_player_turn(context::current(), secret)

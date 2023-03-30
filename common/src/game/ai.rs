@@ -272,7 +272,7 @@ pub async fn player_features(
 /// A user specification of an AI
 ///
 /// Used as a lightweight description of an AI to be passed around. Also to validate AIs given at the command line.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum AISpec {
     /// A horrible AI that makes decisions randomly
     Random,

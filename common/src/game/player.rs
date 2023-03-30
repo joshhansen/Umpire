@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use async_trait::async_trait;
 use futures;
+use serde::{Deserialize, Serialize};
 
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
@@ -25,7 +26,7 @@ use crate::{
 
 pub type PlayerNum = usize;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum PlayerType {
     Human,
     AI(AISpec),

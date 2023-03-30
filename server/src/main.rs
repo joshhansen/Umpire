@@ -60,6 +60,8 @@ struct UmpireServer {
 
     /// The player secrets for players controlled by this connection will be given, the rest omitted
     known_secrets: Vec<Option<PlayerSecret>>,
+
+    player_types: Vec<PlayerType>,
 }
 
 #[tarpc::server]
@@ -77,6 +79,10 @@ impl UmpireRpc for UmpireServer {
 
     async fn player_secrets_known(self, _: Context) -> Vec<Option<PlayerSecret>> {
         self.known_secrets
+    }
+
+    async fn player_types(self, _: Context) -> Vec<PlayerType> {
+        self.player_types
     }
 
     async fn num_players(self, _: Context) -> PlayerNum {
@@ -962,6 +968,7 @@ async fn main() -> anyhow::Result<()> {
 
     let ai_thread = {
         let game = Arc::clone(&game);
+        let player_types = player_types.clone();
         tokio::spawn(async move {
             let unique_ai_ptypes: HashSet<PlayerType> = player_types
                 .iter()
@@ -1018,6 +1025,7 @@ async fn main() -> anyhow::Result<()> {
             let server = UmpireServer {
                 game: game.clone(),
                 known_secrets: known_secrets[player].clone(),
+                player_types: player_types.clone(),
             };
 
             // println!(
