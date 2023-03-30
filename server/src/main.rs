@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use tarpc::{
     context::Context,
     server::{self, incoming::Incoming, Channel},
-    tokio_serde::formats::Json,
+    tokio_serde::formats::Bincode,
 };
 use tokio::sync::RwLock as RwLockTokio;
 use umpire_ai::AI;
@@ -962,7 +962,7 @@ async fn main() -> anyhow::Result<()> {
     // JSON transport is provided by the json_transport tarpc module. It makes it easy
     // to start up a serde-powered json serialization strategy over TCP.
 
-    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Json::default).await?;
+    let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
     // tracing::info!("Listening on port {}", listener.local_addr().port());
     listener.config_mut().max_frame_length(usize::MAX);
 
