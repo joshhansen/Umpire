@@ -455,29 +455,32 @@ pub trait TurnTaker {
     async fn take_turn_not_clearing(
         &mut self,
         game: &mut dyn IGame,
-        player_secrets: &Vec<PlayerSecret>,
+        player: PlayerNum,
+        secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     async fn take_turn_clearing(
         &mut self,
         game: &mut dyn IGame,
-        player_secrets: &Vec<PlayerSecret>,
+        player: PlayerNum,
+        secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     async fn take_turn(
         &mut self,
         game: &mut dyn IGame,
-        player_secrets: &Vec<PlayerSecret>,
+        player: PlayerNum,
+        secret: PlayerSecret,
         clear_at_end_of_turn: bool,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
         if clear_at_end_of_turn {
-            self.take_turn_clearing(game, player_secrets, generate_data)
+            self.take_turn_clearing(game, player, secret, generate_data)
                 .await
         } else {
-            self.take_turn_not_clearing(game, player_secrets, generate_data)
+            self.take_turn_not_clearing(game, player, secret, generate_data)
                 .await
         }
     }
@@ -488,14 +491,13 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
     async fn take_turn_not_clearing(
         &mut self,
         game: &mut dyn IGame,
-        player_secrets: &Vec<PlayerSecret>,
+        player: PlayerNum,
+        secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player = game.current_player().await;
-        let player_secret = player_secrets[player];
         let turn = game.turn().await;
 
-        let (mut ctrl, _turn_start) = PlayerTurnControl::new(game, player_secret).await.unwrap();
+        let (mut ctrl, _turn_start) = PlayerTurnControl::new(game, secret).await.unwrap();
 
         let mut training_instances = if generate_data {
             Some(Vec::new())
@@ -523,15 +525,12 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
     async fn take_turn_clearing(
         &mut self,
         game: &mut dyn IGame,
-        player_secrets: &Vec<PlayerSecret>,
+        player: PlayerNum,
+        secret: PlayerSecret,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player = game.current_player().await;
-        let player_secret = player_secrets[player];
         let turn = game.turn().await;
-        let (mut ctrl, _turn_start) = PlayerTurnControl::new_clearing(game, player_secret)
-            .await
-            .unwrap();
+        let (mut ctrl, _turn_start) = PlayerTurnControl::new_clearing(game, secret).await.unwrap();
 
         let mut training_instances = if generate_data {
             Some(Vec::new())

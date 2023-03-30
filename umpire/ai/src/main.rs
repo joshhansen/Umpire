@@ -396,7 +396,7 @@ async fn main() -> Result<(), String> {
                     let ai = ais.get_mut(i).unwrap();
                     let mut maybe_training_instances = ai
                         .borrow_mut()
-                        .take_turn_clearing(&mut game, &secrets, generate_data)
+                        .take_turn_clearing(&mut game, player, secrets[player], generate_data)
                         .await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {

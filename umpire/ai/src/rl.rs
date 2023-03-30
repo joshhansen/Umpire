@@ -53,7 +53,7 @@ use umpire_tui::{
     Component, Draw,
 };
 
-use super::{dnn::DNN, GameWithSecrets, AI};
+use super::{dnn::DNN, AI};
 
 pub type Basis = Constant;
 // pub type Basis = Polynomial;
@@ -106,7 +106,7 @@ impl UmpireStateSpace {
 }
 
 impl Space for UmpireStateSpace {
-    type Value = GameWithSecrets;
+    type Value = Game;
 
     fn dim(&self) -> Dim {
         self.space.dim()
@@ -331,10 +331,7 @@ impl Domain for UmpireDomain {
 
     /// Emit an observation of the current state of the environment.
     fn emit(&self) -> Observation<State<Self>> {
-        let v = GameWithSecrets {
-            game: self.game.clone(),
-            secrets: self.player_secrets.clone(),
-        };
+        let v = self.game.clone();
 
         if self.game.victor().is_some() {
             Observation::Terminal(v)
@@ -374,14 +371,10 @@ impl Domain for UmpireDomain {
 
                 let memory = futures::executor::block_on(async {
                     Memory {
-                        from: player_features(&from_state.game, player_secret)
-                            .await
-                            .unwrap(),
+                        from: player_features(from_state, player_secret).await.unwrap(),
                         action: action_idx,
                         reward,
-                        to: player_features(&to_state.game, player_secret)
-                            .await
-                            .unwrap(),
+                        to: player_features(to_state, player_secret).await.unwrap(),
                     }
                 });
 
@@ -427,8 +420,8 @@ impl UmpireRandom {
 
     /// The indices of all legal actions for a given game state, given in a consistent manner regardless of which (if
     /// any) are actually present.
-    fn canonical_legal_indices(&self, state: &GameWithSecrets) -> Vec<usize> {
-        let legal = AiPlayerAction::legal_actions(&state.game);
+    fn canonical_legal_indices(&self, state: &Game) -> Vec<usize> {
+        let legal = AiPlayerAction::legal_actions(state);
 
         debug_assert!(!legal.is_empty());
 
@@ -439,12 +432,12 @@ impl UmpireRandom {
     }
 }
 
-impl Policy<GameWithSecrets> for UmpireRandom {
+impl Policy<Game> for UmpireRandom {
     type Action = usize;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &GameWithSecrets) -> usize {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> usize {
         debug_assert!(
-            !state.game.current_turn_is_done(),
+            !state.current_turn_is_done(),
             "It makes no sense to sample actions for a game whose current turn is
                                               already done"
         );
@@ -455,7 +448,7 @@ impl Policy<GameWithSecrets> for UmpireRandom {
             .unwrap()
     }
 
-    fn probability(&self, state: &GameWithSecrets, action: &Self::Action) -> f64 {
+    fn probability(&self, state: &Game, action: &Self::Action) -> f64 {
         let legal_indices = self.canonical_legal_indices(state);
         if legal_indices.contains(action) {
             1.0 / legal_indices.len() as f64
@@ -472,9 +465,9 @@ impl<Q> UmpireGreedy<Q> {
         Self(q_func)
     }
 
-    pub fn legal_argmax_qs(qs: &[f64], state: &GameWithSecrets) -> usize {
+    pub fn legal_argmax_qs(qs: &[f64], state: &Game) -> usize {
         debug_assert!(
-            !state.game.current_turn_is_done(),
+            !state.current_turn_is_done(),
             "It makes no sense to sample actions for a game whose current turn is
                                               already done"
         );
@@ -500,28 +493,24 @@ impl<Q> UmpireGreedy<Q> {
     }
 }
 
-impl<Q: EnumerableStateActionFunction<GameWithSecrets>> Policy<GameWithSecrets>
-    for UmpireGreedy<Q>
-{
+impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireGreedy<Q> {
     type Action = usize;
 
-    fn mpa(&self, state: &GameWithSecrets) -> usize {
+    fn mpa(&self, state: &Game) -> usize {
         Self::legal_argmax_qs(&self.0.evaluate_all(state), state)
     }
 
-    fn probability(&self, s: &GameWithSecrets, a: &usize) -> f64 {
+    fn probability(&self, s: &Game, a: &usize) -> f64 {
         self.probabilities(s)[*a]
     }
 }
 
-impl<Q: EnumerableStateActionFunction<GameWithSecrets>> EnumerablePolicy<GameWithSecrets>
-    for UmpireGreedy<Q>
-{
+impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGreedy<Q> {
     fn n_actions(&self) -> usize {
         self.0.n_actions()
     }
 
-    fn probabilities(&self, state: &GameWithSecrets) -> Vec<f64> {
+    fn probabilities(&self, state: &Game) -> Vec<f64> {
         let qs = self.0.evaluate_all(state);
         let mut ps = vec![0.0; qs.len()];
 
@@ -569,12 +558,10 @@ impl<Q> UmpireEpsilonGreedy<Q> {
     }
 }
 
-impl<Q: EnumerableStateActionFunction<GameWithSecrets>> Policy<GameWithSecrets>
-    for UmpireEpsilonGreedy<Q>
-{
+impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireEpsilonGreedy<Q> {
     type Action = usize;
 
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &GameWithSecrets) -> Self::Action {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> Self::Action {
         let epsilon = self.epsilon.get();
         let action = if rng.gen_bool(epsilon) {
             // println!("RANDOM");
@@ -593,23 +580,21 @@ impl<Q: EnumerableStateActionFunction<GameWithSecrets>> Policy<GameWithSecrets>
         action
     }
 
-    fn mpa(&self, s: &GameWithSecrets) -> Self::Action {
+    fn mpa(&self, s: &Game) -> Self::Action {
         self.greedy.mpa(s)
     }
 
-    fn probability(&self, s: &GameWithSecrets, a: &Self::Action) -> f64 {
+    fn probability(&self, s: &Game, a: &Self::Action) -> f64 {
         self.probabilities(s)[*a]
     }
 }
 
-impl<Q: EnumerableStateActionFunction<GameWithSecrets>> EnumerablePolicy<GameWithSecrets>
-    for UmpireEpsilonGreedy<Q>
-{
+impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireEpsilonGreedy<Q> {
     fn n_actions(&self) -> usize {
         self.greedy.n_actions()
     }
 
-    fn probabilities(&self, s: &GameWithSecrets) -> Vec<f64> {
+    fn probabilities(&self, s: &Game) -> Vec<f64> {
         let prs = self.greedy.probabilities(s);
         let epsilon = self.epsilon.get();
         let pr = epsilon / prs.len() as f64;
@@ -630,26 +615,26 @@ pub struct UmpireAgent<Q, P> {
     avoid_skip: bool,
 }
 
-impl<Q, P> OnlineLearner<GameWithSecrets, P::Action> for UmpireAgent<Q, P>
+impl<Q, P> OnlineLearner<Game, P::Action> for UmpireAgent<Q, P>
 where
-    Q: EnumerableStateActionFunction<GameWithSecrets>,
-    P: EnumerablePolicy<GameWithSecrets>,
+    Q: EnumerableStateActionFunction<Game>,
+    P: EnumerablePolicy<Game>,
 {
-    fn handle_transition(&mut self, t: &Transition<GameWithSecrets, P::Action>) {
+    fn handle_transition(&mut self, t: &Transition<Game, P::Action>) {
         self.q.handle_transition(t)
     }
 }
 
-impl<Q, P> Controller<GameWithSecrets, P::Action> for UmpireAgent<Q, P>
+impl<Q, P> Controller<Game, P::Action> for UmpireAgent<Q, P>
 where
-    Q: EnumerableStateActionFunction<GameWithSecrets>,
-    P: EnumerablePolicy<GameWithSecrets>,
+    Q: EnumerableStateActionFunction<Game>,
+    P: EnumerablePolicy<Game>,
 {
-    fn sample_target(&self, _: &mut impl Rng, s: &GameWithSecrets) -> P::Action {
+    fn sample_target(&self, _: &mut impl Rng, s: &Game) -> P::Action {
         find_legal_max(&self.q.q_func, s, self.avoid_skip).0
     }
 
-    fn sample_behaviour(&self, rng: &mut impl Rng, s: &GameWithSecrets) -> P::Action {
+    fn sample_behaviour(&self, rng: &mut impl Rng, s: &Game) -> P::Action {
         self.q.sample_behaviour(rng, s)
     }
 }
@@ -795,12 +780,12 @@ pub fn trained_agent(
     Ok(agent)
 }
 
-pub fn find_legal_max<Q: EnumerableStateActionFunction<GameWithSecrets>>(
+pub fn find_legal_max<Q: EnumerableStateActionFunction<Game>>(
     q_func: &Q,
-    state: &GameWithSecrets,
+    state: &Game,
     avoid_skip: bool,
 ) -> (usize, f64) {
-    let mut legal = AiPlayerAction::legal_actions(&state.game);
+    let mut legal = AiPlayerAction::legal_actions(state);
 
     let possible = AiPlayerAction::possible_actions();
 

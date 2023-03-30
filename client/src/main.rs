@@ -13,6 +13,7 @@ use std::{
     net::{IpAddr, Ipv6Addr},
     rc::Rc,
     sync::{Arc, RwLock},
+    thread,
     time::{Duration, SystemTime},
 };
 
@@ -134,6 +135,14 @@ async fn main() {
         print_loading_screen();
     }
 
+    if !nosplash {
+        let elapsed_time = SystemTime::now().duration_since(start_time).unwrap();
+        if elapsed_time < MIN_LOAD_SCREEN_DISPLAY_TIME {
+            let remaining = MIN_LOAD_SCREEN_DISPLAY_TIME - elapsed_time;
+            thread::sleep(remaining);
+        }
+    }
+
     let use_alt_screen = matches.get_one::<bool>("use_alt_screen").cloned().unwrap();
     let color_depth: u16 = matches
         .get_one::<String>("colors")
@@ -183,7 +192,7 @@ async fn main() {
                 .collect::<Vec<Option<PlayerSecret>>>(),
             num_players,
             map_dims,
-            *player_types,
+            player_types.clone(),
         )
     } else {
         let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
@@ -229,8 +238,6 @@ async fn main() {
         }
         x => panic!("Unsupported color depth {}", x),
     };
-
-    let dims = game.dims().await;
 
     {
         // Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
@@ -282,7 +289,7 @@ async fn main() {
                     match ptype {
                         PlayerType::Human => {
                             let training_instances = ui
-                                .take_turn(game.as_mut(), &secrets, clear_at_end_of_turn, false)
+                                .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
                                 .await;
                             assert!(training_instances.is_none());
                         }
@@ -291,7 +298,7 @@ async fn main() {
                                 .get_mut(ai_type)
                                 .unwrap()
                                 .borrow_mut()
-                                .take_turn(game.as_mut(), &secrets, clear_at_end_of_turn, false)
+                                .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
                                 .await;
                             assert!(training_instances.is_none());
                         }

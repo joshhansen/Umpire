@@ -995,10 +995,12 @@ async fn main() -> anyhow::Result<()> {
 
                 let player = g.current_player();
 
+                let secret = secrets[player];
+
                 let ptype = &player_types[player];
 
                 if let Some(ai) = ais.get_mut(&ptype) {
-                    ai.take_turn_clearing(g as &mut dyn IGame, &secrets, false)
+                    ai.take_turn_clearing(g as &mut dyn IGame, player, secret, false)
                         .await;
                 }
             }
