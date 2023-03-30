@@ -46,6 +46,8 @@ pub trait UmpireRpc {
 
     async fn end_turn(player_secret: PlayerSecret) -> UmpireResult<()>;
 
+    async fn force_end_turn(player_secret: PlayerSecret) -> UmpireResult<()>;
+
     async fn is_player_turn(secret: PlayerSecret) -> UmpireResult<bool>;
 
     async fn end_then_begin_turn(
@@ -336,6 +338,13 @@ impl<'a> RpcGame<'a> {}
 
 #[async_trait]
 impl<'a> IGame for RpcGame<'a> {
+    async fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool> {
+        self.game
+            .is_player_turn(context::current(), secret)
+            .await
+            .unwrap()
+    }
+
     async fn num_players(&self) -> PlayerNum {
         self.game.num_players(context::current()).await.unwrap()
     }
@@ -399,6 +408,13 @@ impl<'a> IGame for RpcGame<'a> {
     async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
         self.game
             .end_turn(context::current(), player_secret)
+            .await
+            .unwrap()
+    }
+
+    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.game
+            .force_end_turn(context::current(), player_secret)
             .await
             .unwrap()
     }

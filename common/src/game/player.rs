@@ -422,7 +422,9 @@ impl<'a> Drop for PlayerTurnControl<'a> {
             // Because `Drop` is synchronous, we grab a reference to the Tokio runtime and block on
             // the async calls we need to end the user's turn
             futures::executor::block_on(async {
-                self.game.end_turn(self.secret).await.unwrap();
+                if self.game.is_player_turn(self.secret).await.unwrap() {
+                    self.game.force_end_turn(self.secret).await.unwrap();
+                }
             });
         }
     }

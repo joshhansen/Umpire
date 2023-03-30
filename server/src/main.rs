@@ -112,6 +112,10 @@ impl UmpireRpc for UmpireServer {
         self.game.write().await.end_turn(player_secret)
     }
 
+    async fn force_end_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.game.write().await.force_end_turn(player_secret)
+    }
+
     async fn is_player_turn(self, _: Context, secret: PlayerSecret) -> UmpireResult<bool> {
         self.game.read().await.is_player_turn(secret)
     }

@@ -152,6 +152,8 @@ pub trait IGame: Send + Sync {
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)>;
 
+    async fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool>;
+
     async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart>;
 
     /// Begin the turn of the specified player, claring productions
@@ -174,6 +176,8 @@ pub trait IGame: Send + Sync {
     async fn victor(&self) -> Option<PlayerNum>;
 
     async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()>;
+
+    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()>;
 
     /// End the current human player's turn and begin the next human player's turn
     ///
@@ -979,6 +983,8 @@ impl Game {
 
     /// Ends the turn but doesn't check if requests are completed
     pub fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.validate_is_player_turn(player_secret)?;
+
         self.player_observations_mut(player_secret)?.archive();
 
         self._inc_current_player();
@@ -2805,6 +2811,10 @@ impl IGame for Game {
         PlayerTurnControl::new_nonending(self, secret).await
     }
 
+    async fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool> {
+        self.is_player_turn(secret)
+    }
+
     async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
         self.begin_turn(player_secret)
     }
@@ -2830,6 +2840,10 @@ impl IGame for Game {
 
     async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
         self.end_turn(player_secret)
+    }
+
+    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.force_end_turn(player_secret)
     }
 
     async fn end_then_begin_turn(
