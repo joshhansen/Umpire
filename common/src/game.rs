@@ -3269,27 +3269,6 @@ impl IGame for Game {
         self.propose_action(player_secret, action)
     }
 
-    // async fn current_player_production_set_requests(&self) -> Vec<Location> {
-    //     self.current_player_production_set_requests().collect()
-    // }
-
-    // async fn current_player_valid_productions_conservative(&self, loc: Location) -> Vec<UnitType> {
-    //     self.current_player_valid_productions_conservative(loc)
-    //         .collect()
-    // }
-
-    // async fn current_player_unit_orders_requests(&self) -> Vec<UnitID> {
-    //     self.current_player_unit_orders_requests().collect()
-    // }
-
-    // async fn current_player_unit_legal_directions(
-    //     &self,
-    //     unit_id: UnitID,
-    // ) -> UmpireResult<Vec<Direction>> {
-    //     self.current_player_unit_legal_directions(unit_id)
-    //         .map(|dirs| dirs.collect())
-    // }
-
     fn clone_underlying_game_state(&self) -> Result<Game, String> {
         Ok(self.clone())
     }

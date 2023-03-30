@@ -325,14 +325,6 @@ pub trait UmpireRpc {
         action: PlayerAction,
     ) -> ProposedActionResult;
 
-    // async fn current_player_production_set_requests() -> Vec<Location>;
-
-    // async fn current_player_valid_productions_conservative(loc: Location) -> Vec<UnitType>;
-
-    // async fn current_player_unit_orders_requests() -> Vec<UnitID>;
-
-    // async fn current_player_unit_legal_directions(unit_id: UnitID) -> UmpireResult<Vec<Direction>>;
-
     async fn player_features(player_secret: PlayerSecret) -> UmpireResult<Vec<fX>>;
 }
 
@@ -1039,37 +1031,6 @@ impl<'a> IGame for RpcGame<'a> {
             .await
             .unwrap()
     }
-
-    // async fn current_player_production_set_requests(&self) -> Vec<Location> {
-    //     self.game
-    //         .current_player_production_set_requests(context::current())
-    //         .await
-    //         .unwrap()
-    // }
-
-    // async fn current_player_valid_productions_conservative(&self, loc: Location) -> Vec<UnitType> {
-    //     self.game
-    //         .current_player_valid_productions_conservative(context::current(), loc)
-    //         .await
-    //         .unwrap()
-    // }
-
-    // async fn current_player_unit_orders_requests(&self) -> Vec<UnitID> {
-    //     self.game
-    //         .current_player_unit_orders_requests(context::current())
-    //         .await
-    //         .unwrap()
-    // }
-
-    // async fn current_player_unit_legal_directions(
-    //     &self,
-    //     unit_id: UnitID,
-    // ) -> UmpireResult<Vec<Direction>> {
-    //     self.game
-    //         .current_player_unit_legal_directions(context::current(), unit_id)
-    //         .await
-    //         .unwrap()
-    // }
 
     //FIXME Refused bequest
     fn clone_underlying_game_state(&self) -> Result<Game, String> {

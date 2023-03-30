@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 
 use super::{
@@ -17,7 +16,7 @@ use crate::{
         ai::TrainingInstance,
         city::City,
         map::tile::Tile,
-        obs::{Obs, ObsTracker},
+        obs::Obs,
         unit::{orders::OrdersResult, Unit, UnitID, UnitType},
         Game, GameError, TurnNum,
     },
@@ -80,122 +79,6 @@ impl Into<String> for PlayerType {
         }
     }
 }
-
-// #[async_trait]
-// pub trait IPlayerTurnControl: Send + Sync {
-//     async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool>;
-
-//     async fn current_turn_is_done(&self) -> bool;
-
-//     /// The victor---if any---meaning the player who has defeated all other players.
-//     ///
-//     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
-//     /// has won.
-//     async fn victor(&self) -> Option<PlayerNum>;
-
-//     async fn player_unit_legal_directions(&self, unit_id: UnitID) -> UmpireResult<Vec<Direction>>;
-
-//     /// The tile at the given location, as present in the player's observations (or not)
-//     async fn tile(&self, loc: Location) -> Option<Cow<Tile>>;
-
-//     async fn obs(&self, loc: Location) -> Obs;
-
-//     async fn player_cities_producing_or_not_ignored(&self) -> usize;
-
-//     /// The city at `loc` if controlled by this player
-//     async fn player_city_by_loc(&self, loc: Location) -> Option<City>;
-
-//     async fn player_unit_by_id(&self, id: UnitID) -> Option<Unit>;
-
-//     async fn player_unit_loc(&self, id: UnitID) -> Option<Location>;
-
-//     async fn player_toplevel_unit_by_loc(&self, loc: Location) -> Option<Unit>;
-
-//     async fn production_set_requests(&self) -> Vec<Location>;
-
-//     async fn player_unit_orders_requests(&self) -> Vec<UnitID>;
-
-//     // Movement-related methods
-
-//     async fn propose_move_unit_by_id(
-//         &self,
-//         id: UnitID,
-//         dest: Location,
-//     ) -> ProposedUmpireResult<Move>;
-
-//     async fn move_unit_by_id_in_direction(
-//         &mut self,
-//         id: UnitID,
-//         direction: Direction,
-//     ) -> UmpireResult<Move>;
-
-//     async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<Unit>;
-
-//     /// Sets the production of the current player's city at location `loc` to `production`.
-//     ///
-//     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
-//     async fn set_production_by_loc(
-//         &mut self,
-//         loc: Location,
-//         production: UnitType,
-//     ) -> UmpireResult<Option<UnitType>>;
-
-//     async fn clear_production(
-//         &mut self,
-//         loc: Location,
-//         ignore_cleared_production: bool,
-//     ) -> UmpireResult<Option<UnitType>>;
-
-//     async fn turn(&self) -> TurnNum;
-
-//     async fn current_player(&self) -> PlayerNum;
-
-//     /// The logical dimensions of the game map
-//     async fn dims(&self) -> Dims;
-
-//     async fn wrapping(&self) -> Wrap2d;
-
-//     /// Units that could be produced by a city located at the given location
-//     async fn valid_productions(&self, loc: Location) -> Vec<UnitType>;
-
-//     /// Units that could be produced by a city located at the given location, allowing only those which can actually
-//     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-//     async fn valid_productions_conservative(&self, loc: Location) -> Vec<UnitType>;
-
-//     /// If the current player controls a unit with ID `id`, order it to sentry
-//     async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult;
-
-//     async fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult;
-
-//     /// Simulate ordering the specified unit to go to the given location
-//     async fn propose_order_unit_go_to(
-//         &self,
-//         unit_id: UnitID,
-//         dest: Location,
-//     ) -> ProposedOrdersResult;
-
-//     /// Simulate ordering the specified unit to explore.
-//     async fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult;
-
-//     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-//     async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()>;
-
-//     async fn begin_turn(&mut self) -> UmpireResult<TurnStart>;
-
-//     async fn end_turn(&mut self) -> UmpireResult<()>;
-
-//     async fn player_score(&self) -> UmpireResult<f64>;
-
-//     async fn take_simple_action(
-//         &mut self,
-//         action: AiPlayerAction,
-//     ) -> UmpireResult<PlayerActionOutcome>;
-
-//     /// FIXME Maintain this vector in the client, incrementally
-//     async fn player_features(&self) -> Vec<fX>;
-
-//     async fn take_action(&mut self, action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
-// }
 
 pub struct PlayerTurnControl<'a> {
     game: &'a mut dyn IGame,
@@ -690,24 +573,4 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
 
 trait ActionwiseTurnTaker {
     fn next_action(&self, game: &Game, generate_data: bool) -> Option<TrainingInstance>;
-}
-
-/**
- * The game information available to a particular player
- */
-#[derive(Deserialize, Serialize)]
-pub struct PlayerGameView {
-    pub observations: ObsTracker,
-
-    pub turn: TurnNum,
-
-    pub num_players: PlayerNum,
-
-    pub current_player: PlayerNum,
-
-    pub wrapping: Wrap2d,
-
-    pub fog_of_war: bool,
-
-    pub score: f64,
 }
