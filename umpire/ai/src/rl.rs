@@ -39,7 +39,7 @@ use common::{
         action::AiPlayerAction,
         ai::{fX, player_features},
         unit::UnitType,
-        Game, IGame, PlayerNum, PlayerSecret,
+        Game, PlayerNum, PlayerSecret,
     },
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
@@ -251,7 +251,6 @@ impl UmpireDomain {
             let (mut ctrl, _turn_start) = self
                 .game
                 .player_turn_control_nonending(player_secret)
-                .await
                 .unwrap();
 
             action.take(&mut ctrl).await.unwrap();
@@ -278,7 +277,6 @@ impl UmpireDomain {
                     let (ctrl, _turn_start) = self
                         .game
                         .player_turn_control_nonending(player_secret)
-                        .await
                         .unwrap();
                     self.map
                         .draw(&ctrl, &mut stdout, &self.palette)

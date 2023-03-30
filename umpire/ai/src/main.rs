@@ -31,7 +31,7 @@ use common::{
     game::{
         ai::{AISpec, TrainingInstance},
         player::{PlayerNum, TurnTaker},
-        Game, IGame,
+        Game,
     },
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
@@ -369,10 +369,8 @@ async fn main() -> Result<(), String> {
 
             if verbosity > 1 {
                 if fix_output_loc {
-                    let (ctrl, _turn_start) = game
-                        .player_turn_control_nonending(secrets[0])
-                        .await
-                        .unwrap();
+                    let (ctrl, _turn_start) =
+                        game.player_turn_control_nonending(secrets[0]).unwrap();
 
                     map.as_mut()
                         .unwrap()
@@ -412,10 +410,8 @@ async fn main() -> Result<(), String> {
 
                     if verbosity > 1 {
                         if fix_output_loc {
-                            let (ctrl, _turn_start) = game
-                                .player_turn_control_nonending(secrets[i])
-                                .await
-                                .unwrap();
+                            let (ctrl, _turn_start) =
+                                game.player_turn_control_nonending(secrets[i]).unwrap();
 
                             map.as_mut()
                                 .unwrap()

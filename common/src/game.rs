@@ -701,6 +701,27 @@ impl Game {
         self.num_players
     }
 
+    pub fn player_turn_control<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        PlayerTurnControl::new_sync(self, secret)
+    }
+
+    pub fn player_turn_control_clearing<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        PlayerTurnControl::new_sync_clearing(self, secret)
+    }
+
+    pub fn player_turn_control_nonending<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        PlayerTurnControl::new_sync_nonending(self, secret)
+    }
+
     /// Register a player and get its secret
     ///
     /// The secret is used for access control on other methods
@@ -955,17 +976,20 @@ impl Game {
         None
     }
 
+    /// Ends the turn but doesn't check if requests are completed
+    pub fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.player_observations_mut(player_secret)?.archive();
+
+        self._inc_current_player();
+
+        Ok(())
+    }
+
     pub fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
         self.validate_is_player_turn(player_secret)?;
 
         if self.current_turn_is_done() {
-            self.player_observations_mut(player_secret)
-                .unwrap()
-                .archive();
-
-            self._inc_current_player();
-
-            Ok(())
+            self.force_end_turn(player_secret)
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
                 player: self.current_player,
@@ -1033,7 +1057,7 @@ impl Game {
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
     ) -> UmpireResult<TurnStart> {
-        self.end_turn(player_secret)?;
+        self.force_end_turn(player_secret)?;
 
         self.begin_turn(next_player_secret)
     }
@@ -1044,7 +1068,7 @@ impl Game {
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
     ) -> UmpireResult<TurnStart> {
-        self.end_turn(player_secret)?;
+        self.force_end_turn(player_secret)?;
 
         self.begin_turn_clearing(next_player_secret)
     }

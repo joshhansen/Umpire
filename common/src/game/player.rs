@@ -111,7 +111,7 @@ impl<'a> PlayerTurnControl<'a> {
         Self::_new(game, secret, false, true).await
     }
 
-    pub async fn _new(
+    async fn _new(
         game: &'a mut dyn IGame,
         secret: PlayerSecret,
         end_turn_on_drop: bool,
@@ -125,6 +125,54 @@ impl<'a> PlayerTurnControl<'a> {
 
         let num_players = game.num_players().await;
         let dims = game.dims().await;
+
+        let observations = PlayerObsTracker::new(num_players, dims);
+        Ok((
+            Self {
+                game,
+                secret,
+                observations,
+                end_turn_on_drop,
+            },
+            turn_start,
+        ))
+    }
+
+    pub fn new_sync(
+        game: &'a mut Game,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        Self::_new_sync(game, secret, true, false)
+    }
+
+    pub fn new_sync_clearing(
+        game: &'a mut Game,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        Self::_new_sync(game, secret, true, true)
+    }
+
+    pub fn new_sync_nonending(
+        game: &'a mut Game,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        Self::_new_sync(game, secret, false, true)
+    }
+
+    fn _new_sync(
+        game: &'a mut Game,
+        secret: PlayerSecret,
+        end_turn_on_drop: bool,
+        clearing: bool,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        let turn_start = if clearing {
+            game.begin_turn_clearing(secret)
+        } else {
+            game.begin_turn(secret)
+        }?;
+
+        let num_players = game.num_players();
+        let dims = game.dims();
 
         let observations = PlayerObsTracker::new(num_players, dims);
         Ok((

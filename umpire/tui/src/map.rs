@@ -631,7 +631,6 @@ mod test {
 
     use common::{
         game::test_support::game1,
-        game::IGame,
         util::{Dims, Location, Rect, Vec2d},
     };
 
@@ -688,7 +687,7 @@ mod test {
 
         let (mut game, secrets) = game1();
 
-        let (ctrl, _turn_start) = game.player_turn_control(secrets[0]).await.unwrap();
+        let (ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
 
         let rect = Rect {
             left: 0,
