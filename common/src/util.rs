@@ -626,7 +626,7 @@ pub fn sparsify(v: Vec<f64>) -> (usize, HashMap<usize, f64>) {
         .iter()
         .cloned()
         .enumerate()
-        .filter(|(i, f)| *f != 0.0)
+        .filter(|(_i, f)| *f != 0.0)
         .collect();
     (num_features, features)
 }

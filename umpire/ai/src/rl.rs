@@ -280,7 +280,10 @@ impl UmpireDomain {
                         .player_turn_control_nonending(player_secret)
                         .await
                         .unwrap();
-                    self.map.draw(&ctrl, &mut stdout, &self.palette);
+                    self.map
+                        .draw(&ctrl, &mut stdout, &self.palette)
+                        .await
+                        .unwrap();
                 }
                 execute!(stdout, MoveTo(0, self.map.rect().bottom() + 1)).unwrap();
             } else {
@@ -350,7 +353,12 @@ impl Domain for UmpireDomain {
 
         let action = AiPlayerAction::from_idx(action_idx).unwrap();
 
-        self.update_state(action);
+        {
+            let handle = Handle::current();
+            handle.block_on(async {
+                self.update_state(action).await;
+            })
+        }
 
         let end_score = self.game.player_score(player_secret).unwrap();
         let to = self.emit();

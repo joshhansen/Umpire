@@ -9,7 +9,7 @@ use common::{
     conf,
     game::{
         action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
-        ai::{fX, player_features},
+        ai::fX,
         city::{City, CityID},
         error::GameError,
         map::Tile,

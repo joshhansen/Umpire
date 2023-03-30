@@ -121,7 +121,7 @@ mod test {
             alignment::Alignment,
             map::{MapData, Terrain},
             unit::UnitType,
-            Game,
+            Game, IGame,
         },
         util::{Dims, Location, Wrap2d},
     };
@@ -158,7 +158,7 @@ mod test {
         let (mut game, secrets) = Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
 
         {
-            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
+            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[0]).await.unwrap();
             ctrl.order_unit_skip(unit_id).await.unwrap();
         }
 
@@ -166,7 +166,7 @@ mod test {
         let mut mode = Mode::TurnOver;
 
         {
-            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[1]).unwrap();
+            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[1]).await.unwrap();
 
             ctrl.order_unit_skip(other_unit_id).await.unwrap();
 
