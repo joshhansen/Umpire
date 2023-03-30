@@ -8,7 +8,7 @@ use super::action::PlayerAction;
 ///
 /// If the outcome is acceptable, use `Game::take_action` to realize it.
 ///
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Proposed2<T> {
     pub action: PlayerAction,
     pub outcome: T,

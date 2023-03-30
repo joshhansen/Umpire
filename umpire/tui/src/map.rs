@@ -1,4 +1,7 @@
-use std::io::{Result as IoResult, Stdout, Write};
+use std::{
+    borrow::Cow,
+    io::{Result as IoResult, Stdout, Write},
+};
 
 use async_trait::async_trait;
 
@@ -376,7 +379,7 @@ impl Map {
                 }
 
                 let obs = if let Some(obs_override) = obs_override {
-                    obs_override
+                    obs_override.clone()
                 } else {
                     game.obs(tile_loc).await
                 };
@@ -436,12 +439,12 @@ impl Map {
 
                     if let Some(fg_color) = fg_color {
                         stdout
-                            .queue(SetForegroundColor(palette.get(fg_color, *current)))
+                            .queue(SetForegroundColor(palette.get(fg_color, current)))
                             .unwrap();
                     }
                     if let Some(bg_color) = bg_color {
                         stdout
-                            .queue(SetBackgroundColor(palette.get(bg_color, *current)))
+                            .queue(SetBackgroundColor(palette.get(bg_color, current)))
                             .unwrap();
                     }
                     stdout
@@ -449,7 +452,7 @@ impl Map {
                         .unwrap();
 
                     self.displayed_tiles[viewport_loc] = Some(tile);
-                    self.displayed_tile_currentness[viewport_loc] = Some(*current);
+                    self.displayed_tile_currentness[viewport_loc] = Some(current);
 
                     false
                 } else {
@@ -480,7 +483,7 @@ impl Map {
         &self,
         game: &'a PlayerTurnControl<'_>,
         viewport_loc: Location,
-    ) -> Option<&'a Tile> {
+    ) -> Option<Cow<'a, Tile>> {
         // let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
         // game.current_player_tile(tile_loc)
         if let Some(map_loc) = self.viewport_to_map_coords(game, viewport_loc).await {
@@ -547,7 +550,7 @@ impl Draw for Map {
                 //     None
                 // };
                 let new_currentness = if let Some(Obs::Observed { current, .. }) = new_obs {
-                    Some(*current)
+                    Some(current)
                 } else {
                     None
                 };

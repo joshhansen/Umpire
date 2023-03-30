@@ -17,14 +17,18 @@ pub mod proposed;
 pub mod unit;
 
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fmt,
     sync::{Arc, RwLock},
 };
 
+use async_trait::async_trait;
+
 use rsrl::DerefVec;
 
 use serde::{Deserialize, Serialize};
+use tokio::runtime::Handle;
 use uuid::Uuid;
 
 use crate::{
@@ -51,17 +55,16 @@ use crate::{
         },
     },
     name::{IntNamer, Namer},
-    util::{Dimensioned, Dims, Direction, Location, Wrap2d},
+    util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
 };
 
 pub use self::player::{PlayerNum, PlayerTurnControl, PlayerType};
 
 use self::{
     action::{PlayerAction, PlayerActionOutcome},
-    ai::{fX, player_features},
+    ai::{fX, player_features, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError},
-    player::PlayerGameView,
     proposed::Proposed2,
 };
 
@@ -121,13 +124,480 @@ pub enum UnitProductionOutcome {
 
 pub type UmpireResult<T> = Result<T, GameError>;
 
-type ProposedResult<Outcome, E> = Result<Proposed2<Outcome>, E>;
+pub type ProposedResult<Outcome, E> = Result<Proposed2<Outcome>, E>;
 
 pub type ProposedUmpireResult<T> = UmpireResult<Proposed2<T>>;
 
-type ProposedActionResult = ProposedResult<PlayerActionOutcome, GameError>;
+pub type ProposedActionResult = ProposedUmpireResult<PlayerActionOutcome>;
 
-type ProposedOrdersResult = ProposedResult<OrdersOutcome, GameError>; //TODO Make error type orders-specific
+pub type ProposedOrdersResult = ProposedResult<OrdersOutcome, GameError>; //TODO Make error type orders-specific
+
+#[async_trait]
+pub trait IGame: Send + Sync {
+    async fn num_players(&self) -> PlayerNum;
+
+    async fn player_turn_control<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)>;
+
+    async fn player_turn_control_clearing<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)>;
+
+    async fn player_turn_control_nonending<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)>;
+
+    async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart>;
+
+    /// Begin the turn of the specified player, claring productions
+    async fn begin_turn_clearing(&mut self, player_secret: PlayerSecret)
+        -> UmpireResult<TurnStart>;
+
+    /// Indicates whether the given player has completed the specified turn, or not
+    ///
+    /// This is public information.
+    async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool>;
+
+    async fn current_turn_is_done(&self) -> bool;
+
+    /// The victor---if any---meaning the player who has defeated all other players.
+    ///
+    /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
+    /// has won.
+    ///
+    /// Defeat is defined as having no cities and having no units that can capture cities
+    async fn victor(&self) -> Option<PlayerNum>;
+
+    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()>;
+
+    /// End the current human player's turn and begin the next human player's turn
+    ///
+    /// Returns the number of the now-current player.
+    /// Ok if the turn ended properly
+    /// Err if not
+    ///
+    /// If the requirements for ending the turn weren't met, it will remain the turn of the player that was playing
+    /// when this method was called.
+    ///
+    /// If the requirements for ending the turn were met the next player's turn will begin
+    ///
+    /// At the beginning of a turn, new units will be created as necessary, production counts will be reset as
+    /// necessary, and production and movement requests will be created as necessary.
+    ///
+    /// At the end of a turn, production counts will be incremented.
+    async fn end_then_begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart>;
+
+    async fn end_then_begin_turn_clearing(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart>;
+
+    /// End the turn without checking that the player has filled all production and orders requests.
+    async fn force_end_then_begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart>;
+
+    /// End the turn without checking that the player has filled all production and orders requests.
+    async fn force_end_then_begin_turn_clearing(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart>;
+
+    /// The set of destinations that the specified unit could actually attempt a move onto in exactly one movement step.
+    /// This excludes the unit's original location
+    async fn player_unit_legal_one_step_destinations(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<HashSet<Location>>;
+
+    async fn player_unit_legal_directions(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<Vec<Direction>>;
+
+    /// The current player's most recent observation of the tile at location `loc`, if any
+    async fn player_tile(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Cow<Tile>>>;
+
+    /// The current player's observation at location `loc`
+    async fn player_obs(&self, player_secret: PlayerSecret, loc: Location) -> UmpireResult<Obs>;
+
+    async fn player_observations(&self, player_secret: PlayerSecret) -> UmpireResult<ObsTracker>;
+
+    /// Every city controlled by the player whose secret is provided
+    async fn player_cities(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<City>>;
+
+    async fn player_cities_with_production_target(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<City>>;
+
+    /// How many cities does the specified player control?
+    async fn player_city_count(&self, player_secret: PlayerSecret) -> UmpireResult<usize>;
+
+    /// The number of cities controlled by the current player which either have a production target or
+    /// are NOT set to be ignored when requesting productions to be set
+    ///
+    /// This basically lets us make sure a player doesn't set all their cities' productions to none since
+    /// right now the UI has no way of getting out of that situation
+    ///
+    /// NOTE Maybe we could make the UI smarter and get rid of this?
+    async fn player_cities_producing_or_not_ignored(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<usize>;
+
+    async fn player_units(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<Unit>>;
+
+    /// The counts of unit types controlled by the specified player
+    async fn player_unit_type_counts(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<HashMap<UnitType, usize>>;
+
+    /// If the specified player controls a city at location `loc`, return it
+    async fn player_city_by_loc(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<City>>;
+
+    /// If the specified player controls a city with ID `city_id`, return it
+    async fn player_city_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        city_id: CityID,
+    ) -> UmpireResult<Option<City>>;
+
+    /// If the specified player controls a unit with ID `id`, return it
+    async fn player_unit_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Unit>>;
+
+    /// If the specified player controls a unit with ID `id`, return its location
+    async fn player_unit_loc(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Location>>;
+
+    /// If the current player controls the top-level unit at location `loc`, return it
+    async fn player_toplevel_unit_by_loc(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Unit>>;
+
+    async fn player_production_set_requests(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Location>>;
+
+    async fn player_unit_orders_requests(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitID>>;
+
+    /// Which if the specified player's units need orders?
+    ///
+    /// In other words, which of the specified player's units have no orders and have moves remaining?
+    async fn player_units_with_orders_requests(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Unit>>;
+
+    async fn player_units_with_pending_orders(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitID>>;
+
+    // Movement-related methods
+
+    /// Must be player's turn
+    async fn move_toplevel_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move>;
+
+    /// Must be player's turn
+    async fn move_toplevel_unit_by_id_avoiding_combat(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move>;
+
+    /// Must be player's turn
+    ///
+    /// ## Errors
+    /// * If unit at `src` doesn't exist
+    /// * If requested move requires more moves than the unit has remaining
+    /// * If `dest` is unreachable from `src` (may be subsumed by previous)
+    ///
+    /// FIXME Make the unit observe at each point along its path
+    ///
+    /// FIXME This function checks two separate times whether a unit exists at src
+    async fn move_toplevel_unit_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        src: Location,
+        dest: Location,
+    ) -> UmpireResult<Move>;
+
+    /// Must be user's turn
+    async fn move_toplevel_unit_by_loc_avoiding_combat(
+        &mut self,
+        player_secret: PlayerSecret,
+        src: Location,
+        dest: Location,
+    ) -> UmpireResult<Move>;
+
+    /// Move a unit one step in a particular direction
+    ///
+    /// Must be player's turn
+    async fn move_unit_by_id_in_direction(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        direction: Direction,
+    ) -> UmpireResult<Move>;
+
+    /// Must be player's turn
+    async fn move_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move>;
+
+    async fn propose_move_unit_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedResult<Move, GameError>;
+
+    /// Must be player's turn
+    async fn move_unit_by_id_avoiding_combat(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move>;
+
+    async fn propose_move_unit_by_id_avoiding_combat(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedResult<Move, GameError>;
+
+    /// Disbands
+    ///
+    /// Must be player's turn
+    async fn disband_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<Unit>;
+
+    /// Sets the production of the current player's city at location `loc` to `production`, returning the prior setting.
+    ///
+    /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
+    async fn set_production_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        loc: Location,
+        production: UnitType,
+    ) -> UmpireResult<Option<UnitType>>;
+
+    /// Sets the production of the current player's city with ID `city_id` to `production`.
+    ///
+    /// Returns GameError::NoCityAtLocation if no city with the given ID belongs to the current player.
+    async fn set_production_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        city_id: CityID,
+        production: UnitType,
+    ) -> UmpireResult<Option<UnitType>>;
+
+    /// Clears the production of a city at location `loc` if one exists and is controlled by the
+    /// specified player.
+    ///
+    /// Returns the prior production (if any) on success, otherwise `GameError::NoCityAtLocation`
+    async fn clear_production(
+        &mut self,
+        player_secret: PlayerSecret,
+        loc: Location,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<Option<UnitType>>;
+
+    async fn turn(&self) -> TurnNum;
+
+    async fn current_player(&self) -> PlayerNum;
+
+    /// The logical dimensions of the game map
+    async fn dims(&self) -> Dims;
+
+    async fn wrapping(&self) -> Wrap2d;
+
+    async fn valid_productions(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>>;
+
+    async fn valid_productions_conservative(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>>;
+
+    /// If the current player controls a unit with ID `id`, order it to sentry
+    async fn order_unit_sentry(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult;
+
+    async fn order_unit_skip(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult;
+
+    async fn order_unit_go_to(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> OrdersResult;
+
+    /// Simulate ordering the specified unit to go to the given location
+    async fn propose_order_unit_go_to(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> ProposedOrdersResult;
+
+    async fn order_unit_explore(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult;
+
+    /// Simulate ordering the specified unit to explore.
+    async fn propose_order_unit_explore(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> ProposedOrdersResult;
+
+    /// If a unit at the location owned by the current player exists, activate it and any units it carries
+    async fn activate_unit_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<()>;
+
+    /// If the current player controls a unit with ID `id`, set its orders to `orders`
+    ///
+    /// # Errors
+    /// `OrdersError::OrderedUnitDoesNotExist` if the order is not present under the control of the current player
+    async fn set_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> UmpireResult<Option<Orders>>;
+
+    /// Clear the orders of the unit controlled by the current player with ID `id`.
+    ///
+    /// Can happen at any time
+    async fn clear_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Orders>>;
+
+    /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
+    async fn propose_set_and_follow_orders(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> ProposedOrdersResult;
+
+    async fn set_and_follow_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> OrdersResult;
+
+    async fn current_player_score(&self) -> f64;
+
+    async fn player_score(&self, player_secret: PlayerSecret) -> UmpireResult<f64>;
+
+    async fn player_score_by_idx(&self, player: PlayerNum) -> UmpireResult<f64>;
+
+    /// Each player's current score, indexed by player number
+    async fn player_scores(&self) -> Vec<f64>;
+
+    async fn take_simple_action(
+        &mut self,
+        player_secret: PlayerSecret,
+        action: AiPlayerAction,
+    ) -> UmpireResult<PlayerActionOutcome>;
+
+    async fn take_action(
+        &mut self,
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> UmpireResult<PlayerActionOutcome>;
+
+    async fn propose_action(
+        &self,
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> ProposedActionResult;
+
+    // async fn current_player_production_set_requests(&self) -> Vec<Location>;
+
+    // async fn current_player_valid_productions_conservative(&self, loc: Location) -> Vec<UnitType>;
+
+    // async fn current_player_unit_orders_requests(&self) -> Vec<UnitID>;
+
+    // async fn current_player_unit_legal_directions(
+    //     &self,
+    //     unit_id: UnitID,
+    // ) -> UmpireResult<Vec<Direction>>;
+
+    /// This is an escape hatch for AI training; do NOT expose this via UmpireRpcClient
+    fn clone_underlying_game_state(&self) -> Result<Game, String>;
+}
 
 /// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
@@ -254,7 +724,7 @@ impl Game {
         }
     }
 
-    fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool> {
+    pub fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool> {
         self.player_with_secret(secret)
             .map(|player| player == self.current_player)
     }
@@ -270,27 +740,6 @@ impl Game {
         } else {
             Ok(player)
         }
-    }
-
-    pub fn player_turn_control(
-        &mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl, TurnStart)> {
-        PlayerTurnControl::new(self, secret, true, false)
-    }
-
-    pub fn player_turn_control_clearing(
-        &mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl, TurnStart)> {
-        PlayerTurnControl::new(self, secret, true, true)
-    }
-
-    pub fn player_turn_control_nonending(
-        &mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl, TurnStart)> {
-        PlayerTurnControl::new(self, secret, false, true)
     }
 
     fn produce_units(
@@ -398,7 +847,7 @@ impl Game {
         self.defeated_unit_hitpoints[self.current_player] += max_hp as u64;
     }
 
-    fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
+    pub fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
         let player = self.validate_is_player_turn(player_secret)?;
 
         let production_outcomes = self.produce_units(player_secret)?;
@@ -418,7 +867,7 @@ impl Game {
     }
 
     /// Begin the turn of the specified player, claring productions
-    fn begin_turn_clearing(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
+    pub fn begin_turn_clearing(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
         let result = self.begin_turn(player_secret)?;
 
         let current_player_secret = self.player_secrets[self.current_player];
@@ -510,7 +959,13 @@ impl Game {
         self.validate_is_player_turn(player_secret)?;
 
         if self.current_turn_is_done() {
-            Ok(self.force_end_turn(player_secret)?)
+            self.player_observations_mut(player_secret)
+                .unwrap()
+                .archive();
+
+            self._inc_current_player();
+
+            Ok(())
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
                 player: self.current_player,
@@ -572,36 +1027,24 @@ impl Game {
         }
     }
 
-    fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
-        self.validate_is_player_turn(player_secret)?;
-
-        self.player_observations_mut(player_secret)
-            .unwrap()
-            .archive();
-
-        self._inc_current_player();
-
-        Ok(())
-    }
-
     /// End the turn without checking that the player has filled all production and orders requests.
-    fn force_end_then_begin_turn(
+    pub fn force_end_then_begin_turn(
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
     ) -> UmpireResult<TurnStart> {
-        self.force_end_turn(player_secret)?;
+        self.end_turn(player_secret)?;
 
         self.begin_turn(next_player_secret)
     }
 
     /// End the turn without checking that the player has filled all production and orders requests.
-    fn force_end_then_begin_turn_clearing(
+    pub fn force_end_then_begin_turn_clearing(
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
     ) -> UmpireResult<TurnStart> {
-        self.force_end_turn(player_secret)?;
+        self.end_turn(player_secret)?;
 
         self.begin_turn_clearing(next_player_secret)
     }
@@ -649,7 +1092,7 @@ impl Game {
         )
     }
 
-    fn current_player_unit_legal_directions<'a>(
+    pub fn current_player_unit_legal_directions<'a>(
         &'a self,
         unit_id: UnitID,
     ) -> UmpireResult<impl Iterator<Item = Direction> + 'a> {
@@ -949,7 +1392,7 @@ impl Game {
     /// Which if the current player's units need orders?
     ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    fn current_player_unit_orders_requests<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+    pub fn current_player_unit_orders_requests<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
         let player_secret = self.player_secrets[self.current_player];
         self.player_unit_orders_requests(player_secret).unwrap()
     }
@@ -1683,7 +2126,7 @@ impl Game {
         self._valid_productions(player_secret, loc, true)
     }
 
-    fn current_player_valid_productions_conservative<'a>(
+    pub fn current_player_valid_productions_conservative<'a>(
         &'a self,
         loc: Location,
     ) -> impl Iterator<Item = UnitType> + 'a {
@@ -1797,7 +2240,7 @@ impl Game {
     ///
     /// # Errors
     /// `OrdersError::OrderedUnitDoesNotExist` if the order is not present under the control of the current player
-    fn set_orders(
+    pub fn set_orders(
         &mut self,
         player_secret: PlayerSecret,
         id: UnitID,
@@ -1811,7 +2254,7 @@ impl Game {
     /// Clear the orders of the unit controlled by the current player with ID `id`.
     ///
     /// Can happen at any time
-    fn clear_orders(
+    pub fn clear_orders(
         &mut self,
         player_secret: PlayerSecret,
         id: UnitID,
@@ -1867,7 +2310,7 @@ impl Game {
     }
 
     /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
-    fn propose_set_and_follow_orders(
+    pub fn propose_set_and_follow_orders(
         &self,
         player_secret: PlayerSecret,
         id: UnitID,
@@ -1884,7 +2327,7 @@ impl Game {
             })
     }
 
-    fn set_and_follow_orders(
+    pub fn set_and_follow_orders(
         &mut self,
         player_secret: PlayerSecret,
         id: UnitID,
@@ -2024,19 +2467,6 @@ impl Game {
         action.take(self, player_secret)
     }
 
-    /// A cloned copy of the specified player's view of the game
-    fn player_game_view(&self, player: PlayerNum) -> UmpireResult<PlayerGameView> {
-        Ok(PlayerGameView {
-            observations: self.player_observations_by_idx(player).clone(),
-            turn: self.turn,
-            num_players: self.num_players,
-            current_player: self.current_player,
-            wrapping: self.wrapping,
-            fog_of_war: self.fog_of_war,
-            score: self.player_score_by_idx(player)?,
-        })
-    }
-
     pub fn propose_action(
         &self,
         player_secret: PlayerSecret,
@@ -2046,6 +2476,168 @@ impl Game {
         let outcome = game.take_action(player_secret, action)?;
 
         Ok(Proposed2 { action, outcome })
+    }
+
+    /// Feature vector for use in AI training; the specified player's current state
+    ///
+    /// Map of the output vector:
+    ///
+    /// # 15: 1d features
+    /// * 1: current turn
+    /// * 1: current player city count
+    /// * 1: number of tiles observed by current player
+    /// * 1: percentage of tiles observed by current player
+    /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
+    /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
+    ///                                                     submarines, cruisers, battleships, carriers)
+    /// # 363: 2d features, three layers
+    /// * 121: is_enemy_belligerent (11x11)
+    /// * 121: is_observed (11x11)
+    /// * 121: is_neutral (11x11)
+    ///
+    pub fn player_features(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
+        // For every tile we add these f64's:
+        // is the tile observed or not?
+        // which player controls the tile (one hot encoded)
+        // is there a city or not?
+        // what is the unit type? (one hot encoded, could be none---all zeros)
+        // for each of the five potential carried units:
+        //   what is the unit type? (one hot encoded, could be none---all zeros)
+        //
+
+        let unit_id = self.player_unit_orders_requests(player_secret)?.next();
+        let city_loc = self.player_production_set_requests(player_secret)?.next();
+
+        let unit_type = if let Some(unit_id) = unit_id {
+            self.player_unit_by_id(player_secret, unit_id)
+                .map(|maybe_unit| maybe_unit.map(|unit| unit.type_))
+                .unwrap()
+        } else {
+            None
+        };
+
+        // We also add a context around the currently active unit (if any)
+        let mut x = Vec::with_capacity(FEATS_LEN as usize);
+
+        // General statistics
+
+        // NOTE Update dnn::ADDED_WIDE_FEATURES to reflect the number of generic features added here
+
+        // - current turn
+        x.push(self.turn as fX);
+
+        // - number of cities player controls
+        x.push(self.player_city_count(player_secret).unwrap() as fX);
+
+        let observations = self.player_observations(player_secret).unwrap();
+
+        // - number of tiles observed
+        let num_observed: fX = observations.num_observed() as fX;
+        x.push(num_observed);
+
+        // - percentage of tiles observed
+        let dims = self.dims();
+        x.push(num_observed / dims.area() as fX);
+
+        // - unit type writ large
+        for unit_type_ in &UnitType::values() {
+            x.push(if let Some(unit_type) = unit_type {
+                if unit_type == *unit_type_ {
+                    1.0
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            });
+        }
+        // Also includes whether it's a city or not
+        x.push(if city_loc.is_some() { 1.0 } else { 0.0 });
+
+        // NOTE The unit counts are not included in dnn::ADDED_WIDE_FEATURES
+        // - number of each type of unit controlled by player
+        let empty_map = HashMap::new();
+        let type_counts = self
+            .player_unit_type_counts(player_secret)
+            .unwrap_or(&empty_map);
+        let counts_vec: Vec<fX> = UnitType::values()
+            .iter()
+            .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
+            .collect();
+
+        x.extend(counts_vec);
+
+        // Relatively positioned around next unit (if any) or city
+
+        let loc = if let Some(unit_id) = unit_id {
+            Some(match self.player_unit_loc(player_secret, unit_id)? {
+                Some(loc) => loc,
+                None => {
+                    panic!("Unit was in orders requests but not in current player observations")
+                }
+            })
+        } else {
+            city_loc
+        };
+
+        let mut is_enemy_belligerent = Vec::new();
+        let mut is_observed = Vec::new();
+        let mut is_neutral = Vec::new();
+        let mut is_city = Vec::new();
+
+        let player = self.current_player();
+
+        // 2d features
+        for inc_x in -5..=5 {
+            for inc_y in -5..=5 {
+                let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
+
+                let obs = if let Some(origin) = loc {
+                    self.wrapping
+                        .wrapped_add(dims, origin, inc)
+                        .map_or(&Obs::Unobserved, |loc| observations.get(loc))
+                } else {
+                    &Obs::Unobserved
+                };
+
+                // x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
+                // push_obs_to_vec(&mut x, &obs, self.num_players);
+
+                let mut enemy = 0.0;
+                let mut observed = 0.0;
+                let mut neutral = 0.0;
+                let mut city = 0.0;
+
+                if let Obs::Observed { tile, .. } = obs {
+                    observed = 1.0;
+
+                    if tile.city.is_some() {
+                        city = 1.0;
+                    }
+
+                    if let Some(alignment) = tile.alignment_maybe() {
+                        if alignment.is_neutral() {
+                            neutral = 1.0;
+                        } else if alignment.is_belligerent() && alignment.is_enemy_of_player(player)
+                        {
+                            enemy = 1.0;
+                        }
+                    }
+                }
+
+                is_enemy_belligerent.push(enemy);
+                is_observed.push(observed);
+                is_neutral.push(neutral);
+                is_city.push(city);
+            }
+        }
+
+        x.extend(is_enemy_belligerent);
+        x.extend(is_observed);
+        x.extend(is_neutral);
+        x.extend(is_city);
+
+        Ok(x)
     }
 }
 
@@ -2149,7 +2741,557 @@ impl fmt::Debug for Game {
 
 impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<fX> {
-        player_features(self, self.player_secrets[self.current_player]).unwrap()
+        let features_future = player_features(self, self.player_secrets[self.current_player]);
+
+        let rt = Handle::current();
+
+        // Because `DerefVec` is synchronous, we grab a reference to the Tokio runtime and block on
+        // the async call we need to compute the feature vector
+        rt.block_on(async { features_future.await.unwrap() })
+    }
+}
+
+#[async_trait]
+impl IGame for Game {
+    async fn num_players(&self) -> PlayerNum {
+        self.num_players()
+    }
+
+    async fn player_turn_control<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        PlayerTurnControl::new(self, secret).await
+    }
+
+    async fn player_turn_control_clearing<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        PlayerTurnControl::new_clearing(self, secret).await
+    }
+
+    async fn player_turn_control_nonending<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        PlayerTurnControl::new_nonending(self, secret).await
+    }
+
+    async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
+        self.begin_turn(player_secret)
+    }
+
+    async fn begin_turn_clearing(
+        &mut self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.begin_turn_clearing(player_secret)
+    }
+
+    async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool> {
+        self.turn_is_done(player, turn)
+    }
+
+    async fn current_turn_is_done(&self) -> bool {
+        self.current_turn_is_done()
+    }
+
+    async fn victor(&self) -> Option<PlayerNum> {
+        self.victor()
+    }
+
+    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.end_turn(player_secret)
+    }
+
+    async fn end_then_begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.end_then_begin_turn(player_secret, next_player_secret)
+    }
+
+    async fn end_then_begin_turn_clearing(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.end_then_begin_turn_clearing(player_secret, next_player_secret)
+    }
+
+    async fn force_end_then_begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.force_end_then_begin_turn(player_secret, next_player_secret)
+    }
+
+    async fn force_end_then_begin_turn_clearing(
+        &mut self,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.force_end_then_begin_turn_clearing(player_secret, next_player_secret)
+    }
+
+    async fn player_unit_legal_one_step_destinations(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<HashSet<Location>> {
+        self.player_unit_legal_one_step_destinations(player_secret, unit_id)
+    }
+
+    async fn player_unit_legal_directions(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<Vec<Direction>> {
+        self.player_unit_legal_directions(player_secret, unit_id)
+            .map(|dirs| dirs.collect())
+    }
+
+    async fn player_tile(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Cow<Tile>>> {
+        self.player_tile(player_secret, loc)
+            .map(|tile| tile.map(|tile| Cow::Borrowed(tile)))
+    }
+
+    async fn player_obs(&self, player_secret: PlayerSecret, loc: Location) -> UmpireResult<Obs> {
+        self.player_obs(player_secret, loc).map(|obs| obs.clone())
+    }
+
+    async fn player_observations(&self, player_secret: PlayerSecret) -> UmpireResult<ObsTracker> {
+        self.player_observations(player_secret)
+            .map(|tracker| tracker.clone())
+    }
+
+    async fn player_cities(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<City>> {
+        self.player_cities(player_secret)
+            .map(|cities| cities.cloned().collect())
+    }
+
+    async fn player_cities_with_production_target(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<City>> {
+        self.player_cities_with_production_target(player_secret)
+            .map(|cities| cities.cloned().collect())
+    }
+
+    async fn player_city_count(&self, player_secret: PlayerSecret) -> UmpireResult<usize> {
+        self.player_city_count(player_secret)
+    }
+
+    async fn player_cities_producing_or_not_ignored(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<usize> {
+        self.player_cities_producing_or_not_ignored(player_secret)
+    }
+
+    async fn player_units(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<Unit>> {
+        self.player_units(player_secret)
+            .map(|units| units.cloned().collect())
+    }
+
+    async fn player_unit_type_counts(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<HashMap<UnitType, usize>> {
+        self.player_unit_type_counts(player_secret)
+            .map(|counts| counts.clone())
+    }
+
+    async fn player_city_by_loc(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<City>> {
+        self.player_city_by_loc(player_secret, loc)
+            .map(|city| city.cloned())
+    }
+
+    async fn player_city_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        city_id: CityID,
+    ) -> UmpireResult<Option<City>> {
+        self.player_city_by_id(player_secret, city_id)
+            .map(|city| city.cloned())
+    }
+
+    async fn player_unit_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Unit>> {
+        self.player_unit_by_id(player_secret, id)
+            .map(|unit| unit.cloned())
+    }
+
+    async fn player_unit_loc(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Location>> {
+        self.player_unit_loc(player_secret, id)
+            .map(|loc| loc.clone())
+    }
+
+    async fn player_toplevel_unit_by_loc(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Unit>> {
+        self.player_toplevel_unit_by_loc(player_secret, loc)
+            .map(|unit| unit.cloned())
+    }
+
+    async fn player_production_set_requests(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Location>> {
+        self.player_production_set_requests(player_secret)
+            .map(|rqsts| rqsts.collect())
+    }
+
+    async fn player_unit_orders_requests(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitID>> {
+        self.player_unit_orders_requests(player_secret)
+            .map(|rqsts| rqsts.collect())
+    }
+
+    async fn player_units_with_orders_requests(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<Unit>> {
+        self.player_units_with_orders_requests(player_secret)
+            .map(|units| units.cloned().collect())
+    }
+
+    async fn player_units_with_pending_orders(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<UnitID>> {
+        Game::player_units_with_pending_orders(self, player_secret).map(|units| units.collect())
+    }
+
+    async fn move_toplevel_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        Game::move_toplevel_unit_by_id(self, player_secret, unit_id, dest)
+    }
+
+    async fn move_toplevel_unit_by_id_avoiding_combat(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        Game::move_toplevel_unit_by_id_avoiding_combat(self, player_secret, unit_id, dest)
+    }
+
+    async fn move_toplevel_unit_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        src: Location,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        Game::move_toplevel_unit_by_loc(self, player_secret, src, dest)
+    }
+
+    async fn move_toplevel_unit_by_loc_avoiding_combat(
+        &mut self,
+        player_secret: PlayerSecret,
+        src: Location,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        Game::move_toplevel_unit_by_loc_avoiding_combat(self, player_secret, src, dest)
+    }
+
+    async fn move_unit_by_id_in_direction(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        direction: Direction,
+    ) -> UmpireResult<Move> {
+        Game::move_unit_by_id_in_direction(self, player_secret, unit_id, direction)
+    }
+
+    async fn move_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        Game::move_unit_by_id(self, player_secret, unit_id, dest)
+    }
+
+    async fn propose_move_unit_by_id(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedResult<Move, GameError> {
+        Game::propose_move_unit_by_id(self, player_secret, id, dest)
+    }
+
+    async fn move_unit_by_id_avoiding_combat(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> UmpireResult<Move> {
+        self.move_unit_by_id_avoiding_combat(player_secret, id, dest)
+    }
+
+    async fn propose_move_unit_by_id_avoiding_combat(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedResult<Move, GameError> {
+        self.propose_move_unit_by_id_avoiding_combat(player_secret, id, dest)
+    }
+
+    async fn disband_unit_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<Unit> {
+        self.disband_unit_by_id(player_secret, unit_id)
+    }
+
+    async fn set_production_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        loc: Location,
+        production: UnitType,
+    ) -> UmpireResult<Option<UnitType>> {
+        self.set_production_by_loc(player_secret, loc, production)
+    }
+
+    async fn set_production_by_id(
+        &mut self,
+        player_secret: PlayerSecret,
+        city_id: CityID,
+        production: UnitType,
+    ) -> UmpireResult<Option<UnitType>> {
+        self.set_production_by_id(player_secret, city_id, production)
+    }
+
+    async fn clear_production(
+        &mut self,
+        player_secret: PlayerSecret,
+        loc: Location,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<Option<UnitType>> {
+        self.clear_production(player_secret, loc, ignore_cleared_production)
+    }
+
+    async fn turn(&self) -> TurnNum {
+        self.turn()
+    }
+
+    async fn current_player(&self) -> PlayerNum {
+        self.current_player()
+    }
+
+    async fn dims(&self) -> Dims {
+        self.dims()
+    }
+
+    async fn wrapping(&self) -> Wrap2d {
+        self.wrapping()
+    }
+
+    async fn valid_productions(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>> {
+        self.valid_productions(player_secret, loc)
+            .map(|prods| prods.collect())
+    }
+
+    async fn valid_productions_conservative(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Vec<UnitType>> {
+        self.valid_productions_conservative(player_secret, loc)
+            .map(|prods| prods.collect())
+    }
+
+    async fn order_unit_sentry(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        self.order_unit_sentry(player_secret, unit_id)
+    }
+
+    async fn order_unit_skip(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        self.order_unit_skip(player_secret, unit_id)
+    }
+
+    async fn order_unit_go_to(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> OrdersResult {
+        self.order_unit_go_to(player_secret, unit_id, dest)
+    }
+
+    async fn propose_order_unit_go_to(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> ProposedOrdersResult {
+        self.propose_order_unit_go_to(player_secret, unit_id, dest)
+    }
+
+    async fn order_unit_explore(
+        &mut self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> OrdersResult {
+        self.order_unit_explore(player_secret, unit_id)
+    }
+
+    async fn propose_order_unit_explore(
+        &self,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> ProposedOrdersResult {
+        self.propose_order_unit_explore(player_secret, unit_id)
+    }
+
+    async fn activate_unit_by_loc(
+        &mut self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<()> {
+        self.activate_unit_by_loc(player_secret, loc)
+    }
+
+    async fn set_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> UmpireResult<Option<Orders>> {
+        self.set_orders(player_secret, id, orders)
+    }
+
+    async fn clear_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Orders>> {
+        self.clear_orders(player_secret, id)
+    }
+
+    /// Simulate setting the orders of unit with ID `id` to `orders` and then following them out.
+    async fn propose_set_and_follow_orders(
+        &self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> ProposedOrdersResult {
+        self.propose_set_and_follow_orders(player_secret, id, orders)
+    }
+
+    async fn set_and_follow_orders(
+        &mut self,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> OrdersResult {
+        self.set_and_follow_orders(player_secret, id, orders)
+    }
+
+    async fn current_player_score(&self) -> f64 {
+        self.current_player_score()
+    }
+
+    async fn player_score(&self, player_secret: PlayerSecret) -> UmpireResult<f64> {
+        self.player_score(player_secret)
+    }
+
+    async fn player_score_by_idx(&self, player: PlayerNum) -> UmpireResult<f64> {
+        self.player_score_by_idx(player)
+    }
+
+    async fn player_scores(&self) -> Vec<f64> {
+        self.player_scores()
+    }
+
+    async fn take_simple_action(
+        &mut self,
+        player_secret: PlayerSecret,
+        action: AiPlayerAction,
+    ) -> UmpireResult<PlayerActionOutcome> {
+        self.take_simple_action(player_secret, action)
+    }
+
+    async fn take_action(
+        &mut self,
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> UmpireResult<PlayerActionOutcome> {
+        self.take_action(player_secret, action)
+    }
+
+    async fn propose_action(
+        &self,
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> ProposedActionResult {
+        self.propose_action(player_secret, action)
+    }
+
+    // async fn current_player_production_set_requests(&self) -> Vec<Location> {
+    //     self.current_player_production_set_requests().collect()
+    // }
+
+    // async fn current_player_valid_productions_conservative(&self, loc: Location) -> Vec<UnitType> {
+    //     self.current_player_valid_productions_conservative(loc)
+    //         .collect()
+    // }
+
+    // async fn current_player_unit_orders_requests(&self) -> Vec<UnitID> {
+    //     self.current_player_unit_orders_requests().collect()
+    // }
+
+    // async fn current_player_unit_legal_directions(
+    //     &self,
+    //     unit_id: UnitID,
+    // ) -> UmpireResult<Vec<Direction>> {
+    //     self.current_player_unit_legal_directions(unit_id)
+    //         .map(|dirs| dirs.collect())
+    // }
+
+    fn clone_underlying_game_state(&self) -> Result<Game, String> {
+        Ok(self.clone())
     }
 }
 

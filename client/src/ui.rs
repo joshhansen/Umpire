@@ -5,6 +5,7 @@
 //! game engine but is otherwise independent in realizing a user experience around the game.
 
 use std::{
+    borrow::Cow,
     cmp,
     io::{stdout, Result as IoResult, Stdout, Write},
     sync::{
@@ -86,7 +87,7 @@ pub trait UI: LogTarget + MoveAnimator {
         &self,
         ctrl: &'a PlayerTurnControl,
         viewport_loc: Location,
-    ) -> Option<&'a Tile>;
+    ) -> Option<Cow<'a, Tile>>;
 
     async fn draw(&mut self, game: &PlayerTurnControl) -> IoResult<()>;
 
@@ -242,7 +243,7 @@ impl UI for DefaultUI {
         &self,
         _ctrl: &'a PlayerTurnControl,
         _viewport_loc: Location,
-    ) -> Option<&'a Tile> {
+    ) -> Option<Cow<'a, Tile>> {
         None
     }
 
@@ -893,7 +894,7 @@ impl UI for TermUI {
         &self,
         ctrl: &'a PlayerTurnControl,
         viewport_loc: Location,
-    ) -> Option<&'a Tile> {
+    ) -> Option<Cow<'a, Tile>> {
         self.map_scroller
             .scrollable
             .current_player_tile(ctrl, viewport_loc)

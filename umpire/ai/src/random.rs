@@ -37,14 +37,12 @@ impl RandomAI {
 
 #[async_trait]
 impl ActionwiseLimitedTurnTaker for RandomAI {
-    async fn next_action(&mut self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction> {
+    async fn next_action(&mut self, ctrl: &PlayerTurnControl<'_>) -> Option<AiPlayerAction> {
         let mut stdout = stdout();
 
-        if let Some(city_loc) = ctrl.production_set_requests().await.next() {
-            let valid_productions: Vec<UnitType> = ctrl
-                .valid_productions_conservative(city_loc)
-                .await
-                .collect();
+        if let Some(city_loc) = ctrl.production_set_requests().await.iter().next() {
+            let valid_productions: Vec<UnitType> =
+                ctrl.valid_productions_conservative(*city_loc).await;
 
             let unit_type = valid_productions.choose(&mut self.rng).unwrap();
 
@@ -57,7 +55,13 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
             });
         }
 
-        if let Some(unit_id) = ctrl.player_unit_orders_requests().await.next() {
+        if let Some(unit_id) = ctrl
+            .player_unit_orders_requests()
+            .await
+            .iter()
+            .cloned()
+            .next()
+        {
             let unit = ctrl.player_unit_by_id(unit_id).await.unwrap();
             // let unit_id = unit.id;
 
@@ -77,7 +81,7 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
                     panic!("Error getting destinations for unit with orders request: {}\nunit: {:?}\ntile: {:?}\ntile unit: {:?}\ntile city: {:?}",
                            e, unit, tile, tile.as_ref().map(|t| t.unit.as_ref()), tile.as_ref().map(|t| t.city.as_ref()))
                 }
-            }.collect();
+            };
 
             // // Check to be sure the source location isn't appearing in the list of destinations
             // debug_assert!(!possible.contains(
@@ -319,8 +323,7 @@ mod test {
                         game.player_turn_control(secrets[player]).unwrap();
                     ai.take_turn(&mut ctrl, false).await;
 
-                    let orders_requests: Vec<UnitID> =
-                        ctrl.player_unit_orders_requests().await.collect();
+                    let orders_requests: Vec<UnitID> = ctrl.player_unit_orders_requests().await;
 
                     for rqst_unit_id in orders_requests.iter().cloned() {
                         // Assert that all orders requests correspond to units still present and that the IDs still

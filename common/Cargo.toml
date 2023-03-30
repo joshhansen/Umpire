@@ -15,5 +15,6 @@ rand = { workspace = true }
 rsrl = { workspace = true }
 serde = { workspace = true }
 tarpc = { workspace = true }
+tokio = { workspace = true }
 unicode-segmentation = "1.6.0"
 uuid = { workspace = true }

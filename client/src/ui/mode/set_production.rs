@@ -47,7 +47,7 @@ impl SetProductionMode {
 
         let mut highest_y = 0;
 
-        for (i, unit_type) in game.valid_productions(self.loc).await.enumerate() {
+        for (i, unit_type) in game.valid_productions(self.loc).await.iter().enumerate() {
             let y = i + 2;
             let row = self.row(
                 unit_type.key(),
@@ -97,7 +97,7 @@ impl IMode for SetProductionMode {
             city_viewport_loc,
             false,
             true,
-            Some(Some(city)),
+            Some(Some(&city)),
             None,
             None,
             None,

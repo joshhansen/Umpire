@@ -17,7 +17,13 @@ impl IMode for GetOrdersMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        if let Some(unit_id) = game.player_unit_orders_requests().await.next() {
+        if let Some(unit_id) = game
+            .player_unit_orders_requests()
+            .await
+            .iter()
+            .cloned()
+            .next()
+        {
             *mode = Mode::GetUnitOrders {
                 unit_id,
                 first_move: true,

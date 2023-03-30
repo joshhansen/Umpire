@@ -18,6 +18,7 @@ use common::game::{
     action::AiPlayerAction,
     ai::{player_features, DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
 };
+use tokio::runtime::Handle;
 
 use super::{GameWithSecrets, Loadable, Storable};
 
@@ -53,12 +54,12 @@ pub struct DNN {
 }
 
 impl DNN {
-    fn tensor_for(&self, state: &GameWithSecrets) -> Tensor {
+    async fn tensor_for(&self, state: &GameWithSecrets) -> Tensor {
         let player_secret = state.secrets[state.game.current_player()];
 
         //NOTE We could avoid this extra allocation if we could figure out how to use 64-bit weights in PyTorch
         //     or 32-bit weights in `rsrl`
-        let features_f64 = player_features(&state.game, player_secret).unwrap();
+        let features_f64 = player_features(&state.game, player_secret).await.unwrap();
         let mut features: Vec<f32> = Vec::with_capacity(features_f64.len());
         for feat in features_f64 {
             features.push(feat as f32);
@@ -142,7 +143,9 @@ impl StateActionFunction<GameWithSecrets, usize> for DNN {
     type Output = f64;
 
     fn evaluate(&self, state: &GameWithSecrets, action: &usize) -> Self::Output {
-        let features = self.tensor_for(state);
+        let handle = Handle::current();
+
+        let features = handle.block_on(async { self.tensor_for(state).await });
 
         let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
 
@@ -159,7 +162,8 @@ impl StateActionFunction<GameWithSecrets, usize> for DNN {
         _raw_error: Self::Output,
         _learning_rate: Self::Output,
     ) {
-        let features = self.tensor_for(state);
+        let handle = Handle::current();
+        let features = handle.block_on(async { self.tensor_for(state).await });
 
         let exponent = Tensor::from(2.0f64);
 

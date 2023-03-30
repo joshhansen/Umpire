@@ -39,12 +39,13 @@ use common::{
         action::AiPlayerAction,
         ai::{fX, player_features},
         unit::UnitType,
-        Game, PlayerNum, PlayerSecret,
+        Game, IGame, PlayerNum, PlayerSecret,
     },
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
 
+use tokio::runtime::Handle;
 use umpire_tui::{
     color::{palette16, Palette},
     map::Map,
@@ -241,12 +242,20 @@ impl UmpireDomain {
         })
     }
 
-    fn update_state(&mut self, action: AiPlayerAction) {
+    async fn update_state(&mut self, action: AiPlayerAction) {
         debug_assert!(!self.game.current_turn_is_done());
 
         let player_secret = self.player_secrets[self.game.current_player()];
 
-        action.take(&mut self.game, player_secret).unwrap();
+        {
+            let (mut ctrl, _turn_start) = self
+                .game
+                .player_turn_control_nonending(player_secret)
+                .await
+                .unwrap();
+
+            action.take(&mut ctrl).await.unwrap();
+        }
 
         if self.verbosity > 1 {
             let loc = if let Some(unit_id) = self
@@ -269,6 +278,7 @@ impl UmpireDomain {
                     let (ctrl, _turn_start) = self
                         .game
                         .player_turn_control_nonending(player_secret)
+                        .await
                         .unwrap();
                     self.map.draw(&ctrl, &mut stdout, &self.palette);
                 }
@@ -357,12 +367,20 @@ impl Domain for UmpireDomain {
             if x <= self.memory_prob {
                 let from_state = from.state();
                 let to_state = to.state();
-                let memory = Memory {
-                    from: player_features(&from_state.game, player_secret).unwrap(),
-                    action: action_idx,
-                    reward,
-                    to: player_features(&to_state.game, player_secret).unwrap(),
-                };
+
+                let handle = Handle::current();
+                let memory = handle.block_on(async {
+                    Memory {
+                        from: player_features(&from_state.game, player_secret)
+                            .await
+                            .unwrap(),
+                        action: action_idx,
+                        reward,
+                        to: player_features(&to_state.game, player_secret)
+                            .await
+                            .unwrap(),
+                    }
+                });
 
                 let bytes = bincode::serialize(&memory).unwrap();
                 memory_file.write_all(&bytes[..]).unwrap();

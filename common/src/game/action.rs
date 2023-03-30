@@ -14,7 +14,7 @@ use super::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError, PlayerSecret, TurnStart, UmpireResult,
+    Game, GameError, PlayerSecret, PlayerTurnControl, TurnStart, UmpireResult,
 };
 
 /// Bare-bones actions, reduced for machine learning purposes
@@ -119,24 +119,34 @@ impl AiPlayerAction {
             .unwrap()
     }
 
-    pub fn take(self, game: &mut Game, player_secret: PlayerSecret) -> UmpireResult<()> {
+    pub async fn take(self, game: &mut PlayerTurnControl<'_>) -> UmpireResult<()> {
         match self {
             AiPlayerAction::SetNextCityProduction { unit_type } => {
                 let city_loc = game
-                    .player_production_set_requests(player_secret)?
+                    .production_set_requests()
+                    .await
+                    .iter()
+                    .cloned()
                     .next()
                     .unwrap();
-                game.set_production_by_loc(player_secret, city_loc, unit_type)
+                game.set_production_by_loc(city_loc, unit_type)
+                    .await
                     .map(|_| ())
             }
             AiPlayerAction::MoveNextUnit { direction } => {
                 let unit_id = game
-                    .player_unit_orders_requests(player_secret)?
+                    .player_unit_orders_requests()
+                    .await
+                    .iter()
+                    .cloned()
                     .next()
                     .unwrap();
                 debug_assert!({
                     let legal: HashSet<Direction> = game
-                        .player_unit_legal_directions(player_secret, unit_id)?
+                        .player_unit_legal_directions(unit_id)
+                        .await?
+                        .iter()
+                        .cloned()
                         .collect();
 
                     // println!("legal moves: {}", legal.len());
@@ -144,22 +154,29 @@ impl AiPlayerAction {
                     legal.contains(&direction)
                 });
 
-                game.move_unit_by_id_in_direction(player_secret, unit_id, direction)
+                game.move_unit_by_id_in_direction(unit_id, direction)
+                    .await
                     .map(|_| ())
             }
             AiPlayerAction::DisbandNextUnit => {
                 let unit_id = game
-                    .player_unit_orders_requests(player_secret)?
+                    .player_unit_orders_requests()
+                    .await
+                    .iter()
+                    .cloned()
                     .next()
                     .unwrap();
-                game.disband_unit_by_id(player_secret, unit_id).map(|_| ())
+                game.disband_unit_by_id(unit_id).await.map(|_| ())
             }
             AiPlayerAction::SkipNextUnit => {
                 let unit_id = game
-                    .player_unit_orders_requests(player_secret)?
+                    .player_unit_orders_requests()
+                    .await
+                    .iter()
+                    .cloned()
                     .next()
                     .unwrap();
-                game.order_unit_skip(player_secret, unit_id).map(|_| ())
+                game.order_unit_skip(unit_id).await.map(|_| ())
             }
         }
     }

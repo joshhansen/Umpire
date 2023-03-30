@@ -1,4 +1,4 @@
-use std::io::Result as IoResult;
+use std::{borrow::Cow, io::Result as IoResult};
 
 use async_trait::async_trait;
 
@@ -55,7 +55,7 @@ impl ExamineMode {
         &'a self,
         game: &'a PlayerTurnControl<'_>,
         ui: &U,
-    ) -> Option<&'a Tile> {
+    ) -> Option<Cow<'a, Tile>> {
         ui.current_player_map_tile(game, self.cursor_viewport_loc)
             .await
     }
@@ -128,7 +128,11 @@ impl IMode for ExamineMode {
 
                     *mode = Mode::TurnResume;
                 } else if key.code == KeyCode::Enter {
-                    if let Some(tile) = self.current_player_tile(game, ui).await.cloned() {
+                    if let Some(tile) = self
+                        .current_player_tile(game, ui)
+                        .await
+                        .map(|tile| tile.as_ref().clone())
+                    {
                         // We clone to ease mutating the unit within this block
                         if let Some(ref unit) = tile.unit {
                             let player = game.current_player().await;

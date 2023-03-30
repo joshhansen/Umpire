@@ -5,7 +5,7 @@ use std::io::{Result as IoResult, Stdout, Write};
 use async_trait::async_trait;
 
 use color::Palette;
-use common::{game::PlayerTurnControl, util::Rect};
+use common::{game::player::PlayerTurnControl, util::Rect};
 use crossterm::{cursor::MoveTo, queue, style::Print};
 
 pub mod color;

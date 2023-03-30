@@ -105,7 +105,7 @@ impl IMode for GetUnitOrdersMode {
                 false,
                 true,
                 None,
-                Some(Some(unit)),
+                Some(Some(&unit)),
                 None,
                 None,
             )
@@ -147,6 +147,8 @@ impl IMode for GetUnitOrdersMode {
                                         } else if game
                                             .player_unit_orders_requests()
                                             .await
+                                            .iter()
+                                            .cloned()
                                             .any(|unit_id| unit_id == self.unit_id)
                                         {
                                             *mode = Mode::GetUnitOrders {

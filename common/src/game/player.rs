@@ -1,12 +1,15 @@
+use std::borrow::Cow;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use tokio::runtime::Handle;
 
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
-    ai::{fX, player_features, AISpec},
+    ai::{fX, AISpec},
     move_::Move,
     obs::PlayerObsTracker,
-    PlayerSecret, ProposedOrdersResult, ProposedUmpireResult, TurnStart, UmpireResult,
+    IGame, PlayerSecret, ProposedOrdersResult, ProposedUmpireResult, TurnStart, UmpireResult,
 };
 use crate::{
     cli::Specified,
@@ -78,8 +81,124 @@ impl Into<String> for PlayerType {
     }
 }
 
+// #[async_trait]
+// pub trait IPlayerTurnControl: Send + Sync {
+//     async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool>;
+
+//     async fn current_turn_is_done(&self) -> bool;
+
+//     /// The victor---if any---meaning the player who has defeated all other players.
+//     ///
+//     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
+//     /// has won.
+//     async fn victor(&self) -> Option<PlayerNum>;
+
+//     async fn player_unit_legal_directions(&self, unit_id: UnitID) -> UmpireResult<Vec<Direction>>;
+
+//     /// The tile at the given location, as present in the player's observations (or not)
+//     async fn tile(&self, loc: Location) -> Option<Cow<Tile>>;
+
+//     async fn obs(&self, loc: Location) -> Obs;
+
+//     async fn player_cities_producing_or_not_ignored(&self) -> usize;
+
+//     /// The city at `loc` if controlled by this player
+//     async fn player_city_by_loc(&self, loc: Location) -> Option<City>;
+
+//     async fn player_unit_by_id(&self, id: UnitID) -> Option<Unit>;
+
+//     async fn player_unit_loc(&self, id: UnitID) -> Option<Location>;
+
+//     async fn player_toplevel_unit_by_loc(&self, loc: Location) -> Option<Unit>;
+
+//     async fn production_set_requests(&self) -> Vec<Location>;
+
+//     async fn player_unit_orders_requests(&self) -> Vec<UnitID>;
+
+//     // Movement-related methods
+
+//     async fn propose_move_unit_by_id(
+//         &self,
+//         id: UnitID,
+//         dest: Location,
+//     ) -> ProposedUmpireResult<Move>;
+
+//     async fn move_unit_by_id_in_direction(
+//         &mut self,
+//         id: UnitID,
+//         direction: Direction,
+//     ) -> UmpireResult<Move>;
+
+//     async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<Unit>;
+
+//     /// Sets the production of the current player's city at location `loc` to `production`.
+//     ///
+//     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
+//     async fn set_production_by_loc(
+//         &mut self,
+//         loc: Location,
+//         production: UnitType,
+//     ) -> UmpireResult<Option<UnitType>>;
+
+//     async fn clear_production(
+//         &mut self,
+//         loc: Location,
+//         ignore_cleared_production: bool,
+//     ) -> UmpireResult<Option<UnitType>>;
+
+//     async fn turn(&self) -> TurnNum;
+
+//     async fn current_player(&self) -> PlayerNum;
+
+//     /// The logical dimensions of the game map
+//     async fn dims(&self) -> Dims;
+
+//     async fn wrapping(&self) -> Wrap2d;
+
+//     /// Units that could be produced by a city located at the given location
+//     async fn valid_productions(&self, loc: Location) -> Vec<UnitType>;
+
+//     /// Units that could be produced by a city located at the given location, allowing only those which can actually
+//     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
+//     async fn valid_productions_conservative(&self, loc: Location) -> Vec<UnitType>;
+
+//     /// If the current player controls a unit with ID `id`, order it to sentry
+//     async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult;
+
+//     async fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult;
+
+//     /// Simulate ordering the specified unit to go to the given location
+//     async fn propose_order_unit_go_to(
+//         &self,
+//         unit_id: UnitID,
+//         dest: Location,
+//     ) -> ProposedOrdersResult;
+
+//     /// Simulate ordering the specified unit to explore.
+//     async fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult;
+
+//     /// If a unit at the location owned by the current player exists, activate it and any units it carries
+//     async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()>;
+
+//     async fn begin_turn(&mut self) -> UmpireResult<TurnStart>;
+
+//     async fn end_turn(&mut self) -> UmpireResult<()>;
+
+//     async fn player_score(&self) -> UmpireResult<f64>;
+
+//     async fn take_simple_action(
+//         &mut self,
+//         action: AiPlayerAction,
+//     ) -> UmpireResult<PlayerActionOutcome>;
+
+//     /// FIXME Maintain this vector in the client, incrementally
+//     async fn player_features(&self) -> Vec<fX>;
+
+//     async fn take_action(&mut self, action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
+// }
+
 pub struct PlayerTurnControl<'a> {
-    game: &'a mut Game,
+    game: &'a mut dyn IGame,
 
     secret: PlayerSecret,
 
@@ -88,21 +207,43 @@ pub struct PlayerTurnControl<'a> {
     end_turn_on_drop: bool,
 }
 impl<'a> PlayerTurnControl<'a> {
-    pub fn new(
-        game: &'a mut Game,
+    pub async fn new(
+        game: &'a mut dyn IGame,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        Self::_new(game, secret, true, false).await
+    }
+
+    pub async fn new_clearing(
+        game: &'a mut dyn IGame,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        Self::_new(game, secret, true, true).await
+    }
+
+    pub async fn new_nonending(
+        game: &'a mut dyn IGame,
+        secret: PlayerSecret,
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
+        Self::_new(game, secret, false, true).await
+    }
+
+    pub async fn _new(
+        game: &'a mut dyn IGame,
         secret: PlayerSecret,
         end_turn_on_drop: bool,
         clearing: bool,
-    ) -> UmpireResult<(Self, TurnStart)> {
-        game.validate_is_player_turn(secret)?;
-
+    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
         let turn_start = if clearing {
-            game.begin_turn_clearing(secret)
+            game.begin_turn_clearing(secret).await
         } else {
-            game.begin_turn(secret)
+            game.begin_turn(secret).await
         }?;
 
-        let observations = PlayerObsTracker::new(game.num_players(), game.dims());
+        let num_players = game.num_players().await;
+        let dims = game.dims().await;
+
+        let observations = PlayerObsTracker::new(num_players, dims);
         Ok((
             Self {
                 game,
@@ -115,11 +256,11 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     pub async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool> {
-        self.game.turn_is_done(player, turn)
+        self.game.turn_is_done(player, turn).await
     }
 
     pub async fn current_turn_is_done(&self) -> bool {
-        self.game.current_turn_is_done()
+        self.game.current_turn_is_done().await
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -127,58 +268,69 @@ impl<'a> PlayerTurnControl<'a> {
     /// It is the user's responsibility to check for a victor---the game will continue to function even when somebody
     /// has won.
     pub async fn victor(&self) -> Option<PlayerNum> {
-        self.game.victor()
+        self.game.victor().await
     }
 
-    pub async fn player_unit_legal_directions<'b>(
-        &'b self,
+    pub async fn player_unit_legal_directions(
+        &self,
         unit_id: UnitID,
-    ) -> UmpireResult<impl Iterator<Item = Direction> + 'b> {
-        self.game.player_unit_legal_directions(self.secret, unit_id)
+    ) -> UmpireResult<Vec<Direction>> {
+        self.game
+            .player_unit_legal_directions(self.secret, unit_id)
+            .await
     }
 
     /// The tile at the given location, as present in the player's observations (or not)
-    pub async fn tile(&self, loc: Location) -> Option<&Tile> {
-        self.game.player_tile(self.secret, loc).unwrap()
+    pub async fn tile(&self, loc: Location) -> Option<Cow<Tile>> {
+        self.game.player_tile(self.secret, loc).await.unwrap()
     }
 
-    pub async fn obs(&self, loc: Location) -> &Obs {
-        self.game.player_obs(self.secret, loc).unwrap()
+    pub async fn obs(&self, loc: Location) -> Obs {
+        self.game.player_obs(self.secret, loc).await.unwrap()
     }
 
     pub async fn player_cities_producing_or_not_ignored(&self) -> usize {
         self.game
             .player_cities_producing_or_not_ignored(self.secret)
+            .await
             .unwrap()
     }
 
     /// The city at `loc` if controlled by this player
-    pub async fn player_city_by_loc(&self, loc: Location) -> Option<&City> {
-        self.game.player_city_by_loc(self.secret, loc).unwrap()
+    pub async fn player_city_by_loc(&self, loc: Location) -> Option<City> {
+        self.game
+            .player_city_by_loc(self.secret, loc)
+            .await
+            .unwrap()
     }
 
-    pub async fn player_unit_by_id(&self, id: UnitID) -> Option<&Unit> {
-        self.game.player_unit_by_id(self.secret, id).unwrap()
+    pub async fn player_unit_by_id(&self, id: UnitID) -> Option<Unit> {
+        self.game.player_unit_by_id(self.secret, id).await.unwrap()
     }
 
     pub async fn player_unit_loc(&self, id: UnitID) -> Option<Location> {
-        self.game.player_unit_loc(self.secret, id).unwrap()
+        self.game.player_unit_loc(self.secret, id).await.unwrap()
     }
 
-    pub async fn player_toplevel_unit_by_loc(&self, loc: Location) -> Option<&Unit> {
+    pub async fn player_toplevel_unit_by_loc(&self, loc: Location) -> Option<Unit> {
         self.game
             .player_toplevel_unit_by_loc(self.secret, loc)
+            .await
             .unwrap()
     }
 
-    pub async fn production_set_requests(&'a self) -> impl Iterator<Item = Location> + 'a {
+    pub async fn production_set_requests(&self) -> Vec<Location> {
         self.game
             .player_production_set_requests(self.secret)
+            .await
             .unwrap()
     }
 
-    pub async fn player_unit_orders_requests(&'a self) -> impl Iterator<Item = UnitID> + 'a {
-        self.game.player_unit_orders_requests(self.secret).unwrap()
+    pub async fn player_unit_orders_requests(&self) -> Vec<UnitID> {
+        self.game
+            .player_unit_orders_requests(self.secret)
+            .await
+            .unwrap()
     }
 
     // Movement-related methods
@@ -188,11 +340,23 @@ impl<'a> PlayerTurnControl<'a> {
         id: UnitID,
         dest: Location,
     ) -> ProposedUmpireResult<Move> {
-        self.game.propose_move_unit_by_id(self.secret, id, dest)
+        self.game
+            .propose_move_unit_by_id(self.secret, id, dest)
+            .await
+    }
+
+    pub async fn move_unit_by_id_in_direction(
+        &mut self,
+        id: UnitID,
+        direction: Direction,
+    ) -> UmpireResult<Move> {
+        self.game
+            .move_unit_by_id_in_direction(self.secret, id, direction)
+            .await
     }
 
     pub async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<Unit> {
-        self.game.disband_unit_by_id(self.secret, id)
+        self.game.disband_unit_by_id(self.secret, id).await
     }
 
     /// Sets the production of the current player's city at location `loc` to `production`.
@@ -205,6 +369,7 @@ impl<'a> PlayerTurnControl<'a> {
     ) -> UmpireResult<Option<UnitType>> {
         self.game
             .set_production_by_loc(self.secret, loc, production)
+            .await
     }
 
     pub async fn clear_production(
@@ -214,48 +379,47 @@ impl<'a> PlayerTurnControl<'a> {
     ) -> UmpireResult<Option<UnitType>> {
         self.game
             .clear_production(self.secret, loc, ignore_cleared_production)
+            .await
     }
 
     pub async fn turn(&self) -> TurnNum {
-        self.game.turn()
+        self.game.turn().await
     }
 
     pub async fn current_player(&self) -> PlayerNum {
-        self.game.current_player()
+        self.game.current_player().await
     }
 
     /// The logical dimensions of the game map
     pub async fn dims(&self) -> Dims {
-        self.game.dims()
+        self.game.dims().await
     }
 
     pub async fn wrapping(&self) -> Wrap2d {
-        self.game.wrapping()
+        self.game.wrapping().await
     }
 
     /// Units that could be produced by a city located at the given location
-    pub async fn valid_productions(&'a self, loc: Location) -> impl Iterator<Item = UnitType> + 'a {
-        self.game.valid_productions(self.secret, loc).unwrap()
+    pub async fn valid_productions(&self, loc: Location) -> Vec<UnitType> {
+        self.game.valid_productions(self.secret, loc).await.unwrap()
     }
 
     /// Units that could be produced by a city located at the given location, allowing only those which can actually
     /// leave the city (rather than attacking neighbor cities, potentially not occupying them)
-    pub async fn valid_productions_conservative<'b>(
-        &'b self,
-        loc: Location,
-    ) -> impl Iterator<Item = UnitType> + 'b {
+    pub async fn valid_productions_conservative(&self, loc: Location) -> Vec<UnitType> {
         self.game
             .valid_productions_conservative(self.secret, loc)
+            .await
             .unwrap()
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
     pub async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.game.order_unit_sentry(self.secret, unit_id)
+        self.game.order_unit_sentry(self.secret, unit_id).await
     }
 
     pub async fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
-        self.game.order_unit_skip(self.secret, unit_id)
+        self.game.order_unit_skip(self.secret, unit_id).await
     }
 
     /// Simulate ordering the specified unit to go to the given location
@@ -266,47 +430,53 @@ impl<'a> PlayerTurnControl<'a> {
     ) -> ProposedOrdersResult {
         self.game
             .propose_order_unit_go_to(self.secret, unit_id, dest)
+            .await
     }
 
     /// Simulate ordering the specified unit to explore.
     pub async fn propose_order_unit_explore(&self, unit_id: UnitID) -> ProposedOrdersResult {
-        self.game.propose_order_unit_explore(self.secret, unit_id)
+        self.game
+            .propose_order_unit_explore(self.secret, unit_id)
+            .await
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
     pub async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()> {
-        self.game.activate_unit_by_loc(self.secret, loc)
+        self.game.activate_unit_by_loc(self.secret, loc).await
     }
 
     pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
-        self.game.begin_turn(self.secret)
+        self.game.begin_turn(self.secret).await
     }
 
     pub async fn end_turn(&mut self) -> UmpireResult<()> {
-        self.game.end_turn(self.secret)
+        self.game.end_turn(self.secret).await
     }
 
-    async fn player_score(&self) -> UmpireResult<f64> {
-        self.game.player_score(self.secret)
+    pub async fn player_score(&self) -> UmpireResult<f64> {
+        self.game.player_score(self.secret).await
     }
 
-    async fn take_simple_action(
+    pub async fn take_simple_action(
         &mut self,
         action: AiPlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {
-        self.game.take_simple_action(self.secret, action)
+        self.game.take_simple_action(self.secret, action).await
     }
 
+    /// FIXME Implement ML feature vector generation
+    /// Possibly split unit-relevant from city-relevant features
     /// FIXME Maintain this vector in the client, incrementally
     pub async fn player_features(&self) -> Vec<fX> {
-        player_features(self.game, self.secret).unwrap()
+        // player_features(self.game, self.secret).unwrap()
+        Vec::new()
     }
 
     pub async fn take_action(
         &mut self,
         action: PlayerAction,
     ) -> Result<PlayerActionOutcome, GameError> {
-        self.game.take_action(self.secret, action)
+        self.game.take_action(self.secret, action).await
     }
 }
 
@@ -315,8 +485,14 @@ impl<'a> PlayerTurnControl<'a> {
 /// This forces the turn to end regardless of the state of production and orders requests.
 impl<'a> Drop for PlayerTurnControl<'a> {
     fn drop(&mut self) {
-        if self.end_turn_on_drop && self.game.is_player_turn(self.secret).unwrap() {
-            self.game.force_end_turn(self.secret).unwrap();
+        if self.end_turn_on_drop {
+            let rt = Handle::current();
+
+            // Because `Drop` is synchronous, we grab a reference to the Tokio runtime and block on
+            // the async calls we need to end the user's turn
+            rt.block_on(async {
+                self.game.end_turn(self.secret).await.unwrap();
+            });
         }
     }
 }
@@ -344,21 +520,21 @@ pub trait LimitedTurnTaker {
 pub trait TurnTaker {
     async fn take_turn_not_clearing(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     async fn take_turn_clearing(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>>;
 
     async fn take_turn(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         clear_at_end_of_turn: bool,
         generate_data: bool,
@@ -377,14 +553,16 @@ pub trait TurnTaker {
 impl<T: LimitedTurnTaker + Send> TurnTaker for T {
     async fn take_turn_not_clearing(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player = game.current_player();
+        let player = game.current_player().await;
         let player_secret = player_secrets[player];
-        let turn = game.turn;
-        let (mut ctrl, _turn_start) = game.player_turn_control(player_secret).unwrap();
+        let turn = game.turn().await;
+
+        let (mut ctrl, _turn_start) = PlayerTurnControl::new(game, player_secret).await.unwrap();
+
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -410,14 +588,17 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
 
     async fn take_turn_clearing(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player = game.current_player();
+        let player = game.current_player().await;
         let player_secret = player_secrets[player];
-        let turn = game.turn;
-        let (mut ctrl, _turn_start) = game.player_turn_control_clearing(player_secret).unwrap();
+        let turn = game.turn().await;
+        let (mut ctrl, _turn_start) = PlayerTurnControl::new_clearing(game, player_secret)
+            .await
+            .unwrap();
+
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -447,7 +628,7 @@ pub trait ActionwiseLimitedTurnTaker {
     /// The next action that should be taken
     ///
     /// Return None if there are no actions that should be taken
-    async fn next_action(&mut self, ctrl: &PlayerTurnControl) -> Option<AiPlayerAction>;
+    async fn next_action(&mut self, ctrl: &PlayerTurnControl<'_>) -> Option<AiPlayerAction>;
 }
 
 #[async_trait]

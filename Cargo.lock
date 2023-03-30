@@ -365,6 +365,7 @@ dependencies = [
  "rsrl",
  "serde",
  "tarpc",
+ "tokio",
  "unicode-segmentation",
  "uuid",
 ]

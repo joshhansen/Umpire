@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use common::game::{
     action::AiPlayerAction,
     ai::{player_features, AISpec, TrainingInstance},
-    Game, PlayerSecret,
+    Game, IGame, PlayerSecret,
 };
 use rand::{thread_rng, Rng};
 
@@ -15,6 +15,8 @@ use rsrl::{
     fa::{EnumerableStateActionFunction, StateActionFunction},
     DerefVec,
 };
+
+use tokio::runtime::Handle;
 
 pub trait Loadable: Sized {
     fn load<P: AsRef<Path>>(path: P) -> Result<Self, String>;
@@ -39,8 +41,20 @@ pub struct GameWithSecrets {
 }
 
 impl DerefVec for GameWithSecrets {
+    /// FYI This impl is roughly copy-pasted from the `Game` DerefVec impl; can we deduplicate?
     fn deref_vec(&self) -> Vec<f64> {
-        self.game.deref_vec()
+        let rt = Handle::current();
+
+        let player = self.game.current_player();
+        let player_secret = self.secrets[player];
+
+        // Because `DerefVec` is synchronous, we grab a reference to the Tokio runtime and block on
+        // the async call we need to compute the feature vector
+        rt.block_on(async {
+            player_features(&self.game as &dyn IGame, player_secret)
+                .await
+                .unwrap()
+        })
     }
 }
 
@@ -236,9 +250,9 @@ impl AI {
         }
     }
 
-    fn _take_turn_unended(
+    async fn _take_turn_unended(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
@@ -248,25 +262,25 @@ impl AI {
             None
         };
 
-        while !game.current_turn_is_done() {
+        while !game.current_turn_is_done().await {
             // features: Vec<f64>,// the view on the game state
             // pre_score: f64,// the player's score prior to the action
             // action_idx: usize,// the action taken
             // post_score: f64,// the player's score after the action
             // outcome: TrainingOutcome,// how did things work out for the player?
 
-            let player_secret = player_secrets[game.current_player()];
+            let player = game.current_player().await;
 
-            let player = game.player_with_secret(player_secret).unwrap();
+            let player_secret = player_secrets[player];
 
             let (num_features, features, pre_score) = if generate_data {
-                let features = player_features(game, player_secret).unwrap();
+                let features = player_features(game, player_secret).await.unwrap();
                 let (num_features, features) = sparsify(features);
 
                 (
                     Some(num_features),
                     Some(features),
-                    Some(game.player_score(player_secret).unwrap()),
+                    Some(game.player_score(player_secret).await.unwrap()),
                 )
             } else {
                 (None, None, None)
@@ -274,15 +288,21 @@ impl AI {
 
             let action_idx = self
                 .best_action(&GameWithSecrets {
-                    game: game.clone(),
+                    game: game.clone_underlying_game_state().unwrap(),
                     secrets: player_secrets.clone(),
                 })
                 .unwrap();
             let action = AiPlayerAction::from_idx(action_idx).unwrap();
-            action.take(game, player_secret).unwrap();
+
+            let (mut game, _turn_start) = game
+                .player_turn_control_nonending(player_secret)
+                .await
+                .unwrap();
+
+            action.take(&mut game).await.unwrap();
 
             if generate_data {
-                let post_score = game.player_score(player_secret).unwrap();
+                let post_score = game.player_score().await.unwrap();
                 training_instances.as_mut().map(|v| {
                     v.push(TrainingInstance::undetermined(
                         player,
@@ -304,29 +324,36 @@ impl AI {
 impl TurnTaker for AI {
     async fn take_turn_not_clearing(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player = game.current_player();
-        let next_player = (player + 1) % game.num_players();
+        let player = game.current_player().await;
+        let num_players = game.num_players().await;
+        let next_player = (player + 1) % num_players;
         match self {
             Self::Random(ai) => {
                 ai.take_turn_not_clearing(game, &player_secrets, generate_data)
                     .await
             }
             Self::LFA(_fa) => {
-                let result = self._take_turn_unended(game, &player_secrets, generate_data);
+                let result = self
+                    ._take_turn_unended(game, &player_secrets, generate_data)
+                    .await;
 
                 game.end_then_begin_turn(player_secrets[player], player_secrets[next_player])
+                    .await
                     .unwrap();
 
                 result
             }
             Self::DNN(_fa) => {
-                let result = self._take_turn_unended(game, &player_secrets, generate_data);
+                let result = self
+                    ._take_turn_unended(game, &player_secrets, generate_data)
+                    .await;
 
                 game.end_then_begin_turn(player_secrets[player], player_secrets[next_player])
+                    .await
                     .unwrap();
 
                 result
@@ -336,34 +363,40 @@ impl TurnTaker for AI {
 
     async fn take_turn_clearing(
         &mut self,
-        game: &mut Game,
+        game: &mut dyn IGame,
         player_secrets: &Vec<PlayerSecret>,
         generate_data: bool,
     ) -> Option<Vec<TrainingInstance>> {
-        let player = game.current_player();
+        let player = game.current_player().await;
         match self {
             Self::Random(ai) => {
                 ai.take_turn_clearing(game, player_secrets, generate_data)
                     .await
             }
             Self::LFA(_fa) => {
-                let result = self._take_turn_unended(game, &player_secrets, generate_data);
+                let result = self
+                    ._take_turn_unended(game, &player_secrets, generate_data)
+                    .await;
 
                 game.end_then_begin_turn_clearing(
                     player_secrets[player],
                     player_secrets[player + 1 % 2],
                 )
+                .await
                 .unwrap();
 
                 result
             }
             Self::DNN(_fa) => {
-                let result = self._take_turn_unended(game, &player_secrets, generate_data);
+                let result = self
+                    ._take_turn_unended(game, &player_secrets, generate_data)
+                    .await;
 
                 game.end_then_begin_turn_clearing(
                     player_secrets[player],
                     player_secrets[player + 1 % 2],
                 )
+                .await
                 .unwrap();
 
                 result

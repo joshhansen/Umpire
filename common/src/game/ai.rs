@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    map::dijkstra::Source, obs::Obs, unit::UnitType, Game, PlayerNum, PlayerSecret, PlayerType,
+    map::dijkstra::Source, obs::Obs, unit::UnitType, IGame, PlayerNum, PlayerSecret, PlayerType,
     UmpireResult,
 };
 
@@ -105,7 +105,10 @@ impl TrainingInstance {
 /// * 121: is_observed (11x11)
 /// * 121: is_neutral (11x11)
 ///
-pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
+pub async fn player_features(
+    game: &dyn IGame,
+    player_secret: PlayerSecret,
+) -> UmpireResult<Vec<fX>> {
     // For every tile we add these f64's:
     // is the tile observed or not?
     // which player controls the tile (one hot encoded)
@@ -115,23 +118,29 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult
     //   what is the unit type? (one hot encoded, could be none---all zeros)
     //
 
-    // Make sure the player exists
-    game.player_with_secret(player_secret)?;
-
     let unit_id = game
         .player_unit_orders_requests(player_secret)
+        .await
         .unwrap()
+        .iter()
+        .cloned()
         .next();
     let city_loc = game
         .player_production_set_requests(player_secret)
+        .await
         .unwrap()
+        .iter()
+        .cloned()
         .next();
 
-    let unit_type = unit_id.and_then(|unit_id| {
+    let unit_type = if let Some(unit_id) = unit_id {
         game.player_unit_by_id(player_secret, unit_id)
+            .await
             .map(|maybe_unit| maybe_unit.map(|unit| unit.type_))
             .unwrap()
-    });
+    } else {
+        None
+    };
 
     // We also add a context around the currently active unit (if any)
     let mut x = Vec::with_capacity(FEATS_LEN as usize);
@@ -141,19 +150,20 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult
     // NOTE Update dnn::ADDED_WIDE_FEATURES to reflect the number of generic features added here
 
     // - current turn
-    x.push(game.turn as fX);
+    x.push(game.turn().await as fX);
 
     // - number of cities player controls
-    x.push(game.player_city_count(player_secret).unwrap() as fX);
+    x.push(game.player_city_count(player_secret).await.unwrap() as fX);
 
-    let observations = game.player_observations(player_secret).unwrap();
+    let observations = game.player_observations(player_secret).await.unwrap();
 
     // - number of tiles observed
     let num_observed: fX = observations.num_observed() as fX;
     x.push(num_observed);
 
     // - percentage of tiles observed
-    x.push(num_observed / game.dims().area() as fX);
+    let dims = game.dims().await;
+    x.push(num_observed / dims.area() as fX);
 
     // - unit type writ large
     for unit_type_ in &UnitType::values() {
@@ -175,7 +185,8 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult
     let empty_map = HashMap::new();
     let type_counts = game
         .player_unit_type_counts(player_secret)
-        .unwrap_or(&empty_map);
+        .await
+        .unwrap_or(empty_map);
     let counts_vec: Vec<fX> = UnitType::values()
         .iter()
         .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
@@ -185,21 +196,25 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult
 
     // Relatively positioned around next unit (if any) or city
 
-    let loc = unit_id
-        .map(
-            |unit_id| match game.player_unit_loc(player_secret, unit_id).unwrap() {
+    let loc = if let Some(unit_id) = unit_id {
+        Some(
+            match game.player_unit_loc(player_secret, unit_id).await.unwrap() {
                 Some(loc) => loc,
                 None => {
                     panic!("Unit was in orders requests but not in current player observations")
                 }
             },
         )
-        .or(city_loc);
+    } else {
+        city_loc
+    };
 
     let mut is_enemy_belligerent = Vec::new();
     let mut is_observed = Vec::new();
     let mut is_neutral = Vec::new();
     let mut is_city = Vec::new();
+
+    let player = game.current_player().await;
 
     // 2d features
     for inc_x in -5..=5 {
@@ -207,8 +222,9 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult
             let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
             let obs = if let Some(origin) = loc {
-                game.wrapping
-                    .wrapped_add(game.dims(), origin, inc)
+                game.wrapping()
+                    .await
+                    .wrapped_add(dims, origin, inc)
                     .map_or(&Obs::Unobserved, |loc| observations.get(loc))
             } else {
                 &Obs::Unobserved
@@ -232,9 +248,7 @@ pub fn player_features(game: &Game, player_secret: PlayerSecret) -> UmpireResult
                 if let Some(alignment) = tile.alignment_maybe() {
                     if alignment.is_neutral() {
                         neutral = 1.0;
-                    } else if alignment.is_belligerent()
-                        && alignment.is_enemy_of_player(game.current_player)
-                    {
+                    } else if alignment.is_belligerent() && alignment.is_enemy_of_player(player) {
                         enemy = 1.0;
                     }
                 }

@@ -16,8 +16,12 @@ use common::{
         move_::Move,
         obs::{LocatedObs, Obs, ObsTracker},
         player::TurnTaker,
-        unit::{orders::OrdersResult, Unit, UnitID, UnitType},
-        Game, PlayerNum, PlayerSecret, PlayerType, TurnNum, TurnStart, UmpireResult,
+        unit::{
+            orders::{Orders, OrdersResult},
+            Unit, UnitID, UnitType,
+        },
+        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProposedActionResult,
+        ProposedOrdersResult, ProposedResult, TurnNum, TurnStart, UmpireResult,
     },
     name::{city_namer, unit_namer},
     rpc::UmpireRpc,
@@ -90,6 +94,74 @@ impl UmpireRpc for UmpireServer {
 
     async fn current_turn_is_done(self, _: Context) -> bool {
         self.game.read().await.current_turn_is_done()
+    }
+
+    async fn begin_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
+        self.game.write().await.begin_turn(player_secret)
+    }
+
+    async fn begin_turn_clearing(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.game.write().await.begin_turn_clearing(player_secret)
+    }
+
+    async fn end_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<()> {
+        self.game.write().await.end_turn(player_secret)
+    }
+
+    async fn is_player_turn(self, _: Context, secret: PlayerSecret) -> UmpireResult<bool> {
+        self.game.read().await.is_player_turn(secret)
+    }
+
+    async fn end_then_begin_turn(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.game
+            .write()
+            .await
+            .end_then_begin_turn(player_secret, next_player_secret)
+    }
+
+    async fn end_then_begin_turn_clearing(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.game
+            .write()
+            .await
+            .end_then_begin_turn_clearing(player_secret, next_player_secret)
+    }
+
+    async fn force_end_then_begin_turn(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.game
+            .write()
+            .await
+            .force_end_then_begin_turn(player_secret, next_player_secret)
+    }
+
+    async fn force_end_then_begin_turn_clearing(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        next_player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnStart> {
+        self.game
+            .write()
+            .await
+            .force_end_then_begin_turn_clearing(player_secret, next_player_secret)
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -189,6 +261,14 @@ impl UmpireRpc for UmpireServer {
             .map(|cities_iter| cities_iter.cloned().collect())
     }
 
+    async fn player_city_count(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<usize> {
+        self.game.read().await.player_city_count(player_secret)
+    }
+
     async fn player_cities_producing_or_not_ignored(
         self,
         _: Context,
@@ -210,6 +290,18 @@ impl UmpireRpc for UmpireServer {
             .await
             .player_units(player_secret)
             .map(|units| units.cloned().collect())
+    }
+
+    async fn player_unit_type_counts(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<HashMap<UnitType, usize>> {
+        self.game
+            .read()
+            .await
+            .player_unit_type_counts(player_secret)
+            .map(|counts| counts.clone())
     }
 
     async fn player_city_by_loc(
@@ -401,14 +493,18 @@ impl UmpireRpc for UmpireServer {
             .move_unit_by_id(player_secret, unit_id, dest)
     }
 
-    // async fn propose_move_unit_by_id(
-    //     self,
-    //     _: Context,
-    //     id: UnitID,
-    //     dest: Location,
-    // ) -> Proposed<Result<Move, MoveError>> {
-    //     self.game.propose_move_unit_by_id(id, dest)
-    // }
+    async fn propose_move_unit_by_id(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedResult<Move, GameError> {
+        self.game
+            .read()
+            .await
+            .propose_move_unit_by_id(player_secret, id, dest)
+    }
 
     async fn move_unit_by_id_avoiding_combat(
         self,
@@ -423,14 +519,18 @@ impl UmpireRpc for UmpireServer {
             .move_unit_by_id_avoiding_combat(player_secret, id, dest)
     }
 
-    // async fn propose_move_unit_by_id_avoiding_combat(
-    //     self,
-    //     _: Context,
-    //     id: UnitID,
-    //     dest: Location,
-    // ) -> Proposed<MoveResult> {
-    //     self.game.propose_move_unit_by_id_avoiding_combat(id, dest)
-    // }
+    async fn propose_move_unit_by_id_avoiding_combat(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        dest: Location,
+    ) -> ProposedResult<Move, GameError> {
+        self.game
+            .read()
+            .await
+            .propose_move_unit_by_id_avoiding_combat(player_secret, id, dest)
+    }
 
     async fn disband_unit_by_id(
         self,
@@ -573,15 +673,18 @@ impl UmpireRpc for UmpireServer {
             .order_unit_go_to(player_secret, unit_id, dest)
     }
 
-    /// Simulate ordering the specified unit to go to the given location
-    // async fn propose_order_unit_go_to(
-    //     self,
-    //     _: Context,
-    //     unit_id: UnitID,
-    //     dest: Location,
-    // ) -> Proposed<OrdersResult> {
-    //     self.game.propose_order_unit_go_to(unit_id, dest)
-    // }
+    async fn propose_order_unit_go_to(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+        dest: Location,
+    ) -> ProposedOrdersResult {
+        self.game
+            .read()
+            .await
+            .propose_order_unit_go_to(player_secret, unit_id, dest)
+    }
 
     async fn order_unit_explore(
         self,
@@ -595,14 +698,17 @@ impl UmpireRpc for UmpireServer {
             .order_unit_explore(player_secret, unit_id)
     }
 
-    /// Simulate ordering the specified unit to explore.
-    // async fn propose_order_unit_explore(
-    //     self,
-    //     _: Context,
-    //     unit_id: UnitID,
-    // ) -> Proposed<OrdersResult> {
-    //     self.game.propose_order_unit_explore(unit_id)
-    // }
+    async fn propose_order_unit_explore(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> ProposedOrdersResult {
+        self.game
+            .read()
+            .await
+            .propose_order_unit_explore(player_secret, unit_id)
+    }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
     async fn activate_unit_by_loc(
@@ -615,6 +721,54 @@ impl UmpireRpc for UmpireServer {
             .write()
             .await
             .activate_unit_by_loc(player_secret, loc)
+    }
+
+    async fn set_orders(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> UmpireResult<Option<Orders>> {
+        self.game
+            .write()
+            .await
+            .set_orders(player_secret, id, orders)
+    }
+
+    async fn clear_orders(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<Option<Orders>> {
+        self.game.write().await.clear_orders(player_secret, id)
+    }
+
+    async fn propose_set_and_follow_orders(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> ProposedOrdersResult {
+        self.game
+            .read()
+            .await
+            .propose_set_and_follow_orders(player_secret, id, orders)
+    }
+
+    async fn set_and_follow_orders(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        id: UnitID,
+        orders: Orders,
+    ) -> OrdersResult {
+        self.game
+            .write()
+            .await
+            .set_and_follow_orders(player_secret, id, orders)
     }
 
     // async fn propose_end_turn(self, _: Context) -> (Game, Result<TurnStart, PlayerNum>) {
@@ -644,13 +798,28 @@ impl UmpireRpc for UmpireServer {
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
     ///
-    async fn features(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
-        let g = self.game.read().await;
-        player_features(&g, player_secret)
+    async fn player_features(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<Vec<fX>> {
+        self.game.read().await.player_features(player_secret)
+    }
+
+    async fn current_player_score(self, _: Context) -> f64 {
+        self.game.read().await.current_player_score()
     }
 
     async fn player_score(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<f64> {
         self.game.read().await.player_score(player_secret)
+    }
+
+    async fn player_score_by_idx(self, _: Context, player: PlayerNum) -> UmpireResult<f64> {
+        self.game.read().await.player_score_by_idx(player)
+    }
+
+    async fn player_scores(self, _: Context) -> Vec<f64> {
+        self.game.read().await.player_scores()
     }
 
     async fn take_simple_action(
@@ -673,6 +842,53 @@ impl UmpireRpc for UmpireServer {
     ) -> Result<PlayerActionOutcome, GameError> {
         self.game.write().await.take_action(player_secret, action)
     }
+
+    async fn propose_action(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        action: PlayerAction,
+    ) -> ProposedActionResult {
+        self.game.read().await.propose_action(player_secret, action)
+    }
+
+    // async fn current_player_production_set_requests(self, _: Context) -> Vec<Location> {
+    //     self.game
+    //         .read()
+    //         .await
+    //         .current_player_production_set_requests()
+    // }
+
+    // async fn current_player_valid_productions_conservative(
+    //     self,
+    //     _: Context,
+    //     loc: Location,
+    // ) -> Vec<UnitType> {
+    //     self.game
+    //         .read()
+    //         .await
+    //         .current_player_valid_productions_conservative(loc)
+    // }
+
+    // async fn current_player_unit_orders_requests(self, _: Context) -> Vec<UnitID> {
+    //     self.game
+    //         .read()
+    //         .await
+    //         .current_player_unit_orders_requests()
+    //         .collect()
+    // }
+
+    // async fn current_player_unit_legal_directions(
+    //     self,
+    //     _: Context,
+    //     unit_id: UnitID,
+    // ) -> UmpireResult<Vec<Direction>> {
+    //     self.game
+    //         .read()
+    //         .await
+    //         .current_player_unit_legal_directions(unit_id)
+    //         .map(|dirs| dirs.collect())
+    // }
 }
 
 #[tokio::main]
@@ -764,12 +980,15 @@ async fn main() -> anyhow::Result<()> {
 
                 let mut g = game.write().await;
 
+                let g = &mut *g;
+
                 let player = g.current_player();
 
                 let ptype = &player_types[player];
 
                 if let Some(ai) = ais.get_mut(&ptype) {
-                    ai.take_turn_clearing(&mut g, &secrets, false).await;
+                    ai.take_turn_clearing(g as &mut dyn IGame, &secrets, false)
+                        .await;
                 }
             }
         })

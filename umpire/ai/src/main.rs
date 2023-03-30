@@ -31,18 +31,17 @@ use common::{
     game::{
         ai::{AISpec, TrainingInstance},
         player::{PlayerNum, TurnTaker},
-        Game,
+        Game, IGame,
     },
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
 use rand::{prelude::SliceRandom, thread_rng};
 
-use umpire_client::{
-    color::palette16,
-    game::ai::{rl::trained_agent, Storable, AI},
-    ui::{Draw, Map},
-};
+// use umpire_client::game::ai::{rl::trained_agent, Storable, AI};
+
+use umpire_ai::{rl::trained_agent, Storable, AI};
+use umpire_tui::{color::palette16, map::Map, Draw};
 
 fn parse_ai_spec<S: AsRef<str>>(spec: S) -> Result<Vec<AISpec>, String> {
     parse_spec(spec, "AI")
@@ -69,7 +68,8 @@ fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>, String> {
 
 static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
 
-fn main() -> Result<(), String> {
+#[tokio::main]
+async fn main() -> Result<(), String> {
     let matches = cli::app("Umpire AI Trainer", "fvwHW")
     .version(conf::APP_VERSION)
     .author("Josh Hansen <hansen.joshuaa@gmail.com>")
@@ -369,10 +369,16 @@ fn main() -> Result<(), String> {
 
             if verbosity > 1 {
                 if fix_output_loc {
-                    let (ctrl, _turn_start) =
-                        game.player_turn_control_nonending(secrets[0]).unwrap();
+                    let (ctrl, _turn_start) = game
+                        .player_turn_control_nonending(secrets[0])
+                        .await
+                        .unwrap();
 
-                    map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
+                    map.as_mut()
+                        .unwrap()
+                        .draw(&ctrl, &mut stdout, &palette)
+                        .await
+                        .unwrap();
                 } else {
                     println!("{:?}", game);
                 }
@@ -390,9 +396,10 @@ fn main() -> Result<(), String> {
                     let player = game.current_player();
 
                     let ai = ais.get_mut(i).unwrap();
-                    let mut maybe_training_instances =
-                        ai.borrow_mut()
-                            .take_turn_clearing(&mut game, &secrets, generate_data);
+                    let mut maybe_training_instances = ai
+                        .borrow_mut()
+                        .take_turn_clearing(&mut game, &secrets, generate_data)
+                        .await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
@@ -405,10 +412,16 @@ fn main() -> Result<(), String> {
 
                     if verbosity > 1 {
                         if fix_output_loc {
-                            let (ctrl, _turn_start) =
-                                game.player_turn_control_nonending(secrets[i]).unwrap();
+                            let (ctrl, _turn_start) = game
+                                .player_turn_control_nonending(secrets[i])
+                                .await
+                                .unwrap();
 
-                            map.as_mut().unwrap().draw(&ctrl, &mut stdout, &palette);
+                            map.as_mut()
+                                .unwrap()
+                                .draw(&ctrl, &mut stdout, &palette)
+                                .await
+                                .unwrap();
                             execute!(stdout, MoveTo(0, map_height + 2)).unwrap();
                         } else {
                             println!("{:?}", game);
