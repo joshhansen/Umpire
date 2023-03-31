@@ -386,7 +386,7 @@ impl ViewportSize {
             1 | 2 => 1,
             3 => 2,
             4 | 5 => 3,
-            x => cmp::max(x - 2, MAX_MID_HEIGHT),
+            x => cmp::min(x / 2, MAX_MID_HEIGHT),
         };
         match *self {
             ViewportSize::REGULAR => Rect {
