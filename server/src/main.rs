@@ -861,44 +861,6 @@ impl UmpireRpc for UmpireServer {
     ) -> ProposedActionResult {
         self.game.read().await.propose_action(player_secret, action)
     }
-
-    // async fn current_player_production_set_requests(self, _: Context) -> Vec<Location> {
-    //     self.game
-    //         .read()
-    //         .await
-    //         .current_player_production_set_requests()
-    // }
-
-    // async fn current_player_valid_productions_conservative(
-    //     self,
-    //     _: Context,
-    //     loc: Location,
-    // ) -> Vec<UnitType> {
-    //     self.game
-    //         .read()
-    //         .await
-    //         .current_player_valid_productions_conservative(loc)
-    // }
-
-    // async fn current_player_unit_orders_requests(self, _: Context) -> Vec<UnitID> {
-    //     self.game
-    //         .read()
-    //         .await
-    //         .current_player_unit_orders_requests()
-    //         .collect()
-    // }
-
-    // async fn current_player_unit_legal_directions(
-    //     self,
-    //     _: Context,
-    //     unit_id: UnitID,
-    // ) -> UmpireResult<Vec<Direction>> {
-    //     self.game
-    //         .read()
-    //         .await
-    //         .current_player_unit_legal_directions(unit_id)
-    //         .map(|dirs| dirs.collect())
-    // }
 }
 
 #[tokio::main]
