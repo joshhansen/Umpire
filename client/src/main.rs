@@ -305,41 +305,6 @@ async fn main() -> Result<(), String> {
             } else {
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
-
-            // for (i, ptype) in player_types.iter().enumerate() {
-            //     ui.log_message(format!("Player of type {:?}", ptype));
-
-            //     if game.victor().await.is_some() {
-            //         break 'outer;
-            //     }
-
-            //     let next_player = &player_types[(i + 1) % player_types.len()];
-            //     let clear_at_end_of_turn = match next_player {
-            //         PlayerType::Human => false,
-            //         _ => true,
-            //     };
-
-            //     // Only take the turn locally if we have the corresponding player's secret
-            //     if let Some(secret) = secrets[i] {
-            //         match ptype {
-            //             PlayerType::Human => {
-            //                 let training_instances = ui
-            //                     .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
-            //                     .await;
-            //                 assert!(training_instances.is_none());
-            //             }
-            //             PlayerType::AI(ai_type) => {
-            //                 let training_instances = ais
-            //                     .get_mut(ai_type)
-            //                     .unwrap()
-            //                     .borrow_mut()
-            //                     .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
-            //                     .await;
-            //                 assert!(training_instances.is_none());
-            //             }
-            //         }
-            //     }
-            // }
         }
     } // UI drops here, deinitializing the user interface
 
