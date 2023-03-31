@@ -56,7 +56,7 @@ fn print_loading_screen() {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String> {
     let matches = cli::app(conf::APP_NAME, "fwHW")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
@@ -168,9 +168,8 @@ async fn main() {
 
         let map_dims: Dims = Dims::new(map_width, map_height);
         if (map_dims.area() as PlayerNum) < num_players {
-            eprintln!("Map dimensions of {} give an area of {} which is not enough room for {} players; area of {} or greater required.",
-                map_dims, map_dims.area(), num_players, num_players);
-            return;
+            return Err(format!("Map dimensions of {} give an area of {} which is not enough room for {} players; area of {} or greater required.",
+                map_dims, map_dims.area(), num_players, num_players));
         }
 
         let city_namer = city_namer();
@@ -195,11 +194,12 @@ async fn main() {
             player_types.clone(),
         )
     } else {
+        let server_hostname = matches.get_one::<String>("server").unwrap();
         let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
 
         let transport = tarpc::serde_transport::tcp::connect(&server_addr, Bincode::default)
             .await
-            .unwrap();
+            .map_err(|err| format!("Error connecting to server {}: {}", server_hostname, err))?;
 
         // let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
@@ -208,7 +208,12 @@ async fn main() {
         let secrets = client
             .player_secrets_known(context::current())
             .await
-            .unwrap();
+            .map_err(|err| {
+                format!(
+                    "Error fetching player secrets from {}: {}",
+                    server_hostname, err
+                )
+            })?;
 
         let player_types = client.player_types(context::current()).await.unwrap();
 
@@ -271,40 +276,70 @@ async fn main() {
         }
 
         'outer: loop {
-            for (i, ptype) in player_types.iter().enumerate() {
-                ui.log_message(format!("Player of type {:?}", ptype));
+            if game.victor().await.is_some() {
+                break 'outer;
+            }
 
-                if game.victor().await.is_some() {
-                    break 'outer;
-                }
+            let player = game.current_player().await;
 
-                let next_player = &player_types[(i + 1) % player_types.len()];
-                let clear_at_end_of_turn = match next_player {
-                    PlayerType::Human => false,
-                    _ => true,
-                };
-
-                // Only take the turn locally if we have the corresponding player's secret
-                if let Some(secret) = secrets[i] {
-                    match ptype {
-                        PlayerType::Human => {
-                            let training_instances = ui
-                                .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
-                                .await;
-                            assert!(training_instances.is_none());
-                        }
-                        PlayerType::AI(ai_type) => {
-                            let training_instances = ais
-                                .get_mut(ai_type)
-                                .unwrap()
-                                .borrow_mut()
-                                .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
-                                .await;
-                            assert!(training_instances.is_none());
-                        }
+            // Only take the turn locally if we have the corresponding player's secret
+            if let Some(secret) = secrets[player] {
+                ui.log_message(format!("Player {}'s turn", player));
+                match &player_types[player] {
+                    PlayerType::Human => {
+                        let training_instances = ui
+                            .take_turn_not_clearing(game.as_mut(), player, secret, false)
+                            .await;
+                        assert!(training_instances.is_none());
+                    }
+                    PlayerType::AI(ai_type) => {
+                        let training_instances = ais
+                            .get_mut(ai_type)
+                            .unwrap()
+                            .borrow_mut()
+                            .take_turn_clearing(game.as_mut(), player, secret, false)
+                            .await;
+                        assert!(training_instances.is_none());
                     }
                 }
+            } else {
+                tokio::time::sleep(Duration::from_millis(500)).await;
             }
+
+            // for (i, ptype) in player_types.iter().enumerate() {
+            //     ui.log_message(format!("Player of type {:?}", ptype));
+
+            //     if game.victor().await.is_some() {
+            //         break 'outer;
+            //     }
+
+            //     let next_player = &player_types[(i + 1) % player_types.len()];
+            //     let clear_at_end_of_turn = match next_player {
+            //         PlayerType::Human => false,
+            //         _ => true,
+            //     };
+
+            //     // Only take the turn locally if we have the corresponding player's secret
+            //     if let Some(secret) = secrets[i] {
+            //         match ptype {
+            //             PlayerType::Human => {
+            //                 let training_instances = ui
+            //                     .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
+            //                     .await;
+            //                 assert!(training_instances.is_none());
+            //             }
+            //             PlayerType::AI(ai_type) => {
+            //                 let training_instances = ais
+            //                     .get_mut(ai_type)
+            //                     .unwrap()
+            //                     .borrow_mut()
+            //                     .take_turn(game.as_mut(), i, secret, clear_at_end_of_turn, false)
+            //                     .await;
+            //                 assert!(training_instances.is_none());
+            //             }
+            //         }
+            //     }
+            // }
         }
     } // UI drops here, deinitializing the user interface
 
@@ -316,4 +351,6 @@ async fn main() {
 
     \t\t\t\tParadise Lost (2.907-910)\n"
     );
+
+    Ok(())
 }
