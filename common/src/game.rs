@@ -49,7 +49,7 @@ use crate::{
             gen::generate_map,
             LocationGridI, MapData, NewUnitError, Tile,
         },
-        obs::{Obs, ObsTracker, ObsTrackerI, Observer, PlayerObsTracker},
+        obs::{Obs, ObsTracker, Observer, PlayerObsTracker},
         unit::{
             orders::{Orders, OrdersOutcome, OrdersResult, OrdersStatus},
             Unit, UnitID, UnitType,

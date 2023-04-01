@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, AISpec},
+    map::dijkstra::Source,
     move_::Move,
-    obs::PlayerObsTracker,
+    obs::ObsTracker,
     IGame, PlayerSecret, ProposedOrdersResult, ProposedUmpireResult, TurnStart, UmpireResult,
 };
 use crate::{
@@ -86,7 +87,7 @@ pub struct PlayerTurnControl<'a> {
 
     secret: PlayerSecret,
 
-    observations: PlayerObsTracker,
+    observations: ObsTracker,
 
     end_turn_on_drop: bool,
 }
@@ -124,10 +125,7 @@ impl<'a> PlayerTurnControl<'a> {
             game.begin_turn(secret).await
         }?;
 
-        let num_players = game.num_players().await;
-        let dims = game.dims().await;
-
-        let observations = PlayerObsTracker::new(num_players, dims);
+        let observations = game.player_observations(secret).await?;
         Ok((
             Self {
                 game,
@@ -172,10 +170,9 @@ impl<'a> PlayerTurnControl<'a> {
             game.begin_turn(secret)
         }?;
 
-        let num_players = game.num_players();
         let dims = game.dims();
 
-        let observations = PlayerObsTracker::new(num_players, dims);
+        let observations = ObsTracker::new(dims);
         Ok((
             Self {
                 game,
@@ -214,11 +211,14 @@ impl<'a> PlayerTurnControl<'a> {
 
     /// The tile at the given location, as present in the player's observations (or not)
     pub async fn tile(&self, loc: Location) -> Option<Cow<Tile>> {
-        self.game.player_tile(self.secret, loc).await.unwrap()
+        match self.observations.get(loc) {
+            Obs::Observed { tile, .. } => Some(Cow::Borrowed(tile)),
+            Obs::Unobserved => None,
+        }
     }
 
     pub async fn obs(&self, loc: Location) -> Obs {
-        self.game.player_obs(self.secret, loc).await.unwrap()
+        self.observations.get(loc).clone()
     }
 
     pub async fn player_cities_producing_or_not_ignored(&self) -> usize {
@@ -285,8 +285,13 @@ impl<'a> PlayerTurnControl<'a> {
         self.game
             .move_unit_by_id_in_direction(self.secret, id, direction)
             .await
+            .map(|move_| {
+                self.observations.track_many(move_.observations());
+                move_
+            })
     }
 
+    /// TODO Update observations
     pub async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<Unit> {
         self.game.disband_unit_by_id(self.secret, id).await
     }
@@ -294,6 +299,8 @@ impl<'a> PlayerTurnControl<'a> {
     /// Sets the production of the current player's city at location `loc` to `production`.
     ///
     /// Returns GameError::NoCityAtLocation if no city belonging to the current player exists at that location.
+    ///
+    /// TODO Update observations
     pub async fn set_production_by_loc(
         &mut self,
         loc: Location,
@@ -304,6 +311,7 @@ impl<'a> PlayerTurnControl<'a> {
             .await
     }
 
+    /// TODO Update observations
     pub async fn clear_production(
         &mut self,
         loc: Location,
@@ -346,10 +354,13 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// If the current player controls a unit with ID `id`, order it to sentry
+    ///
+    /// TODO Update observations
     pub async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_sentry(self.secret, unit_id).await
     }
 
+    /// TODO Update observations
     pub async fn order_unit_skip(&mut self, unit_id: UnitID) -> OrdersResult {
         self.game.order_unit_skip(self.secret, unit_id).await
     }
@@ -373,14 +384,18 @@ impl<'a> PlayerTurnControl<'a> {
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
+    ///
+    /// TODO Update observations
     pub async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()> {
         self.game.activate_unit_by_loc(self.secret, loc).await
     }
 
+    /// TODO Update observations
     pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
         self.game.begin_turn(self.secret).await
     }
 
+    /// TODO Update observations
     pub async fn end_turn(&mut self) -> UmpireResult<()> {
         self.game.end_turn(self.secret).await
     }
@@ -389,6 +404,7 @@ impl<'a> PlayerTurnControl<'a> {
         self.game.player_score(self.secret).await
     }
 
+    /// TODO Update observations
     pub async fn take_simple_action(
         &mut self,
         action: AiPlayerAction,
@@ -404,6 +420,7 @@ impl<'a> PlayerTurnControl<'a> {
         Vec::new()
     }
 
+    /// TODO Update observations
     pub async fn take_action(
         &mut self,
         action: PlayerAction,

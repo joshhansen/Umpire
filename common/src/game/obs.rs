@@ -60,26 +60,13 @@ impl Located for LocatedObs {
     }
 }
 
-pub trait ObsTrackerI: Source<Obs> {
-    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs;
-
-    /// How many observations are we tracking right now?
-    ///
-    /// I.e. the number of tiles for which we have an observation other than Obs::Unobserved
-    fn num_observed(&self) -> usize;
-}
-
-pub trait UnifiedObsTrackerI: ObsTrackerI + Source<Obs> + Source<Tile> {
-    fn track_observation_unified(&mut self, loc: Location, turn: TurnNum) -> LocatedObs;
-}
-
-pub struct UnifiedObsTracker<'a, O, S> {
+pub struct UnifiedObsTracker<'a, S> {
     truth: &'a mut S,
-    observations: &'a mut O,
+    observations: &'a mut ObsTracker,
 }
 
-impl<'a, O: ObsTrackerI, S: Source<Tile>> UnifiedObsTracker<'a, O, S> {
-    pub fn new(truth: &'a mut S, observations: &'a mut O) -> Self {
+impl<'a, S: Source<Tile>> UnifiedObsTracker<'a, S> {
+    pub fn new(truth: &'a mut S, observations: &'a mut ObsTracker) -> Self {
         Self {
             truth,
             observations,
@@ -89,50 +76,42 @@ impl<'a, O: ObsTrackerI, S: Source<Tile>> UnifiedObsTracker<'a, O, S> {
     pub fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
         self.observations.track_observation(loc, tile, turn)
     }
+
+    fn num_observed(&self) -> usize {
+        self.observations.num_observed()
+    }
+
+    fn track_observation_unified(&mut self, loc: Location, turn: TurnNum) -> LocatedObs {
+        let tile = self.truth.get(loc);
+        self.observations.track_observation(loc, tile, turn)
+    }
 }
 
-impl<'a, O: ObsTrackerI, S: SourceMut<Tile>> UnifiedObsTracker<'a, O, S> {
+impl<'a, S: SourceMut<Tile>> UnifiedObsTracker<'a, S> {
     pub fn put_truth(&mut self, loc: Location, item: &Tile) -> LocatedItem<Tile> {
         self.truth.put(loc, item)
     }
 }
 
-impl<'a, O: ObsTrackerI, S: Source<Tile>> Dimensioned for UnifiedObsTracker<'a, O, S> {
+impl<'a, S: Source<Tile>> Dimensioned for UnifiedObsTracker<'a, S> {
     fn dims(&self) -> Dims {
         // The truth and overlay dims are identical
         self.truth.dims()
     }
 }
 
-impl<'a, O: ObsTrackerI, S: Source<Tile>> Source<Obs> for UnifiedObsTracker<'a, O, S> {
+impl<'a, S: Source<Tile>> Source<Obs> for UnifiedObsTracker<'a, S> {
     fn get(&self, loc: Location) -> &Obs {
         self.observations.get(loc)
     }
 }
 
-impl<'a, O: ObsTrackerI, S: Source<Tile>> Source<Tile> for UnifiedObsTracker<'a, O, S> {
+impl<'a, S: Source<Tile>> Source<Tile> for UnifiedObsTracker<'a, S> {
     fn get(&self, loc: Location) -> &Tile {
         match <Self as Source<Obs>>::get(self, loc) {
             Obs::Observed { ref tile, .. } => tile,
             Obs::Unobserved => panic!("Tried to get tile from unobserved tile {:?}", loc),
         }
-    }
-}
-
-impl<'a, O: ObsTrackerI, S: Source<Tile>> ObsTrackerI for UnifiedObsTracker<'a, O, S> {
-    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
-        self.observations.track_observation(loc, tile, turn)
-    }
-
-    fn num_observed(&self) -> usize {
-        self.observations.num_observed()
-    }
-}
-
-impl<'a, O: ObsTrackerI, S: Source<Tile>> UnifiedObsTrackerI for UnifiedObsTracker<'a, O, S> {
-    fn track_observation_unified(&mut self, loc: Location, turn: TurnNum) -> LocatedObs {
-        let tile = self.truth.get(loc);
-        self.observations.track_observation(loc, tile, turn)
     }
 }
 
@@ -165,24 +144,9 @@ impl ObsTracker {
     pub fn num_observed(&self) -> usize {
         self.num_observed
     }
-}
 
-impl Dimensioned for ObsTracker {
-    fn dims(&self) -> Dims {
-        self.observations.dims()
-    }
-}
-
-impl ObsTrackerI for ObsTracker {
-    fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
-        let obs = Obs::Observed {
-            tile: tile.clone(),
-            turn,
-            current: true,
-        };
-
-        //CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
-        let old = self.observations.replace(loc, obs.clone());
+    fn _track(&mut self, loc: Location, obs: Obs) -> Option<Obs> {
+        let old = self.observations.replace(loc, obs);
 
         // Since we are always replacing with an Obs::Observed, the number observed will go up as long as there was
         // nothing or unobserved there previously
@@ -190,11 +154,32 @@ impl ObsTrackerI for ObsTracker {
             self.num_observed += 1;
         }
 
+        old
+    }
+
+    pub fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
+        let obs = Obs::Observed {
+            tile: tile.clone(),
+            turn,
+            current: true,
+        };
+
+        //CLONE We make one copy to keep inside the ObsTracker, and send the other one back out to the UI
+        let old = self._track(loc, obs.clone());
+
         LocatedObs::new(loc, obs, old.unwrap_or(Obs::Unobserved))
     }
 
-    fn num_observed(&self) -> usize {
-        self.num_observed
+    pub fn track_many<'a>(&mut self, observations: impl Iterator<Item = &'a LocatedObs>) {
+        for obs in observations {
+            self._track(obs.loc, obs.obs.clone());
+        }
+    }
+}
+
+impl Dimensioned for ObsTracker {
+    fn dims(&self) -> Dims {
+        self.observations.dims()
     }
 }
 
@@ -267,12 +252,12 @@ pub trait Observer: Located {
 
     /// FIXME If we ever get support for impl Trait on trait methods switch to that rather than the likely performance hit of this
     /// vector instantiation
-    fn observe<O: ObsTrackerI>(
+    fn observe(
         &self,
         tiles: &dyn Source<Tile>,
         turn: TurnNum,
         wrapping: Wrap2d,
-        obs_tracker: &mut O,
+        obs_tracker: &mut ObsTracker,
     ) -> Vec<LocatedObs> {
         visible_coords_iter(self.sight_distance())
             .filter_map(|inc| wrapping.wrapped_add(tiles.dims(), self.loc(), inc))
@@ -287,9 +272,9 @@ pub trait Observer: Located {
 
     /// FIXME If we ever get support for impl Trait on trait methods switch to that rather than the likely performance hit of this
     /// vector instantiation
-    fn observe_unified<O: UnifiedObsTrackerI>(
+    fn observe_unified<S: Source<Tile>>(
         &self,
-        tiles: &mut O,
+        tiles: &mut UnifiedObsTracker<S>,
         turn: TurnNum,
         wrapping: Wrap2d,
     ) -> Vec<LocatedObs> {

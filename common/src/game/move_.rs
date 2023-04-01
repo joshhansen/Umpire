@@ -95,6 +95,17 @@ impl Move {
     pub fn is_empty(&self) -> bool {
         self.components.is_empty()
     }
+
+    /// All observations made during the move
+    ///
+    /// Earliest first, latest last
+    ///
+    /// Could include locations observed more than once, you'll want to dedupe
+    pub fn observations<'a>(&'a self) -> impl Iterator<Item = &LocatedObs> + 'a {
+        self.components
+            .iter()
+            .flat_map(|c| c.observations_after_move.iter())
+    }
 }
 
 //FIXME The name is a misnomer---UnitAction or something would be more accurate
