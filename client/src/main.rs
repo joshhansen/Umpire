@@ -10,7 +10,6 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     io::{stdout, BufRead, BufReader, Write},
-    net::{IpAddr, Ipv6Addr},
     rc::Rc,
     sync::{Arc, RwLock},
     thread,
@@ -20,6 +19,7 @@ use std::{
 use clap::{builder::BoolishValueParser, Arg, ArgAction};
 
 use tarpc::{client, context, tokio_serde::formats::Bincode};
+use tokio::net::lookup_host;
 
 use self::ui::TermUI;
 
@@ -195,9 +195,16 @@ async fn main() -> Result<(), String> {
         )
     } else {
         let server_hostname = matches.get_one::<String>("server").unwrap();
-        let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
 
-        let transport = tarpc::serde_transport::tcp::connect(&server_addr, Bincode::default)
+        let server_addr = lookup_host(format!("{}:{}", server_hostname, conf::PORT))
+            .await
+            .map_err(|err| format!("Server DNS lookup error: {}", err))?
+            .next()
+            .ok_or(String::from(
+                "No address returned looking up server domain name",
+            ))?;
+
+        let transport = tarpc::serde_transport::tcp::connect(server_addr, Bincode::default)
             .await
             .map_err(|err| format!("Error connecting to server {}: {}", server_hostname, err))?;
 

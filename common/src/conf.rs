@@ -134,3 +134,5 @@ pub fn key_desc(key: char) -> String {
         c => c.to_string(),
     }
 }
+
+pub const PORT: u16 = 21131;

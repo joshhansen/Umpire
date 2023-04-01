@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    net::{IpAddr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr},
     sync::{Arc, RwLock as RwLockStd},
 };
 
@@ -928,7 +928,9 @@ async fn main() -> anyhow::Result<()> {
 
     let connection_count = Arc::new(RwLockStd::new(0usize));
 
-    let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
+    // let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
+
+    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), conf::PORT);
 
     // JSON transport is provided by the json_transport tarpc module. It makes it easy
     // to start up a serde-powered json serialization strategy over TCP.
