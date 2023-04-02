@@ -25,8 +25,6 @@ use std::{
 
 use async_trait::async_trait;
 
-use futures;
-
 use rsrl::DerefVec;
 
 use serde::{Deserialize, Serialize};
@@ -63,7 +61,7 @@ pub use self::player::{PlayerNum, PlayerTurnControl, PlayerType};
 
 use self::{
     action::{PlayerAction, PlayerActionOutcome},
-    ai::{fX, player_features, FEATS_LEN},
+    ai::{fX, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError},
     proposed::Proposed2,
@@ -2670,6 +2668,11 @@ impl Game {
 
         Ok(x)
     }
+
+    fn current_player_features(&self) -> Vec<fX> {
+        let player_secret = self.player_secrets[self.current_player];
+        self.player_features(player_secret).unwrap()
+    }
 }
 
 impl Dimensioned for Game {
@@ -2772,15 +2775,7 @@ impl fmt::Debug for Game {
 
 impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<fX> {
-        let features_future = player_features(self, self.player_secrets[self.current_player]);
-
-        // let rt = Handle::current();
-
-        // Because `DerefVec` is synchronous, we grab a reference to the Tokio runtime and block on
-        // the async call we need to compute the feature vector
-        // rt.block_on(async { features_future.await.unwrap() })
-
-        futures::executor::block_on(async { features_future.await.unwrap() })
+        self.current_player_features()
     }
 }
 
