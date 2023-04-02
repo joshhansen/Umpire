@@ -246,7 +246,9 @@ impl UmpireDomain {
     async fn update_state(&mut self, action: AiPlayerAction) {
         debug_assert!(!self.game.current_turn_is_done());
 
-        let player_secret = self.player_secrets[self.game.current_player()];
+        let player = self.game.current_player();
+
+        let player_secret = self.player_secrets[player];
 
         {
             let (mut ctrl, _turn_start) = self
@@ -307,11 +309,18 @@ impl UmpireDomain {
             println!("Action taken: {:?}                         ", action);
         }
 
+        debug_assert_eq!(self.game.current_player(), player);
+
+        debug_assert_eq!(
+            self.game.current_player(),
+            self.game.player_with_secret(player_secret).unwrap()
+        );
+
         // If the user's turn is done, end it and take a complete turn for the other player until there's something
         // for this user to do or the game is over
         while self.game.victor().is_none() && self.game.current_turn_is_done() {
-            // End this user's turn
-            self.game.end_turn(player_secret).unwrap();
+            let secret = self.player_secrets[self.game.current_player()];
+            self.game.end_turn(secret).unwrap();
         }
     }
 }
