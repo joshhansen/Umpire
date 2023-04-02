@@ -71,28 +71,35 @@ impl IMode for TurnOverMode {
 
             loop {
                 match self.get_key(game, ui, mode).await {
-                    KeyStatus::Unhandled(key) => {
-                        if let KeyCode::Char('\n') = key.code {
-                            // If the user has altered productions using examine mode then the turn might not be over anymore
-                            // Recheck
+                    Ok(key) => match key {
+                        KeyStatus::Unhandled(key) => {
+                            if let KeyCode::Char('\n') = key.code {
+                                // If the user has altered productions using examine mode then the turn might not be over anymore
+                                // Recheck
 
-                            match game.end_turn().await {
-                                Ok(_) => {
-                                    // *mode = Mode::TurnStart;
-                                    return ModeStatus::TurnOver;
-                                }
-                                Err(_not_over_for) => {
-                                    *mode = Mode::TurnResume;
-                                    return ModeStatus::Continue;
+                                match game.end_turn().await {
+                                    Ok(_) => {
+                                        // *mode = Mode::TurnStart;
+                                        return ModeStatus::TurnOver;
+                                    }
+                                    Err(_not_over_for) => {
+                                        *mode = Mode::TurnResume;
+                                        return ModeStatus::Continue;
+                                    }
                                 }
                             }
                         }
-                    }
-                    KeyStatus::Handled(state_disposition) => match state_disposition {
-                        StateDisposition::Quit => return ModeStatus::Quit,
-                        StateDisposition::Next => return ModeStatus::TurnOver,
-                        StateDisposition::Stay => {}
+                        KeyStatus::Handled(state_disposition) => match state_disposition {
+                            StateDisposition::Quit => return ModeStatus::Quit,
+                            StateDisposition::Next => return ModeStatus::TurnOver,
+                            StateDisposition::Stay => {}
+                        },
                     },
+                    Err(_err) => {
+                        // RecvError comes from the input thread exiting before the UI itself.
+                        // So, just quit the app, we're probably already trying to do so.
+                        return ModeStatus::Quit;
+                    }
                 }
             }
         } else {

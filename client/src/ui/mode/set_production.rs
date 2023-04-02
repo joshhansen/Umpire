@@ -107,56 +107,65 @@ impl IMode for SetProductionMode {
 
         loop {
             match self.get_key(game, ui, mode).await {
-                KeyStatus::Unhandled(key) => {
-                    if let KeyCode::Char(c) = key.code {
-                        if let Ok(unit_type) = UnitType::try_from_key(c) {
-                            game.set_production_by_loc(self.loc, unit_type)
-                                .await
-                                .unwrap();
+                Ok(key) => {
+                    match key {
+                        KeyStatus::Unhandled(key) => {
+                            if let KeyCode::Char(c) = key.code {
+                                if let Ok(unit_type) = UnitType::try_from_key(c) {
+                                    game.set_production_by_loc(self.loc, unit_type)
+                                        .await
+                                        .unwrap();
 
-                            let city = game.player_city_by_loc(self.loc).await.unwrap();
-                            ui.log_message(Message {
-                                text: format!(
-                                    "Set {}'s production to {}",
-                                    city.short_desc(),
-                                    unit_type
-                                ),
-                                mark: Some('·'),
-                                bg_color: None,
-                                fg_color: None,
-                                source: Some(MessageSource::Mode),
-                            });
-                            ui.draw_log(game).await.unwrap();
+                                    let city = game.player_city_by_loc(self.loc).await.unwrap();
+                                    ui.log_message(Message {
+                                        text: format!(
+                                            "Set {}'s production to {}",
+                                            city.short_desc(),
+                                            unit_type
+                                        ),
+                                        mark: Some('·'),
+                                        bg_color: None,
+                                        fg_color: None,
+                                        source: Some(MessageSource::Mode),
+                                    });
+                                    ui.draw_log(game).await.unwrap();
 
-                            Self::clear_buf(ui);
+                                    Self::clear_buf(ui);
 
-                            *mode = Mode::TurnResume;
-                            return ModeStatus::Continue;
-                        } else if c == conf::KEY_NO_PRODUCTION {
-                            if game.player_cities_producing_or_not_ignored().await <= 1 {
-                                game.clear_production(self.loc, false).await.unwrap();
-                                // let cursor_viewport_loc = ui.cursor_viewport_loc(mode, game).unwrap();
+                                    *mode = Mode::TurnResume;
+                                    return ModeStatus::Continue;
+                                } else if c == conf::KEY_NO_PRODUCTION {
+                                    if game.player_cities_producing_or_not_ignored().await <= 1 {
+                                        game.clear_production(self.loc, false).await.unwrap();
+                                        // let cursor_viewport_loc = ui.cursor_viewport_loc(mode, game).unwrap();
 
-                                // *mode = Mode::Examine {
-                                //     cursor_viewport_loc,
-                                //     first: true,
-                                //     most_recently_active_unit_id: None,
-                                // };
-                            } else {
-                                // game.set_production(self.loc, None).unwrap();
-                                game.clear_production(self.loc, true).await.unwrap();
+                                        // *mode = Mode::Examine {
+                                        //     cursor_viewport_loc,
+                                        //     first: true,
+                                        //     most_recently_active_unit_id: None,
+                                        // };
+                                    } else {
+                                        // game.set_production(self.loc, None).unwrap();
+                                        game.clear_production(self.loc, true).await.unwrap();
+                                    }
+
+                                    *mode = Mode::TurnResume;
+                                    return ModeStatus::Continue;
+                                }
                             }
-
-                            *mode = Mode::TurnResume;
-                            return ModeStatus::Continue;
                         }
+                        KeyStatus::Handled(state_disposition) => match state_disposition {
+                            StateDisposition::Quit => return ModeStatus::Quit,
+                            StateDisposition::Next => return ModeStatus::Continue,
+                            StateDisposition::Stay => {}
+                        },
                     }
                 }
-                KeyStatus::Handled(state_disposition) => match state_disposition {
-                    StateDisposition::Quit => return ModeStatus::Quit,
-                    StateDisposition::Next => return ModeStatus::Continue,
-                    StateDisposition::Stay => {}
-                },
+                Err(_err) => {
+                    // RecvError comes from the input thread exiting before the UI itself.
+                    // So, just quit the app, we're probably already trying to do so.
+                    return ModeStatus::Quit;
+                }
             }
         }
     }

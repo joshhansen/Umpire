@@ -115,130 +115,141 @@ impl IMode for ExamineMode {
         ui.draw_log(game).await.unwrap(); // this will flush
 
         match self.get_key(game, ui, mode).await {
-            KeyStatus::Unhandled(key) => {
-                if key.code == KeyCode::Esc {
-                    // Don't leave the examine-mode log message hanging around. They accumulate and get really ugly.
-                    ui.pop_log_message();
+            Ok(key) => match key {
+                KeyStatus::Unhandled(key) => {
+                    if key.code == KeyCode::Esc {
+                        // Don't leave the examine-mode log message hanging around. They accumulate and get really ugly.
+                        ui.pop_log_message();
 
-                    // Also pop the last message prior to the examine-mode message since we're going to end up back in the prior state
-                    // and it will re-print the relevant message anyway
-                    ui.pop_log_message();
+                        // Also pop the last message prior to the examine-mode message since we're going to end up back in the prior state
+                        // and it will re-print the relevant message anyway
+                        ui.pop_log_message();
 
-                    // Don't flush here because the mode we resume should do so---we want to avoid flickers
+                        // Don't flush here because the mode we resume should do so---we want to avoid flickers
 
-                    *mode = Mode::TurnResume;
-                } else if key.code == KeyCode::Enter {
-                    if let Some(tile) = self
-                        .current_player_tile(game, ui)
-                        .await
-                        .map(|tile| tile.as_ref().clone())
-                    {
-                        // We clone to ease mutating the unit within this block
-                        if let Some(ref unit) = tile.unit {
-                            let player = game.current_player().await;
-                            if unit.belongs_to_player(player) {
-                                // Since the unit we get from this tile may be a "memory" of an old observation, get the most recent one in order to activate it
+                        *mode = Mode::TurnResume;
+                    } else if key.code == KeyCode::Enter {
+                        if let Some(tile) = self
+                            .current_player_tile(game, ui)
+                            .await
+                            .map(|tile| tile.as_ref().clone())
+                        {
+                            // We clone to ease mutating the unit within this block
+                            if let Some(ref unit) = tile.unit {
+                                let player = game.current_player().await;
+                                if unit.belongs_to_player(player) {
+                                    // Since the unit we get from this tile may be a "memory" of an old observation, get the most recent one in order to activate it
 
-                                match game.activate_unit_by_loc(unit.loc).await {
-                                    Ok(()) => {
-                                        ui.log_message(format!("Activated unit {}", unit));
-                                        *mode = Mode::GetUnitOrders {
-                                            unit_id: unit.id,
-                                            first_move: true,
-                                        };
-                                        return ModeStatus::Continue;
-                                    }
-                                    Err(GameError::NoUnitAtLocation { .. }) => {
-                                        // The unit we had must have been a stale observation since we can't find it now.
-                                        // Doing nothing is fine.
-                                    }
-                                    Err(err) => {
-                                        panic!(
+                                    match game.activate_unit_by_loc(unit.loc).await {
+                                        Ok(()) => {
+                                            ui.log_message(format!("Activated unit {}", unit));
+                                            *mode = Mode::GetUnitOrders {
+                                                unit_id: unit.id,
+                                                first_move: true,
+                                            };
+                                            return ModeStatus::Continue;
+                                        }
+                                        Err(GameError::NoUnitAtLocation { .. }) => {
+                                            // The unit we had must have been a stale observation since we can't find it now.
+                                            // Doing nothing is fine.
+                                        }
+                                        Err(err) => {
+                                            panic!(
                                             "Unexpected error attempting to activate unit: {:?}",
                                             err
                                         );
+                                        }
                                     }
                                 }
-                            }
-                        } else if let Some(ref city) = tile.city {
-                            let player = game.current_player().await;
-                            if city.belongs_to_player(player) {
-                                *mode = Mode::SetProduction { city_loc: city.loc };
-                                self.clean_up(game, ui).await.unwrap();
-                                return ModeStatus::Continue;
-                            }
-                        }
-                    }
-
-                    // If there was a recently active unit, see if we can give it orders to move to the current location
-                    if let Some(most_recently_active_unit_id) = self.most_recently_active_unit_id {
-                        let dest = ui
-                            .viewport_to_map_coords(game, self.cursor_viewport_loc)
-                            .await
-                            .unwrap();
-
-                        let proposed_result = game
-                            .propose_order_unit_go_to(most_recently_active_unit_id, dest)
-                            .await;
-
-                        match proposed_result {
-                            Ok(ref proposed_orders_outcome) => {
-                                let move_ = proposed_orders_outcome.outcome.move_.as_ref();
-                                if let Some(proposed_move) = move_ {
-                                    ui.animate_move(game, proposed_move).await.unwrap();
+                            } else if let Some(ref city) = tile.city {
+                                let player = game.current_player().await;
+                                if city.belongs_to_player(player) {
+                                    *mode = Mode::SetProduction { city_loc: city.loc };
+                                    self.clean_up(game, ui).await.unwrap();
+                                    return ModeStatus::Continue;
                                 }
-                                ui.log_message(format!("Ordered unit to go to {}", dest));
-
-                                game.take_action(proposed_orders_outcome.action)
-                                    .await
-                                    .unwrap();
                             }
-                            Err(ref orders_err) => ui.log_message(Message {
-                                text: format!("{}", orders_err),
-                                mark: Some('-'),
-                                fg_color: Some(Colors::Notice),
-                                bg_color: Some(Colors::Background),
-                                source: Some(MessageSource::UI),
-                            }),
-                        };
+                        }
 
-                        *mode = Mode::TurnResume;
-
-                        self.clean_up(game, ui).await.unwrap();
-                        return ModeStatus::Continue;
-                    }
-                } else if let KeyCode::Char(c) = key.code {
-                    if let Ok(dir) = Direction::try_from(c) {
-                        let dims = ui.viewport_rect().dims();
-                        if let Some(new_loc) =
-                            self.cursor_viewport_loc
-                                .shift_wrapped(dir, dims, Wrap2d::NEITHER)
+                        // If there was a recently active unit, see if we can give it orders to move to the current location
+                        if let Some(most_recently_active_unit_id) =
+                            self.most_recently_active_unit_id
                         {
-                            let viewport_rect = ui.viewport_rect();
-                            if new_loc.x < viewport_rect.width && new_loc.y <= viewport_rect.height
-                            {
-                                *mode = self.next_examine_mode(new_loc);
-                            }
-                        } else {
-                            // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport
-                            // such that the cursor will still be at its edge
+                            let dest = ui
+                                .viewport_to_map_coords(game, self.cursor_viewport_loc)
+                                .await
+                                .unwrap();
 
-                            // ui.map_scroller.scrollable.shift_viewport(dir.into());
-                            ui.shift_map_viewport(dir);
-                            // ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
-                            ui.draw_map(game).await.unwrap();
-                            // Don't change `mode` since we'll basically pick up where we left off
+                            let proposed_result = game
+                                .propose_order_unit_go_to(most_recently_active_unit_id, dest)
+                                .await;
+
+                            match proposed_result {
+                                Ok(ref proposed_orders_outcome) => {
+                                    let move_ = proposed_orders_outcome.outcome.move_.as_ref();
+                                    if let Some(proposed_move) = move_ {
+                                        ui.animate_move(game, proposed_move).await.unwrap();
+                                    }
+                                    ui.log_message(format!("Ordered unit to go to {}", dest));
+
+                                    game.take_action(proposed_orders_outcome.action)
+                                        .await
+                                        .unwrap();
+                                }
+                                Err(ref orders_err) => ui.log_message(Message {
+                                    text: format!("{}", orders_err),
+                                    mark: Some('-'),
+                                    fg_color: Some(Colors::Notice),
+                                    bg_color: Some(Colors::Background),
+                                    source: Some(MessageSource::UI),
+                                }),
+                            };
+
+                            *mode = Mode::TurnResume;
+
+                            self.clean_up(game, ui).await.unwrap();
+                            return ModeStatus::Continue;
+                        }
+                    } else if let KeyCode::Char(c) = key.code {
+                        if let Ok(dir) = Direction::try_from(c) {
+                            let dims = ui.viewport_rect().dims();
+                            if let Some(new_loc) =
+                                self.cursor_viewport_loc
+                                    .shift_wrapped(dir, dims, Wrap2d::NEITHER)
+                            {
+                                let viewport_rect = ui.viewport_rect();
+                                if new_loc.x < viewport_rect.width
+                                    && new_loc.y <= viewport_rect.height
+                                {
+                                    *mode = self.next_examine_mode(new_loc);
+                                }
+                            } else {
+                                // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport
+                                // such that the cursor will still be at its edge
+
+                                // ui.map_scroller.scrollable.shift_viewport(dir.into());
+                                ui.shift_map_viewport(dir);
+                                // ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
+                                ui.draw_map(game).await.unwrap();
+                                // Don't change `mode` since we'll basically pick up where we left off
+                            }
                         }
                     }
-                }
 
-                self.clean_up(game, ui).await.unwrap();
-                ModeStatus::Continue
-            }
-            KeyStatus::Handled(state_disposition) => match state_disposition {
-                StateDisposition::Quit => ModeStatus::Quit,
-                StateDisposition::Next | StateDisposition::Stay => ModeStatus::Continue,
+                    self.clean_up(game, ui).await.unwrap();
+                    ModeStatus::Continue
+                }
+                KeyStatus::Handled(state_disposition) => match state_disposition {
+                    StateDisposition::Quit => ModeStatus::Quit,
+                    StateDisposition::Next | StateDisposition::Stay => ModeStatus::Continue,
+                },
             },
+
+            Err(_err) => {
+                // RecvError comes from the input thread exiting before the UI itself.
+                // So, just quit the app, we're probably already trying to do so.
+                return ModeStatus::Quit;
+            }
         }
     }
 }

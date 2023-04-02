@@ -9,7 +9,7 @@ use std::{
     cmp,
     io::{stdout, Result as IoResult, Stdout, Write},
     sync::{
-        mpsc::{channel, sync_channel, Receiver, SyncSender},
+        mpsc::{channel, sync_channel, Receiver, RecvError, SyncSender},
         Mutex,
     },
     thread::{self, JoinHandle},
@@ -31,13 +31,12 @@ use common::{
     colors::Colors,
     conf::{self, HEADER_HEIGHT},
     game::{
-        ai::TrainingInstance,
         city::City,
         combat::{CombatCapable, CombatOutcome, CombatParticipant},
         map::Tile,
         move_::Move,
         obs::{LocatedObs, Obs},
-        player::{LimitedTurnTaker, PlayerTurnControl},
+        player::{LimitedTurnTaker, PlayerTurnControl, TurnOutcome},
         unit::Unit,
     },
     log::{LogTarget, Message, MessageSource},
@@ -146,7 +145,7 @@ pub trait UI: LogTarget + MoveAnimator {
     ) -> IoResult<()>;
 
     /// Block until a key is pressed; return that key
-    fn get_key(&self) -> KeyEvent;
+    fn get_key(&self) -> Result<KeyEvent, RecvError>;
 
     fn map_to_viewport_coords(&self, map_loc: Location) -> Option<Location>;
 
@@ -320,8 +319,8 @@ impl UI for DefaultUI {
     }
 
     /// Block until a key is pressed; return that key
-    fn get_key(&self) -> KeyEvent {
-        KeyEvent::from(KeyCode::Null)
+    fn get_key(&self) -> Result<KeyEvent, RecvError> {
+        Ok(KeyEvent::from(KeyCode::Null))
     }
 
     fn map_to_viewport_coords(&self, _map_loc: Location) -> Option<Location> {
@@ -545,8 +544,7 @@ impl TermUI {
                                     input_thread_tx.send(key_event).unwrap();
 
                                     if will_return {
-                                        disable_raw_mode().unwrap();
-                                        return;
+                                        break;
                                     }
                                 }
                                 Event::Mouse(_mouse_event) => {}
@@ -1049,8 +1047,8 @@ impl UI for TermUI {
     }
 
     /// Block until a key is pressed; return that key
-    fn get_key(&self) -> KeyEvent {
-        self.input_thread_rx.lock().unwrap().recv().unwrap()
+    fn get_key(&self) -> Result<KeyEvent, RecvError> {
+        self.input_thread_rx.lock().unwrap().recv()
     }
 
     fn map_to_viewport_coords(&self, map_loc: Location) -> Option<Location> {
@@ -1112,7 +1110,7 @@ impl LimitedTurnTaker for TermUI {
         &mut self,
         ctrl: &mut PlayerTurnControl,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         if generate_data {
             eprintln!("TermUI doesn't generate training data but generate_data was true");
             //FIXME Code smell: refused bequest
@@ -1120,11 +1118,26 @@ impl LimitedTurnTaker for TermUI {
 
         let mut prev_mode: Option<Mode> = None;
         let mut mode = self::mode::Mode::TurnStart;
-        while mode.run(ctrl, self, &mut prev_mode).await == ModeStatus::Continue {
-            // nothing here
+
+        let mut quit = false;
+
+        loop {
+            match mode.run(ctrl, self, &mut prev_mode).await {
+                ModeStatus::TurnOver => break,
+                ModeStatus::Quit => {
+                    quit = true;
+                    break;
+                }
+                ModeStatus::Continue => {
+                    // keep on truckin'
+                }
+            }
         }
 
-        None
+        TurnOutcome {
+            training_instances: None, // TODO: Propagate training data from the terminal UI
+            quit,
+        }
     }
 }
 

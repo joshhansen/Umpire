@@ -117,98 +117,106 @@ impl IMode for GetUnitOrdersMode {
 
         loop {
             match self.get_key(game, ui, mode).await {
-                KeyStatus::Unhandled(key) => {
-                    if let KeyCode::Char(c) = key.code {
-                        if let Ok(dir) = Direction::try_from(c) {
-                            if let Some(dest) = unit_loc.shift_wrapped(
-                                dir,
-                                game.dims().await,
-                                game.wrapping().await,
-                            ) {
-                                let proposed_move =
-                                    game.propose_move_unit_by_id(self.unit_id, dest).await;
+                Ok(key) => match key {
+                    KeyStatus::Unhandled(key) => {
+                        if let KeyCode::Char(c) = key.code {
+                            if let Ok(dir) = Direction::try_from(c) {
+                                if let Some(dest) = unit_loc.shift_wrapped(
+                                    dir,
+                                    game.dims().await,
+                                    game.wrapping().await,
+                                ) {
+                                    let proposed_move =
+                                        game.propose_move_unit_by_id(self.unit_id, dest).await;
 
-                                match proposed_move {
-                                    Ok(ref proposed_move_result) => {
-                                        let move_ = &proposed_move_result.outcome;
+                                    match proposed_move {
+                                        Ok(ref proposed_move_result) => {
+                                            let move_ = &proposed_move_result.outcome;
 
-                                        ui.animate_move(game, move_).await.unwrap();
+                                            ui.animate_move(game, move_).await.unwrap();
 
-                                        let move_ = match
-                                            game.take_action(proposed_move_result.action).await.unwrap() {
-                                                PlayerActionOutcome::MoveUnit { move_, .. } => move_,
-                                                _ => panic!("Did not find PlayerActionOutcome::MoveUnit as expected"),
-                                            };
+                                            let move_ = match
+                                                    game.take_action(proposed_move_result.action).await.unwrap() {
+                                                        PlayerActionOutcome::MoveUnit { move_, .. } => move_,
+                                                        _ => panic!("Did not find PlayerActionOutcome::MoveUnit as expected"),
+                                                    };
 
-                                        if let Some(conquered_city) = move_.conquered_city() {
-                                            *mode = Mode::SetProduction {
-                                                city_loc: conquered_city.loc,
-                                            };
-                                        } else if game
-                                            .player_unit_orders_requests()
-                                            .await
-                                            .iter()
-                                            .cloned()
-                                            .any(|unit_id| unit_id == self.unit_id)
-                                        {
-                                            *mode = Mode::GetUnitOrders {
-                                                unit_id: self.unit_id,
-                                                first_move: false,
-                                            };
-                                        } else {
-                                            *mode = Mode::GetOrders;
+                                            if let Some(conquered_city) = move_.conquered_city() {
+                                                *mode = Mode::SetProduction {
+                                                    city_loc: conquered_city.loc,
+                                                };
+                                            } else if game
+                                                .player_unit_orders_requests()
+                                                .await
+                                                .iter()
+                                                .cloned()
+                                                .any(|unit_id| unit_id == self.unit_id)
+                                            {
+                                                *mode = Mode::GetUnitOrders {
+                                                    unit_id: self.unit_id,
+                                                    first_move: false,
+                                                };
+                                            } else {
+                                                *mode = Mode::GetOrders;
+                                            }
+
+                                            Self::clear_buf(ui);
+                                            return ModeStatus::Continue;
                                         }
-
-                                        Self::clear_buf(ui);
-                                        return ModeStatus::Continue;
-                                    }
-                                    Err(msg) => {
-                                        ui.log_message(format!("Error: {}", msg));
+                                        Err(msg) => {
+                                            ui.log_message(format!("Error: {}", msg));
+                                        }
                                     }
                                 }
+                            } else if c == conf::KEY_SKIP {
+                                game.order_unit_skip(self.unit_id).await.unwrap();
+                                *mode = Mode::GetOrders;
+                                Self::clear_buf(ui);
+                                return ModeStatus::Continue;
+                            } else if c == conf::KEY_SENTRY {
+                                ui.log_message("Going sentry");
+                                game.order_unit_sentry(self.unit_id).await.unwrap();
+                                *mode = Mode::GetOrders;
+                                Self::clear_buf(ui);
+                                return ModeStatus::Continue;
+                            } else if c == conf::KEY_DISBAND {
+                                let unit = game.disband_unit_by_id(self.unit_id).await.unwrap();
+                                ui.log_message(format!("Disbanded unit {}", unit.short_desc()));
+                                *mode = Mode::GetOrders;
+                                Self::clear_buf(ui);
+                                return ModeStatus::Continue;
+                            } else if c == conf::KEY_EXPLORE {
+                                let proposed_orders_result =
+                                    game.propose_order_unit_explore(self.unit_id).await.unwrap();
+
+                                let proposed_orders_outcome = proposed_orders_result.outcome;
+
+                                if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
+                                    ui.animate_move(game, &proposed_move).await.unwrap();
+                                    // proposed_move.take(game);
+                                }
+
+                                game.take_action(proposed_orders_result.action)
+                                    .await
+                                    .unwrap();
+
+                                *mode = Mode::GetOrders;
+                                return ModeStatus::Continue;
                             }
-                        } else if c == conf::KEY_SKIP {
-                            game.order_unit_skip(self.unit_id).await.unwrap();
-                            *mode = Mode::GetOrders;
-                            Self::clear_buf(ui);
-                            return ModeStatus::Continue;
-                        } else if c == conf::KEY_SENTRY {
-                            ui.log_message("Going sentry");
-                            game.order_unit_sentry(self.unit_id).await.unwrap();
-                            *mode = Mode::GetOrders;
-                            Self::clear_buf(ui);
-                            return ModeStatus::Continue;
-                        } else if c == conf::KEY_DISBAND {
-                            let unit = game.disband_unit_by_id(self.unit_id).await.unwrap();
-                            ui.log_message(format!("Disbanded unit {}", unit.short_desc()));
-                            *mode = Mode::GetOrders;
-                            Self::clear_buf(ui);
-                            return ModeStatus::Continue;
-                        } else if c == conf::KEY_EXPLORE {
-                            let proposed_orders_result =
-                                game.propose_order_unit_explore(self.unit_id).await.unwrap();
-
-                            let proposed_orders_outcome = proposed_orders_result.outcome;
-
-                            if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
-                                ui.animate_move(game, &proposed_move).await.unwrap();
-                                // proposed_move.take(game);
-                            }
-
-                            game.take_action(proposed_orders_result.action)
-                                .await
-                                .unwrap();
-
-                            *mode = Mode::GetOrders;
-                            return ModeStatus::Continue;
                         }
                     }
-                }
-                KeyStatus::Handled(state_disposition) => match state_disposition {
-                    StateDisposition::Quit => return ModeStatus::Quit,
-                    StateDisposition::Next => return ModeStatus::Continue,
-                    StateDisposition::Stay => {}
+                    KeyStatus::Handled(state_disposition) => match state_disposition {
+                        StateDisposition::Quit => return ModeStatus::Quit,
+                        StateDisposition::Next => return ModeStatus::Continue,
+                        StateDisposition::Stay => {}
+                    },
                 },
+
+                Err(_err) => {
+                    // RecvError comes from the input thread exiting before the UI itself.
+                    // So, just quit the app, we're probably already trying to do so.
+                    return ModeStatus::Quit;
+                }
             }
         }
     }

@@ -394,7 +394,7 @@ async fn main() -> Result<(), String> {
                     let player = game.current_player();
 
                     let ai = ais.get_mut(i).unwrap();
-                    let mut maybe_training_instances = ai
+                    let mut turn_outcome = ai
                         .borrow_mut()
                         .take_turn_clearing(&mut game, player, secrets[player], generate_data)
                         .await;
@@ -402,7 +402,7 @@ async fn main() -> Result<(), String> {
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
                             player_partial_data.entry(player).or_insert_with(Vec::new);
-                        partial_data.append(maybe_training_instances.as_mut().unwrap());
+                        partial_data.append(turn_outcome.training_instances.as_mut().unwrap());
                     }
 
                     //TODO write the instance somewhere specific to the player so we can annotate it with

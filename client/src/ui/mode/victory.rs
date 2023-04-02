@@ -33,10 +33,20 @@ impl IMode for VictoryMode {
             bg_color: None,
             source: None,
         });
+
         ui.draw_log(ctrl).await.unwrap(); // this will flush
 
         // Wait for a keypress
-        self.get_key(ctrl, ui, mode).await;
+        match self.get_key(ctrl, ui, mode).await {
+            Ok(_key) => {
+                // do nothing
+            }
+            Err(_err) => {
+                // RecvError comes from the input thread exiting before the UI itself.
+                // So, just quit the app, we're probably already trying to do so.
+                return ModeStatus::Quit;
+            }
+        }
 
         ModeStatus::Quit
     }

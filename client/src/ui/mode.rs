@@ -1,3 +1,5 @@
+use std::sync::mpsc::RecvError;
+
 use async_trait::async_trait;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -155,19 +157,19 @@ pub trait IMode {
         game: &PlayerTurnControl,
         ui: &mut U,
         mode: &mut Mode,
-    ) -> KeyStatus {
-        let key = ui.get_key();
+    ) -> Result<KeyStatus, RecvError> {
+        let key = ui.get_key()?;
         if let KeyCode::Char(c) = key.code {
             if let Ok(dir) = Direction::try_from_viewport_shift(c) {
                 ui.scroll_map_relative(dir);
                 ui.draw_map(game).await.unwrap();
-                return KeyStatus::Handled(StateDisposition::Stay);
+                return Ok(KeyStatus::Handled(StateDisposition::Stay));
             }
 
             match c {
                 conf::KEY_QUIT => {
                     *mode = Mode::Quit;
-                    return KeyStatus::Handled(StateDisposition::Quit);
+                    return Ok(KeyStatus::Handled(StateDisposition::Quit));
                 }
                 conf::KEY_EXAMINE => {
                     // println!("Rect: {:?}", ui.viewport_rect());
@@ -194,16 +196,16 @@ pub trait IMode {
                         most_recently_active_unit_id,
                         first: true,
                     };
-                    return KeyStatus::Handled(StateDisposition::Next);
+                    return Ok(KeyStatus::Handled(StateDisposition::Next));
                 }
                 conf::KEY_VIEWPORT_SIZE_ROTATE => {
                     ui.rotate_viewport_size(game).await.unwrap();
-                    return KeyStatus::Handled(StateDisposition::Stay);
+                    return Ok(KeyStatus::Handled(StateDisposition::Stay));
                 }
                 _ => {}
             }
         }
-        KeyStatus::Unhandled(key)
+        Ok(KeyStatus::Unhandled(key))
     }
 }
 

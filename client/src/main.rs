@@ -294,19 +294,28 @@ async fn main() -> Result<(), String> {
                 ui.log_message(format!("Player {}'s turn", player));
                 match &player_types[player] {
                     PlayerType::Human => {
-                        let training_instances = ui
+                        let turn_outcome = ui
                             .take_turn_not_clearing(game.as_mut(), player, secret, false)
                             .await;
-                        assert!(training_instances.is_none());
+                        assert!(turn_outcome.training_instances.is_none());
+
+                        if turn_outcome.quit {
+                            break;
+                        }
                     }
                     PlayerType::AI(ai_type) => {
-                        let training_instances = ais
+                        let turn_outcome = ais
                             .get_mut(ai_type)
                             .unwrap()
                             .borrow_mut()
                             .take_turn_clearing(game.as_mut(), player, secret, false)
                             .await;
-                        assert!(training_instances.is_none());
+                        assert!(turn_outcome.training_instances.is_none());
+
+                        // I guess maybe someday a robot might throw in the towel?
+                        if turn_outcome.quit {
+                            break;
+                        }
                     }
                 }
             } else {

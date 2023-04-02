@@ -448,6 +448,15 @@ impl<'a> Drop for PlayerTurnControl<'a> {
     }
 }
 
+/// What's the meta-outcome of a TurnTaker taking a turn?
+pub struct TurnOutcome {
+    /// Training data generated during the turn, for ML purposes
+    pub training_instances: Option<Vec<TrainingInstance>>,
+
+    /// Indicate if the player quit the app
+    pub quit: bool,
+}
+
 /// Take a turn with only the knowledge of game state an individual player should have
 /// This is the main thing to use
 ///
@@ -455,11 +464,8 @@ impl<'a> Drop for PlayerTurnControl<'a> {
 /// * generate_data: whether or not training data for a state-action-value model should be returned
 #[async_trait]
 pub trait LimitedTurnTaker {
-    async fn take_turn(
-        &mut self,
-        ctrl: &mut PlayerTurnControl,
-        generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>>;
+    async fn take_turn(&mut self, ctrl: &mut PlayerTurnControl, generate_data: bool)
+        -> TurnOutcome;
 }
 
 /// Take a turn with full knowledge of the game state
@@ -475,7 +481,7 @@ pub trait TurnTaker {
         player: PlayerNum,
         secret: PlayerSecret,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>>;
+    ) -> TurnOutcome;
 
     async fn take_turn_clearing(
         &mut self,
@@ -483,7 +489,7 @@ pub trait TurnTaker {
         player: PlayerNum,
         secret: PlayerSecret,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>>;
+    ) -> TurnOutcome;
 
     async fn take_turn(
         &mut self,
@@ -492,7 +498,7 @@ pub trait TurnTaker {
         secret: PlayerSecret,
         clear_at_end_of_turn: bool,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         if clear_at_end_of_turn {
             self.take_turn_clearing(game, player, secret, generate_data)
                 .await
@@ -511,7 +517,7 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
         player: PlayerNum,
         secret: PlayerSecret,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         let turn = game.turn().await;
 
         let (mut ctrl, _turn_start) = PlayerTurnControl::new(game, secret).await.unwrap();
@@ -522,13 +528,20 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
             None
         };
 
+        let mut quit = false;
+
         loop {
             let result =
                 <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data).await;
-            if let Some(mut instances) = result {
+            if let Some(mut instances) = result.training_instances {
                 training_instances
                     .as_mut()
                     .map(|v| v.append(&mut instances));
+            }
+
+            if result.quit {
+                quit = true;
+                break;
             }
 
             if ctrl.turn_is_done(player, turn).await.unwrap() {
@@ -536,7 +549,10 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
             }
         }
 
-        training_instances
+        TurnOutcome {
+            training_instances,
+            quit,
+        }
     }
 
     async fn take_turn_clearing(
@@ -545,7 +561,7 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
         player: PlayerNum,
         secret: PlayerSecret,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         let turn = game.turn().await;
         let (mut ctrl, _turn_start) = PlayerTurnControl::new_clearing(game, secret).await.unwrap();
 
@@ -555,13 +571,20 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
             None
         };
 
+        let mut quit = false;
+
         loop {
             let result =
                 <Self as LimitedTurnTaker>::take_turn(self, &mut ctrl, generate_data).await;
-            if let Some(mut instances) = result {
+            if let Some(mut instances) = result.training_instances {
                 training_instances
                     .as_mut()
                     .map(|v| v.append(&mut instances));
+            }
+
+            if result.quit {
+                quit = true;
+                break;
             }
 
             if ctrl.turn_is_done(player, turn).await.unwrap() {
@@ -569,7 +592,10 @@ impl<T: LimitedTurnTaker + Send> TurnTaker for T {
             }
         }
 
-        training_instances
+        TurnOutcome {
+            training_instances,
+            quit,
+        }
     }
 }
 
@@ -587,7 +613,7 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
         &mut self,
         ctrl: &mut PlayerTurnControl,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -634,7 +660,10 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
             }
         }
 
-        training_instances
+        TurnOutcome {
+            training_instances,
+            quit: false, // Only robots are using this trait and they never quit the game
+        }
     }
 }
 

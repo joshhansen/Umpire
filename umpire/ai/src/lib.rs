@@ -10,7 +10,7 @@ use common::{
     game::{
         action::AiPlayerAction,
         ai::{player_features, AISpec, TrainingInstance},
-        player::TurnTaker,
+        player::{TurnOutcome, TurnTaker},
         Game, IGame, PlayerNum, PlayerSecret,
     },
     util::sparsify,
@@ -230,7 +230,7 @@ impl AI {
         player: PlayerNum,
         secret: PlayerSecret,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         let mut training_instances = if generate_data {
             Some(Vec::new())
         } else {
@@ -281,7 +281,10 @@ impl AI {
             }
         }
 
-        training_instances
+        TurnOutcome {
+            training_instances,
+            quit: false, //Robots don't quit!
+        }
     }
 }
 
@@ -293,7 +296,7 @@ impl TurnTaker for AI {
         player: PlayerNum,
         secret: PlayerSecret,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         match self {
             Self::Random(ai) => {
                 ai.take_turn_not_clearing(game, player, secret, generate_data)
@@ -326,7 +329,7 @@ impl TurnTaker for AI {
         _player: PlayerNum,
         secret: PlayerSecret,
         generate_data: bool,
-    ) -> Option<Vec<TrainingInstance>> {
+    ) -> TurnOutcome {
         let player = game.current_player().await;
         match self {
             Self::Random(ai) => {
