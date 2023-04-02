@@ -99,7 +99,8 @@ async fn main() -> Result<(), String> {
             Arg::new("quiet")
                 .short('q')
                 .long("quiet")
-                .help("Don't produce sound"),
+                .help("Don't produce sound")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("unicode")
