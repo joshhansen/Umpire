@@ -884,7 +884,7 @@ impl Game {
 
         Ok(TurnStart {
             turn: self.turn,
-            current_player: self.current_player(),
+            current_player: self.current_player,
             orders_results,
             production_outcomes,
         })
@@ -1028,7 +1028,7 @@ impl Game {
             Ok(self.force_end_then_begin_turn(player_secret, next_player_secret)?)
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
-                player: self.current_player(),
+                player: self.current_player,
             })
         }
     }
@@ -1050,7 +1050,7 @@ impl Game {
     }
 
     fn _inc_current_player(&mut self) {
-        self.current_player = (self.current_player + 1) % self.num_players();
+        self.current_player = (self.current_player + 1) % self.num_players;
         if self.current_player == 0 {
             self.turn += 1;
         }
