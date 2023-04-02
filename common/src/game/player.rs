@@ -82,6 +82,12 @@ impl Into<String> for PlayerType {
     }
 }
 
+pub enum TurnStartType {
+    Regular,
+    Clearing,
+    None,
+}
+
 pub struct PlayerTurnControl<'a> {
     game: &'a mut dyn IGame,
 
@@ -96,34 +102,50 @@ impl<'a> PlayerTurnControl<'a> {
         game: &'a mut dyn IGame,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new(game, secret, true, false).await
+        Self::_new(game, secret, TurnStartType::Regular, true)
+            .await
+            .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
     pub async fn new_clearing(
         game: &'a mut dyn IGame,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new(game, secret, true, true).await
+        Self::_new(game, secret, TurnStartType::Clearing, true)
+            .await
+            .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
     pub async fn new_nonending(
         game: &'a mut dyn IGame,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new(game, secret, false, true).await
+        Self::_new(game, secret, TurnStartType::Clearing, false)
+            .await
+            .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
-    async fn _new(
+    /// Does not start the turn and does not end it on drop
+    pub async fn new_bare(
         game: &'a mut dyn IGame,
         secret: PlayerSecret,
+    ) -> UmpireResult<PlayerTurnControl<'a>> {
+        Self::_new(game, secret, TurnStartType::None, false)
+            .await
+            .map(|x| x.0)
+    }
+
+    pub async fn _new(
+        game: &'a mut dyn IGame,
+        secret: PlayerSecret,
+        turn_start_type: TurnStartType,
         end_turn_on_drop: bool,
-        clearing: bool,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        let turn_start = if clearing {
-            game.begin_turn_clearing(secret).await
-        } else {
-            game.begin_turn(secret).await
-        }?;
+    ) -> UmpireResult<(PlayerTurnControl<'a>, Option<TurnStart>)> {
+        let turn_start = match turn_start_type {
+            TurnStartType::Regular => Some(game.begin_turn(secret).await?),
+            TurnStartType::Clearing => Some(game.begin_turn_clearing(secret).await?),
+            TurnStartType::None => None,
+        };
 
         let observations = game.player_observations(secret).await?;
         Ok((
@@ -141,34 +163,45 @@ impl<'a> PlayerTurnControl<'a> {
         game: &'a mut Game,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new_sync(game, secret, true, false)
+        Self::_new_sync(game, secret, TurnStartType::Regular, true)
+            .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
     pub fn new_sync_clearing(
         game: &'a mut Game,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new_sync(game, secret, true, true)
+        Self::_new_sync(game, secret, TurnStartType::Clearing, true)
+            .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
     pub fn new_sync_nonending(
         game: &'a mut Game,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new_sync(game, secret, false, true)
+        Self::_new_sync(game, secret, TurnStartType::Clearing, false)
+            .map(|(ctrl, start)| (ctrl, start.unwrap()))
+    }
+
+    /// Does not start the turn and does not end it on drop
+    pub fn new_sync_bare(
+        game: &'a mut Game,
+        secret: PlayerSecret,
+    ) -> UmpireResult<PlayerTurnControl<'a>> {
+        Self::_new_sync(game, secret, TurnStartType::None, false).map(|x| x.0)
     }
 
     fn _new_sync(
         game: &'a mut Game,
         secret: PlayerSecret,
+        turn_start_type: TurnStartType,
         end_turn_on_drop: bool,
-        clearing: bool,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        let turn_start = if clearing {
-            game.begin_turn_clearing(secret)
-        } else {
-            game.begin_turn(secret)
-        }?;
+    ) -> UmpireResult<(PlayerTurnControl<'a>, Option<TurnStart>)> {
+        let turn_start = match turn_start_type {
+            TurnStartType::Regular => Some(game.begin_turn(secret)?),
+            TurnStartType::Clearing => Some(game.begin_turn_clearing(secret)?),
+            TurnStartType::None => None,
+        };
 
         let dims = game.dims();
 

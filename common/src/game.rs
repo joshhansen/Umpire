@@ -602,6 +602,12 @@ pub trait IGame: Send + Sync {
     fn clone_underlying_game_state(&self) -> Result<Game, String>;
 }
 
+#[derive(Clone)]
+struct PlayerTurn {
+    player: PlayerNum,
+    turn: TurnNum,
+}
+
 /// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
 pub struct Game {
@@ -612,6 +618,8 @@ pub struct Game {
 
     /// The turn that it is right now
     turn: TurnNum,
+
+    latest_turn_begun: Option<PlayerTurn>,
 
     /// The number of players the game is set up for
     num_players: PlayerNum,
@@ -682,6 +690,7 @@ impl Game {
             map,
             player_observations,
             turn: 0,
+            latest_turn_begun: None,
             num_players,
             player_secrets: Vec::new(),
             current_player: 0,
@@ -723,6 +732,13 @@ impl Game {
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
         PlayerTurnControl::new_sync_nonending(self, secret)
+    }
+
+    pub fn player_turn_control_bare<'a>(
+        &'a mut self,
+        secret: PlayerSecret,
+    ) -> UmpireResult<PlayerTurnControl<'a>> {
+        PlayerTurnControl::new_sync_bare(self, secret)
     }
 
     /// Register a player and get its secret
@@ -871,8 +887,40 @@ impl Game {
         self.defeated_unit_hitpoints[self.current_player] += max_hp as u64;
     }
 
+    pub fn current_turn_begun(&self) -> bool {
+        if let Some(ref latest) = self.latest_turn_begun {
+            latest.player == self.current_player && latest.turn == self.turn
+        } else {
+            false
+        }
+    }
+
+    /// Run the initial phase of the player's turn, producing units, refreshing moves remaining, and making
+    /// observations.
+    ///
+    /// ## Errors
+    /// * GameError::NotPlayersTurn
+    /// * GameError::TurnAlreadyBegun
     pub fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
         let player = self.validate_is_player_turn(player_secret)?;
+
+        let should_start = if let Some(ref latest_turn_begun) = self.latest_turn_begun {
+            !(latest_turn_begun.player == player && latest_turn_begun.turn == self.turn)
+        } else {
+            true
+        };
+
+        if !should_start {
+            return Err(GameError::TurnAlreadyBegun {
+                player,
+                turn: self.turn,
+            });
+        }
+
+        self.latest_turn_begun = Some(PlayerTurn {
+            player,
+            turn: self.turn,
+        });
 
         let production_outcomes = self.produce_units(player_secret)?;
 

@@ -251,10 +251,14 @@ impl UmpireDomain {
         let player_secret = self.player_secrets[player];
 
         {
-            let (mut ctrl, _turn_start) = self
-                .game
-                .player_turn_control_nonending(player_secret)
-                .unwrap();
+            let mut ctrl = if self.game.current_turn_begun() {
+                self.game.player_turn_control_bare(player_secret).unwrap()
+            } else {
+                self.game
+                    .player_turn_control_nonending(player_secret)
+                    .unwrap()
+                    .0
+            };
 
             action.take(&mut ctrl).await.unwrap();
         }
@@ -277,10 +281,7 @@ impl UmpireDomain {
             if self.fix_output_loc {
                 let mut stdout = stdout();
                 {
-                    let (ctrl, _turn_start) = self
-                        .game
-                        .player_turn_control_nonending(player_secret)
-                        .unwrap();
+                    let ctrl = self.game.player_turn_control_bare(player_secret).unwrap();
                     self.map
                         .draw(&ctrl, &mut stdout, &self.palette)
                         .await
