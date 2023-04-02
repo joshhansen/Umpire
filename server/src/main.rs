@@ -1005,11 +1005,6 @@ async fn main() -> anyhow::Result<()> {
                 player_types: player_types.clone(),
             };
 
-            // println!(
-            //     "Server sees num players: {}",
-            //     server.game.read().unwrap().num_players()
-            // );
-
             channel.execute(server.serve())
         })
         // Max channels.
