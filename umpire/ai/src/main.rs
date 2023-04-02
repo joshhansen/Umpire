@@ -96,6 +96,7 @@ async fn main() -> Result<(), String> {
         .short('F')
         .long("fix")
         .help("Fix the location of output. Makes the output seem animated.")
+        .action(ArgAction::SetTrue)
     )
 
     // .subcommand(
@@ -195,6 +196,7 @@ async fn main() -> Result<(), String> {
             .short('d')
             .long("deep")
             .help("Indicates that a deep neural network should be trained rather than a linear function approximator")
+            .action(ArgAction::SetTrue)
         )
         .arg(
             Arg::new("initial_model_path")
@@ -506,7 +508,7 @@ async fn main() -> Result<(), String> {
         let avoid_skip = sub_matches.contains_id("avoid_skip");
         let deep = sub_matches.contains_id("deep");
         let initial_model_path = sub_matches.get_one::<String>("initial_model_path").cloned();
-        let output_path = sub_matches.get_one::<&str>("out").unwrap().clone();
+        let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
 
         let initialize_from_spec_s = initial_model_path.unwrap_or(String::from("random"));
 
@@ -564,7 +566,7 @@ async fn main() -> Result<(), String> {
             .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))?
             .into_inner();
 
-        let path = Path::new(output_path);
+        let path = Path::new(&output_path);
         ai.store(path).map_err(|err| {
             format!(
                 "Error storing model at path {}: {}",
