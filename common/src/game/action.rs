@@ -4,7 +4,10 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::util::{Direction, Location};
+use crate::{
+    game::TurnPhase,
+    util::{Direction, Location},
+};
 
 use super::{
     ai::POSSIBLE_ACTIONS,
@@ -31,6 +34,7 @@ impl AiPlayerAction {
         let mut a = HashSet::new();
 
         debug_assert!(!game.current_turn_is_done());
+        debug_assert_eq!(game.turn_phase, TurnPhase::Main);
 
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
         if let Some(city_loc) = game.current_player_production_set_requests().next() {

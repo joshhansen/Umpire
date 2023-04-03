@@ -2157,6 +2157,10 @@ impl Game {
         self.turn
     }
 
+    pub fn turn_phase(&self) -> TurnPhase {
+        self.turn_phase
+    }
+
     pub fn current_player(&self) -> PlayerNum {
         self.current_player
     }

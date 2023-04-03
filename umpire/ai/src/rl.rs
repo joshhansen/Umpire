@@ -41,7 +41,7 @@ use common::{
         action::AiPlayerAction,
         ai::{fX, player_features},
         unit::UnitType,
-        Game, PlayerNum, PlayerSecret,
+        Game, PlayerNum, PlayerSecret, TurnPhase,
     },
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
@@ -204,13 +204,20 @@ impl UmpireDomain {
     }
 
     fn from_game(
-        game: Game,
+        mut game: Game,
         secrets: Vec<PlayerSecret>,
         fix_output_loc: bool,
         verbosity: u8,
         memory_path: Option<&Path>,
         memory_prob: f64,
     ) -> Result<Self, std::io::Error> {
+        // Begin the first player's turn if it hasn't been started already
+        if game.turn_phase() == TurnPhase::Pre {
+            game.begin_turn(secrets[0]).unwrap();
+        }
+
+        debug_assert_eq!(game.turn_phase(), TurnPhase::Main);
+
         let memory_file = if let Some(memory_path) = memory_path {
             let memory_file = OpenOptions::new()
                 .append(true)
@@ -321,7 +328,9 @@ impl UmpireDomain {
         // for this user to do or the game is over
         while self.game.victor().is_none() && self.game.current_turn_is_done() {
             let secret = self.player_secrets[self.game.current_player()];
-            self.game.end_turn(secret).unwrap();
+            let next_secret =
+                self.player_secrets[(self.game.current_player() + 1) % self.game.num_players()];
+            self.game.end_then_begin_turn(secret, next_secret).unwrap();
         }
     }
 }
@@ -431,6 +440,8 @@ impl UmpireRandom {
     /// The indices of all legal actions for a given game state, given in a consistent manner regardless of which (if
     /// any) are actually present.
     fn canonical_legal_indices(&self, state: &Game) -> Vec<usize> {
+        debug_assert_eq!(state.turn_phase(), TurnPhase::Main);
+
         let legal = AiPlayerAction::legal_actions(state);
 
         debug_assert!(!legal.is_empty());
@@ -446,6 +457,7 @@ impl Policy<Game> for UmpireRandom {
     type Action = usize;
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> usize {
+        debug_assert_eq!(state.turn_phase(), TurnPhase::Main);
         debug_assert!(
             !state.current_turn_is_done(),
             "It makes no sense to sample actions for a game whose current turn is
@@ -476,6 +488,7 @@ impl<Q> UmpireGreedy<Q> {
     }
 
     pub fn legal_argmax_qs(qs: &[f64], state: &Game) -> usize {
+        debug_assert_eq!(state.turn_phase(), TurnPhase::Main);
         debug_assert!(
             !state.current_turn_is_done(),
             "It makes no sense to sample actions for a game whose current turn is
@@ -507,6 +520,7 @@ impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireGreedy<Q> {
     type Action = usize;
 
     fn mpa(&self, state: &Game) -> usize {
+        debug_assert_eq!(state.turn_phase(), TurnPhase::Main);
         Self::legal_argmax_qs(&self.0.evaluate_all(state), state)
     }
 
@@ -521,6 +535,8 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireGr
     }
 
     fn probabilities(&self, state: &Game) -> Vec<f64> {
+        debug_assert_eq!(state.turn_phase(), TurnPhase::Main);
+
         let qs = self.0.evaluate_all(state);
         let mut ps = vec![0.0; qs.len()];
 
@@ -572,6 +588,8 @@ impl<Q: EnumerableStateActionFunction<Game>> Policy<Game> for UmpireEpsilonGreed
     type Action = usize;
 
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R, state: &Game) -> Self::Action {
+        debug_assert_eq!(state.turn_phase(), TurnPhase::Main);
+
         let epsilon = self.epsilon.get();
         let action = if rng.gen_bool(epsilon) {
             // println!("RANDOM");
@@ -605,6 +623,8 @@ impl<Q: EnumerableStateActionFunction<Game>> EnumerablePolicy<Game> for UmpireEp
     }
 
     fn probabilities(&self, s: &Game) -> Vec<f64> {
+        debug_assert_eq!(s.turn_phase(), TurnPhase::Main);
+
         let prs = self.greedy.probabilities(s);
         let epsilon = self.epsilon.get();
         let pr = epsilon / prs.len() as f64;
