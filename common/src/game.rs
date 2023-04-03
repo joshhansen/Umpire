@@ -3620,7 +3620,7 @@ mod test {
                 orders::{Orders, OrdersStatus},
                 TransportMode, Unit, UnitID, UnitType,
             },
-            Alignment, Game, GameError,
+            Alignment, Game, GameError, TurnNum,
         },
         name::{unit_namer, Named},
         util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
@@ -4885,6 +4885,60 @@ mod test {
             assert!(game
                 .move_unit_by_id_in_direction(secrets[0], b, Direction::Left)
                 .is_ok());
+        }
+    }
+
+    #[test]
+    pub fn test_turn_is_done() {
+        let map = MapData::try_from("0 ").unwrap();
+        let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+
+        assert_eq!(
+            game.turn_is_done(9999, 0),
+            Err(GameError::NoSuchPlayer { player: 9999 })
+        );
+
+        assert_eq!(game.turn_is_done(0, 0), Ok(false));
+
+        assert_eq!(game.turn_is_done(0, 1), Ok(false));
+
+        game.begin_turn(secrets[0]).unwrap();
+
+        assert_eq!(game.turn_is_done(0, 0), Ok(false));
+
+        assert_eq!(game.turn_is_done(0, 1), Ok(false));
+
+        let city0id = game
+            .player_city_by_loc(secrets[0], Location::new(0, 0))
+            .unwrap()
+            .unwrap()
+            .id;
+
+        game.set_production_by_id(secrets[0], city0id, UnitType::Infantry)
+            .unwrap();
+
+        assert_eq!(game.turn_is_done(0, 0), Ok(true));
+
+        assert_eq!(game.turn_is_done(0, 1), Ok(false));
+
+        // Let the infantry be produced
+        for i in 0..UnitType::Infantry.cost() {
+            game.end_turn(secrets[0]).unwrap();
+
+            let turn = i as TurnNum + 1;
+
+            assert!(!game.turn_is_done(0, turn).unwrap()); // not done because still in Pre phase
+            assert!(!game.current_turn_is_done()); // not done because still in Pre phase
+
+            game.begin_turn(secrets[0]).unwrap();
+
+            if i < UnitType::Infantry.cost() - 1 {
+                assert!(game.turn_is_done(0, turn).unwrap()); // done because there's nothing to do
+                assert!(game.current_turn_is_done()); // done because there's nothing to do
+            } else {
+                assert!(!game.turn_is_done(0, turn).unwrap()); // not done because we just produced an infantry
+                assert!(!game.current_turn_is_done()); // not done because we just produced an infantry
+            }
         }
     }
 }
