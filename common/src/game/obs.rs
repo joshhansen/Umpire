@@ -296,7 +296,7 @@ mod test {
     use crate::{
         game::{
             map::{dijkstra::Source, LocationGrid, Terrain, Tile},
-            obs::{Obs, ObsTracker, ObsTrackerI, Observer},
+            obs::{Obs, ObsTracker, Observer},
             unit::{Unit, UnitID, UnitType},
             Alignment,
         },
