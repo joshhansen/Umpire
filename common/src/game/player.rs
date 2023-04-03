@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 use async_trait::async_trait;
 use futures;
@@ -462,6 +462,12 @@ impl<'a> PlayerTurnControl<'a> {
     }
 }
 
+impl<'a> fmt::Debug for PlayerTurnControl<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "PlayerTurnControl")
+    }
+}
+
 /// If for whatever reason a careless user fails to end the turn, we do it for them so the game continues to advance.
 ///
 /// This forces the turn to end regardless of the state of production and orders requests.
@@ -702,4 +708,81 @@ impl<T: ActionwiseLimitedTurnTaker + Send + Sync> LimitedTurnTaker for T {
 
 trait ActionwiseTurnTaker {
     fn next_action(&self, game: &Game, generate_data: bool) -> Option<TrainingInstance>;
+}
+
+#[cfg(test)]
+mod test {
+    use crate::game::test_support::game1;
+
+    use super::GameError;
+
+    #[tokio::test]
+    pub async fn test_player_turn_control() {
+        let (mut game, secrets) = game1();
+
+        assert_eq!(game.current_player(), 0);
+        assert_eq!(game.turn(), 0);
+
+        {
+            let (ctrl, turn_start) = game.player_turn_control(secrets[0]).unwrap();
+
+            assert_eq!(ctrl.turn().await, 0);
+            assert_eq!(ctrl.current_player().await, 0);
+
+            assert_eq!(turn_start.orders_results.len(), 0);
+            assert_eq!(turn_start.production_outcomes.len(), 0);
+        }
+
+        assert_eq!(game.turn(), 0);
+        assert_eq!(game.current_player(), 1);
+
+        assert_eq!(
+            game.player_turn_control(secrets[0]).unwrap_err(),
+            GameError::NotPlayersTurn { player: 0 }
+        );
+
+        {
+            let (ctrl, turn_start) = game.player_turn_control(secrets[1]).unwrap();
+
+            assert_eq!(ctrl.turn().await, 0);
+            assert_eq!(ctrl.current_player().await, 1);
+
+            assert_eq!(turn_start.orders_results.len(), 0);
+            assert_eq!(turn_start.production_outcomes.len(), 0);
+        }
+
+        assert_eq!(game.turn(), 1);
+        assert_eq!(game.current_player(), 0);
+
+        {
+            let (ctrl, turn_start) = game.player_turn_control_nonending(secrets[0]).unwrap();
+
+            assert_eq!(ctrl.turn().await, 1);
+            assert_eq!(ctrl.current_player().await, 0);
+
+            assert_eq!(turn_start.orders_results.len(), 0);
+            assert_eq!(turn_start.production_outcomes.len(), 0);
+        }
+
+        assert_eq!(game.turn(), 1); // turn wasn't ended
+        assert_eq!(game.current_player(), 0); // still player 0's turn
+
+        {
+            let err = game.player_turn_control_nonending(secrets[0]).unwrap_err();
+            assert_eq!(err, GameError::TurnAlreadyBegun { turn: 1, player: 0 });
+        }
+
+        assert_eq!(game.turn(), 1); // turn wasn't ended
+        assert_eq!(game.current_player(), 0); // still player 0's turn
+
+        {
+            let ctrl = game.player_turn_control_bare(secrets[0]).unwrap();
+
+            assert_eq!(ctrl.turn().await, 1);
+            assert_eq!(ctrl.current_player().await, 0);
+        }
+
+        assert_eq!(game.turn(), 1); // turn wasn't ended
+        assert_eq!(game.current_player(), 0); // still player 0's turn
+    }
 }

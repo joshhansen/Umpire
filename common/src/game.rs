@@ -705,7 +705,6 @@ impl Game {
             .map(|_player| game.register_player().unwrap())
             .collect();
 
-        game.begin_turn(secrets[0]).unwrap();
         (game, secrets)
     }
 
@@ -3842,6 +3841,8 @@ mod test {
 
         let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         game.move_unit_by_id_in_direction(secrets[0], transport_id, Direction::Left)
             .unwrap();
         game.move_unit_by_id_in_direction(secrets[0], transport_id, Direction::Right)
@@ -3866,6 +3867,9 @@ mod test {
         let transport_id: UnitID = map.toplevel_unit_id_by_loc(transport_loc).unwrap();
 
         let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
+
+        game.begin_turn(secrets[0]).unwrap();
+
         let move_result = game
             .move_toplevel_unit_by_loc(secrets[0], infantry_loc, transport_loc)
             .unwrap();
@@ -3887,6 +3891,8 @@ mod test {
             let battleship_id = map.toplevel_unit_by_loc(Location::new(2, 0)).unwrap().id;
 
             let (mut game, secrets) = Game::new_with_map(map, 2, false, None, Wrap2d::NEITHER);
+
+            game.begin_turn(secrets[0]).unwrap();
 
             // Load the infantry onto the transport
             let inf_move = game
@@ -4037,6 +4043,8 @@ mod test {
         let map = MapData::try_from("i--------------------").unwrap();
         let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
         let outcome = game.order_unit_explore(secrets[0], unit_id).unwrap();
@@ -4102,8 +4110,10 @@ mod test {
                                         let map = MapData::try_from(s.clone()).unwrap();
                                         assert_eq!(map.dims(), Dims::new(3, 3));
 
-                                        let (game, secrets) =
+                                        let (mut game, secrets) =
                                             Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
+
+                                        game.begin_turn(secrets[0]).unwrap();
 
                                         let id = game
                                             .current_player_toplevel_unit_by_loc(Location {
@@ -4358,6 +4368,8 @@ mod test {
             .unwrap();
         let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         game.move_unit_by_id_in_direction(secrets[0], unit_id, Direction::Right)
             .unwrap();
         game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
@@ -4403,6 +4415,9 @@ mod test {
                 map.set_unit(l2, u2.clone());
 
                 let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+
+                game.begin_turn(secrets[0]).unwrap();
+
                 let result = game.move_unit_by_id_in_direction(secrets[0], u1.id, Direction::Right);
 
                 if u2.can_carry_unit(&u1) {
@@ -4429,6 +4444,8 @@ mod test {
             .unwrap();
 
         let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+
+        game.begin_turn(secrets[0]).unwrap();
 
         for _ in 0..9 {
             game.move_unit_by_id_in_direction(secrets[0], unit_id, Direction::Right)
@@ -4535,6 +4552,8 @@ mod test {
         let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
         let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         // Embark
         game.move_unit_by_id_in_direction(secrets[0], armor_id, Direction::Right)
             .unwrap();
@@ -4578,6 +4597,8 @@ mod test {
         let armor_id = map.toplevel_unit_id_by_loc(Location::new(0, 0)).unwrap();
         let transport_id = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
         let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::NEITHER);
+
+        game.begin_turn(secrets[0]).unwrap();
 
         // Embark
         game.order_unit_go_to(secrets[0], armor_id, Location::new(1, 0))
@@ -4725,6 +4746,8 @@ mod test {
             let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
             let id = UnitID::new(0);
 
+            game.begin_turn(secrets[0]).unwrap();
+
             let unit = game.current_player_unit_by_id(id).cloned().unwrap();
 
             assert!(game
@@ -4753,6 +4776,8 @@ mod test {
             let transport_id = map2.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
             let (mut game2, secrets) = Game::new_with_map(map2, 1, true, None, Wrap2d::NEITHER);
+
+            game2.begin_turn(secrets[0]).unwrap();
 
             assert!(game2
                 .current_player_unit_orders_requests()

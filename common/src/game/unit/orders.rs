@@ -411,6 +411,8 @@ pub mod test {
             Wrap2d::BOTH,
         );
 
+        game.begin_turn(secrets[0]).unwrap();
+
         let id = game
             .current_player_toplevel_unit_by_loc(Location { x: 0, y: 0 })
             .unwrap()
@@ -476,7 +478,9 @@ pub mod test {
     #[test]
     fn test_propose_exploration() {
         let map = MapData::try_from("i--------------------").unwrap();
-        let (game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+        let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+
+        game.begin_turn(secrets[0]).unwrap();
 
         let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
