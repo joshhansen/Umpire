@@ -89,7 +89,8 @@ const VICTORY_SCORE: f64 = 1_000_000.0;
 
 pub type PlayerSecret = Uuid;
 
-pub type TurnNum = u32;
+/// What turn is it? The round of play, in other words.
+pub type TurnNum = u64;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct TurnStart {
