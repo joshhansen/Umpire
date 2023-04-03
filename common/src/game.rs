@@ -983,7 +983,10 @@ impl Game {
         self.player_production_set_requests_by_idx(player)
             .map(|mut rqsts| {
                 rqsts.next().is_none()
-                    && self.current_player_unit_orders_requests().next().is_none()
+                    && self
+                        .player_unit_orders_requests_by_idx(player)
+                        .next()
+                        .is_none()
             })
     }
 
@@ -1478,12 +1481,18 @@ impl Game {
         &'a self,
         player_secret: PlayerSecret,
     ) -> UmpireResult<impl Iterator<Item = UnitID> + 'a> {
-        self.player_with_secret(player_secret).map(|player| {
-            self.map
-                .player_units(player)
-                .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
-                .map(|unit| unit.id)
-        })
+        self.player_with_secret(player_secret)
+            .map(|player| self.player_unit_orders_requests_by_idx(player))
+    }
+
+    fn player_unit_orders_requests_by_idx<'a>(
+        &'a self,
+        player: PlayerNum,
+    ) -> impl Iterator<Item = UnitID> + 'a {
+        self.map
+            .player_units(player)
+            .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
+            .map(|unit| unit.id)
     }
 
     /// Which if the specified player's units need orders?
