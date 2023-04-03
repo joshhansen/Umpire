@@ -331,6 +331,8 @@ pub mod test_support {
 
         let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         // Request a fighter to be produced
         let city_loc = game
             .current_player_production_set_requests()

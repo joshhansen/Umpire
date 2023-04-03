@@ -12,15 +12,19 @@ use crate::{
     util::Location,
 };
 
-use super::{alignment::Alignment, TurnNum};
+use super::{alignment::Alignment, TurnNum, TurnPhase};
 
 #[derive(Debug, Deserialize, Fail, PartialEq, Serialize)]
 pub enum GameError {
     #[fail(
-        display = "Initial phase of turn {} already happened for player {}",
-        turn, player
+        display = "Player {} turn {} was unexepctedly in phase {:?}",
+        player, turn, phase
     )]
-    TurnAlreadyBegun { turn: TurnNum, player: PlayerNum },
+    WrongPhase {
+        player: PlayerNum,
+        turn: TurnNum,
+        phase: TurnPhase,
+    },
 
     #[fail(display = "No player slots available; the game is full")]
     NoPlayerSlotsAvailable,

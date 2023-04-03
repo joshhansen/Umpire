@@ -131,6 +131,12 @@ pub type ProposedActionResult = ProposedUmpireResult<PlayerActionOutcome>;
 
 pub type ProposedOrdersResult = ProposedResult<OrdersOutcome, GameError>; //TODO Make error type orders-specific
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum TurnPhase {
+    Pre,
+    Main,
+}
+
 #[async_trait]
 pub trait IGame: Send + Sync {
     async fn num_players(&self) -> PlayerNum;
@@ -602,12 +608,6 @@ pub trait IGame: Send + Sync {
     fn clone_underlying_game_state(&self) -> Result<Game, String>;
 }
 
-#[derive(Clone)]
-struct PlayerTurn {
-    player: PlayerNum,
-    turn: TurnNum,
-}
-
 /// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
 pub struct Game {
@@ -619,7 +619,7 @@ pub struct Game {
     /// The turn that it is right now
     turn: TurnNum,
 
-    latest_turn_begun: Option<PlayerTurn>,
+    turn_phase: TurnPhase,
 
     /// The number of players the game is set up for
     num_players: PlayerNum,
@@ -690,7 +690,7 @@ impl Game {
             map,
             player_observations,
             turn: 0,
-            latest_turn_begun: None,
+            turn_phase: TurnPhase::Pre,
             num_players,
             player_secrets: Vec::new(),
             current_player: 0,
@@ -778,6 +778,32 @@ impl Game {
             Err(GameError::NotPlayersTurn { player })
         } else {
             Ok(player)
+        }
+    }
+
+    fn validate_is_player_turn_pre_phase(&self, secret: PlayerSecret) -> UmpireResult<PlayerNum> {
+        let player = self.validate_is_player_turn(secret)?;
+
+        match self.turn_phase {
+            TurnPhase::Pre => Ok(player),
+            TurnPhase::Main => Err(GameError::WrongPhase {
+                turn: self.turn,
+                player,
+                phase: self.turn_phase,
+            }),
+        }
+    }
+
+    fn validate_is_player_turn_main_phase(&self, secret: PlayerSecret) -> UmpireResult<PlayerNum> {
+        let player = self.validate_is_player_turn(secret)?;
+
+        match self.turn_phase {
+            TurnPhase::Pre => Err(GameError::WrongPhase {
+                turn: self.turn,
+                player,
+                phase: self.turn_phase,
+            }),
+            TurnPhase::Main => Ok(player),
         }
     }
 
@@ -887,11 +913,7 @@ impl Game {
     }
 
     pub fn current_turn_begun(&self) -> bool {
-        if let Some(ref latest) = self.latest_turn_begun {
-            latest.player == self.current_player && latest.turn == self.turn
-        } else {
-            false
-        }
+        self.turn_phase == TurnPhase::Main
     }
 
     /// Run the initial phase of the player's turn, producing units, refreshing moves remaining, and making
@@ -901,25 +923,10 @@ impl Game {
     /// * GameError::NotPlayersTurn
     /// * GameError::TurnAlreadyBegun
     pub fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
-        let player = self.validate_is_player_turn(player_secret)?;
+        let player = self.validate_is_player_turn_pre_phase(player_secret)?;
 
-        let should_start = if let Some(ref latest_turn_begun) = self.latest_turn_begun {
-            !(latest_turn_begun.player == player && latest_turn_begun.turn == self.turn)
-        } else {
-            true
-        };
-
-        if !should_start {
-            return Err(GameError::TurnAlreadyBegun {
-                player,
-                turn: self.turn,
-            });
-        }
-
-        self.latest_turn_begun = Some(PlayerTurn {
-            player,
-            turn: self.turn,
-        });
+        // "Beginning" a turn is what moves us from Pre to Main phase
+        self.turn_phase = TurnPhase::Main;
 
         let production_outcomes = self.produce_units(player_secret)?;
 
@@ -977,6 +984,10 @@ impl Game {
             return Ok(false);
         }
 
+        if self.turn_phase == TurnPhase::Pre {
+            return Ok(false);
+        }
+
         // self.current_player == player
         // In this case the turn is considered done if there are no production or orders requests remaining
         self.player_production_set_requests_by_idx(player)
@@ -1031,11 +1042,14 @@ impl Game {
 
     /// Ends the turn but doesn't check if requests are completed
     pub fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
-        self.validate_is_player_turn(player_secret)?;
+        self.validate_is_player_turn_main_phase(player_secret)?;
 
         self.player_observations_mut(player_secret)?.archive();
 
         self._inc_current_player();
+
+        // The next player's turn starts out in the Pre phase
+        self.turn_phase = TurnPhase::Pre;
 
         Ok(())
     }
@@ -1745,7 +1759,7 @@ impl Game {
         dest: Location,
         tile_filter: &F,
     ) -> UmpireResult<Move> {
-        let player = self.validate_is_player_turn(player_secret)?;
+        let player = self.validate_is_player_turn_main_phase(player_secret)?;
 
         if !self.dims().contain(dest) {
             return Err(MoveError::DestinationOutOfBounds {}).map_err(GameError::MoveError);
@@ -2064,7 +2078,7 @@ impl Game {
         player_secret: PlayerSecret,
         unit_id: UnitID,
     ) -> UmpireResult<Unit> {
-        let player = self.validate_is_player_turn(player_secret)?;
+        let player = self.validate_is_player_turn_main_phase(player_secret)?;
 
         let unit = self
             .map
@@ -3477,6 +3491,8 @@ pub mod test_support {
             Wrap2d::BOTH,
         );
 
+        game.begin_turn(secrets[0]).unwrap();
+
         let loc: Location = game
             .current_player_production_set_requests()
             .next()
@@ -3650,6 +3666,8 @@ mod test {
 
         let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         let mut rand = thread_rng();
         for _ in 0..10 {
             let mut delta = Vec2d::new(0, 0);
@@ -3700,6 +3718,8 @@ mod test {
             Wrap2d::BOTH,
         );
         assert_eq!(game.current_player(), 0);
+
+        game.begin_turn(secrets[0]).unwrap();
 
         {
             let loc = game
@@ -4289,6 +4309,8 @@ mod test {
 
         let (mut game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         // let mut rand = thread_rng();
 
         for (i, src) in game.dims().iter_locs().enumerate() {
@@ -4731,6 +4753,8 @@ mod test {
 
         let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
+        game.begin_turn(secrets[0]).unwrap();
+
         let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
         let dest = game
             .wrapping()
@@ -4850,6 +4874,8 @@ mod test {
             let b = map.toplevel_unit_id_by_loc(Location::new(1, 0)).unwrap();
 
             let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+
+            game.begin_turn(secrets[0]).unwrap();
 
             assert!(game.disband_unit_by_id(secrets[0], a).is_ok());
 

@@ -712,7 +712,7 @@ trait ActionwiseTurnTaker {
 
 #[cfg(test)]
 mod test {
-    use crate::game::test_support::game1;
+    use crate::game::{test_support::game1, TurnPhase};
 
     use super::GameError;
 
@@ -768,8 +768,16 @@ mod test {
         assert_eq!(game.current_player(), 0); // still player 0's turn
 
         {
+            // Try starting the turn again when it's already been started
             let err = game.player_turn_control_nonending(secrets[0]).unwrap_err();
-            assert_eq!(err, GameError::TurnAlreadyBegun { turn: 1, player: 0 });
+            assert_eq!(
+                err,
+                GameError::WrongPhase {
+                    turn: 1,
+                    player: 0,
+                    phase: TurnPhase::Main
+                }
+            );
         }
 
         assert_eq!(game.turn(), 1); // turn wasn't ended
