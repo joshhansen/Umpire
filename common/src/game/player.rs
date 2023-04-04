@@ -162,33 +162,62 @@ impl<'a> PlayerTurnControl<'a> {
     pub fn new_sync(
         game: &'a mut Game,
         secret: PlayerSecret,
+        initial_observations: Option<ObsTracker>,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new_sync(game, secret, TurnStartType::Regular, true)
-            .map(|(ctrl, start)| (ctrl, start.unwrap()))
+        Self::_new_sync(
+            game,
+            secret,
+            TurnStartType::Regular,
+            true,
+            initial_observations,
+        )
+        .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
     pub fn new_sync_clearing(
         game: &'a mut Game,
         secret: PlayerSecret,
+        initial_observations: Option<ObsTracker>,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new_sync(game, secret, TurnStartType::Clearing, true)
-            .map(|(ctrl, start)| (ctrl, start.unwrap()))
+        Self::_new_sync(
+            game,
+            secret,
+            TurnStartType::Clearing,
+            true,
+            initial_observations,
+        )
+        .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
     pub fn new_sync_nonending(
         game: &'a mut Game,
         secret: PlayerSecret,
+        initial_observations: Option<ObsTracker>,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        Self::_new_sync(game, secret, TurnStartType::Clearing, false)
-            .map(|(ctrl, start)| (ctrl, start.unwrap()))
+        Self::_new_sync(
+            game,
+            secret,
+            TurnStartType::Clearing,
+            false,
+            initial_observations,
+        )
+        .map(|(ctrl, start)| (ctrl, start.unwrap()))
     }
 
     /// Does not start the turn and does not end it on drop
     pub fn new_sync_bare(
         game: &'a mut Game,
         secret: PlayerSecret,
+        initial_observations: Option<ObsTracker>,
     ) -> UmpireResult<PlayerTurnControl<'a>> {
-        Self::_new_sync(game, secret, TurnStartType::None, false).map(|x| x.0)
+        Self::_new_sync(
+            game,
+            secret,
+            TurnStartType::None,
+            false,
+            initial_observations,
+        )
+        .map(|x| x.0)
     }
 
     fn _new_sync(
@@ -196,6 +225,7 @@ impl<'a> PlayerTurnControl<'a> {
         secret: PlayerSecret,
         turn_start_type: TurnStartType,
         end_turn_on_drop: bool,
+        initial_observations: Option<ObsTracker>,
     ) -> UmpireResult<(PlayerTurnControl<'a>, Option<TurnStart>)> {
         let turn_start = match turn_start_type {
             TurnStartType::Regular => Some(game.begin_turn(secret)?),
@@ -205,7 +235,7 @@ impl<'a> PlayerTurnControl<'a> {
 
         let dims = game.dims();
 
-        let observations = ObsTracker::new(dims);
+        let observations = initial_observations.unwrap_or_else(|| ObsTracker::new(dims));
         Ok((
             Self {
                 game,

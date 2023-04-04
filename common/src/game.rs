@@ -717,28 +717,32 @@ impl Game {
         &'a mut self,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        PlayerTurnControl::new_sync(self, secret)
+        let observations = self.player_observations(secret)?.clone();
+        PlayerTurnControl::new_sync(self, secret, Some(observations))
     }
 
     pub fn player_turn_control_clearing<'a>(
         &'a mut self,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        PlayerTurnControl::new_sync_clearing(self, secret)
+        let observations = self.player_observations(secret)?.clone();
+        PlayerTurnControl::new_sync_clearing(self, secret, Some(observations))
     }
 
     pub fn player_turn_control_nonending<'a>(
         &'a mut self,
         secret: PlayerSecret,
     ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        PlayerTurnControl::new_sync_nonending(self, secret)
+        let observations = self.player_observations(secret)?.clone();
+        PlayerTurnControl::new_sync_nonending(self, secret, Some(observations))
     }
 
     pub fn player_turn_control_bare<'a>(
         &'a mut self,
         secret: PlayerSecret,
     ) -> UmpireResult<PlayerTurnControl<'a>> {
-        PlayerTurnControl::new_sync_bare(self, secret)
+        let observations = self.player_observations(secret)?.clone();
+        PlayerTurnControl::new_sync_bare(self, secret, Some(observations))
     }
 
     /// Register a player and get its secret
