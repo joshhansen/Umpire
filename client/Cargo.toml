@@ -25,5 +25,5 @@ uuid = { workspace = true }
 # Audio
 cpal = "0.10.0"
 dasp = "0.11.0"
-pitch_calc = "0.11.1"
+pitch_calc = "~0.12"
 synth = { git = "https://github.com/dritory/synth" }

@@ -2878,7 +2878,7 @@ dependencies = [
  "crossterm",
  "dasp",
  "failure",
- "pitch_calc 0.11.1",
+ "pitch_calc 0.12.0",
  "rand 0.7.3",
  "serde",
  "synth",
