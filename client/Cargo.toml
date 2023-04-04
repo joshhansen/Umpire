@@ -14,7 +14,6 @@ clap = { workspace = true }
 common = { path = "../common" }
 crossterm = { workspace = true }
 failure = { workspace = true }
-pastel = "0.7.0"
 rand = { workspace = true }
 serde = { workspace = true }
 tarpc = { workspace = true }

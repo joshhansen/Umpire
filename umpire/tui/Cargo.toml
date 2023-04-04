@@ -13,7 +13,7 @@ clap = { workspace = true }
 common = { path = "../../common" }
 crossterm = { workspace = true }
 failure = { workspace = true }
-pastel = "0.7.0"
+pastel = "~0.9.0"
 rand = { workspace = true }
 uuid = { workspace = true }
 
