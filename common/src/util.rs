@@ -560,6 +560,12 @@ impl Location {
         ((self.x as f64 - other.x as f64).powf(2.0) + (self.y as f64 - other.y as f64).powf(2.0))
             .sqrt()
     }
+
+    pub fn manhattan_distance(&self, other: Location) -> u32 {
+        let x_dist = (self.x as i32 - other.x as i32).abs() as u32;
+        let y_dist = (self.y as i32 - other.y as i32).abs() as u32;
+        x_dist + y_dist
+    }
 }
 
 impl Sub for Location {
@@ -584,6 +590,10 @@ impl Into<Vec2d<i32>> for Location {
 
 pub trait Located {
     fn loc(&self) -> Location;
+
+    fn manhattan_distance_to(&self, loc: Location) -> u32 {
+        self.loc().manhattan_distance(loc)
+    }
 }
 
 #[derive(Debug, PartialEq)]

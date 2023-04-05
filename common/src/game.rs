@@ -64,6 +64,7 @@ use self::{
     ai::{fX, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError},
+    obs::LocatedObsLite,
     proposed::Proposed2,
 };
 
@@ -622,6 +623,11 @@ pub struct Game {
 
     player_observations: PlayerObsTracker,
 
+    /// Observations the player has made, but which the player hasn't viewed yet
+    ///
+    /// More or less a per-player observation queue
+    player_pending_observations: Vec<Vec<LocatedObsLite>>,
+
     /// The turn that it is right now
     turn: TurnNum,
 
@@ -694,10 +700,12 @@ impl Game {
         wrapping: Wrap2d,
     ) -> (Self, Vec<PlayerSecret>) {
         let player_observations = PlayerObsTracker::new(num_players, map.dims());
+        let player_pending_observations = (0..num_players).map(|_| Vec::new()).collect();
 
         let mut game = Self {
             map,
             player_observations,
+            player_pending_observations,
             turn: 0,
             turn_phase: TurnPhase::Pre,
             num_players,
@@ -910,9 +918,23 @@ impl Game {
             .collect())
     }
 
+    /// Reset unit moves remaining and send updated observations
     fn refresh_moves_remaining(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
         let player = self.validate_is_player_turn(player_secret)?;
-        Ok(self.map.refresh_player_unit_moves_remaining(player))
+
+        self.map.refresh_player_unit_moves_remaining(player);
+
+        // Since their moves remaining changed, refresh observations of the units
+        let unit_locs: HashSet<Location> = self
+            .player_units_by_idx(player)
+            .map(|unit| unit.loc)
+            .collect();
+
+        for loc in unit_locs {
+            self.observable_event(loc)?;
+        }
+
+        Ok(())
     }
 
     /// Mark for accounting purposes that the current player took an action
@@ -1190,6 +1212,81 @@ impl Game {
                 obs_tracker.track_observation(loc, tile, self.turn, self.action_count);
             }
         }
+    }
+
+    /// Indicate that an observable event has just occurred at the given location
+    ///
+    /// Observations of the state of the specified tile should be routed to players as appropriate
+    /// based on the position of units and fog of war status.
+    ///
+    /// ## Errors
+    /// * If the location is out of bounds
+    fn observable_event(&mut self, loc: Location) -> UmpireResult<()> {
+        let tile = self
+            .map
+            .tile(loc)
+            .ok_or(GameError::NoTileAtLocation { loc })?
+            .clone();
+        let obs = Obs::Observed {
+            tile,
+            turn: self.turn,
+            action_count: self.action_count,
+            current: true,
+        };
+        let obs = LocatedObsLite::new(loc, obs);
+
+        if self.fog_of_war {
+            for player in 0..self.num_players {
+                // Make the observation available to the player if at least one of its top-level units or cities
+                // can see it
+                let include = self
+                    .player_active_observers_by_idx(player)?
+                    .any(|observer| observer.can_see(loc));
+
+                if include {
+                    {
+                        let obs_queue = &mut self.player_pending_observations[player];
+                        obs_queue.push(obs.clone());
+                    }
+
+                    // Also keep track on our side
+                    let observations = self.player_observations.tracker_mut(player).unwrap();
+                    observations.track_lite(obs.clone());
+                }
+            }
+        } else {
+            // Without fog of war, we give all players all observations
+            self.player_pending_observations
+                .iter_mut()
+                .for_each(|obs_queue| obs_queue.push(obs.clone()));
+
+            // Also keep track on our side
+            for player in 0..self.num_players {
+                let observations = self.player_observations.tracker_mut(player).unwrap();
+                observations.track_lite(obs.clone());
+            }
+        }
+
+        Ok(())
+    }
+
+    /// The observers belonging to a player that can currently make observation
+    ///
+    /// This consists of all cities, and toplevel (non-carried) units
+    fn player_active_observers_by_idx(
+        &self,
+        player: PlayerNum,
+    ) -> UmpireResult<impl Iterator<Item = &dyn Observer>> {
+        self.validate_player_num(player)?;
+
+        Ok(self
+            .map
+            .player_toplevel_units(player)
+            .map(|unit| unit as &dyn Observer)
+            .chain(
+                self.player_cities_by_idx(player)?
+                    .map(|city| city as &dyn Observer),
+            ))
     }
 
     /// The set of destinations that the specified unit could actually attempt a move onto in exactly one movement step.
@@ -3473,7 +3570,7 @@ pub mod test_support {
                 Obs::Observed {
                     ref tile,
                     turn,
-                    action_count,
+                    action_count: _,
                     current,
                 } => {
                     if located_obs.loc == dest {

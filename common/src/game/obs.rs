@@ -45,6 +45,18 @@ impl Obs {
     }
 }
 
+/// Like LocatedObs but doesn't record the prior observation
+#[derive(Clone)]
+pub struct LocatedObsLite {
+    pub loc: Location,
+    pub obs: Obs,
+}
+impl LocatedObsLite {
+    pub fn new(loc: Location, obs: Obs) -> Self {
+        Self { loc, obs }
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct LocatedObs {
     pub loc: Location,
@@ -88,20 +100,6 @@ impl<'a, S: Source<Tile>> UnifiedObsTracker<'a, S> {
         turn: TurnNum,
         action: ActionNum,
     ) -> LocatedObs {
-        self.observations.track_observation(loc, tile, turn, action)
-    }
-
-    fn num_observed(&self) -> usize {
-        self.observations.num_observed()
-    }
-
-    fn track_observation_unified(
-        &mut self,
-        loc: Location,
-        turn: TurnNum,
-        action: ActionNum,
-    ) -> LocatedObs {
-        let tile = self.truth.get(loc);
         self.observations.track_observation(loc, tile, turn, action)
     }
 }
@@ -174,6 +172,10 @@ impl ObsTracker {
         }
 
         old
+    }
+
+    pub fn track_lite(&mut self, located_obs: LocatedObsLite) -> Option<Obs> {
+        self._track(located_obs.loc, located_obs.obs)
     }
 
     pub fn track_observation(
@@ -296,26 +298,8 @@ pub trait Observer: Located {
         //     }
         // }
     }
-
-    /// FIXME If we ever get support for impl Trait on trait methods switch to that rather than the likely performance hit of this
-    /// vector instantiation
-    fn observe_unified<S: Source<Tile>>(
-        &self,
-        tiles: &mut UnifiedObsTracker<S>,
-        turn: TurnNum,
-        action: ActionNum,
-        wrapping: Wrap2d,
-    ) -> Vec<LocatedObs> {
-        let dims = tiles.dims();
-        visible_coords_iter(self.sight_distance())
-            .filter_map(|inc| wrapping.wrapped_add(dims, self.loc(), inc))
-            .map(|loc| tiles.track_observation_unified(loc, turn, action))
-            .collect()
-        // for inc in visible_coords_iter(self.sight_distance()) {
-        //     if let Some(loc) = wrapping.wrapped_add(tiles.dims(), self.loc(), inc) {
-        //         obs_tracker.observe(loc, tiles.get(loc), turn);
-        //     }
-        // }
+    fn can_see(&self, loc: Location) -> bool {
+        self.loc().manhattan_distance(loc) <= self.sight_distance() as u32
     }
 }
 
