@@ -1917,9 +1917,6 @@ impl Game {
             return Err(MoveError::ZeroLengthMove).map_err(GameError::MoveError);
         }
 
-        // let obs_tracker = self.current_player_observations_mut();
-        let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
-
         // Keep a copy of the source location around
         let src = unit.loc;
 
@@ -1935,6 +1932,7 @@ impl Game {
 
         while unit.loc != dest {
             if shortest_paths.is_none() {
+                let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
                 // Establish a new "baseline"---calculation of shortest paths from the unit's current location
                 shortest_paths = Some(dijkstra::shortest_paths(
                     obs_tracker,
@@ -1988,6 +1986,7 @@ impl Game {
 
                 moves.push(MoveComponent::new(prev_loc, loc));
                 let mut move_ = moves.last_mut().unwrap();
+                let mut observations_after_move = Vec::new();
 
                 // If there is a unit at the destination:
                 //   If it is a friendly unit:
@@ -2043,6 +2042,9 @@ impl Game {
                             .expect("Could not carry unit for some weird reason");
 
                         unit.record_movement(1).unwrap();
+
+                        observations_after_move.push(self.observe(prev_loc).unwrap());
+                        observations_after_move.push(self.observe(loc).unwrap());
                     } else {
                         // It is an enemy unit.
                         // Fight it.
@@ -2057,6 +2059,8 @@ impl Game {
                             // Destroy the conquered unit
                             self.map.pop_unit_by_loc_and_id(loc, other_unit.id).unwrap();
 
+                            observations_after_move.push(self.observe(loc).unwrap());
+
                             // Deal with any city
                             if let Some(city) = self.map.city_by_loc(loc) {
                                 // It must be an enemy city or there wouldn't have been an enemy unit there
@@ -2069,10 +2073,18 @@ impl Game {
                                     // If victorious
                                     if move_.city_combat.as_ref().unwrap().victorious() {
                                         self.map.occupy_city(unit_id, loc).unwrap();
+
+                                        observations_after_move
+                                            .push(self.observe(prev_loc).unwrap());
+                                        observations_after_move.push(self.observe(loc).unwrap());
+
                                         movement_complete = true;
                                     } else {
                                         // Destroy this unit
-                                        self.map.pop_unit_by_id(unit_id).unwrap();
+                                        let destroyed = self.map.pop_unit_by_id(unit_id).unwrap();
+
+                                        observations_after_move
+                                            .push(self.observe(destroyed.loc).unwrap());
                                     }
                                 } else {
                                     // This unit can't occupy cities
@@ -2091,12 +2103,19 @@ impl Game {
                                 let prior_unit =
                                     self.map.relocate_unit_by_id(unit_id, loc).unwrap();
                                 debug_assert!(prior_unit.is_none());
+
                                 unit.record_movement(1).unwrap();
+
+                                observations_after_move.push(self.observe(prev_loc).unwrap());
+                                observations_after_move.push(self.observe(loc).unwrap());
                             }
                         } else {
                             // We were not victorious against the enemy unit
                             // Destroy this unit and end the overall move
-                            self.map.pop_unit_by_id(unit_id).unwrap();
+                            let destroyed = self.map.pop_unit_by_id(unit_id).unwrap();
+
+                            observations_after_move.push(self.observe(destroyed.loc).unwrap());
+
                             break;
                         }
                     }
@@ -2105,8 +2124,11 @@ impl Game {
                     if unit.is_friendly_to(city) {
                         // Move this unit to the destination
                         self.map.relocate_unit_by_id(unit_id, loc).unwrap();
-                        // self.map.record_unit_movement(unit_id, 1).unwrap().unwrap();
+
                         unit.record_movement(1).unwrap();
+
+                        observations_after_move.push(self.observe(prev_loc).unwrap());
+                        observations_after_move.push(self.observe(loc).unwrap());
                     } else {
                         // If the unit couldn't occupy cities then this location wouldn't be in the path, but let's
                         // check the assumption
@@ -2117,10 +2139,16 @@ impl Game {
                         // If victorious
                         if move_.city_combat.as_ref().unwrap().victorious() {
                             self.map.occupy_city(unit_id, loc).unwrap();
+
+                            observations_after_move.push(self.observe(prev_loc).unwrap());
+                            observations_after_move.push(self.observe(loc).unwrap());
+
                             movement_complete = true;
                         } else {
                             // Destroy this unit
                             self.map.pop_unit_by_id(unit_id).unwrap();
+
+                            observations_after_move.push(self.observe(prev_loc).unwrap());
                         }
 
                         // END THE OVERALL MOVE
@@ -2134,17 +2162,14 @@ impl Game {
 
                     let prior_unit = self.map.relocate_unit_by_id(unit_id, loc).unwrap();
                     debug_assert!(prior_unit.is_none());
+
                     unit.record_movement(1).unwrap();
+
+                    observations_after_move.push(self.observe(prev_loc).unwrap());
+                    observations_after_move.push(self.observe(loc).unwrap());
                 }
 
-                // ----- Make observations from the unit's new location -----
-                move_.observations_after_move = unit.observe(
-                    &self.map,
-                    self.turn,
-                    self.action_count,
-                    self.wrapping,
-                    obs_tracker,
-                );
+                move_.observations_after_move = observations_after_move;
 
                 // Inspect all observations besides at the unit's previous and current location to see if any changes in
                 // passability have occurred relevant to the unit's future moves.
@@ -2170,15 +2195,25 @@ impl Game {
             }
         } // while
 
-        let move_ = moves.last_mut().unwrap();
         // ----- Make observations from the unit's new location -----
-        move_.observations_after_move = unit.observe(
-            &self.map,
-            self.turn,
-            self.action_count,
-            self.wrapping,
-            obs_tracker,
-        );
+        let observations_after_move = {
+            let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
+            unit.observe(
+                &self.map,
+                self.turn,
+                self.action_count,
+                self.wrapping,
+                obs_tracker,
+            )
+        };
+
+        let move_ = moves.last_mut().unwrap();
+
+        move_.observations_after_move = observations_after_move;
+
+        // move_
+        //     .observations_after_move
+        //     .push(self.observe(unit.loc).unwrap());
 
         // If the unit wasn't destroyed, register its movement in the map rather than just this clone
         if move_.moved_successfully() {
