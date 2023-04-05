@@ -1888,8 +1888,7 @@ impl Game {
     /// previously observed but are now stale. If the tile state changes, then the shortest path will change and
     /// potentially other behaviors like unit carrying and combat.
     ///
-    /// *player* is the number of the player attempting to make the move; they must control the specified unit, however
-    /// this function does not check that such is the case.
+    /// *player_secret* is the secret of the player attempting to make the move; they must control the specified unit.
     ///
     /// Must be player's turn
     fn move_unit_by_id_using_filter<F: Filter<Obs>>(
