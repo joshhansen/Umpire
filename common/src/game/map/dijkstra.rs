@@ -1182,6 +1182,7 @@ mod test {
                 Obs::Observed {
                     tile: Tile::new(Terrain::Land, loc),
                     turn: 0,
+                    action_count: 0,
                     current: false,
                 }
             }
@@ -1239,6 +1240,7 @@ mod test {
         let obs = Obs::Observed {
             tile: transport_tile,
             turn: 0,
+            action_count: 0,
             current: true,
         };
 
