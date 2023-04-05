@@ -473,12 +473,6 @@ impl Game {
         self.action_counts[self.current_player] += 1;
     }
 
-    /// Mark for accounting purposes that the current player defeated an enemy unit with
-    /// the specified maximum number of hitpoints
-    fn unit_defeated(&mut self, max_hp: u16) {
-        self.defeated_unit_hitpoints[self.current_player] += max_hp as u64;
-    }
-
     pub fn current_turn_begun(&self) -> bool {
         self.turn_phase == TurnPhase::Main
     }
@@ -1029,32 +1023,6 @@ impl Game {
         let player = self.player_with_secret(player_secret)?;
         self.map.player_unit_type_counts(player)
     }
-
-    // /// Every enemy unit known to the current player (as of most recent observations)
-    // fn current_player_observed_enemy_units<'a>(&'a self) -> impl Iterator<Item = &Unit> + 'a {
-    //     let current_player = self.current_player();
-    //     self.current_player_observations()
-    //         .iter()
-    //         .filter_map(move |obs| match obs {
-    //             Obs::Observed { tile, .. } => {
-    //                 if let Some(ref unit) = tile.unit {
-    //                     if let Alignment::Belligerent { player } = unit.alignment {
-    //                         if player != current_player {
-    //                             Some(unit)
-    //                         } else {
-    //                             None
-    //                         }
-    //                     } else {
-    //                         None
-    //                     }
-    //                 } else {
-    //                     None
-    //                 }
-    //             }
-    //             _ => None,
-    //         })
-    //     // self.map.units().filter(move |unit| unit.alignment != Alignment::Belligerent{player:current_player})
-    // }
 
     /// If the specified player controls a city at location `loc`, return it
     pub fn player_city_by_loc(
@@ -2438,78 +2406,6 @@ impl Source<Tile> for Game {
 impl Source<Obs> for Game {
     fn get(&self, loc: Location) -> &Obs {
         self.current_player_obs(loc)
-    }
-}
-
-fn push_obs_to_vec(x: &mut Vec<f64>, obs: &Obs, num_players: PlayerNum) {
-    match obs {
-        Obs::Unobserved => {
-            let n_zeros = 1// unobserved
-                + num_players// which player controls the tile (nobody, one hot encoded)
-                + 1//city or not
-                + 6 * UnitType::values().len()// what is the unit type? (one hot encoded), for this unit and any
-                                              // carried units. Could be none (all zeros)
-            ;
-            x.extend(vec![0.0; n_zeros]);
-            // for _ in 0..n_zeros {
-            //     x.push(0.0);
-            // }
-        }
-        Obs::Observed { tile, .. } => {
-            // let mut x = vec![1.0];// observed
-            x.push(1.0); // observed
-
-            for p in 0..num_players {
-                // which player controls the tile (one hot encoded)
-                x.push(
-                    if let Some(Alignment::Belligerent { player }) = tile.alignment_maybe() {
-                        if player == p {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    } else {
-                        0.0
-                    },
-                );
-            }
-
-            x.push(if tile.city.is_some() { 1.0 } else { 0.0 }); // city or not
-
-            let mut units_unaccounted_for = 6;
-
-            if let Some(ref unit) = tile.unit {
-                units_unaccounted_for -= 1;
-                for t in UnitType::values().iter() {
-                    x.push(if unit.type_ == *t { 1.0 } else { 0.0 });
-                }
-
-                for carried_unit in unit.carried_units() {
-                    units_unaccounted_for -= 1;
-                    for t in UnitType::values().iter() {
-                        x.push(if carried_unit.type_ == *t { 1.0 } else { 0.0 });
-                    }
-                }
-            }
-
-            // fill in zeros for any missing units
-            x.extend_from_slice(&vec![0.0; UnitType::values().len() * units_unaccounted_for]);
-
-            // x
-        }
-    }
-}
-
-/// Push a one-hot-encoded representation of a direction (or none at all) onto a vector
-fn push_dir_to_vec(x: &mut Vec<f64>, dir: Option<Direction>) {
-    if let Some(dir) = dir {
-        for dir2 in Direction::values().iter() {
-            x.push(if dir == *dir2 { 1.0 } else { 0.0 });
-        }
-    } else {
-        for _ in 0..Direction::values().len() {
-            x.push(0.0);
-        }
     }
 }
 
