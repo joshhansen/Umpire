@@ -46,7 +46,7 @@ impl Obs {
 }
 
 /// Like LocatedObs but doesn't record the prior observation
-#[derive(Clone)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LocatedObsLite {
     pub loc: Location,
     pub obs: Obs,

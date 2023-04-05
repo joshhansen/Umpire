@@ -64,7 +64,7 @@ use self::{
     ai::{fX, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError},
-    obs::LocatedObsLite,
+    obs::{LocatedObs, LocatedObsLite},
     proposed::Proposed2,
 };
 
@@ -931,7 +931,7 @@ impl Game {
             .collect();
 
         for loc in unit_locs {
-            self.observable_event(loc)?;
+            self.observe(loc)?;
         }
 
         Ok(())
@@ -1219,9 +1219,12 @@ impl Game {
     /// Observations of the state of the specified tile should be routed to players as appropriate
     /// based on the position of units and fog of war status.
     ///
+    /// Returns the LocatedObs (including old_obs) from the perspective of the current player
+    ///
+    ///
     /// ## Errors
     /// * If the location is out of bounds
-    fn observable_event(&mut self, loc: Location) -> UmpireResult<()> {
+    fn observe(&mut self, loc: Location) -> UmpireResult<LocatedObs> {
         let tile = self
             .map
             .tile(loc)
@@ -1233,7 +1236,8 @@ impl Game {
             action_count: self.action_count,
             current: true,
         };
-        let obs = LocatedObsLite::new(loc, obs);
+        let obs_lite = LocatedObsLite::new(loc, obs.clone());
+        let mut old_obs = Obs::Unobserved;
 
         if self.fog_of_war {
             for player in 0..self.num_players {
@@ -1246,28 +1250,40 @@ impl Game {
                 if include {
                     {
                         let obs_queue = &mut self.player_pending_observations[player];
-                        obs_queue.push(obs.clone());
+                        obs_queue.push(obs_lite.clone());
                     }
 
                     // Also keep track on our side
                     let observations = self.player_observations.tracker_mut(player).unwrap();
-                    observations.track_lite(obs.clone());
+                    let old_obs_incoming = observations.track_lite(obs_lite.clone());
+
+                    if player == self.current_player {
+                        if let Some(old_obs_incoming) = old_obs_incoming {
+                            old_obs = old_obs_incoming;
+                        }
+                    }
                 }
             }
         } else {
             // Without fog of war, we give all players all observations
             self.player_pending_observations
                 .iter_mut()
-                .for_each(|obs_queue| obs_queue.push(obs.clone()));
+                .for_each(|obs_queue| obs_queue.push(obs_lite.clone()));
 
             // Also keep track on our side
             for player in 0..self.num_players {
                 let observations = self.player_observations.tracker_mut(player).unwrap();
-                observations.track_lite(obs.clone());
+                let old_obs_incoming = observations.track_lite(obs_lite.clone());
+
+                if player == self.current_player {
+                    if let Some(old_obs_incoming) = old_obs_incoming {
+                        old_obs = old_obs_incoming;
+                    }
+                }
             }
         }
 
-        Ok(())
+        Ok(LocatedObs::new(loc, obs, old_obs))
     }
 
     /// The observers belonging to a player that can currently make observation
