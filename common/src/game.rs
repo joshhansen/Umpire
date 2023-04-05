@@ -92,6 +92,11 @@ pub type PlayerSecret = Uuid;
 /// What turn is it? The round of play, in other words.
 pub type TurnNum = u64;
 
+/// The global count of actions taken in the game
+///
+/// A more granular way of keeping time than turns
+pub type ActionNum = u64;
+
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct TurnStart {
     pub turn: TurnNum,
@@ -640,12 +645,15 @@ pub struct Game {
     /// Whether players have full information about the map, or have their knowledge obscured by the "fog of war".
     fog_of_war: bool,
 
+    /// The total number of actions taken during the game, by all players
+    action_count: ActionNum,
+
     /// Action counts
     ///
     /// How many actions has each player taken? Used for score calculation.
     ///
     /// An action is basically every city production request and unit orders request taken.
-    action_counts: Vec<u64>,
+    action_counts: Vec<ActionNum>,
 
     /// The total hitpoints of all enemy units defeated by each player
     ///
@@ -698,6 +706,7 @@ impl Game {
             wrapping,
             unit_namer: unit_namer.unwrap_or(Arc::new(RwLock::new(IntNamer::new("unit")))),
             fog_of_war,
+            action_count: 0,
             action_counts: vec![0; num_players],
             defeated_unit_hitpoints: vec![0; num_players],
         };
@@ -908,6 +917,7 @@ impl Game {
 
     /// Mark for accounting purposes that the current player took an action
     fn action_taken(&mut self) {
+        self.action_count += 1;
         self.action_counts[self.current_player] += 1;
     }
 
@@ -1155,17 +1165,29 @@ impl Game {
 
         if self.fog_of_war {
             for city in self.map.player_cities(player) {
-                city.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+                city.observe(
+                    &self.map,
+                    self.turn,
+                    self.action_count,
+                    self.wrapping,
+                    obs_tracker,
+                );
             }
 
             for unit in self.map.player_units(player) {
-                unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+                unit.observe(
+                    &self.map,
+                    self.turn,
+                    self.action_count,
+                    self.wrapping,
+                    obs_tracker,
+                );
             }
         } else {
             //FIXME when fog of war is disabled we shouldn't need to track observations at all
             for loc in self.map.dims().iter_locs() {
                 let tile = self.map.tile(loc).unwrap();
-                obs_tracker.track_observation(loc, tile, self.turn);
+                obs_tracker.track_observation(loc, tile, self.turn, self.action_count);
             }
         }
     }
@@ -2021,8 +2043,13 @@ impl Game {
                 }
 
                 // ----- Make observations from the unit's new location -----
-                move_.observations_after_move =
-                    unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+                move_.observations_after_move = unit.observe(
+                    &self.map,
+                    self.turn,
+                    self.action_count,
+                    self.wrapping,
+                    obs_tracker,
+                );
 
                 // Inspect all observations besides at the unit's previous and current location to see if any changes in
                 // passability have occurred relevant to the unit's future moves.
@@ -2050,8 +2077,13 @@ impl Game {
 
         let move_ = moves.last_mut().unwrap();
         // ----- Make observations from the unit's new location -----
-        move_.observations_after_move =
-            unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+        move_.observations_after_move = unit.observe(
+            &self.map,
+            self.turn,
+            self.action_count,
+            self.wrapping,
+            obs_tracker,
+        );
 
         // If the unit wasn't destroyed, register its movement in the map rather than just this clone
         if move_.moved_successfully() {
@@ -2092,7 +2124,13 @@ impl Game {
 
         // Make a fresh observation with the disbanding unit so that its absence is noted.
         let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
-        unit.observe(&self.map, self.turn, self.wrapping, obs_tracker);
+        unit.observe(
+            &self.map,
+            self.turn,
+            self.action_count,
+            self.wrapping,
+            obs_tracker,
+        );
 
         self.action_taken();
 
@@ -3435,6 +3473,7 @@ pub mod test_support {
                 Obs::Observed {
                     ref tile,
                     turn,
+                    action_count,
                     current,
                 } => {
                     if located_obs.loc == dest {

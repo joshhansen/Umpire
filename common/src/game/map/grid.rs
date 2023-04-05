@@ -310,6 +310,7 @@ impl TryFrom<String> for LocationGrid<Obs> {
                     Obs::Observed {
                         tile,
                         turn: 0,
+                        action_count: 0,
                         current: false,
                     }
                 }
@@ -706,6 +707,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -719,6 +721,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -732,6 +735,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -745,6 +749,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -758,6 +763,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -771,6 +777,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -785,6 +792,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -798,6 +806,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -812,6 +821,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -825,6 +835,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -838,6 +849,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -852,6 +864,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -865,6 +878,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -878,6 +892,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -892,6 +907,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );
@@ -905,6 +921,7 @@ mod test {
                             unit: None
                         },
                         turn: 0,
+                        action_count: 0,
                         current: false
                     }
                 );

@@ -674,8 +674,9 @@ x   o    x";
                 }
 
                 let turn = 0;
+                let action_count = 0;
 
-                infantry.observe(&map, turn, Wrap2d::BOTH, &mut obs_tracker);
+                infantry.observe(&map, turn, action_count, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr = [
                     Location { x: 4, y: 0 },
@@ -701,7 +702,8 @@ x   o    x";
                         if observed_locs.contains(&loc) {
                             Obs::Observed {
                                 tile: map[loc].clone(),
-                                turn: turn,
+                                turn,
+                                action_count,
                                 current: true,
                             }
                         } else {
@@ -720,7 +722,7 @@ x   o    x";
                 let mut infantry = infantry;
                 infantry.loc = Location { x: 5, y: 2 };
 
-                infantry.observe(&map, turn, Wrap2d::BOTH, &mut obs_tracker);
+                infantry.observe(&map, turn, action_count, Wrap2d::BOTH, &mut obs_tracker);
 
                 let observed_locs_arr_2 = [
                     Location { x: 5, y: 0 },
@@ -738,7 +740,8 @@ x   o    x";
                         if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
                             Obs::Observed {
                                 tile: map[loc].clone(),
-                                turn: turn,
+                                turn,
+                                action_count,
                                 current: true,
                             }
                         } else {
@@ -755,7 +758,8 @@ x   o    x";
                         if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
                             Obs::Observed {
                                 tile: map[loc].clone(),
-                                turn: turn,
+                                turn,
+                                action_count,
                                 current: false,
                             }
                         } else {

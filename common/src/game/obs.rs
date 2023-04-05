@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt};
 
 use serde::{Deserialize, Serialize};
 
-use super::{map::dijkstra::Filter, PlayerNum};
+use super::{map::dijkstra::Filter, ActionNum, PlayerNum};
 use crate::{
     game::{
         map::{
@@ -21,7 +21,15 @@ use crate::{
 pub enum Obs {
     Observed {
         tile: Tile,
+
+        /// The turn when the observation was made
         turn: TurnNum,
+
+        /// The number of actions taken globally when the observation was made
+        ///
+        /// Similar to `turn` but more granular
+        action_count: ActionNum,
+
         current: bool,
     },
     Unobserved,
@@ -73,17 +81,28 @@ impl<'a, S: Source<Tile>> UnifiedObsTracker<'a, S> {
         }
     }
 
-    pub fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
-        self.observations.track_observation(loc, tile, turn)
+    pub fn track_observation(
+        &mut self,
+        loc: Location,
+        tile: &Tile,
+        turn: TurnNum,
+        action: ActionNum,
+    ) -> LocatedObs {
+        self.observations.track_observation(loc, tile, turn, action)
     }
 
     fn num_observed(&self) -> usize {
         self.observations.num_observed()
     }
 
-    fn track_observation_unified(&mut self, loc: Location, turn: TurnNum) -> LocatedObs {
+    fn track_observation_unified(
+        &mut self,
+        loc: Location,
+        turn: TurnNum,
+        action: ActionNum,
+    ) -> LocatedObs {
         let tile = self.truth.get(loc);
-        self.observations.track_observation(loc, tile, turn)
+        self.observations.track_observation(loc, tile, turn, action)
     }
 }
 
@@ -157,10 +176,17 @@ impl ObsTracker {
         old
     }
 
-    pub fn track_observation(&mut self, loc: Location, tile: &Tile, turn: TurnNum) -> LocatedObs {
+    pub fn track_observation(
+        &mut self,
+        loc: Location,
+        tile: &Tile,
+        turn: TurnNum,
+        action_count: ActionNum,
+    ) -> LocatedObs {
         let obs = Obs::Observed {
             tile: tile.clone(),
             turn,
+            action_count,
             current: true,
         };
 
@@ -256,12 +282,13 @@ pub trait Observer: Located {
         &self,
         tiles: &dyn Source<Tile>,
         turn: TurnNum,
+        action: ActionNum,
         wrapping: Wrap2d,
         obs_tracker: &mut ObsTracker,
     ) -> Vec<LocatedObs> {
         visible_coords_iter(self.sight_distance())
             .filter_map(|inc| wrapping.wrapped_add(tiles.dims(), self.loc(), inc))
-            .map(|loc| obs_tracker.track_observation(loc, tiles.get(loc), turn))
+            .map(|loc| obs_tracker.track_observation(loc, tiles.get(loc), turn, action))
             .collect()
         // for inc in visible_coords_iter(self.sight_distance()) {
         //     if let Some(loc) = wrapping.wrapped_add(tiles.dims(), self.loc(), inc) {
@@ -276,12 +303,13 @@ pub trait Observer: Located {
         &self,
         tiles: &mut UnifiedObsTracker<S>,
         turn: TurnNum,
+        action: ActionNum,
         wrapping: Wrap2d,
     ) -> Vec<LocatedObs> {
         let dims = tiles.dims();
         visible_coords_iter(self.sight_distance())
             .filter_map(|inc| wrapping.wrapped_add(dims, self.loc(), inc))
-            .map(|loc| tiles.track_observation_unified(loc, turn))
+            .map(|loc| tiles.track_observation_unified(loc, turn, action))
             .collect()
         // for inc in visible_coords_iter(self.sight_distance()) {
         //     if let Some(loc) = wrapping.wrapped_add(tiles.dims(), self.loc(), inc) {
@@ -319,14 +347,16 @@ mod test {
         let tile = Tile::new(Terrain::Land, loc);
 
         let turn = 0;
+        let action_count = 0;
 
-        tracker.track_observation(loc, &tile, turn);
+        tracker.track_observation(loc, &tile, turn, action_count);
 
         assert_eq!(
             *tracker.get(loc),
             Obs::Observed {
-                tile: tile,
-                turn: turn,
+                tile,
+                turn,
+                action_count,
                 current: true
             }
         );
@@ -338,6 +368,6 @@ mod test {
             Alignment::Belligerent { player: 0 },
             "George Glover",
         );
-        infantry.observe(&map, turn, Wrap2d::BOTH, &mut tracker);
+        infantry.observe(&map, turn, action_count, Wrap2d::BOTH, &mut tracker);
     }
 }
