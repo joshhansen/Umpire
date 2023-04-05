@@ -2024,9 +2024,7 @@ impl Game {
                 //   Move this unit to the destination, free and easy
 
                 // If there is a unit at the destination:
-                if let Some(ref other_unit) = self.map.toplevel_unit_by_loc(loc).cloned() {
-                    // CLONE to dodge mutability
-
+                if let Some(other_unit) = self.map.toplevel_unit_by_loc(loc) {
                     // If it is a friendly unit:
                     if unit.is_friendly_to(other_unit) {
                         debug_assert_ne!(unit.id, other_unit.id);
