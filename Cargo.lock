@@ -374,6 +374,7 @@ dependencies = [
  "async-trait",
  "clap 4.1.4",
  "csv",
+ "delegate",
  "failure",
  "flate2",
  "futures",
@@ -720,6 +721,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99ded7b88821d2ce4e8b842c9f1c86ac911891ab89443cc1de750cae764c5076"
 dependencies = [
  "dasp_sample",
+]
+
+[[package]]
+name = "delegate"
+version = "0.9.0"
+source = "git+https://github.com/kobzol/rust-delegate?branch=unwrap#30a1b8dc9c20586b80e9260fb8b8d88045176e21"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.107",
 ]
 
 [[package]]

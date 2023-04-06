@@ -2223,6 +2223,9 @@ impl Game {
 
     /// Feature vector for use in AI training; the specified player's current state
     ///
+    /// Possibly split unit-relevant from city-relevant features
+    /// FIXME Maintain this vector in the client, incrementally
+    ///
     /// Map of the output vector:
     ///
     /// # 15: 1d features
