@@ -10,7 +10,7 @@ use crossterm::{
 use common::game::{
     alignment::{Aligned, AlignedMaybe},
     map::{Terrain, Tile},
-    player::PlayerTurnControl,
+    player::PlayerControl,
 };
 
 use crate::Draw;
@@ -19,7 +19,7 @@ use crate::Draw;
 impl Draw for Tile {
     async fn draw_no_flush(
         &mut self,
-        _game: &PlayerTurnControl,
+        _game: &PlayerControl,
         stdout: &mut std::io::Stdout,
         _palette: &crate::color::Palette,
     ) -> IoResult<()> {

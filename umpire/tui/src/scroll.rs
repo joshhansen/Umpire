@@ -9,7 +9,7 @@ use crossterm::{
 
 use common::{
     colors::Colors,
-    game::player::PlayerTurnControl,
+    game::player::PlayerControl,
     util::{Rect, Vec2d},
 };
 
@@ -49,7 +49,7 @@ impl<S: ScrollableComponent + Send> Scroller<S> {
 
     async fn draw_scroll_bars(
         &mut self,
-        game: &PlayerTurnControl<'_>,
+        game: &PlayerControl,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
@@ -134,7 +134,7 @@ impl<S: ScrollableComponent + Send> Scroller<S> {
 impl<S: ScrollableComponent + Send> Draw for Scroller<S> {
     async fn draw_no_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerControl,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {

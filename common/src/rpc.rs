@@ -19,8 +19,8 @@ use crate::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, PlayerNum, PlayerSecret, PlayerTurnControl, PlayerType, ProposedActionResult,
-        ProposedOrdersResult, ProposedResult, TurnNum, TurnStart, UmpireResult,
+        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProposedActionResult,
+        ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
     },
     util::{Dims, Direction, Location, Wrap2d},
 };
@@ -233,9 +233,16 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> Result<Option<UnitType>, GameError>;
+    ) -> UmpireResult<Option<UnitType>>;
+
+    async fn clear_productions(
+        player_secret: PlayerSecret,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<()>;
 
     async fn turn() -> TurnNum;
+
+    async fn turn_phase() -> TurnPhase;
 
     async fn current_player() -> PlayerNum;
 
@@ -353,27 +360,6 @@ impl IGame for RpcGame {
 
     async fn num_players(&self) -> PlayerNum {
         self.game.num_players(context::current()).await.unwrap()
-    }
-
-    async fn player_turn_control<'b>(
-        &'b mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'b>, TurnStart)> {
-        PlayerTurnControl::new(self, secret).await
-    }
-
-    async fn player_turn_control_clearing<'b>(
-        &'b mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'b>, TurnStart)> {
-        PlayerTurnControl::new_clearing(self, secret).await
-    }
-
-    async fn player_turn_control_nonending<'b>(
-        &'b mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'b>, TurnStart)> {
-        PlayerTurnControl::new_nonending(self, secret).await
     }
 
     async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
@@ -832,8 +818,27 @@ impl IGame for RpcGame {
             .unwrap()
     }
 
+    async fn clear_productions(
+        &mut self,
+        player_secret: PlayerSecret,
+        ignore_cleared_productions: bool,
+    ) -> UmpireResult<()> {
+        self.game
+            .clear_productions(
+                context::current(),
+                player_secret,
+                ignore_cleared_productions,
+            )
+            .await
+            .unwrap()
+    }
+
     async fn turn(&self) -> TurnNum {
         self.game.turn(context::current()).await.unwrap()
+    }
+
+    async fn turn_phase(&self) -> TurnPhase {
+        self.game.turn_phase(context::current()).await.unwrap()
     }
 
     async fn current_player(&self) -> PlayerNum {

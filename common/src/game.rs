@@ -56,7 +56,7 @@ use crate::{
     util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
 };
 
-pub use self::player::{PlayerNum, PlayerTurnControl, PlayerType};
+pub use self::player::{PlayerNum, PlayerType};
 
 use self::{
     action::{PlayerAction, PlayerActionOutcome},
@@ -258,38 +258,6 @@ impl Game {
 
     pub fn num_players(&self) -> PlayerNum {
         self.num_players
-    }
-
-    pub fn player_turn_control<'a>(
-        &'a mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        let observations = self.player_observations(secret)?.clone();
-        PlayerTurnControl::new_sync(self, secret, Some(observations))
-    }
-
-    pub fn player_turn_control_clearing<'a>(
-        &'a mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        let observations = self.player_observations(secret)?.clone();
-        PlayerTurnControl::new_sync_clearing(self, secret, Some(observations))
-    }
-
-    pub fn player_turn_control_nonending<'a>(
-        &'a mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)> {
-        let observations = self.player_observations(secret)?.clone();
-        PlayerTurnControl::new_sync_nonending(self, secret, Some(observations))
-    }
-
-    pub fn player_turn_control_bare<'a>(
-        &'a mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<PlayerTurnControl<'a>> {
-        let observations = self.player_observations(secret)?.clone();
-        PlayerTurnControl::new_sync_bare(self, secret, Some(observations))
     }
 
     /// Register a player and get its secret
@@ -1790,6 +1758,27 @@ impl Game {
 
         self.map
             .clear_city_production_by_loc(loc, ignore_cleared_production)
+    }
+
+    /// Clear the production on all cities belonging to the specified player
+    pub fn clear_productions(
+        &mut self,
+        player_secret: PlayerSecret,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<()> {
+        let player = self.validate_is_player_turn(player_secret)?;
+
+        let city_locs: Vec<Location> = self
+            .map
+            .player_cities(player)
+            .map(|city| city.loc)
+            .collect();
+
+        for loc in city_locs {
+            self.clear_production(player_secret, loc, ignore_cleared_production)?;
+        }
+
+        Ok(())
     }
 
     pub fn turn(&self) -> TurnNum {

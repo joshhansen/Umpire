@@ -599,6 +599,18 @@ impl UmpireRpc for UmpireServer {
             .clear_production(player_secret, loc, ignore_cleared_production)
     }
 
+    async fn clear_productions(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<()> {
+        self.game
+            .write()
+            .await
+            .clear_productions(player_secret, ignore_cleared_production)
+    }
+
     async fn turn(self, _: Context) -> TurnNum {
         self.game.read().await.turn()
     }

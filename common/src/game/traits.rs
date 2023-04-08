@@ -23,29 +23,14 @@ use crate::{
 use super::{
     action::{PlayerAction, PlayerActionOutcome},
     move_::Move,
-    player::{PlayerNum, PlayerTurnControl},
+    player::PlayerNum,
     Game, PlayerSecret, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
-    TurnStart, UmpireResult,
+    TurnPhase, TurnStart, UmpireResult,
 };
 
 #[async_trait]
 pub trait IGame: Send + Sync {
     async fn num_players(&self) -> PlayerNum;
-
-    async fn player_turn_control<'a>(
-        &'a mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)>;
-
-    async fn player_turn_control_clearing<'a>(
-        &'a mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)>;
-
-    async fn player_turn_control_nonending<'a>(
-        &'a mut self,
-        secret: PlayerSecret,
-    ) -> UmpireResult<(PlayerTurnControl<'a>, TurnStart)>;
 
     async fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool>;
 
@@ -59,6 +44,8 @@ pub trait IGame: Send + Sync {
     ///
     /// This is public information.
     async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool>;
+
+    async fn turn_phase(&self) -> TurnPhase;
 
     async fn current_turn_is_done(&self) -> bool;
 
@@ -352,6 +339,12 @@ pub trait IGame: Send + Sync {
         loc: Location,
         ignore_cleared_production: bool,
     ) -> UmpireResult<Option<UnitType>>;
+
+    async fn clear_productions(
+        &mut self,
+        player_secret: PlayerSecret,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<()>;
 
     async fn turn(&self) -> TurnNum;
 
