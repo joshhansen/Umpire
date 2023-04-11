@@ -5,7 +5,7 @@ use std::io::{Result as IoResult, Stdout, Write};
 use async_trait::async_trait;
 
 use color::Palette;
-use common::{game::player::PlayerControl, util::Rect};
+use common::{game::player::PlayerTurn, util::Rect};
 use crossterm::{cursor::MoveTo, queue, style::Print};
 
 pub mod color;
@@ -19,7 +19,7 @@ pub mod tile;
 pub trait Draw {
     async fn draw(
         &mut self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
@@ -28,7 +28,7 @@ pub trait Draw {
     }
     async fn draw_no_flush(
         &mut self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()>;

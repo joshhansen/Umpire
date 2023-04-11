@@ -3,7 +3,7 @@ use crossterm::event::KeyCode;
 
 use common::{
     conf::{self, key_desc},
-    game::{action::PlayerActionOutcome, player::PlayerTurnControl, unit::UnitID},
+    game::{action::PlayerActionOutcome, player::PlayerTurn, unit::UnitID},
     util::{Direction, Rect},
 };
 
@@ -30,7 +30,7 @@ impl IVisibleMode for GetUnitOrdersMode {
     // }
 }
 impl GetUnitOrdersMode {
-    async fn write_buf<U: UI>(&self, game: &PlayerTurnControl<'_>, ui: &mut U) {
+    async fn write_buf<U: UI>(&self, game: &PlayerTurn<'_>, ui: &mut U) {
         let unit = game.player_unit_by_id(self.unit_id).await.unwrap();
 
         ui.set_sidebar_row(0, format!("Get Orders for {}", unit));
@@ -73,7 +73,7 @@ impl GetUnitOrdersMode {
 impl IMode for GetUnitOrdersMode {
     async fn run<U: UI + Send + Sync>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use common::game::player::PlayerTurnControl;
+use common::game::player::PlayerTurn;
 
 use crate::ui::UI;
 
@@ -12,7 +12,7 @@ pub(in crate::ui) struct GetOrdersMode {}
 impl IMode for GetOrdersMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         _ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

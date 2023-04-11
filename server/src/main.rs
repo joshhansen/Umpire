@@ -15,13 +15,14 @@ use common::{
         map::Tile,
         move_::Move,
         obs::{LocatedObs, Obs, ObsTracker},
-        player::TurnTaker,
+        player::PlayerControl,
+        turn_async::TurnTaker,
         unit::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
         Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProposedActionResult,
-        ProposedOrdersResult, ProposedResult, TurnNum, TurnStart, UmpireResult,
+        ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
     },
     name::{city_namer, unit_namer},
     rpc::UmpireRpc,
@@ -615,6 +616,10 @@ impl UmpireRpc for UmpireServer {
         self.game.read().await.turn()
     }
 
+    async fn turn_phase(self, _: Context) -> TurnPhase {
+        self.game.read().await.turn_phase()
+    }
+
     async fn current_player(self, _: Context) -> PlayerNum {
         self.game.read().await.current_player()
     }
@@ -934,7 +939,7 @@ async fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    let game: Arc<RwLockTokio<Game>> = Arc::new(RwLockTokio::new(game));
+    let game = Arc::new(RwLockTokio::new(game));
     // let secrets = Arc::new(RwLockTokio::new(secrets));
     // let player_types = Arc::new(RwLock::new(player_types));
 
@@ -963,6 +968,25 @@ async fn main() -> anyhow::Result<()> {
 
             let mut ais: HashMap<PlayerType, AI> = HashMap::with_capacity(unique_ai_ptypes.len());
 
+            let mut ai_ctrls: Vec<Option<PlayerControl>> = Vec::with_capacity(num_players);
+
+            for player in 0..num_players {
+                ai_ctrls.push(match player_types[player] {
+                    PlayerType::AI(ref _aispec) => {
+                        let secret = secrets[player];
+                        Some(
+                            PlayerControl::new(
+                                Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
+                                player,
+                                secret,
+                            )
+                            .await,
+                        )
+                    }
+                    _ => None,
+                });
+            }
+
             for ptype in unique_ai_ptypes.iter() {
                 let ai: AI = match ptype {
                     PlayerType::AI(aispec) => aispec.clone().into(),
@@ -974,19 +998,18 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-                let mut g = game.write().await;
-
-                let g = &mut *g;
+                let g = game.read().await;
 
                 let player = g.current_player();
-
-                let secret = secrets[player];
 
                 let ptype = &player_types[player];
 
                 if let Some(ai) = ais.get_mut(&ptype) {
-                    ai.take_turn_clearing(g as &mut dyn IGame, player, secret, false)
-                        .await;
+                    let ctrl = &mut ai_ctrls[player].as_mut().unwrap();
+
+                    let mut turn = ctrl.turn_ctrl();
+
+                    ai.take_turn(&mut turn, false).await;
                 }
             }
         })
@@ -1019,7 +1042,7 @@ async fn main() -> anyhow::Result<()> {
             println!("Serving player {} on connection {}", player, human);
 
             let server = UmpireServer {
-                game: game.clone(),
+                game: Arc::clone(&game),
                 known_secrets: known_secrets[player].clone(),
                 player_types: player_types.clone(),
             };

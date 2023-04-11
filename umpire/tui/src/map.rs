@@ -18,7 +18,7 @@ use common::{
         city::City,
         map::{LocationGrid, Tile},
         obs::Obs,
-        player::PlayerControl,
+        player::{PlayerControl, PlayerTurn},
         unit::{orders::Orders, Unit},
     },
     util::{Dims, Location, Rect, Vec2d},
@@ -245,7 +245,7 @@ impl Map {
     /// return the map location; otherwise return None.
     pub async fn viewport_to_map_coords(
         &self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         viewport_loc: Location,
     ) -> Option<Location> {
         self.viewport_to_map_coords_by_offset(game, viewport_loc, self.viewport_offset)
@@ -254,7 +254,7 @@ impl Map {
 
     async fn viewport_to_map_coords_by_offset(
         &self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         viewport_loc: Location,
         offset: Vec2d<u16>,
     ) -> Option<Location> {
@@ -306,7 +306,7 @@ impl Map {
     /// Flushes stdout for convenience
     pub async fn draw_tile_and_flush(
         &mut self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
@@ -346,7 +346,7 @@ impl Map {
     /// Renders a particular location in the viewport
     pub async fn draw_tile_no_flush(
         &mut self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
@@ -481,7 +481,7 @@ impl Map {
 
     pub async fn current_player_tile<'a>(
         &self,
-        game: &'a PlayerControl,
+        game: &'a PlayerTurn<'_>,
         viewport_loc: Location,
     ) -> Option<Cow<'a, Tile>> {
         // let tile_loc = viewport_to_map_coords(game.dims(), viewport_loc, self.viewport_offset);
@@ -522,7 +522,7 @@ impl Component for Map {
 impl Draw for Map {
     async fn draw_no_flush(
         &mut self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {

@@ -7,7 +7,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{stdout, Write},
     path::Path,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use crossterm::{
@@ -257,18 +257,7 @@ impl UmpireDomain {
 
         let player_secret = self.player_secrets[player];
 
-        {
-            let mut ctrl = if self.game.current_turn_begun() {
-                self.game.player_turn_control_bare(player_secret).unwrap()
-            } else {
-                self.game
-                    .player_turn_control_nonending(player_secret)
-                    .unwrap()
-                    .0
-            };
-
-            action.take(&mut ctrl).await.unwrap();
-        }
+        self.game.take_simple_action(player_secret, action).unwrap();
 
         if self.verbosity > 1 {
             let loc = if let Some(unit_id) = self
@@ -286,15 +275,16 @@ impl UmpireDomain {
             };
 
             if self.fix_output_loc {
-                let mut stdout = stdout();
-                {
-                    let ctrl = self.game.player_turn_control_bare(player_secret).unwrap();
-                    self.map
-                        .draw(&ctrl, &mut stdout, &self.palette)
-                        .await
-                        .unwrap();
-                }
-                execute!(stdout, MoveTo(0, self.map.rect().bottom() + 1)).unwrap();
+                //FIXME Map output
+                // let mut stdout = stdout();
+                // {
+                //     let ctrl = self.game.player_turn_control_bare(player_secret).unwrap();
+                //     self.map
+                //         .draw(&ctrl, &mut stdout, &self.palette)
+                //         .await
+                //         .unwrap();
+                // }
+                // execute!(stdout, MoveTo(0, self.map.rect().bottom() + 1)).unwrap();
             } else {
                 println!("{:?}", self.game.player_observations(player_secret));
             }
@@ -686,7 +676,7 @@ fn agent(
     let q_func = match initialize_from {
         AI::Random(_) => {
             let fa_ai = if deep {
-                AI::DNN(DNN::new(dnn_learning_rate)?)
+                AI::DNN(Mutex::new(DNN::new(dnn_learning_rate)?))
             } else {
                 // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
                 let basis = Constant::new(5.0);

@@ -22,6 +22,7 @@ use tch::{
 use common::game::{
     action::AiPlayerAction,
     ai::{DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
+    turn_async::ActionwiseTurnTaker,
     Game,
 };
 
@@ -341,3 +342,9 @@ impl Storable for DNN {
         //      .map_err(|err| format!("Error saving DNN: {}", err))
     }
 }
+
+// impl ActionwiseTurnTaker for DNN {
+//     async fn next_action(&mut self, turn: &PlayerTurn) -> Option<AiPlayerAction> {
+
+//     }
+// }

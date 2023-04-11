@@ -3,7 +3,7 @@ use crossterm::event::KeyCode;
 
 use common::{
     colors::Colors,
-    game::{player::PlayerTurnControl, PlayerNum},
+    game::{player::PlayerTurn, PlayerNum},
     log::Message,
 };
 
@@ -50,12 +50,13 @@ impl TurnOverMode {
 impl IMode for TurnOverMode {
     async fn run<U: UI + Send + Sync>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
         let over_for: PlayerNum = game.current_player().await;
+        let turn = game.turn().await;
 
         if ui.confirm_turn_end() {
             ui.log_message(Message {
@@ -77,16 +78,10 @@ impl IMode for TurnOverMode {
                                 // If the user has altered productions using examine mode then the turn might not be over anymore
                                 // Recheck
 
-                                match game.end_turn().await {
-                                    Ok(_) => {
-                                        // *mode = Mode::TurnStart;
-                                        return ModeStatus::TurnOver;
-                                    }
-                                    Err(_not_over_for) => {
-                                        *mode = Mode::TurnResume;
-                                        return ModeStatus::Continue;
-                                    }
+                                if game.turn_is_done(turn).await.unwrap() {
+                                    return ModeStatus::TurnOver;
                                 }
+                                return ModeStatus::Continue;
                             }
                         }
                         KeyStatus::Handled(state_disposition) => match state_disposition {
@@ -105,7 +100,7 @@ impl IMode for TurnOverMode {
         } else {
             // We shouldn't be in the TurnOverMode state unless game.turn_is_done() is true
             // so this unwrap should always succeed
-            game.end_turn().await.unwrap();
+            // game.end_turn().await.unwrap();
 
             // for orders_result in turn_start.orders_results.iter() {
             //     match orders_result {

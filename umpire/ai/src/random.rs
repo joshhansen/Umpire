@@ -7,10 +7,7 @@ use crossterm::{cursor::MoveTo, execute};
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 use common::{
-    game::{
-        player::{ActionwiseLimitedTurnTaker, PlayerTurnControl},
-        unit::UnitType,
-    },
+    game::{player::PlayerTurn, turn_async::ActionwiseTurnTaker, unit::UnitType},
     util::Direction,
 };
 
@@ -36,11 +33,11 @@ impl RandomAI {
 }
 
 #[async_trait]
-impl ActionwiseLimitedTurnTaker for RandomAI {
-    async fn next_action(&mut self, ctrl: &PlayerTurnControl<'_>) -> Option<AiPlayerAction> {
+impl ActionwiseTurnTaker for RandomAI {
+    async fn next_action(&mut self, ctrl: &PlayerTurn) -> Option<AiPlayerAction> {
         let mut stdout = stdout();
 
-        if let Some(city_loc) = ctrl.production_set_requests().await.iter().next() {
+        if let Some(city_loc) = ctrl.player_production_set_requests().await.iter().next() {
             let valid_productions: Vec<UnitType> =
                 ctrl.valid_productions_conservative(*city_loc).await;
 
@@ -140,11 +137,16 @@ impl ActionwiseLimitedTurnTaker for RandomAI {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
+    use tokio::sync::RwLock as RwLockTokio;
+
     use common::{
         game::{
             alignment::Alignment,
             map::{gen::generate_map, terrain::Terrain, MapData},
-            player::LimitedTurnTaker,
+            player::PlayerControl,
+            turn_async::TurnTaker,
             unit::UnitID,
             Game,
         },
@@ -169,10 +171,14 @@ mod test {
             .unwrap();
 
             let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
-            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
+
+            let mut game = Arc::new(RwLockTokio::new(game));
+
+            let mut ctrl = PlayerControl::new(game, 0, secrets[0]).await;
 
             for _ in 0..1000 {
-                ai.take_turn(&mut ctrl, false).await;
+                let mut turn = ctrl.turn_ctrl();
+                ai.take_turn(&mut turn, false).await;
             }
         }
 
@@ -184,11 +190,20 @@ mod test {
             let map = generate_map(&mut city_namer, Dims::new(5, 5), players);
             let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
+            let mut game = Arc::new(RwLockTokio::new(game));
+
+            let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(players);
+            for player in 0..players {
+                ctrls.push(PlayerControl::new(game, player, secrets[player]).await);
+            }
+
             for i in 0..300 {
                 for player in 0..=1 {
-                    let (mut ctrl, _turn_start) =
-                        game.player_turn_control(secrets[player]).unwrap();
-                    ai.take_turn(&mut ctrl, false).await;
+                    let mut ctrl = &mut ctrls[player];
+
+                    let mut turn = ctrl.turn_ctrl();
+
+                    ai.take_turn(&mut turn, false).await;
 
                     let orders_requests: Vec<UnitID> = ctrl.player_unit_orders_requests().await;
 
@@ -203,7 +218,7 @@ mod test {
                     }
                 }
 
-                if game.victor().is_some() {
+                if game.read().await.victor().is_some() {
                     break;
                 }
             }
@@ -223,20 +238,31 @@ mod test {
 
         map.carry_unit_by_id(transport_id, infantry_id).unwrap();
 
-        let (game, secrets) = Game::new_with_map(map, 2, true, None, Wrap2d::BOTH);
+        let players = 2;
+
+        let (game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
+
+        let mut game = Arc::new(RwLockTokio::new(game));
+
+        let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(players);
+        for player in 0..players {
+            ctrls.push(PlayerControl::new(game, player, secrets[player]).await);
+        }
 
         let mut ai = RandomAI::new(0, false);
 
         for _ in 0..1000 {
             let mut game = game.clone();
 
-            if game.current_player() == 0 {
-                let (_ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
+            if game.read().await.current_player() == 0 {
+                let ctrl = &mut ctrls[0];
+                let turn = ctrl.turn_ctrl();
                 // drop this to end first player's turn without moving the infantry or transport
             } else {
-                let (mut ctrl, _turn_start) = game.player_turn_control(secrets[1]).unwrap();
+                let ctrl = &mut ctrls[1];
+                let mut turn = ctrl.turn_ctrl();
 
-                ai.take_turn(&mut ctrl, false).await;
+                ai.take_turn(&mut turn, false).await;
             }
         }
     }

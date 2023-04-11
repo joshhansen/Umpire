@@ -17,6 +17,7 @@ pub mod player;
 pub mod proposed;
 pub mod traits;
 pub mod turn;
+pub mod turn_async;
 pub mod unit;
 
 use std::{

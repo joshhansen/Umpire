@@ -1,4 +1,4 @@
-use std::{fmt, fs::File, io::Write, path::Path};
+use std::{fmt, fs::File, io::Write, ops::Deref, path::Path, sync::Mutex};
 
 use async_trait::async_trait;
 
@@ -9,9 +9,11 @@ use rsrl::fa::{EnumerableStateActionFunction, StateActionFunction};
 use common::{
     game::{
         action::AiPlayerAction,
-        ai::{player_features, AISpec, TrainingInstance},
-        player::{TurnOutcome, TurnTaker},
-        Game, IGame, PlayerNum, PlayerSecret,
+        ai::{AISpec, TrainingInstance},
+        player::PlayerTurn,
+        turn::TurnOutcome,
+        turn_async::TurnTaker as TurnTakerAsync,
+        Game,
     },
     util::sparsify,
 };
@@ -35,7 +37,7 @@ use rl::LFA_;
 pub enum AI {
     Random(RandomAI),
     LFA(LFA_),
-    DNN(DNN),
+    DNN(Mutex<DNN>),
 }
 
 impl AI {
@@ -68,7 +70,7 @@ impl StateActionFunction<Game, usize> for AI {
                 rng.gen()
             }
             Self::LFA(fa) => fa.evaluate(state, action),
-            Self::DNN(fa) => fa.evaluate(state, action),
+            Self::DNN(fa) => fa.lock().unwrap().evaluate(state, action),
         }
     }
 
@@ -93,7 +95,7 @@ impl StateActionFunction<Game, usize> for AI {
                 raw_error,
                 learning_rate,
             ),
-            Self::DNN(fa) => fa.update_with_error(
+            Self::DNN(fa) => fa.lock().unwrap().update_with_error(
                 state,
                 action,
                 value,
@@ -181,7 +183,7 @@ impl Loadable for AI {
         }
 
         if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("deep")) {
-            DNN::load(path).map(Self::DNN)
+            DNN::load(path).map(|dnn| Self::DNN(Mutex::new(dnn)))
         } else {
             let f = File::open(path).unwrap(); //NOTE unwrap on file open
             let result: Result<LFA_, String> =
@@ -206,7 +208,7 @@ impl Storable for AI {
 
                 file.write_all(&data).map_err(|err| format!("Couldn't write to {}: {}", display, err))
             },
-            Self::DNN(fa) => fa.store(path)
+            Self::DNN(fa) => fa.into_inner().unwrap().store(path)
         }
     }
 }
@@ -217,7 +219,7 @@ impl AI {
             Self::Random(_ai) => Err(String::from("Call RandomAI::take_turn etc. directly")),
             Self::LFA(fa) => Ok(find_legal_max(fa, game, true).0),
             Self::DNN(fa) => {
-                let action = find_legal_max(fa, game, false).0;
+                let action = find_legal_max(fa.lock().unwrap().deref(), game, false).0;
                 // println!("ACTION: {:?}", UmpireAction::from_idx(action));
                 Ok(action)
             }
@@ -226,9 +228,7 @@ impl AI {
 
     async fn _take_turn_unended(
         &mut self,
-        game: &mut dyn IGame,
-        player: PlayerNum,
-        secret: PlayerSecret,
+        game: &mut PlayerTurn<'_>,
         generate_data: bool,
     ) -> TurnOutcome {
         let mut training_instances = if generate_data {
@@ -236,6 +236,8 @@ impl AI {
         } else {
             None
         };
+
+        let player = game.current_player().await;
 
         while !game.current_turn_is_done().await {
             // features: Vec<f64>,// the view on the game state
@@ -245,26 +247,24 @@ impl AI {
             // outcome: TrainingOutcome,// how did things work out for the player?
 
             let (num_features, features, pre_score) = if generate_data {
-                let features = player_features(game, secret).await.unwrap();
+                let features = game.player_features().await;
                 let (num_features, features) = sparsify(features);
 
                 (
                     Some(num_features),
                     Some(features),
-                    Some(game.player_score(secret).await.unwrap()),
+                    Some(game.player_score().await.unwrap()),
                 )
             } else {
                 (None, None, None)
             };
 
             let action_idx = self
-                .best_action(&game.clone_underlying_game_state().unwrap())
+                .best_action(&game.clone_underlying_game_state().await.unwrap())
                 .unwrap();
             let action = AiPlayerAction::from_idx(action_idx).unwrap();
 
-            let (mut game, _turn_start) = game.player_turn_control_nonending(secret).await.unwrap();
-
-            action.take(&mut game).await.unwrap();
+            action.take(game).await.unwrap();
 
             if generate_data {
                 let post_score = game.player_score().await.unwrap();
@@ -289,71 +289,12 @@ impl AI {
 }
 
 #[async_trait]
-impl TurnTaker for AI {
-    async fn take_turn_not_clearing(
-        &mut self,
-        game: &mut dyn IGame,
-        player: PlayerNum,
-        secret: PlayerSecret,
-        generate_data: bool,
-    ) -> TurnOutcome {
+impl TurnTakerAsync for AI {
+    async fn take_turn(&mut self, turn: &mut PlayerTurn, generate_data: bool) -> TurnOutcome {
         match self {
-            Self::Random(ai) => {
-                ai.take_turn_not_clearing(game, player, secret, generate_data)
-                    .await
-            }
-            Self::LFA(_fa) => {
-                let result = self
-                    ._take_turn_unended(game, player, secret, generate_data)
-                    .await;
-
-                game.end_turn(secret).await.unwrap();
-
-                result
-            }
-            Self::DNN(_fa) => {
-                let result = self
-                    ._take_turn_unended(game, player, secret, generate_data)
-                    .await;
-
-                game.end_turn(secret).await.unwrap();
-
-                result
-            }
-        }
-    }
-
-    async fn take_turn_clearing(
-        &mut self,
-        game: &mut dyn IGame,
-        _player: PlayerNum,
-        secret: PlayerSecret,
-        generate_data: bool,
-    ) -> TurnOutcome {
-        let player = game.current_player().await;
-        match self {
-            Self::Random(ai) => {
-                ai.take_turn_clearing(game, player, secret, generate_data)
-                    .await
-            }
-            Self::LFA(_fa) => {
-                let result = self
-                    ._take_turn_unended(game, player, secret, generate_data)
-                    .await;
-
-                game.end_turn(secret).await.unwrap();
-
-                result
-            }
-            Self::DNN(_fa) => {
-                let result = self
-                    ._take_turn_unended(game, player, secret, generate_data)
-                    .await;
-
-                game.end_turn(secret).await.unwrap();
-
-                result
-            }
+            Self::Random(ai) => ai.take_turn(turn, generate_data).await,
+            Self::LFA(_fa) => self._take_turn_unended(turn, generate_data).await,
+            Self::DNN(_fa) => self._take_turn_unended(turn, generate_data).await,
         }
     }
 }

@@ -4,9 +4,7 @@ use async_trait::async_trait;
 
 use common::{
     colors::Colors,
-    game::{
-        player::PlayerTurnControl, unit::orders::OrdersOutcome, TurnStart, UnitProductionOutcome,
-    },
+    game::{player::PlayerTurn, unit::orders::OrdersOutcome, UnitProductionOutcome},
     log::{Message, MessageSource},
 };
 
@@ -19,13 +17,12 @@ pub(in crate::ui) struct TurnStartMode {}
 impl IMode for TurnStartMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        let turn_start = game.begin_turn().await.unwrap();
-        self.process_turn_start(game, ui, &turn_start).await;
+        self.process_turn_start(game, ui).await;
 
         ui.draw_current_player(game).await.unwrap();
 
@@ -53,7 +50,7 @@ impl IMode for TurnStartMode {
 impl TurnStartMode {
     async fn animate_orders<U: UI>(
         &self,
-        game: &PlayerTurnControl<'_>,
+        game: &PlayerTurn<'_>,
         ui: &mut U,
         orders_outcome: &OrdersOutcome,
     ) -> IoResult<()> {
@@ -83,15 +80,13 @@ impl TurnStartMode {
         Ok(())
     }
 
-    async fn process_turn_start<U: UI>(
-        &self,
-        game: &mut PlayerTurnControl<'_>,
-        ui: &mut U,
-        turn_start: &TurnStart,
-    ) {
-        for orders_result in &turn_start.orders_results {
+    async fn process_turn_start<U: UI>(&self, game: &mut PlayerTurn<'_>, ui: &mut U) {
+        for orders_result in game.start().orders_results.iter() {
             match orders_result {
-                Ok(orders_outcome) => self.animate_orders(game, ui, orders_outcome).await.unwrap(),
+                Ok(orders_outcome) => self
+                    .animate_orders(game, ui, &orders_outcome)
+                    .await
+                    .unwrap(),
                 Err(e) => ui.log_message(Message {
                     text: format!("{:?}", e),
                     mark: None,
@@ -102,7 +97,7 @@ impl TurnStartMode {
             }
         }
 
-        for production_outcome in &turn_start.production_outcomes {
+        for production_outcome in game.start().production_outcomes.iter() {
             match production_outcome {
                 UnitProductionOutcome::UnitProduced { unit, city } => {
                     ui.log_message(format!(

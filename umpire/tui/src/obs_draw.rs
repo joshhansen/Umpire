@@ -2,7 +2,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 
-use common::game::{obs::Obs, player::PlayerControl};
+use common::game::{obs::Obs, player::PlayerTurn};
 
 use crate::Draw;
 
@@ -10,7 +10,7 @@ use crate::Draw;
 impl Draw for Obs {
     async fn draw_no_flush(
         &mut self,
-        game: &PlayerControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut std::io::Stdout,
         palette: &crate::color::Palette,
     ) -> std::io::Result<()> {

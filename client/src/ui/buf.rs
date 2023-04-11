@@ -11,7 +11,7 @@ use crossterm::{
     style::{style, PrintStyledContent},
 };
 
-use common::{game::player::PlayerTurnControl, util::Rect};
+use common::{game::player::PlayerTurn, util::Rect};
 
 use umpire_tui::{color::Palette, Draw};
 
@@ -92,7 +92,7 @@ impl RectBuffer {
 impl Draw for RectBuffer {
     async fn draw_no_flush(
         &mut self,
-        _game: &PlayerTurnControl,
+        _game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         _palette: &Palette,
     ) -> IoResult<()> {

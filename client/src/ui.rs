@@ -36,7 +36,9 @@ use common::{
         map::Tile,
         move_::Move,
         obs::{LocatedObs, Obs},
-        player::{LimitedTurnTaker, PlayerTurnControl, TurnOutcome},
+        player::PlayerTurn,
+        turn::TurnOutcome,
+        turn_async::TurnTaker,
         unit::Unit,
     },
     log::{LogTarget, Message, MessageSource},
@@ -59,7 +61,7 @@ use self::{
 
 #[async_trait]
 pub trait MoveAnimator {
-    async fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move) -> IoResult<()>;
+    async fn animate_move(&mut self, game: &PlayerTurn, move_result: &Move) -> IoResult<()>;
 }
 
 /// An abstraction on the terminal UI, basically for test mocking purposes
@@ -78,32 +80,32 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn unicode(&self) -> bool;
 
-    async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
+    async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurn) -> Option<Location>;
 
-    async fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location>;
+    async fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurn) -> Option<Location>;
 
     async fn current_player_map_tile<'a>(
         &self,
-        ctrl: &'a PlayerTurnControl,
+        ctrl: &'a PlayerTurn,
         viewport_loc: Location,
     ) -> Option<Cow<'a, Tile>>;
 
-    async fn draw(&mut self, game: &PlayerTurnControl) -> IoResult<()>;
+    async fn draw(&mut self, game: &PlayerTurn) -> IoResult<()>;
 
-    async fn draw_no_flush(&mut self, game: &PlayerTurnControl) -> IoResult<()>;
+    async fn draw_no_flush(&mut self, game: &PlayerTurn) -> IoResult<()>;
 
-    async fn draw_current_player(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()>;
+    async fn draw_current_player(&mut self, ctrl: &PlayerTurn) -> IoResult<()>;
 
-    async fn draw_log(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()>;
+    async fn draw_log(&mut self, ctrl: &PlayerTurn) -> IoResult<()>;
 
-    async fn draw_map(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()>;
+    async fn draw_map(&mut self, ctrl: &PlayerTurn) -> IoResult<()>;
 
     /// Renders a particular location in the map viewport
     ///
     /// Flushes stdout for convenience
     async fn draw_map_tile_and_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
         unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -125,7 +127,7 @@ pub trait UI: LogTarget + MoveAnimator {
     /// Renders a particular location in the map viewport
     async fn draw_map_tile_no_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
         unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -153,7 +155,7 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn pop_log_message(&mut self) -> Option<Message>;
 
-    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) -> IoResult<()>;
+    async fn rotate_viewport_size(&mut self, game: &PlayerTurn) -> IoResult<()>;
 
     // fn sidebar_buf_mut(&mut self) -> &mut RectBuffer;
 
@@ -166,7 +168,7 @@ pub trait UI: LogTarget + MoveAnimator {
 
     async fn viewport_to_map_coords(
         &self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn,
         viewport_loc: Location,
     ) -> Option<Location>;
 }
@@ -191,11 +193,7 @@ impl LogTarget for DefaultUI {
 
 #[async_trait]
 impl MoveAnimator for DefaultUI {
-    async fn animate_move(
-        &mut self,
-        _game: &PlayerTurnControl,
-        _move_result: &Move,
-    ) -> IoResult<()> {
+    async fn animate_move(&mut self, _game: &PlayerTurn, _move_result: &Move) -> IoResult<()> {
         Ok(()) // do nothing
     }
 }
@@ -226,43 +224,39 @@ impl UI for DefaultUI {
         // do nothing
     }
 
-    async fn cursor_map_loc(&self, _mode: &Mode, _game: &PlayerTurnControl) -> Option<Location> {
+    async fn cursor_map_loc(&self, _mode: &Mode, _game: &PlayerTurn) -> Option<Location> {
         None
     }
 
-    async fn cursor_viewport_loc(
-        &self,
-        _mode: &Mode,
-        _game: &PlayerTurnControl,
-    ) -> Option<Location> {
+    async fn cursor_viewport_loc(&self, _mode: &Mode, _game: &PlayerTurn) -> Option<Location> {
         None
     }
 
     async fn current_player_map_tile<'a>(
         &self,
-        _ctrl: &'a PlayerTurnControl,
+        _ctrl: &'a PlayerTurn,
         _viewport_loc: Location,
     ) -> Option<Cow<'a, Tile>> {
         None
     }
 
-    async fn draw(&mut self, _game: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw(&mut self, _game: &PlayerTurn) -> IoResult<()> {
         Ok(()) // do nothing
     }
 
-    async fn draw_no_flush(&mut self, _game: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_no_flush(&mut self, _game: &PlayerTurn) -> IoResult<()> {
         Ok(()) // do nothing
     }
 
-    async fn draw_current_player(&mut self, _ctrl: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_current_player(&mut self, _ctrl: &PlayerTurn) -> IoResult<()> {
         Ok(()) // do nothing
     }
 
-    async fn draw_log(&mut self, _ctrl: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_log(&mut self, _ctrl: &PlayerTurn) -> IoResult<()> {
         Ok(()) // do nothing
     }
 
-    async fn draw_map(&mut self, _ctrl: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_map(&mut self, _ctrl: &PlayerTurn) -> IoResult<()> {
         Ok(()) // do nothing
     }
 
@@ -271,7 +265,7 @@ impl UI for DefaultUI {
     /// Flushes stdout for convenience
     async fn draw_map_tile_and_flush(
         &mut self,
-        _game: &PlayerTurnControl,
+        _game: &PlayerTurn,
         _viewport_loc: Location,
         _highlight: bool,   // Highlighting as for a cursor
         _unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -296,7 +290,7 @@ impl UI for DefaultUI {
     /// Renders a particular location in the map viewport
     async fn draw_map_tile_no_flush(
         &mut self,
-        _game: &PlayerTurnControl,
+        _game: &PlayerTurn,
         _viewport_loc: Location,
         _highlight: bool,   // Highlighting as for a cursor
         _unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -335,7 +329,7 @@ impl UI for DefaultUI {
         None
     }
 
-    async fn rotate_viewport_size(&mut self, _game: &PlayerTurnControl) -> IoResult<()> {
+    async fn rotate_viewport_size(&mut self, _game: &PlayerTurn) -> IoResult<()> {
         Ok(()) // do nothing
     }
 
@@ -353,7 +347,7 @@ impl UI for DefaultUI {
 
     async fn viewport_to_map_coords(
         &self,
-        _game: &PlayerTurnControl,
+        _game: &PlayerTurn,
         _viewport_loc: Location,
     ) -> Option<Location> {
         None
@@ -637,7 +631,7 @@ impl TermUI {
 
     async fn set_viewport_size(
         &mut self,
-        game: &PlayerTurnControl<'_>,
+        game: &PlayerTurn<'_>,
         viewport_size: ViewportSize,
     ) -> IoResult<()> {
         self.viewport_size = viewport_size;
@@ -648,7 +642,7 @@ impl TermUI {
 
     async fn draw_located_observations(
         &mut self,
-        game: &PlayerTurnControl<'_>,
+        game: &PlayerTurn<'_>,
         located_obs: &[LocatedObs],
     ) -> IoResult<()> {
         for located_obs in located_obs {
@@ -685,7 +679,7 @@ impl TermUI {
 
     async fn animate_combat<A: CombatCapable + Sym, D: CombatCapable + Sym>(
         &mut self,
-        game: &PlayerTurnControl<'_>,
+        game: &PlayerTurn<'_>,
         outcome: &CombatOutcome<A, D>,
         attacker_loc: Location,
         defender_loc: Location,
@@ -772,7 +766,7 @@ impl LogTarget for TermUI {
 
 #[async_trait]
 impl MoveAnimator for TermUI {
-    async fn animate_move(&mut self, game: &PlayerTurnControl, move_result: &Move) -> IoResult<()> {
+    async fn animate_move(&mut self, game: &PlayerTurn, move_result: &Move) -> IoResult<()> {
         let mut current_loc = move_result.starting_loc;
 
         self.ensure_map_loc_visible(current_loc);
@@ -864,7 +858,7 @@ impl UI for TermUI {
         self.sidebar_buf.clear();
     }
 
-    async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+    async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurn) -> Option<Location> {
         match *mode {
             Mode::SetProduction { city_loc } => Some(city_loc),
             Mode::GetUnitOrders { unit_id, .. } => {
@@ -875,7 +869,7 @@ impl UI for TermUI {
         }
     }
 
-    async fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurnControl) -> Option<Location> {
+    async fn cursor_viewport_loc(&self, mode: &Mode, game: &PlayerTurn) -> Option<Location> {
         let map = &self.map_scroller.scrollable;
 
         match *mode {
@@ -890,7 +884,7 @@ impl UI for TermUI {
 
     async fn current_player_map_tile<'a>(
         &self,
-        ctrl: &'a PlayerTurnControl,
+        ctrl: &'a PlayerTurn,
         viewport_loc: Location,
     ) -> Option<Cow<'a, Tile>> {
         self.map_scroller
@@ -899,17 +893,17 @@ impl UI for TermUI {
             .await
     }
 
-    async fn draw_current_player(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_current_player(&mut self, ctrl: &PlayerTurn) -> IoResult<()> {
         self.current_player
             .draw(ctrl, &mut self.stdout, &self.palette)
             .await
     }
 
-    async fn draw_log(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_log(&mut self, ctrl: &PlayerTurn) -> IoResult<()> {
         self.log.draw(ctrl, &mut self.stdout, &self.palette).await // this will flush
     }
 
-    async fn draw_map(&mut self, ctrl: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_map(&mut self, ctrl: &PlayerTurn) -> IoResult<()> {
         self.map_scroller
             .draw(ctrl, &mut self.stdout, &self.palette)
             .await
@@ -919,14 +913,14 @@ impl UI for TermUI {
         self.confirm_turn_end
     }
 
-    async fn draw(&mut self, game: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw(&mut self, game: &PlayerTurn) -> IoResult<()> {
         self.draw_no_flush(game).await?;
         self.stdout.flush()
     }
 
     async fn draw_map_tile_and_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
         unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -963,7 +957,7 @@ impl UI for TermUI {
 
     async fn draw_map_tile_no_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn,
         viewport_loc: Location,
         highlight: bool,   // Highlighting as for a cursor
         unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
@@ -998,7 +992,7 @@ impl UI for TermUI {
             .await
     }
 
-    async fn draw_no_flush(&mut self, game: &PlayerTurnControl) -> IoResult<()> {
+    async fn draw_no_flush(&mut self, game: &PlayerTurn) -> IoResult<()> {
         if self.first_draw {
             // write!(self.stdout, "{}{}{}{}",
             //     // termion::clear::All,
@@ -1070,7 +1064,7 @@ impl UI for TermUI {
         self.log.pop_message()
     }
 
-    async fn rotate_viewport_size(&mut self, game: &PlayerTurnControl) -> IoResult<()> {
+    async fn rotate_viewport_size(&mut self, game: &PlayerTurn) -> IoResult<()> {
         let new_size = match self.viewport_size {
             ViewportSize::REGULAR => ViewportSize::THEATER,
             ViewportSize::THEATER => ViewportSize::FULLSCREEN,
@@ -1097,7 +1091,7 @@ impl UI for TermUI {
 
     async fn viewport_to_map_coords(
         &self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn,
         viewport_loc: Location,
     ) -> Option<Location> {
         self.map().viewport_to_map_coords(game, viewport_loc).await
@@ -1105,12 +1099,8 @@ impl UI for TermUI {
 }
 
 #[async_trait]
-impl LimitedTurnTaker for TermUI {
-    async fn take_turn(
-        &mut self,
-        ctrl: &mut PlayerTurnControl,
-        generate_data: bool,
-    ) -> TurnOutcome {
+impl TurnTaker for TermUI {
+    async fn take_turn(&mut self, ctrl: &mut PlayerTurn, generate_data: bool) -> TurnOutcome {
         if generate_data {
             eprintln!("TermUI doesn't generate training data but generate_data was true");
             //FIXME Code smell: refused bequest

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use common::game::player::PlayerTurnControl;
+use common::game::player::PlayerTurn;
 
 use crate::ui::UI;
 
@@ -12,19 +12,25 @@ pub(in crate::ui) struct SetProductionsMode {}
 impl IMode for SetProductionsMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        if game.production_set_requests().await.iter().next().is_none() {
+        if game
+            .player_production_set_requests()
+            .await
+            .iter()
+            .next()
+            .is_none()
+        {
             ui.log_message("Productions set.".to_string());
             *mode = Mode::TurnResume;
             return ModeStatus::Continue;
         }
 
         let city_loc = game
-            .production_set_requests()
+            .player_production_set_requests()
             .await
             .iter()
             .cloned()

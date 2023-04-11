@@ -15,6 +15,7 @@ use std::{
     io::{stdout, Write},
     path::Path,
     rc::Rc,
+    sync::Arc,
 };
 
 use clap::{value_parser, Arg, ArgAction, Command};
@@ -25,13 +26,16 @@ use crossterm::{
     terminal::{size, Clear, ClearType},
 };
 
+use tokio::sync::RwLock as RwLockTokio;
+
 use common::{
     cli::{self, parse_spec},
     conf,
     game::{
         ai::{AISpec, TrainingInstance},
-        player::{PlayerNum, TurnTaker},
-        Game,
+        player::{PlayerControl, PlayerNum},
+        turn_async::TurnTaker,
+        Game, IGame,
     },
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
@@ -360,8 +364,15 @@ async fn main() -> Result<(), String> {
             let map_dims = dims.choose(&mut rng).cloned().unwrap();
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
-            let (mut game, secrets) =
+            let (game, secrets) =
                 Game::new(map_dims, city_namer, num_ais, fog_of_war, None, wrapping);
+
+            let game = Arc::new(RwLockTokio::new(game)) as Arc<RwLockTokio<dyn IGame>>;
+
+            let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(num_ais);
+            for player in 0..num_ais {
+                ctrls.push(PlayerControl::new(Arc::clone(&game), player, secrets[player]).await);
+            }
 
             if fix_output_loc {
                 execute!(stdout, MoveTo(0, 0)).unwrap();
@@ -371,16 +382,18 @@ async fn main() -> Result<(), String> {
 
             if verbosity > 1 {
                 if fix_output_loc {
-                    let (ctrl, _turn_start) =
-                        game.player_turn_control_nonending(secrets[0]).unwrap();
+                    //FIXME Map output
+                    // let (ctrl, _turn_start) =
+                    //     game.player_turn_control_nonending(secrets[0]).unwrap();
 
-                    map.as_mut()
-                        .unwrap()
-                        .draw(&ctrl, &mut stdout, &palette)
-                        .await
-                        .unwrap();
+                    // map.as_mut()
+                    //     .unwrap()
+                    //     .draw(&ctrl, &mut stdout, &palette)
+                    //     .await
+                    //     .unwrap();
                 } else {
-                    println!("{:?}", game);
+                    // println!("{:?}", game.read().await);
+                    //FIXME debug output
                 }
             }
 
@@ -388,18 +401,18 @@ async fn main() -> Result<(), String> {
                 datagenpath.map(|_| HashMap::new());
 
             'steps: for _ in 0..steps {
-                for i in 0..num_ais {
-                    if game.victor().is_some() {
+                for player in 0..num_ais {
+                    let ctrl = &mut ctrls[player];
+
+                    if ctrl.victor().await.is_some() {
                         break 'steps;
                     }
 
-                    let player = game.current_player();
+                    let ai = ais.get_mut(player).unwrap();
 
-                    let ai = ais.get_mut(i).unwrap();
-                    let mut turn_outcome = ai
-                        .borrow_mut()
-                        .take_turn_clearing(&mut game, player, secrets[player], generate_data)
-                        .await;
+                    let mut turn = ctrl.turn_ctrl();
+                    let mut turn_outcome =
+                        ai.borrow_mut().take_turn(&mut turn, generate_data).await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
@@ -412,19 +425,20 @@ async fn main() -> Result<(), String> {
 
                     if verbosity > 1 {
                         if fix_output_loc {
-                            let (ctrl, _turn_start) =
-                                game.player_turn_control_nonending(secrets[i]).unwrap();
+                            // let (ctrl, _turn_start) =
+                            //     game.player_turn_control_nonending(secrets[i]).unwrap();
 
                             map.as_mut()
                                 .unwrap()
-                                .draw(&ctrl, &mut stdout, &palette)
+                                .draw(&turn, &mut stdout, &palette)
                                 .await
                                 .unwrap();
                             execute!(stdout, MoveTo(0, map_height + 2)).unwrap();
                         } else {
-                            println!("{:?}", game);
+                            //FIXME Debug output
+                            // println!("{:?}", game);
                         }
-                        println!("Turn: {}", game.turn());
+                        println!("Turn: {}", turn.turn().await);
                     }
                 }
             }
@@ -433,7 +447,7 @@ async fn main() -> Result<(), String> {
                 // Mark the training instances (if we've been tracking them) with the game's outcome
 
                 let players: Vec<usize> = player_partial_data.keys().cloned().collect();
-                if let Some(victor) = game.victor() {
+                if let Some(victor) = game.read().await.victor().await {
                     for player in players {
                         let data = player_partial_data.get_mut(&player).unwrap();
 
@@ -463,7 +477,9 @@ async fn main() -> Result<(), String> {
                 }
             }
 
-            *victory_counts.entry(game.victor()).or_insert(0) += 1;
+            *victory_counts
+                .entry(game.read().await.victor().await)
+                .or_insert(0) += 1;
 
             println!();
             for i in 0..num_ais {

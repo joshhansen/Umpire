@@ -7,8 +7,7 @@ use crossterm::event::KeyCode;
 use common::{
     colors::Colors,
     game::{
-        alignment::AlignedMaybe, error::GameError, map::Tile, player::PlayerTurnControl,
-        unit::UnitID,
+        alignment::AlignedMaybe, error::GameError, map::Tile, player::PlayerTurn, unit::UnitID,
     },
     log::{Message, MessageSource},
     util::{Direction, Location, Wrap2d},
@@ -36,7 +35,7 @@ impl ExamineMode {
             first,
         }
     }
-    async fn clean_up<U: UI>(&self, game: &PlayerTurnControl<'_>, ui: &mut U) -> IoResult<()> {
+    async fn clean_up<U: UI>(&self, game: &PlayerTurn<'_>, ui: &mut U) -> IoResult<()> {
         ui.draw_map_tile_and_flush(
             game,
             self.cursor_viewport_loc,
@@ -53,18 +52,14 @@ impl ExamineMode {
     /// The tile visible to the current player under the examine cursor, if any
     async fn current_player_tile<'a, U: UI>(
         &'a self,
-        game: &'a PlayerTurnControl<'_>,
+        game: &'a PlayerTurn<'_>,
         ui: &U,
     ) -> Option<Cow<'a, Tile>> {
         ui.current_player_map_tile(game, self.cursor_viewport_loc)
             .await
     }
 
-    async fn draw_tile<'a, U: UI>(
-        &'a self,
-        game: &'a PlayerTurnControl<'_>,
-        ui: &mut U,
-    ) -> IoResult<()> {
+    async fn draw_tile<'a, U: UI>(&'a self, game: &'a PlayerTurn<'_>, ui: &mut U) -> IoResult<()> {
         ui.draw_map_tile_and_flush(
             game,
             self.cursor_viewport_loc,
@@ -91,7 +86,7 @@ impl ExamineMode {
 impl IMode for ExamineMode {
     async fn run<U: UI + Send + Sync>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

@@ -19,7 +19,7 @@ use std::{
 use clap::{builder::BoolishValueParser, Arg, ArgAction};
 
 use tarpc::{client, context, tokio_serde::formats::Bincode};
-use tokio::net::lookup_host;
+use tokio::{net::lookup_host, sync::RwLock as RwLockTokio};
 
 use self::ui::TermUI;
 
@@ -30,7 +30,10 @@ use umpire_tui::color::{palette16, palette24, palette256};
 use common::{
     cli::{self, players_arg},
     conf,
-    game::{ai::AISpec, player::TurnTaker, Game, IGame, PlayerNum, PlayerSecret, PlayerType},
+    game::{
+        ai::AISpec, player::PlayerControl, turn_async::TurnTaker, Game, IGame, PlayerNum,
+        PlayerSecret, PlayerType,
+    },
     log::LogTarget,
     name::{city_namer, unit_namer},
     rpc::{RpcGame, UmpireRpcClient},
@@ -157,7 +160,7 @@ async fn main() -> Result<(), String> {
 
     let local_server = matches.contains_id("players");
 
-    let (mut game, secrets, num_players, dims, player_types) = if local_server {
+    let (game, secrets, num_players, dims, player_types) = if local_server {
         let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap(); //FIXME take from server
 
         let num_players: PlayerNum = player_types.len(); //FIXME take from server
@@ -184,7 +187,7 @@ async fn main() -> Result<(), String> {
             wrapping,
         );
         (
-            Box::new(game) as Box<dyn IGame>,
+            Arc::new(RwLockTokio::new(game)) as Arc<RwLockTokio<dyn IGame>>,
             secrets
                 .iter()
                 .cloned()
@@ -225,11 +228,11 @@ async fn main() -> Result<(), String> {
 
         let player_types = client.player_types(context::current()).await.unwrap();
 
-        let game = Box::new(RpcGame::new(client)) as Box<dyn IGame>;
+        let game = Arc::new(RwLockTokio::new(RpcGame::new(client))) as Arc<RwLockTokio<dyn IGame>>;
 
-        let num_players = game.num_players().await;
+        let num_players = game.read().await.num_players().await;
 
-        let dims = game.dims().await;
+        let dims = game.read().await.dims().await;
 
         (game, secrets, num_players, dims, player_types)
     };
@@ -251,6 +254,16 @@ async fn main() -> Result<(), String> {
         }
         x => panic!("Unsupported color depth {}", x),
     };
+
+    // Make PlayerControl's for all players we have secrets for
+    let mut ctrls: Vec<Option<PlayerControl>> = Vec::with_capacity(num_players);
+    for player in 0..num_players {
+        ctrls.push(if let Some(secret) = secrets[player] {
+            Some(PlayerControl::new(Arc::clone(&game), player, secret).await)
+        } else {
+            None
+        });
+    }
 
     {
         // Scope for the UI. When it goes out of scope it will clean up the terminal, threads, audio, etc.
@@ -284,20 +297,23 @@ async fn main() -> Result<(), String> {
         }
 
         'outer: loop {
-            if game.victor().await.is_some() {
+            if game.read().await.victor().await.is_some() {
                 break 'outer;
             }
 
-            let player = game.current_player().await;
+            let player = game.read().await.current_player().await;
 
             // Only take the turn locally if we have the corresponding player's secret
-            if let Some(secret) = secrets[player] {
+            if let Some(_secret) = secrets[player] {
                 ui.log_message(format!("Player {}'s turn", player));
+
+                let ctrl = ctrls.get_mut(player).unwrap().as_mut().unwrap();
+
+                let mut turn = ctrl.turn_ctrl();
+
                 match &player_types[player] {
                     PlayerType::Human => {
-                        let turn_outcome = ui
-                            .take_turn_not_clearing(game.as_mut(), player, secret, false)
-                            .await;
+                        let turn_outcome = ui.take_turn(&mut turn, false).await;
                         assert!(turn_outcome.training_instances.is_none());
 
                         if turn_outcome.quit {
@@ -309,7 +325,7 @@ async fn main() -> Result<(), String> {
                             .get_mut(ai_type)
                             .unwrap()
                             .borrow_mut()
-                            .take_turn_clearing(game.as_mut(), player, secret, false)
+                            .take_turn(&mut turn, false)
                             .await;
                         assert!(turn_outcome.training_instances.is_none());
 

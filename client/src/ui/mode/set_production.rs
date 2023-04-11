@@ -4,7 +4,7 @@ use crossterm::event::KeyCode;
 
 use common::{
     conf,
-    game::{player::PlayerTurnControl, unit::UnitType},
+    game::{player::PlayerTurn, unit::UnitType},
     log::{Message, MessageSource},
     util::{Location, Rect},
 };
@@ -38,7 +38,7 @@ impl SetProductionMode {
         row
     }
 
-    async fn write_buf<U: UI>(&self, game: &PlayerTurnControl<'_>, ui: &mut U) {
+    async fn write_buf<U: UI>(&self, game: &PlayerTurn<'_>, ui: &mut U) {
         let tile = game.tile(self.loc).await.unwrap();
         let city = tile.city.as_ref().unwrap();
 
@@ -68,7 +68,7 @@ impl SetProductionMode {
 impl IMode for SetProductionMode {
     async fn run<U: UI + Send + Sync>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

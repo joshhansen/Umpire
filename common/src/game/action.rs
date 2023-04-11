@@ -1,6 +1,6 @@
 //! Reified player actions
 
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Deref};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ use super::{
     ai::POSSIBLE_ACTIONS,
     city::CityID,
     move_::Move,
-    player::{PlayerControl, PlayerTurn},
+    player::PlayerTurn,
     unit::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
@@ -31,22 +31,22 @@ pub enum AiPlayerAction {
 }
 
 impl AiPlayerAction {
-    pub async fn legal_actions(game: &PlayerControl) -> HashSet<Self> {
+    pub fn legal_actions<G: Deref<Target = Game>>(game: G) -> HashSet<Self> {
         let mut a = HashSet::new();
 
-        debug_assert!(!game.current_turn_is_done().await);
-        debug_assert_eq!(game.turn_phase().await, TurnPhase::Main);
+        debug_assert!(!game.current_turn_is_done());
+        debug_assert_eq!(game.turn_phase(), TurnPhase::Main);
 
         //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
-        if let Some(city_loc) = game.player_production_set_requests().await.iter().next() {
-            for unit_type in game.valid_productions_conservative(*city_loc).await {
+        if let Some(city_loc) = game.current_player_production_set_requests().next() {
+            for unit_type in game.current_player_valid_productions_conservative(city_loc) {
                 a.insert(AiPlayerAction::SetNextCityProduction { unit_type });
             }
         }
 
         //TODO Possibly consider actions for all units instead of just the next one that needs orders
-        if let Some(unit_id) = game.player_unit_orders_requests().await.iter().next() {
-            for direction in game.player_unit_legal_directions(*unit_id).await.unwrap() {
+        if let Some(unit_id) = game.current_player_unit_orders_requests().next() {
+            for direction in game.current_player_unit_legal_directions(unit_id).unwrap() {
                 a.insert(AiPlayerAction::MoveNextUnit { direction });
             }
             a.insert(AiPlayerAction::SkipNextUnit);

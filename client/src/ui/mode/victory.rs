@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use common::{
     colors::Colors,
-    game::{player::PlayerTurnControl, PlayerNum},
+    game::{player::PlayerTurn, PlayerNum},
     log::Message,
 };
 
@@ -18,7 +18,7 @@ pub(in crate::ui) struct VictoryMode {
 impl IMode for VictoryMode {
     async fn run<U: UI + Send + Sync>(
         &self,
-        ctrl: &mut PlayerTurnControl<'_>,
+        ctrl: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,

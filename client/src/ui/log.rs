@@ -12,7 +12,7 @@ use crossterm::{
 
 use common::{
     colors::Colors,
-    game::player::PlayerTurnControl,
+    game::player::PlayerTurn,
     log::{LogTarget, Message},
     util::{grapheme_len, grapheme_substr, Rect},
 };
@@ -115,7 +115,7 @@ impl LogTarget for LogArea {
 impl Draw for LogArea {
     async fn draw_no_flush(
         &mut self,
-        _game: &PlayerTurnControl,
+        _game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {

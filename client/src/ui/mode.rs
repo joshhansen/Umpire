@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 use common::{
     conf,
-    game::{player::PlayerTurnControl, unit::UnitID, PlayerNum},
+    game::{player::PlayerTurn, unit::UnitID, PlayerNum},
     util::{Direction, Location, Rect},
 };
 
@@ -47,7 +47,7 @@ impl Mode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
     pub async fn run<U: UI + Send + Sync>(
         &mut self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         prev_mode: &mut Option<Mode>,
     ) -> ModeStatus {
@@ -146,7 +146,7 @@ pub trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
     async fn run<U: UI + Send + Sync>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
         prev_mode: &Option<Mode>,
@@ -154,7 +154,7 @@ pub trait IMode {
 
     async fn get_key<U: UI + Send + Sync>(
         &self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn<'_>,
         ui: &mut U,
         mode: &mut Mode,
     ) -> Result<KeyStatus, RecvError> {

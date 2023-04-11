@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use common::game::player::PlayerTurnControl;
+use common::game::player::PlayerTurn;
 
 use crate::ui::UI;
 
@@ -12,12 +12,18 @@ pub(in crate::ui) struct TurnResumeMode {}
 impl IMode for TurnResumeMode {
     async fn run<U: UI + Send>(
         &self,
-        game: &mut PlayerTurnControl<'_>,
+        game: &mut PlayerTurn<'_>,
         _ui: &mut U,
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        if game.production_set_requests().await.iter().next().is_some() {
+        if game
+            .player_production_set_requests()
+            .await
+            .iter()
+            .next()
+            .is_some()
+        {
             *mode = Mode::SetProductions;
             return ModeStatus::Continue;
         }

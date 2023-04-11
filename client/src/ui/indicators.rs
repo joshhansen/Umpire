@@ -7,7 +7,7 @@ use crossterm::{
     style::{style, PrintStyledContent},
 };
 
-use common::{game::player::PlayerTurnControl, util::Rect};
+use common::{game::player::PlayerTurn, util::Rect};
 
 use umpire_tui::{color::Palette, Component, Draw};
 
@@ -25,7 +25,7 @@ impl CurrentPlayer {
 impl Draw for CurrentPlayer {
     async fn draw_no_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         _palette: &Palette,
     ) -> IoResult<()> {
@@ -66,7 +66,7 @@ impl Turn {
 impl Draw for Turn {
     async fn draw_no_flush(
         &mut self,
-        game: &PlayerTurnControl,
+        game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         _palette: &Palette,
     ) -> IoResult<()> {
