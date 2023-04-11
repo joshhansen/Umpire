@@ -136,7 +136,7 @@ impl IMode for ExamineMode {
                                     // Since the unit we get from this tile may be a "memory" of an old observation, get the most recent one in order to activate it
 
                                     match game.activate_unit_by_loc(unit.loc).await {
-                                        Ok(()) => {
+                                        Ok(_obs) => {
                                             ui.log_message(format!("Activated unit {}", unit));
                                             *mode = Mode::GetUnitOrders {
                                                 unit_id: unit.id,

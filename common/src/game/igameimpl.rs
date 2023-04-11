@@ -23,6 +23,7 @@ use crate::{
 use super::{
     action::{PlayerAction, PlayerActionOutcome},
     move_::Move,
+    obs::LocatedObsLite,
     player::PlayerNum,
     Game, PlayerSecret, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
     TurnPhase, TurnStart, UmpireResult,
@@ -467,7 +468,7 @@ impl IGame for Game {
         &mut self,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<LocatedObsLite> {
         self.activate_unit_by_loc(player_secret, loc)
     }
 

@@ -23,6 +23,7 @@ use crate::{
 use super::{
     action::{PlayerAction, PlayerActionOutcome},
     move_::Move,
+    obs::LocatedObsLite,
     player::PlayerNum,
     Game, PlayerSecret, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
     TurnPhase, TurnStart, UmpireResult,
@@ -413,7 +414,7 @@ pub trait IGame: Send + Sync {
         &mut self,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<()>;
+    ) -> UmpireResult<LocatedObsLite>;
 
     /// If the current player controls a unit with ID `id`, set its orders to `orders`
     ///

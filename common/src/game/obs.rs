@@ -57,7 +57,7 @@ impl LocatedObsLite {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LocatedObs {
     pub loc: Location,
     pub obs: Obs,
@@ -72,6 +72,13 @@ impl LocatedObs {
         let was_included = filter.include(&self.old_obs);
         let is_included = filter.include(&self.obs);
         was_included != is_included
+    }
+
+    pub fn lite(self) -> LocatedObsLite {
+        LocatedObsLite {
+            loc: self.loc,
+            obs: self.obs,
+        }
     }
 }
 impl Located for LocatedObs {
@@ -175,6 +182,10 @@ impl ObsTracker {
     }
 
     pub fn track_lite(&mut self, located_obs: LocatedObsLite) -> Option<Obs> {
+        self._track(located_obs.loc, located_obs.obs)
+    }
+
+    pub fn track_located(&mut self, located_obs: LocatedObs) -> Option<Obs> {
         self._track(located_obs.loc, located_obs.obs)
     }
 

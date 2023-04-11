@@ -14,7 +14,7 @@ use common::{
         error::GameError,
         map::Tile,
         move_::Move,
-        obs::{LocatedObs, Obs, ObsTracker},
+        obs::{LocatedObs, LocatedObsLite, Obs, ObsTracker},
         player::PlayerControl,
         turn_async::TurnTaker,
         unit::{
@@ -743,7 +743,7 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<LocatedObsLite> {
         self.game
             .write()
             .await

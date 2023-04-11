@@ -1990,11 +1990,13 @@ impl Game {
     }
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
+    ///
+    /// Returns a fresh observation of the location
     pub fn activate_unit_by_loc(
         &mut self,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<LocatedObsLite> {
         let player = self.validate_is_player_turn(player_secret)?;
 
         let unit_id = {
@@ -2009,7 +2011,9 @@ impl Game {
             unit.id
         };
 
-        self.map.activate_player_unit(player, unit_id)
+        self.map.activate_player_unit(player, unit_id)?;
+
+        Ok(self.observe(loc).unwrap().lite())
     }
 
     /// If the current player controls a unit with ID `id`, set its orders to `orders`

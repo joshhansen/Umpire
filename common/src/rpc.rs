@@ -14,7 +14,7 @@ use crate::{
         error::GameError,
         map::Tile,
         move_::Move,
-        obs::{Obs, ObsTracker},
+        obs::{LocatedObsLite, Obs, ObsTracker},
         unit::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
@@ -291,7 +291,10 @@ pub trait UmpireRpc {
     ) -> ProposedOrdersResult;
 
     /// If a unit at the location owned by the current player exists, activate it and any units it carries
-    async fn activate_unit_by_loc(player_secret: PlayerSecret, loc: Location) -> UmpireResult<()>;
+    async fn activate_unit_by_loc(
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<LocatedObsLite>;
 
     async fn set_orders(
         player_secret: PlayerSecret,
@@ -947,7 +950,7 @@ impl IGame for RpcGame {
         &mut self,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<LocatedObsLite> {
         self.game
             .activate_unit_by_loc(context::current(), player_secret, loc)
             .await

@@ -10,7 +10,7 @@ use super::{
     error::GameError,
     map::dijkstra::Source,
     move_::Move,
-    obs::ObsTracker,
+    obs::{LocatedObsLite, ObsTracker},
     IGame, PlayerSecret, ProposedOrdersResult, ProposedUmpireResult, TurnPhase, TurnStart,
     UmpireResult,
 };
@@ -124,6 +124,19 @@ impl PlayerControl {
         }
     }
 
+    pub async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<LocatedObsLite> {
+        let result = self
+            .game
+            .write()
+            .await
+            .activate_unit_by_loc(self.secret, loc)
+            .await?;
+
+        self.observations.track_lite(result.clone());
+
+        Ok(result)
+    }
+
     pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
         let result = self.game.write().await.begin_turn(self.secret).await;
 
@@ -136,9 +149,6 @@ impl PlayerControl {
 
     delegate! {
         to self.game.write().await {
-            /// TODO Update observations
-            pub async fn activate_unit_by_loc(&mut self, [self.secret], loc: Location) -> UmpireResult<()>;
-
             /// TODO Update observations
             pub async fn clear_production(&mut self, [self.secret], loc: Location, ignore_cleared_production: bool) -> UmpireResult<Option<UnitType>>;
 
@@ -354,7 +364,7 @@ impl<'a> PlayerTurn<'a> {
     delegate! {
         to self.ctrl {
             // Mutable
-            pub async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<()>;
+            pub async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<LocatedObsLite>;
 
             // pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart>;
 
