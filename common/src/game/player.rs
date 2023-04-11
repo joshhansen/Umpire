@@ -124,13 +124,20 @@ impl PlayerControl {
         }
     }
 
+    pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
+        let result = self.game.write().await.begin_turn(self.secret).await;
+
+        if let Ok(ref turn_start) = result {
+            self.observations.track_many(turn_start.observations.iter());
+        }
+
+        result
+    }
+
     delegate! {
         to self.game.write().await {
             /// TODO Update observations
             pub async fn activate_unit_by_loc(&mut self, [self.secret], loc: Location) -> UmpireResult<()>;
-
-            /// TODO Update observations
-            pub async fn begin_turn(&mut self, [self.secret]) -> UmpireResult<TurnStart>;
 
             /// TODO Update observations
             pub async fn clear_production(&mut self, [self.secret], loc: Location, ignore_cleared_production: bool) -> UmpireResult<Option<UnitType>>;

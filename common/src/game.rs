@@ -109,6 +109,7 @@ pub struct TurnStart {
     pub current_player: PlayerNum,
     pub orders_results: Vec<OrdersResult>,
     pub production_outcomes: Vec<UnitProductionOutcome>,
+    pub observations: Vec<LocatedObs>,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -493,7 +494,7 @@ impl Game {
 
         self.refresh_moves_remaining(player_secret)?;
 
-        self.update_player_observations(player);
+        let observations = self.update_player_observations(player);
 
         let orders_results = self.follow_pending_orders(player_secret)?;
 
@@ -502,6 +503,7 @@ impl Game {
             current_player: self.current_player,
             orders_results,
             production_outcomes,
+            observations,
         })
     }
 
@@ -706,35 +708,45 @@ impl Game {
     /// Register the current observations of player units
     ///
     /// This applies only to top-level units. Carried units (e.g. units in a transport or carrier) make no observations
-    fn update_player_observations(&mut self, player: PlayerNum) {
+    fn update_player_observations(&mut self, player: PlayerNum) -> Vec<LocatedObs> {
         let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
 
         if self.fog_of_war {
+            let mut observations: Vec<LocatedObs> = Vec::new();
             for city in self.map.player_cities(player) {
-                city.observe(
+                observations.extend(city.observe(
                     &self.map,
                     self.turn,
                     self.action_count,
                     self.wrapping,
                     obs_tracker,
-                );
+                ));
             }
 
             for unit in self.map.player_units(player) {
-                unit.observe(
+                observations.extend(unit.observe(
                     &self.map,
                     self.turn,
                     self.action_count,
                     self.wrapping,
                     obs_tracker,
-                );
+                ));
             }
+
+            observations
         } else {
             //FIXME when fog of war is disabled we shouldn't need to track observations at all
+            let mut observations: Vec<LocatedObs> = Vec::new();
             for loc in self.map.dims().iter_locs() {
                 let tile = self.map.tile(loc).unwrap();
-                obs_tracker.track_observation(loc, tile, self.turn, self.action_count);
+                observations.push(obs_tracker.track_observation(
+                    loc,
+                    tile,
+                    self.turn,
+                    self.action_count,
+                ));
             }
+            observations
         }
     }
 
