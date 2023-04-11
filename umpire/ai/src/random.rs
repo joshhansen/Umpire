@@ -35,7 +35,6 @@ impl RandomAI {
 #[async_trait]
 impl ActionwiseTurnTaker for RandomAI {
     async fn next_action(&mut self, ctrl: &PlayerTurn) -> Option<AiPlayerAction> {
-        let mut stdout = stdout();
 
         if let Some(city_loc) = ctrl.player_production_set_requests().await.iter().next() {
             let valid_productions: Vec<UnitType> =
@@ -103,6 +102,7 @@ impl ActionwiseTurnTaker for RandomAI {
             let x: f64 = self.rng.gen();
 
             if self.fix_output_loc {
+                let mut stdout = stdout();
                 execute!(stdout, MoveTo(60, 3)).unwrap();
             }
 
@@ -148,7 +148,7 @@ mod test {
             player::PlayerControl,
             turn_async::TurnTaker,
             unit::UnitID,
-            Game, IGame,
+            Game,
         },
         name::IntNamer,
         util::{Dims, Location, Wrap2d},
@@ -177,8 +177,9 @@ mod test {
             let mut ctrl = PlayerControl::new(game, 0, secrets[0]).await;
 
             for _ in 0..1000 {
-                let mut turn = ctrl.turn_ctrl();
+                let mut turn = ctrl.turn_ctrl().await;
                 ai.take_turn(&mut turn, false).await;
+                turn.force_end_turn().await.unwrap();
             }
         }
 
@@ -188,30 +189,19 @@ mod test {
             let players = 2;
             let mut city_namer = IntNamer::new("city");
             let map = generate_map(&mut city_namer, Dims::new(5, 5), players);
-            let (game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
-
-            let game = Arc::new(RwLockTokio::new(game));
-
-            let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(players);
-            for player in 0..players {
-                ctrls.push(
-                    PlayerControl::new(
-                        Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
-                        player,
-                        secrets[player],
-                    )
-                    .await,
-                );
-            }
+            let (game, mut ctrls) =
+                Game::setup_with_map(map, players, true, None, Wrap2d::BOTH).await;
 
             for i in 0..300 {
                 for player in 0..=1 {
                     let ctrl = &mut ctrls[player];
 
                     {
-                        let mut turn = ctrl.turn_ctrl();
+                        let mut turn = ctrl.turn_ctrl().await;
 
                         ai.take_turn(&mut turn, false).await;
+
+                        turn.force_end_turn().await.unwrap();
                     }
 
                     let orders_requests: Vec<UnitID> = ctrl.player_unit_orders_requests().await;
@@ -249,36 +239,26 @@ mod test {
 
         let players = 2;
 
-        let (game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
+        let (_game, mut ctrls) = Game::setup_with_map(map, players, true, None, Wrap2d::BOTH).await;
 
-        let game = Arc::new(RwLockTokio::new(game));
+        let mut ai = RandomAI::new(2, false);
 
-        let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(players);
-        for player in 0..players {
-            ctrls.push(
-                PlayerControl::new(
-                    Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
-                    player,
-                    secrets[player],
-                )
-                .await,
-            );
-        }
-
-        let mut ai = RandomAI::new(0, false);
-
-        for _ in 0..1000 {
-            let game = game.clone();
-
-            if game.read().await.current_player() == 0 {
+        for turn in 0..1000 {
+            {
                 let ctrl = &mut ctrls[0];
-                let _turn = ctrl.turn_ctrl();
+                let mut turn = ctrl.turn_ctrl().await;
+
+                turn.force_end_turn().await.unwrap();
                 // drop this to end first player's turn without moving the infantry or transport
-            } else {
+            }
+
+            {
                 let ctrl = &mut ctrls[1];
-                let mut turn = ctrl.turn_ctrl();
+                let mut turn = ctrl.turn_ctrl().await;
 
                 ai.take_turn(&mut turn, false).await;
+
+                turn.force_end_turn().await.unwrap();
             }
         }
     }

@@ -1,18 +1,4 @@
-use std::sync::Arc;
-
-use async_trait::async_trait;
-
-use tokio::sync::RwLock as RwLockTokio;
-
-use super::{
-    action::AiPlayerAction,
-    player::{PlayerControl, PlayerTurn},
-    IGame, PlayerNum, PlayerSecret,
-};
-use crate::{
-    game::{ai::TrainingInstance, Game},
-    util::sparsify,
-};
+use crate::game::ai::TrainingInstance;
 
 /// What's the meta-outcome of a TurnTaker taking a turn?
 pub struct TurnOutcome {

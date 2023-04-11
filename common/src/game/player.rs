@@ -1,13 +1,13 @@
 use std::{borrow::Cow, sync::Arc};
 
 use delegate::delegate;
-use futures;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
     action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, AISpec},
+    error::GameError,
     map::dijkstra::Source,
     move_::Move,
     obs::ObsTracker,
@@ -279,8 +279,8 @@ impl PlayerControl {
         unimplemented!()
     }
 
-    pub fn turn_ctrl(&mut self) -> PlayerTurn {
-        PlayerTurn::new(self)
+    pub async fn turn_ctrl(&mut self) -> PlayerTurn {
+        PlayerTurn::new(self).await
     }
 }
 
@@ -289,16 +289,54 @@ pub struct PlayerTurn<'a> {
     ctrl: &'a mut PlayerControl,
 
     turn_start: TurnStart,
+
+    ended: bool,
 }
 
 impl<'a> PlayerTurn<'a> {
-    pub fn new(ctrl: &'a mut PlayerControl) -> Self {
-        let turn_start = futures::executor::block_on(async { ctrl.begin_turn().await.unwrap() });
-        Self { ctrl, turn_start }
+    pub async fn new(ctrl: &'a mut PlayerControl) -> PlayerTurn<'a> {
+        let turn_start = ctrl.begin_turn().await.unwrap();
+        Self {
+            ctrl,
+            turn_start,
+            ended: false,
+        }
     }
 
     pub fn start(&self) -> &TurnStart {
         &self.turn_start
+    }
+
+    pub async fn end_turn(&mut self) -> UmpireResult<()> {
+        if self.ended {
+            return Err(GameError::NotPlayersTurn {
+                player: self.ctrl.player,
+            });
+        }
+
+        let result = self.ctrl.end_turn().await;
+
+        if result.is_ok() {
+            self.ended = true;
+        }
+
+        result
+    }
+
+    pub async fn force_end_turn(&mut self) -> UmpireResult<()> {
+        if self.ended {
+            return Err(GameError::NotPlayersTurn {
+                player: self.ctrl.player,
+            });
+        }
+
+        let result = self.ctrl.force_end_turn().await;
+
+        if result.is_ok() {
+            self.ended = true;
+        }
+
+        result
     }
 
     delegate! {
@@ -389,14 +427,15 @@ impl<'a> PlayerTurn<'a> {
     }
 }
 
-/// On drop, the turn ends
+/// On drop, we check that the turn was already ended.
 ///
-/// This forces the turn to end regardless of the state of production and orders requests.
+/// Turn ending has to happen asynchronously, so we can't do it on drop.
+/// Instead, we make sure it was done, and panic otherwise.
 impl<'a> Drop for PlayerTurn<'a> {
     fn drop(&mut self) {
-        futures::executor::block_on(async {
-            self.ctrl.force_end_turn().await.unwrap();
-        });
+        if !self.ended {
+            panic!("PlayerTurn wasn't ended at time of drop");
+        }
     }
 }
 
@@ -404,15 +443,13 @@ impl<'a> Drop for PlayerTurn<'a> {
 mod test {
     use std::sync::Arc;
 
-    use crate::game::{
-        error::GameError, player::PlayerControl, test_support::game1, IGame, TurnPhase,
-    };
+    use crate::game::{player::PlayerControl, test_support::game1, IGame};
 
     use tokio::sync::RwLock as RwLockTokio;
 
     #[tokio::test]
     pub async fn test_player_turn() {
-        let (mut game, secrets) = game1();
+        let (game, secrets) = game1();
 
         assert_eq!(game.current_player(), 0);
         assert_eq!(game.turn(), 0);
@@ -434,13 +471,15 @@ mod test {
         {
             let ctrl = &mut ctrls[0];
 
-            let turn = ctrl.turn_ctrl();
+            let mut turn = ctrl.turn_ctrl().await;
 
             assert_eq!(turn.turn().await, 0);
             assert_eq!(turn.current_player().await, 0);
 
             assert_eq!(turn.start().orders_results.len(), 0);
             assert_eq!(turn.start().production_outcomes.len(), 0);
+
+            turn.force_end_turn().await.unwrap();
         }
 
         assert_eq!(game.read().await.turn(), 0);
@@ -449,13 +488,15 @@ mod test {
         {
             let ctrl = &mut ctrls[1];
 
-            let turn = ctrl.turn_ctrl();
+            let mut turn = ctrl.turn_ctrl().await;
 
             assert_eq!(turn.turn().await, 0);
             assert_eq!(turn.current_player().await, 1);
 
             assert_eq!(turn.start().orders_results.len(), 0);
             assert_eq!(turn.start().production_outcomes.len(), 0);
+
+            turn.force_end_turn().await.unwrap();
         }
 
         assert_eq!(game.read().await.turn(), 1);

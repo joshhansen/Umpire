@@ -63,6 +63,9 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
         let player = turn.current_player().await;
         let turn_num = turn.turn().await;
 
+        println!("player: {}", player);
+        println!("turn: {}", turn_num);
+
         loop {
             let (num_features, features, pre_score) = if generate_data {
                 let (num_features, features) = sparsify(turn.player_features().await);
@@ -77,6 +80,8 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
 
             if let Some(action) = self.next_action(turn).await {
                 // If an action was specified...
+
+                println!("Next action: {:?}", action);
 
                 turn.take_simple_action(action).await.unwrap();
 
@@ -98,6 +103,8 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
             if turn.turn_is_done(turn_num).await.unwrap() {
                 break;
             }
+
+            println!("looping");
         }
 
         TurnOutcome {
@@ -110,9 +117,13 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
 #[async_trait]
 impl<T: TurnTaker + Send> TurnTakerDIY for T {
     async fn take_turn(&mut self, player: &mut PlayerControl, generate_data: bool) -> TurnOutcome {
-        let mut turn = player.turn_ctrl();
+        let mut turn = player.turn_ctrl().await;
 
-        <Self as TurnTaker>::take_turn(self, &mut turn, generate_data).await
+        let outcome = <Self as TurnTaker>::take_turn(self, &mut turn, generate_data).await;
+
+        turn.force_end_turn().await.unwrap();
+
+        outcome
     }
 }
 

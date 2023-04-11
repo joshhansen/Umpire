@@ -632,10 +632,7 @@ mod test {
     use tokio::{self, sync::RwLock as RwLockTokio};
 
     use common::{
-        game::{
-            player::{PlayerControl, PlayerTurn},
-            test_support::game1,
-        },
+        game::{player::PlayerControl, test_support::game1},
         util::{Dims, Location, Rect, Vec2d},
     };
 
@@ -690,13 +687,13 @@ mod test {
     async fn _test_viewport_to_map_coords(map_dims: Dims) {
         // pub(in crate::ui) fn new(rect: Rect, map_dims: Dims, palette: Rc<Palette>, unicode: bool) -> Self {
 
-        let (mut game, secrets) = game1();
+        let (game, secrets) = game1();
 
         let game = Arc::new(RwLockTokio::new(game));
 
         let mut ctrl = PlayerControl::new(game, 0, secrets[0]).await;
 
-        let turn = ctrl.turn_ctrl();
+        let mut turn = ctrl.turn_ctrl().await;
 
         let rect = Rect {
             left: 0,
@@ -719,5 +716,7 @@ mod test {
             map.viewport_to_map_coords(&turn, Location::new(0, 0)).await,
             Some(Location::new(5, 6))
         );
+
+        turn.force_end_turn().await.unwrap();
     }
 }

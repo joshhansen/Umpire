@@ -159,15 +159,17 @@ mod test {
 
         let players = 2;
 
-        let (mut game, mut ctrls) =
+        let (_game, mut ctrls) =
             Game::setup_with_map(map, players, false, None, Wrap2d::BOTH).await;
 
         {
             let ctrl = &mut ctrls[0];
 
-            let mut turn = ctrl.turn_ctrl();
+            let mut turn = ctrl.turn_ctrl().await;
 
             turn.order_unit_skip(unit_id).await.unwrap();
+
+            turn.force_end_turn().await.unwrap();
         }
 
         let mut prev_mode = Some(Mode::TurnStart);
@@ -175,11 +177,13 @@ mod test {
 
         {
             let ctrl = &mut ctrls[1];
-            let mut turn = ctrl.turn_ctrl();
+            let mut turn = ctrl.turn_ctrl().await;
 
             turn.order_unit_skip(other_unit_id).await.unwrap();
 
             mode.run(&mut turn, &mut DefaultUI, &mut prev_mode).await;
+
+            turn.force_end_turn().await.unwrap();
         }
     }
 }

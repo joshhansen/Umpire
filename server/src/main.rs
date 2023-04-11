@@ -1007,9 +1007,11 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ai) = ais.get_mut(&ptype) {
                     let ctrl = &mut ai_ctrls[player].as_mut().unwrap();
 
-                    let mut turn = ctrl.turn_ctrl();
+                    let mut turn = ctrl.turn_ctrl().await;
 
                     ai.take_turn(&mut turn, false).await;
+
+                    turn.force_end_turn().await.unwrap();
                 }
             }
         })

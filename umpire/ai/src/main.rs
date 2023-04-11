@@ -410,7 +410,7 @@ async fn main() -> Result<(), String> {
 
                     let ai = ais.get_mut(player).unwrap();
 
-                    let mut turn = ctrl.turn_ctrl();
+                    let mut turn = ctrl.turn_ctrl().await;
                     let mut turn_outcome =
                         ai.borrow_mut().take_turn(&mut turn, generate_data).await;
 
@@ -440,6 +440,8 @@ async fn main() -> Result<(), String> {
                         }
                         println!("Turn: {}", turn.turn().await);
                     }
+
+                    turn.force_end_turn().await.unwrap();
                 }
             }
 
