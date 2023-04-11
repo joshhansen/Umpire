@@ -100,13 +100,14 @@ pub struct PlayerControl {
 }
 
 impl PlayerControl {
+    /// Initialize a new PlayerControl, using the observations in the game instance as a starting point.
     pub async fn new(
         game: Arc<RwLockTokio<dyn IGame>>,
         player: PlayerNum,
         secret: PlayerSecret,
     ) -> Self {
-        let dims = game.read().await.dims().await;
-        Self::from_observations(game, player, secret, ObsTracker::new(dims))
+        let observations = game.read().await.player_observations(secret).await.unwrap();
+        Self::from_observations(game, player, secret, observations)
     }
 
     pub fn from_observations(
