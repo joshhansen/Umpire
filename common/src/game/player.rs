@@ -347,6 +347,10 @@ impl<'a> PlayerTurn<'a> {
         result
     }
 
+    pub fn ended(&self) -> bool {
+        self.ended
+    }
+
     delegate! {
         to self.ctrl {
             // Mutable

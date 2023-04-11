@@ -317,6 +317,7 @@ async fn main() -> Result<(), String> {
                         assert!(turn_outcome.training_instances.is_none());
 
                         if turn_outcome.quit {
+                            turn.force_end_turn().await.unwrap();
                             break;
                         }
                     }
@@ -331,12 +332,14 @@ async fn main() -> Result<(), String> {
 
                         // I guess maybe someday a robot might throw in the towel?
                         if turn_outcome.quit {
+                            turn.force_end_turn().await.unwrap();
                             break;
                         }
                     }
                 }
 
                 turn.force_end_turn().await.unwrap();
+                debug_assert!(turn.ended());
             } else {
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
