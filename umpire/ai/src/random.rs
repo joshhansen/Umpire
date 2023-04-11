@@ -148,7 +148,7 @@ mod test {
             player::PlayerControl,
             turn_async::TurnTaker,
             unit::UnitID,
-            Game,
+            Game, IGame,
         },
         name::IntNamer,
         util::{Dims, Location, Wrap2d},
@@ -170,9 +170,9 @@ mod test {
             )
             .unwrap();
 
-            let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
+            let (game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
-            let mut game = Arc::new(RwLockTokio::new(game));
+            let game = Arc::new(RwLockTokio::new(game));
 
             let mut ctrl = PlayerControl::new(game, 0, secrets[0]).await;
 
@@ -188,22 +188,31 @@ mod test {
             let players = 2;
             let mut city_namer = IntNamer::new("city");
             let map = generate_map(&mut city_namer, Dims::new(5, 5), players);
-            let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
+            let (game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
-            let mut game = Arc::new(RwLockTokio::new(game));
+            let game = Arc::new(RwLockTokio::new(game));
 
             let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(players);
             for player in 0..players {
-                ctrls.push(PlayerControl::new(game, player, secrets[player]).await);
+                ctrls.push(
+                    PlayerControl::new(
+                        Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
+                        player,
+                        secrets[player],
+                    )
+                    .await,
+                );
             }
 
             for i in 0..300 {
                 for player in 0..=1 {
-                    let mut ctrl = &mut ctrls[player];
+                    let ctrl = &mut ctrls[player];
 
-                    let mut turn = ctrl.turn_ctrl();
+                    {
+                        let mut turn = ctrl.turn_ctrl();
 
-                    ai.take_turn(&mut turn, false).await;
+                        ai.take_turn(&mut turn, false).await;
+                    }
 
                     let orders_requests: Vec<UnitID> = ctrl.player_unit_orders_requests().await;
 
@@ -242,21 +251,28 @@ mod test {
 
         let (game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
-        let mut game = Arc::new(RwLockTokio::new(game));
+        let game = Arc::new(RwLockTokio::new(game));
 
         let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(players);
         for player in 0..players {
-            ctrls.push(PlayerControl::new(game, player, secrets[player]).await);
+            ctrls.push(
+                PlayerControl::new(
+                    Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
+                    player,
+                    secrets[player],
+                )
+                .await,
+            );
         }
 
         let mut ai = RandomAI::new(0, false);
 
         for _ in 0..1000 {
-            let mut game = game.clone();
+            let game = game.clone();
 
             if game.read().await.current_player() == 0 {
                 let ctrl = &mut ctrls[0];
-                let turn = ctrl.turn_ctrl();
+                let _turn = ctrl.turn_ctrl();
                 // drop this to end first player's turn without moving the infantry or transport
             } else {
                 let ctrl = &mut ctrls[1];

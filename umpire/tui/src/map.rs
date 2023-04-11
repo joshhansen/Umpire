@@ -18,7 +18,7 @@ use common::{
         city::City,
         map::{LocationGrid, Tile},
         obs::Obs,
-        player::{PlayerControl, PlayerTurn},
+        player::PlayerTurn,
         unit::{orders::Orders, Unit},
     },
     util::{Dims, Location, Rect, Vec2d},
@@ -627,10 +627,15 @@ impl Draw for Map {
 
 #[cfg(test)]
 mod test {
-    use tokio;
+    use std::sync::Arc;
+
+    use tokio::{self, sync::RwLock as RwLockTokio};
 
     use common::{
-        game::test_support::game1,
+        game::{
+            player::{PlayerControl, PlayerTurn},
+            test_support::game1,
+        },
         util::{Dims, Location, Rect, Vec2d},
     };
 
@@ -687,7 +692,11 @@ mod test {
 
         let (mut game, secrets) = game1();
 
-        let (ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
+        let game = Arc::new(RwLockTokio::new(game));
+
+        let mut ctrl = PlayerControl::new(game, 0, secrets[0]).await;
+
+        let turn = ctrl.turn_ctrl();
 
         let rect = Rect {
             left: 0,
@@ -700,14 +709,14 @@ mod test {
         // fn viewport_to_map_coords_by_offset(&self, game: &Game, viewport_loc: Location, offset: Vec2d<u16>) -> Option<Location> {
 
         assert_eq!(
-            map.viewport_to_map_coords(&ctrl, Location::new(0, 0)).await,
+            map.viewport_to_map_coords(&turn, Location::new(0, 0)).await,
             Some(Location::new(0, 0))
         );
 
         map.set_viewport_offset(Vec2d { x: 5, y: 6 });
 
         assert_eq!(
-            map.viewport_to_map_coords(&ctrl, Location::new(0, 0)).await,
+            map.viewport_to_map_coords(&turn, Location::new(0, 0)).await,
             Some(Location::new(5, 6))
         );
     }

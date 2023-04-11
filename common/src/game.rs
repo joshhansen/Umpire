@@ -29,6 +29,7 @@ use std::{
 use rsrl::DerefVec;
 
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock as RwLockTokio;
 use uuid::Uuid;
 
 use crate::{
@@ -66,6 +67,7 @@ use self::{
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError},
     obs::{LocatedObs, LocatedObsLite},
+    player::PlayerControl,
     proposed::Proposed2,
 };
 
@@ -256,6 +258,34 @@ impl Game {
             .collect();
 
         (game, secrets)
+    }
+
+    /// Set up a sharable game instance and return it and controls for each player
+    pub async fn setup_with_map(
+        map: MapData,
+        num_players: PlayerNum,
+        fog_of_war: bool,
+        unit_namer: Option<Arc<RwLock<dyn Namer>>>,
+        wrapping: Wrap2d,
+    ) -> (Arc<RwLockTokio<Self>>, Vec<PlayerControl>) {
+        let (game, secrets) =
+            Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping);
+
+        let game = Arc::new(RwLockTokio::new(game));
+
+        let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(2);
+        for player in 0..2 {
+            ctrls.push(
+                PlayerControl::new(
+                    Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
+                    player,
+                    secrets[player],
+                )
+                .await,
+            );
+        }
+
+        (game, ctrls)
     }
 
     pub fn num_players(&self) -> PlayerNum {

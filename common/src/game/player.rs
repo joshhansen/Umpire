@@ -402,85 +402,63 @@ impl<'a> Drop for PlayerTurn<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::game::{test_support::game1, TurnPhase};
+    use std::sync::Arc;
 
-    use super::GameError;
+    use crate::game::{
+        error::GameError, player::PlayerControl, test_support::game1, IGame, TurnPhase,
+    };
+
+    use tokio::sync::RwLock as RwLockTokio;
 
     #[tokio::test]
-    pub async fn test_player_turn_control() {
+    pub async fn test_player_turn() {
         let (mut game, secrets) = game1();
 
         assert_eq!(game.current_player(), 0);
         assert_eq!(game.turn(), 0);
 
-        {
-            let (ctrl, turn_start) = game.player_turn_control(secrets[0]).unwrap();
+        let game = Arc::new(RwLockTokio::new(game));
 
-            assert_eq!(ctrl.turn().await, 0);
-            assert_eq!(ctrl.current_player().await, 0);
-
-            assert_eq!(turn_start.orders_results.len(), 0);
-            assert_eq!(turn_start.production_outcomes.len(), 0);
-        }
-
-        assert_eq!(game.turn(), 0);
-        assert_eq!(game.current_player(), 1);
-
-        assert_eq!(
-            game.player_turn_control(secrets[0]).unwrap_err(),
-            GameError::NotPlayersTurn { player: 0 }
-        );
-
-        {
-            let (ctrl, turn_start) = game.player_turn_control(secrets[1]).unwrap();
-
-            assert_eq!(ctrl.turn().await, 0);
-            assert_eq!(ctrl.current_player().await, 1);
-
-            assert_eq!(turn_start.orders_results.len(), 0);
-            assert_eq!(turn_start.production_outcomes.len(), 0);
-        }
-
-        assert_eq!(game.turn(), 1);
-        assert_eq!(game.current_player(), 0);
-
-        {
-            let (ctrl, turn_start) = game.player_turn_control_nonending(secrets[0]).unwrap();
-
-            assert_eq!(ctrl.turn().await, 1);
-            assert_eq!(ctrl.current_player().await, 0);
-
-            assert_eq!(turn_start.orders_results.len(), 0);
-            assert_eq!(turn_start.production_outcomes.len(), 0);
-        }
-
-        assert_eq!(game.turn(), 1); // turn wasn't ended
-        assert_eq!(game.current_player(), 0); // still player 0's turn
-
-        {
-            // Try starting the turn again when it's already been started
-            let err = game.player_turn_control_nonending(secrets[0]).unwrap_err();
-            assert_eq!(
-                err,
-                GameError::WrongPhase {
-                    turn: 1,
-                    player: 0,
-                    phase: TurnPhase::Main
-                }
+        let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(2);
+        for player in 0..2 {
+            ctrls.push(
+                PlayerControl::new(
+                    Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
+                    player,
+                    secrets[player],
+                )
+                .await,
             );
         }
 
-        assert_eq!(game.turn(), 1); // turn wasn't ended
-        assert_eq!(game.current_player(), 0); // still player 0's turn
-
         {
-            let ctrl = game.player_turn_control_bare(secrets[0]).unwrap();
+            let ctrl = &mut ctrls[0];
 
-            assert_eq!(ctrl.turn().await, 1);
-            assert_eq!(ctrl.current_player().await, 0);
+            let turn = ctrl.turn_ctrl();
+
+            assert_eq!(turn.turn().await, 0);
+            assert_eq!(turn.current_player().await, 0);
+
+            assert_eq!(turn.start().orders_results.len(), 0);
+            assert_eq!(turn.start().production_outcomes.len(), 0);
         }
 
-        assert_eq!(game.turn(), 1); // turn wasn't ended
-        assert_eq!(game.current_player(), 0); // still player 0's turn
+        assert_eq!(game.read().await.turn(), 0);
+        assert_eq!(game.read().await.current_player(), 1);
+
+        {
+            let ctrl = &mut ctrls[1];
+
+            let turn = ctrl.turn_ctrl();
+
+            assert_eq!(turn.turn().await, 0);
+            assert_eq!(turn.current_player().await, 1);
+
+            assert_eq!(turn.start().orders_results.len(), 0);
+            assert_eq!(turn.start().production_outcomes.len(), 0);
+        }
+
+        assert_eq!(game.read().await.turn(), 1);
+        assert_eq!(game.read().await.current_player(), 0);
     }
 }

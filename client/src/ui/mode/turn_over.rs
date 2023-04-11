@@ -157,22 +157,29 @@ mod test {
             )
             .unwrap();
 
-        let (mut game, secrets) = Game::new_with_map(map, 2, false, None, Wrap2d::BOTH);
+        let players = 2;
+
+        let (mut game, mut ctrls) =
+            Game::setup_with_map(map, players, false, None, Wrap2d::BOTH).await;
 
         {
-            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[0]).unwrap();
-            ctrl.order_unit_skip(unit_id).await.unwrap();
+            let ctrl = &mut ctrls[0];
+
+            let mut turn = ctrl.turn_ctrl();
+
+            turn.order_unit_skip(unit_id).await.unwrap();
         }
 
         let mut prev_mode = Some(Mode::TurnStart);
         let mut mode = Mode::TurnOver;
 
         {
-            let (mut ctrl, _turn_start) = game.player_turn_control(secrets[1]).unwrap();
+            let ctrl = &mut ctrls[1];
+            let mut turn = ctrl.turn_ctrl();
 
-            ctrl.order_unit_skip(other_unit_id).await.unwrap();
+            turn.order_unit_skip(other_unit_id).await.unwrap();
 
-            mode.run(&mut ctrl, &mut DefaultUI, &mut prev_mode).await;
+            mode.run(&mut turn, &mut DefaultUI, &mut prev_mode).await;
         }
     }
 }
