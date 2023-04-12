@@ -35,7 +35,6 @@ impl RandomAI {
 #[async_trait]
 impl ActionwiseTurnTaker for RandomAI {
     async fn next_action(&mut self, ctrl: &PlayerTurn) -> Option<AiPlayerAction> {
-
         if let Some(city_loc) = ctrl.player_production_set_requests().await.iter().next() {
             let valid_productions: Vec<UnitType> =
                 ctrl.valid_productions_conservative(*city_loc).await;
