@@ -21,9 +21,9 @@ use std::{
 use clap::{value_parser, Arg, ArgAction, Command};
 
 use crossterm::{
-    cursor::MoveTo,
+    cursor::{MoveTo, Show},
     execute,
-    terminal::{size, Clear, ClearType},
+    terminal::{size, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
 use tokio::sync::RwLock as RwLockTokio;
@@ -276,6 +276,7 @@ async fn main() -> Result<(), String> {
     let mut stdout = stdout();
 
     if fix_output_loc {
+        execute!(stdout, EnterAlternateScreen).unwrap();
         execute!(stdout, Clear(ClearType::All)).unwrap();
         execute!(stdout, MoveTo(0, term_height - 7)).unwrap();
     }
@@ -350,6 +351,18 @@ async fn main() -> Result<(), String> {
         };
 
         let palette = palette16(num_ais).unwrap();
+
+        let print_results = |victory_counts: &HashMap<Option<PlayerNum>, usize>| {
+            for i in 0..num_ais {
+                let spec = ai_specs[i].spec();
+                println!(
+                    "{} wins: {}",
+                    spec,
+                    victory_counts.get(&Some(i)).unwrap_or(&0)
+                );
+            }
+            println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
+        };
 
         let mut victory_counts: HashMap<Option<PlayerNum>, usize> = HashMap::new();
         for _ in 0..episodes {
@@ -479,16 +492,12 @@ async fn main() -> Result<(), String> {
                 .or_insert(0) += 1;
 
             println!();
-            for i in 0..num_ais {
-                let spec = ai_specs[i].spec();
-                println!(
-                    "{} wins: {}",
-                    spec,
-                    victory_counts.get(&Some(i)).unwrap_or(&0)
-                );
-            }
-            println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
+            print_results(&victory_counts);
         }
+
+        execute!(stdout, LeaveAlternateScreen).unwrap();
+
+        print_results(&victory_counts);
     } else if subcommand == "train" {
         // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
 
@@ -589,6 +598,11 @@ async fn main() -> Result<(), String> {
         })?;
     } else {
         return Err(String::from("A subcommand must be given"));
+    }
+
+    if fix_output_loc {
+        execute!(stdout, LeaveAlternateScreen).unwrap();
+        execute!(stdout, Show).unwrap();
     }
 
     Ok(())
