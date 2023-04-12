@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    net::{IpAddr, Ipv4Addr},
     sync::{Arc, RwLock as RwLockStd},
 };
 
@@ -28,7 +27,11 @@ use common::{
     rpc::UmpireRpc,
     util::{Dims, Direction, Location, Wrap2d},
 };
+
+use anyhow::anyhow;
+use clap::Arg;
 use futures::{future, prelude::*};
+use get_if_addrs::get_if_addrs;
 use serde::{Deserialize, Serialize};
 use tarpc::{
     context::Context,
@@ -885,6 +888,13 @@ async fn main() -> anyhow::Result<()> {
     println!("umpire-server");
 
     let matches = cli::app("umpired", "fwWH")
+        .arg(
+            Arg::new("interface")
+                .short('i')
+                .long("iface")
+                .help("The network interface to bind to")
+                .default_value("eth0"),
+        )
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -952,14 +962,19 @@ async fn main() -> anyhow::Result<()> {
         .collect();
 
     let game = Arc::new(RwLockTokio::new(game));
-    // let secrets = Arc::new(RwLockTokio::new(secrets));
-    // let player_types = Arc::new(RwLock::new(player_types));
 
     let connection_count = Arc::new(RwLockStd::new(0usize));
 
-    // let server_addr = (IpAddr::V6(Ipv6Addr::LOCALHOST), 21131);
+    let iface_name: String = matches.get_one::<String>("interface").cloned().unwrap();
 
-    let server_addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), conf::PORT);
+    let ifaces = get_if_addrs()?;
+
+    let iface = ifaces
+        .iter()
+        .find(|i| i.name == iface_name)
+        .ok_or(anyhow!("Could not bind to interface {}", iface_name))?;
+
+    let server_addr = (iface.addr.ip(), conf::PORT);
 
     // JSON transport is provided by the json_transport tarpc module. It makes it easy
     // to start up a serde-powered json serialization strategy over TCP.

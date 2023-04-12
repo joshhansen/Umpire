@@ -15,3 +15,4 @@ tarpc = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true}
 umpire-ai = { path = "../umpire/ai" }
+get_if_addrs = "0.5.3"
