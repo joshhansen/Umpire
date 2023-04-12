@@ -5,7 +5,7 @@ use std::{
 };
 
 use common::{
-    cli::{self, players_arg},
+    cli::{self, players_arg, Specified},
     conf,
     game::{
         action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
@@ -882,6 +882,8 @@ impl UmpireRpc for UmpireServer {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    println!("umpire-server");
+
     let matches = cli::app("umpired", "fwWH")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
@@ -891,10 +893,17 @@ async fn main() -> anyhow::Result<()> {
 
     let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
 
+    println!("\tFog of war: {}", fog_of_war);
+
     let player_types = matches
         .get_one::<Vec<PlayerType>>("players")
         .unwrap()
         .clone();
+
+    println!(
+        "\tPlayer types: {}",
+        player_types.iter().map(|pt| pt.spec()).collect::<String>()
+    );
 
     let num_players: PlayerNum = player_types.len();
 
@@ -915,6 +924,9 @@ async fn main() -> anyhow::Result<()> {
         panic!("Map dimensions of {} give an area of {} which is not enough room for {} players; area of {} or greater required.",
         map_dims, map_dims.area(), num_players, num_players);
     }
+
+    println!("\tMap dimensions: {}", map_dims);
+    println!("\tWrapping: {:?}", wrapping);
 
     let city_namer = city_namer();
     let unit_namer = unit_namer();
@@ -953,6 +965,9 @@ async fn main() -> anyhow::Result<()> {
     // to start up a serde-powered json serialization strategy over TCP.
 
     let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
+
+    println!("Listening on port {}", listener.local_addr().port());
+
     // tracing::info!("Listening on port {}", listener.local_addr().port());
     listener.config_mut().max_frame_length(usize::MAX);
 
