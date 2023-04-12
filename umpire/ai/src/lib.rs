@@ -280,7 +280,7 @@ impl AI {
                 .unwrap();
             let action = AiPlayerAction::from_idx(action_idx).unwrap();
 
-            action.take(game).await.unwrap();
+            game.take_simple_action(action).await.unwrap();
 
             if generate_data {
                 let post_score = game.player_score().await.unwrap();

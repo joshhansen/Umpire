@@ -13,12 +13,11 @@ use super::{
     ai::POSSIBLE_ACTIONS,
     city::CityID,
     move_::Move,
-    player::PlayerTurn,
     unit::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError, PlayerSecret, TurnStart, UmpireResult,
+    Game, GameError, PlayerSecret, TurnStart,
 };
 
 /// Bare-bones actions, reduced for machine learning purposes
@@ -122,68 +121,6 @@ impl AiPlayerAction {
             .into_iter()
             .position(|a| self == a)
             .unwrap()
-    }
-
-    pub async fn take(self, game: &mut PlayerTurn<'_>) -> UmpireResult<()> {
-        match self {
-            AiPlayerAction::SetNextCityProduction { unit_type } => {
-                let city_loc = game
-                    .player_production_set_requests()
-                    .await
-                    .iter()
-                    .cloned()
-                    .next()
-                    .unwrap();
-                game.set_production_by_loc(city_loc, unit_type)
-                    .await
-                    .map(|_| ())
-            }
-            AiPlayerAction::MoveNextUnit { direction } => {
-                let unit_id = game
-                    .player_unit_orders_requests()
-                    .await
-                    .iter()
-                    .cloned()
-                    .next()
-                    .unwrap();
-                debug_assert!({
-                    let legal: HashSet<Direction> = game
-                        .player_unit_legal_directions(unit_id)
-                        .await?
-                        .iter()
-                        .cloned()
-                        .collect();
-
-                    // println!("legal moves: {}", legal.len());
-
-                    legal.contains(&direction)
-                });
-
-                game.move_unit_by_id_in_direction(unit_id, direction)
-                    .await
-                    .map(|_| ())
-            }
-            AiPlayerAction::DisbandNextUnit => {
-                let unit_id = game
-                    .player_unit_orders_requests()
-                    .await
-                    .iter()
-                    .cloned()
-                    .next()
-                    .unwrap();
-                game.disband_unit_by_id(unit_id).await.map(|_| ())
-            }
-            AiPlayerAction::SkipNextUnit => {
-                let unit_id = game
-                    .player_unit_orders_requests()
-                    .await
-                    .iter()
-                    .cloned()
-                    .next()
-                    .unwrap();
-                game.order_unit_skip(unit_id).await.map(|_| ())
-            }
-        }
     }
 }
 
