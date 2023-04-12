@@ -976,6 +976,8 @@ async fn main() -> anyhow::Result<()> {
 
     let server_addr = (iface.addr.ip(), conf::PORT);
 
+    println!("Binding to {}", server_addr.0);
+
     // JSON transport is provided by the json_transport tarpc module. It makes it easy
     // to start up a serde-powered json serialization strategy over TCP.
 
