@@ -203,14 +203,19 @@ async fn main() -> Result<(), String> {
         let server_addr = lookup_host(format!("{}:{}", server_hostname, conf::PORT))
             .await
             .map_err(|err| format!("Server DNS lookup error: {}", err))?
-            .next()
+            .find(|addr| addr.is_ipv4())
             .ok_or(String::from(
                 "No address returned looking up server domain name",
             ))?;
 
         let transport = tarpc::serde_transport::tcp::connect(server_addr, Bincode::default)
             .await
-            .map_err(|err| format!("Error connecting to server {}: {}", server_hostname, err))?;
+            .map_err(|err| {
+                format!(
+                    "Error connecting to server {} at address {}: {}",
+                    server_hostname, server_addr, err
+                )
+            })?;
 
         // let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
 
