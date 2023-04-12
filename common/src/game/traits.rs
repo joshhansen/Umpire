@@ -478,17 +478,6 @@ pub trait IGame: Send + Sync {
         action: PlayerAction,
     ) -> ProposedActionResult;
 
-    // async fn current_player_production_set_requests(&self) -> Vec<Location>;
-
-    // async fn current_player_valid_productions_conservative(&self, loc: Location) -> Vec<UnitType>;
-
-    // async fn current_player_unit_orders_requests(&self) -> Vec<UnitID>;
-
-    // async fn current_player_unit_legal_directions(
-    //     &self,
-    //     unit_id: UnitID,
-    // ) -> UmpireResult<Vec<Direction>>;
-
     /// This is an escape hatch for AI training; do NOT expose this via UmpireRpcClient
     fn clone_underlying_game_state(&self) -> Result<Game, String>;
 }
