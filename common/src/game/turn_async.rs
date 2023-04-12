@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
-    action::AiPlayerAction,
+    action::{AiPlayerAction, NextCityAction, NextUnitAction},
     ai::TrainingInstance,
     player::{PlayerControl, PlayerTurn},
     turn::TurnOutcome,
@@ -102,6 +102,27 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
         TurnOutcome {
             training_instances,
             quit: false, // Only robots are using this trait and they never quit the game
+        }
+    }
+}
+
+/// Like ActionwiseTurnTaker, but determines city and unit actions separately
+#[async_trait]
+pub trait ActionwiseTurnTaker2 {
+    async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction>;
+
+    async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction>;
+}
+
+#[async_trait]
+impl<T: ActionwiseTurnTaker2 + Send> ActionwiseTurnTaker for T {
+    async fn next_action(&mut self, turn: &PlayerTurn) -> Option<AiPlayerAction> {
+        if let Some(city_action) = self.next_city_action(turn).await {
+            Some(city_action.into())
+        } else if let Some(unit_action) = self.next_unit_action(turn).await {
+            Some(unit_action.into())
+        } else {
+            None
         }
     }
 }

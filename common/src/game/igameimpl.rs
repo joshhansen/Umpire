@@ -7,7 +7,6 @@ use async_trait::async_trait;
 
 use crate::{
     game::{
-        action::AiPlayerAction,
         city::{City, CityID},
         error::GameError,
         map::Tile,
@@ -21,7 +20,10 @@ use crate::{
 };
 
 use super::{
-    action::{PlayerAction, PlayerActionOutcome},
+    action::{
+        Actionable, AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction,
+        PlayerActionOutcome,
+    },
     ai::fX,
     move_::Move,
     obs::LocatedObsLite,
@@ -534,7 +536,26 @@ impl IGame for Game {
         player_secret: PlayerSecret,
         action: AiPlayerAction,
     ) -> UmpireResult<PlayerActionOutcome> {
-        self.take_simple_action(player_secret, action)
+        let action = action.to_action(self, player_secret)?;
+        self.take_action(player_secret, action)
+    }
+
+    async fn take_next_city_action(
+        &mut self,
+        player_secret: PlayerSecret,
+        action: NextCityAction,
+    ) -> UmpireResult<PlayerActionOutcome> {
+        let action = action.to_action(self, player_secret)?;
+        self.take_action(player_secret, action)
+    }
+
+    async fn take_next_unit_action(
+        &mut self,
+        player_secret: PlayerSecret,
+        action: NextUnitAction,
+    ) -> UmpireResult<PlayerActionOutcome> {
+        let action = action.to_action(self, player_secret)?;
+        self.take_action(player_secret, action)
     }
 
     async fn take_action(

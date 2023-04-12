@@ -34,7 +34,6 @@ use uuid::Uuid;
 
 use crate::{
     game::{
-        action::AiPlayerAction,
         alignment::Alignment,
         city::{City, CityID},
         combat::CombatCapable,
@@ -62,7 +61,7 @@ use crate::{
 pub use self::player::{PlayerNum, PlayerType};
 
 use self::{
-    action::{PlayerAction, PlayerActionOutcome},
+    action::{Actionable, PlayerAction, PlayerActionOutcome},
     ai::{fX, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError},
@@ -2187,64 +2186,14 @@ impl Game {
             .collect()
     }
 
-    pub fn take_simple_action(
+    pub fn take_action<A: Actionable>(
         &mut self,
         player_secret: PlayerSecret,
-        action: AiPlayerAction,
+        action: A,
     ) -> UmpireResult<PlayerActionOutcome> {
-        self.take_action(
-            player_secret,
-            match action {
-                AiPlayerAction::SetNextCityProduction { unit_type } => {
-                    let city_loc = self
-                        .current_player_production_set_requests()
-                        .next()
-                        .unwrap();
-                    let city_id = self
-                        .player_city_by_loc(player_secret, city_loc)?
-                        .unwrap()
-                        .id;
-                    PlayerAction::SetCityProduction {
-                        city_id,
-                        production: unit_type,
-                    }
-                }
-                AiPlayerAction::MoveNextUnit { direction } => {
-                    let unit_id = self.current_player_unit_orders_requests().next().unwrap();
-                    debug_assert!({
-                        let legal: HashSet<Direction> = self
-                            .current_player_unit_legal_directions(unit_id)
-                            .unwrap()
-                            .collect();
-
-                        // println!("legal moves: {}", legal.len());
-
-                        legal.contains(&direction)
-                    });
-
-                    PlayerAction::MoveUnitInDirection { unit_id, direction }
-                }
-                AiPlayerAction::DisbandNextUnit => {
-                    let unit_id = self.current_player_unit_orders_requests().next().unwrap();
-                    PlayerAction::DisbandUnit { unit_id }
-                }
-                AiPlayerAction::SkipNextUnit => {
-                    let unit_id = self.current_player_unit_orders_requests().next().unwrap();
-                    PlayerAction::OrderUnit {
-                        unit_id,
-                        orders: Orders::Skip,
-                    }
-                }
-            },
-        )
-    }
-
-    pub fn take_action(
-        &mut self,
-        player_secret: PlayerSecret,
-        action: PlayerAction,
-    ) -> Result<PlayerActionOutcome, GameError> {
-        action.take(self, player_secret)
+        action
+            .to_action(self, player_secret)?
+            .take(self, player_secret)
     }
 
     pub fn propose_action(

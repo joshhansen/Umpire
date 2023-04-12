@@ -263,7 +263,7 @@ impl UmpireDomain {
 
         let player_secret = self.player_secrets[player];
 
-        self.game.take_simple_action(player_secret, action).unwrap();
+        self.game.take_action(player_secret, action).unwrap();
 
         if self.verbosity > 1 {
             let loc = if let Some(unit_id) = self

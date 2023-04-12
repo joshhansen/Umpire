@@ -17,8 +17,14 @@ use super::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError, PlayerSecret, TurnStart,
+    Game, GameError, PlayerSecret, TurnStart, UmpireResult,
 };
+
+/// Something that can be converted into a PlayerAction
+/// Like Into<PlayerAction> but with extra context
+pub trait Actionable {
+    fn to_action(&self, game: &mut Game, secret: PlayerSecret) -> UmpireResult<PlayerAction>;
+}
 
 /// Bare-bones actions, reduced for machine learning purposes
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -124,6 +130,127 @@ impl AiPlayerAction {
     }
 }
 
+impl Actionable for AiPlayerAction {
+    fn to_action(&self, game: &mut Game, secret: PlayerSecret) -> UmpireResult<PlayerAction> {
+        Ok(match self {
+            AiPlayerAction::SetNextCityProduction { unit_type } => {
+                let city_loc = game.player_production_set_requests(secret)?.next().unwrap();
+
+                let city_id = game.player_city_by_loc(secret, city_loc)?.unwrap().id;
+
+                PlayerAction::SetCityProduction {
+                    city_id,
+                    production: *unit_type,
+                }
+            }
+            AiPlayerAction::MoveNextUnit { direction } => {
+                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+
+                debug_assert!({
+                    let legal: HashSet<Direction> = game
+                        .player_unit_legal_directions(secret, unit_id)?
+                        .collect();
+
+                    legal.contains(&direction)
+                });
+
+                PlayerAction::MoveUnitInDirection {
+                    unit_id,
+                    direction: *direction,
+                }
+            }
+            AiPlayerAction::DisbandNextUnit => {
+                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+                PlayerAction::DisbandUnit { unit_id }
+            }
+            AiPlayerAction::SkipNextUnit => {
+                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+                PlayerAction::SkipUnit { unit_id }
+            }
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum NextCityAction {
+    SetProduction { unit_type: UnitType },
+}
+
+impl Actionable for NextCityAction {
+    fn to_action(&self, game: &mut Game, secret: PlayerSecret) -> UmpireResult<PlayerAction> {
+        let next_city_loc = game.player_production_set_requests(secret)?.next().unwrap();
+        let next_city_id = game.player_city_by_loc(secret, next_city_loc)?.unwrap().id;
+        Ok(match self {
+            Self::SetProduction { unit_type } => PlayerAction::SetCityProduction {
+                city_id: next_city_id,
+                production: *unit_type,
+            },
+        })
+    }
+}
+
+impl Into<AiPlayerAction> for NextCityAction {
+    fn into(self) -> AiPlayerAction {
+        match self {
+            Self::SetProduction { unit_type } => {
+                AiPlayerAction::SetNextCityProduction { unit_type }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum NextUnitAction {
+    Move { direction: Direction },
+    Disband,
+    Skip,
+}
+
+impl Actionable for NextUnitAction {
+    fn to_action(&self, game: &mut Game, secret: PlayerSecret) -> UmpireResult<PlayerAction> {
+        Ok(match self {
+            Self::Move { direction } => {
+                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+                debug_assert!({
+                    let legal: HashSet<Direction> = game
+                        .player_unit_legal_directions(secret, unit_id)?
+                        .collect();
+
+                    // println!("legal moves: {}", legal.len());
+
+                    legal.contains(&direction)
+                });
+
+                PlayerAction::MoveUnitInDirection {
+                    unit_id,
+                    direction: *direction,
+                }
+            }
+            Self::Disband => {
+                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+                PlayerAction::DisbandUnit { unit_id }
+            }
+            Self::Skip => {
+                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+                PlayerAction::OrderUnit {
+                    unit_id,
+                    orders: Orders::Skip,
+                }
+            }
+        })
+    }
+}
+
+impl Into<AiPlayerAction> for NextUnitAction {
+    fn into(self) -> AiPlayerAction {
+        match self {
+            Self::Move { direction } => AiPlayerAction::MoveNextUnit { direction },
+            Self::Disband => AiPlayerAction::DisbandNextUnit,
+            Self::Skip => AiPlayerAction::SkipNextUnit,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum PlayerAction {
     BeginTurn,
@@ -147,6 +274,15 @@ pub enum PlayerAction {
         unit_id: UnitID,
         orders: Orders,
     },
+    SkipUnit {
+        unit_id: UnitID,
+    },
+}
+
+impl Actionable for PlayerAction {
+    fn to_action(&self, _game: &mut Game, _secret: PlayerSecret) -> UmpireResult<PlayerAction> {
+        Ok(*self)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -170,6 +306,10 @@ pub enum PlayerActionOutcome {
     OrderUnit {
         unit_id: UnitID,
         orders: Orders,
+        orders_outcome: OrdersOutcome,
+    },
+    UnitSkipped {
+        unit_id: UnitID,
         orders_outcome: OrdersOutcome,
     },
 }
@@ -227,6 +367,13 @@ impl PlayerAction {
                     orders,
                     orders_outcome,
                 }),
+            Self::SkipUnit { unit_id } => {
+                game.order_unit_skip(player_secret, unit_id)
+                    .map(|orders_outcome| PlayerActionOutcome::UnitSkipped {
+                        unit_id,
+                        orders_outcome,
+                    })
+            }
         }
     }
 }
