@@ -22,6 +22,7 @@ use crate::{
 
 use super::{
     action::{PlayerAction, PlayerActionOutcome},
+    ai::fX,
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
@@ -452,6 +453,8 @@ pub trait IGame: Send + Sync {
     ) -> OrdersResult;
 
     async fn current_player_score(&self) -> f64;
+
+    async fn player_features(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>>;
 
     async fn player_score(&self, player_secret: PlayerSecret) -> UmpireResult<f64>;
 

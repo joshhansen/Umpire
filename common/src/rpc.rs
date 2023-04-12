@@ -856,6 +856,10 @@ impl IGame for RpcGame {
         self.game.wrapping(context::current()).await.unwrap()
     }
 
+    async fn player_features(&self, _player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
+        unimplemented!();
+    }
+
     async fn valid_productions(
         &self,
         player_secret: PlayerSecret,

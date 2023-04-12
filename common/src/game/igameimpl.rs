@@ -22,6 +22,7 @@ use crate::{
 
 use super::{
     action::{PlayerAction, PlayerActionOutcome},
+    ai::fX,
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
@@ -522,6 +523,10 @@ impl IGame for Game {
 
     async fn player_scores(&self) -> Vec<f64> {
         self.player_scores()
+    }
+
+    async fn player_features(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
+        self.player_features(player_secret)
     }
 
     async fn take_simple_action(

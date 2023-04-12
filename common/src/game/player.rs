@@ -288,13 +288,15 @@ impl PlayerControl {
         }
     }
 
-    /// FIXME Implement ML feature vector generation
     /// Possibly split unit-relevant from city-relevant features
     /// FIXME Maintain this vector in the client, incrementally
     pub async fn player_features(&self) -> Vec<fX> {
-        // player_features(self.game, self.secret).unwrap()
-        // Vec::new()
-        unimplemented!()
+        self.game
+            .read()
+            .await
+            .player_features(self.secret)
+            .await
+            .unwrap()
     }
 
     pub async fn turn_ctrl(&mut self) -> PlayerTurn {
