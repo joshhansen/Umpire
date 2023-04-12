@@ -17,7 +17,7 @@ use std::{
 
 use async_trait::async_trait;
 use crossterm::{
-    cursor::{Hide, MoveTo},
+    cursor::{Hide, MoveTo, Show},
     event::{read as read_event, Event, KeyCode, KeyEvent},
     queue,
     style::{Attribute, Print, SetAttribute, SetBackgroundColor},
@@ -1135,6 +1135,7 @@ impl Drop for TermUI {
     fn drop(&mut self) {
         if self.use_alt_screen {
             queue!(self.stdout, LeaveAlternateScreen).unwrap();
+            queue!(self.stdout, Show).unwrap();
         }
 
         if let Some(ref tx) = self.audio_thread_tx {
