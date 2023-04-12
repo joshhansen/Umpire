@@ -51,7 +51,7 @@ fn parse_ai_spec<S: AsRef<str>>(spec: S) -> Result<Vec<AISpec>, String> {
     parse_spec(spec, "AI")
 }
 
-fn parse_ai_specs(specs: &Vec<&str>) -> Result<Vec<AISpec>, String> {
+fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
     let mut ai_specs: Vec<AISpec> = Vec::new();
     for ai_spec_s in specs {
         let sub_specs = parse_ai_spec(ai_spec_s)?;
@@ -306,15 +306,15 @@ async fn main() -> Result<(), String> {
         let map_width = dims[0].width;
         let map_height = dims[0].height;
 
-        let ai_specs_s: Vec<&str> = sub_matches
-            .get_many::<&str>("ai_models")
+        let ai_specs_s: Vec<String> = sub_matches
+            .get_many::<String>("ai_models")
             .unwrap()
             .cloned()
             .collect();
         let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
         let mut ais: Vec<Rc<RefCell<AI>>> = load_ais(&ai_specs)?;
 
-        let datagenpath = sub_matches.get_one::<&str>("datagenpath").map(Path::new);
+        let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
             println!("Generating data to path: {}", datagenpath.display());
 
@@ -485,7 +485,7 @@ async fn main() -> Result<(), String> {
 
             println!();
             for i in 0..num_ais {
-                let spec = ai_specs_s[i];
+                let spec = &ai_specs_s[i];
                 println!(
                     "{} wins: {}",
                     spec,
