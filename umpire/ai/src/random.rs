@@ -243,7 +243,7 @@ mod test {
 
         let mut ai = RandomAI::new(2, false);
 
-        for turn in 0..1000 {
+        for _turn in 0..1000 {
             {
                 let ctrl = &mut ctrls[0];
                 let mut turn = ctrl.turn_ctrl().await;
