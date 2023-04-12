@@ -63,9 +63,6 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
         let player = turn.current_player().await;
         let turn_num = turn.turn().await;
 
-        println!("player: {}", player);
-        println!("turn: {}", turn_num);
-
         loop {
             let (num_features, features, pre_score) = if generate_data {
                 let (num_features, features) = sparsify(turn.player_features().await);
@@ -80,9 +77,6 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
 
             if let Some(action) = self.next_action(turn).await {
                 // If an action was specified...
-
-                println!("Next action: {:?}", action);
-
                 turn.take_simple_action(action).await.unwrap();
 
                 if generate_data {
@@ -103,8 +97,6 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
             if turn.turn_is_done(turn_num).await.unwrap() {
                 break;
             }
-
-            println!("looping");
         }
 
         TurnOutcome {
