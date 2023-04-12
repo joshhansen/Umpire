@@ -1,0 +1,32 @@
+[Unit]
+Description=umpired
+After=network.target
+#Requires=umpired.socket
+
+[Service]
+Type=simple
+User=umpire
+WorkingDirectory=/home/umpire
+ExecStart=/home/umpire/umpire-server --players hh123
+KillSignal=SIGINT
+TimeoutStopSec=30
+#Restart=always
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
+
