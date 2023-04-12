@@ -7,8 +7,11 @@ use std::{
     fs::{File, OpenOptions},
     io::{stdout, Write},
     path::Path,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
+
+#[cfg(feature = "pytorch")]
+use std::sync::Mutex;
 
 use crossterm::{
     cursor::MoveTo,
@@ -53,7 +56,10 @@ use umpire_tui::{
     Component, Draw,
 };
 
-use super::{dnn::DNN, AI};
+#[cfg(feature = "pytorch")]
+use super::dnn::DNN;
+
+use super::AI;
 
 pub type Basis = Constant;
 // pub type Basis = Polynomial;
@@ -668,15 +674,21 @@ fn agent(
     epsilon_decay: f64,
     decay_prob: f64,
     min_epsilon: f64,
-    dnn_learning_rate: f32,
+    _dnn_learning_rate: f32,
     avoid_skip: bool,
 ) -> Result<Agent, String> {
     let n_actions = AiPlayerAction::possible_actions().len();
 
+    #[cfg(not(feature = "pytorch"))]
+    if deep {
+        panic!("Can't train deep model without \"pytorch\" feature enabled");
+    }
+
     let q_func = match initialize_from {
         AI::Random(_) => {
+            #[cfg(feature = "pytorch")]
             let fa_ai = if deep {
-                AI::DNN(Mutex::new(DNN::new(dnn_learning_rate)?))
+                AI::DNN(Mutex::new(DNN::new(_dnn_learning_rate)?))
             } else {
                 // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
                 let basis = Constant::new(5.0);
@@ -684,6 +696,16 @@ fn agent(
                 let fa = LFA::vector(basis, SGD(0.001), n_actions);
                 AI::LFA(fa)
             };
+
+            #[cfg(not(feature = "pytorch"))]
+            let fa_ai = {
+                // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
+                let basis = Constant::new(5.0);
+                // let basis = Polynomial::new(2, 1);
+                let fa = LFA::vector(basis, SGD(0.001), n_actions);
+                AI::LFA(fa)
+            };
+
             fa_ai
         }
         other => other,

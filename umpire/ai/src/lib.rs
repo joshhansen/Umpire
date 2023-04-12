@@ -1,4 +1,10 @@
-use std::{fmt, fs::File, io::Write, ops::Deref, path::Path, sync::Mutex};
+use std::{fmt, fs::File, io::Write, path::Path};
+
+#[cfg(feature = "pytorch")]
+use std::sync::Mutex;
+
+#[cfg(feature = "pytorch")]
+use std::ops::Deref;
 
 use async_trait::async_trait;
 
@@ -27,16 +33,20 @@ pub trait Storable {
 }
 
 // Sub-modules
+#[cfg(feature = "pytorch")]
 pub mod dnn;
 mod random;
 pub mod rl;
 
+#[cfg(feature = "pytorch")]
 use dnn::DNN;
+
 use rl::LFA_;
 
 pub enum AI {
     Random(RandomAI),
     LFA(LFA_),
+    #[cfg(feature = "pytorch")]
     DNN(Mutex<DNN>),
 }
 
@@ -54,6 +64,7 @@ impl fmt::Debug for AI {
             match self {
                 Self::Random(_) => "random",
                 Self::LFA(_) => "lfa",
+                #[cfg(feature = "pytorch")]
                 Self::DNN(_) => "dnn",
             }
         )
@@ -70,6 +81,7 @@ impl StateActionFunction<Game, usize> for AI {
                 rng.gen()
             }
             Self::LFA(fa) => fa.evaluate(state, action),
+            #[cfg(feature = "pytorch")]
             Self::DNN(fa) => fa.lock().unwrap().evaluate(state, action),
         }
     }
@@ -95,6 +107,7 @@ impl StateActionFunction<Game, usize> for AI {
                 raw_error,
                 learning_rate,
             ),
+            #[cfg(feature = "pytorch")]
             Self::DNN(fa) => fa.lock().unwrap().update_with_error(
                 state,
                 action,
@@ -182,14 +195,15 @@ impl Loadable for AI {
             ));
         }
 
+        #[cfg(feature = "pytorch")]
         if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("deep")) {
-            DNN::load(path).map(|dnn| Self::DNN(Mutex::new(dnn)))
-        } else {
-            let f = File::open(path).unwrap(); //NOTE unwrap on file open
-            let result: Result<LFA_, String> =
-                bincode::deserialize_from(f).map_err(|err| format!("{}", err));
-            result.map(Self::LFA)
+            return DNN::load(path).map(|dnn| Self::DNN(Mutex::new(dnn)));
         }
+
+        let f = File::open(path).unwrap(); //NOTE unwrap on file open
+        let result: Result<LFA_, String> =
+            bincode::deserialize_from(f).map_err(|err| format!("{}", err));
+        result.map(Self::LFA)
     }
 }
 
@@ -208,6 +222,7 @@ impl Storable for AI {
 
                 file.write_all(&data).map_err(|err| format!("Couldn't write to {}: {}", display, err))
             },
+            #[cfg(feature = "pytorch")]
             Self::DNN(fa) => fa.into_inner().unwrap().store(path)
         }
     }
@@ -218,6 +233,7 @@ impl AI {
         match self {
             Self::Random(_ai) => Err(String::from("Call RandomAI::take_turn etc. directly")),
             Self::LFA(fa) => Ok(find_legal_max(fa, game, true).0),
+            #[cfg(feature = "pytorch")]
             Self::DNN(fa) => {
                 let action = find_legal_max(fa.lock().unwrap().deref(), game, false).0;
                 // println!("ACTION: {:?}", UmpireAction::from_idx(action));
@@ -294,6 +310,7 @@ impl TurnTakerAsync for AI {
         match self {
             Self::Random(ai) => ai.take_turn(turn, generate_data).await,
             Self::LFA(_fa) => self._take_turn_unended(turn, generate_data).await,
+            #[cfg(feature = "pytorch")]
             Self::DNN(_fa) => self._take_turn_unended(turn, generate_data).await,
         }
     }

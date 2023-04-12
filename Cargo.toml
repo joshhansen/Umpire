@@ -50,6 +50,9 @@ travis-ci = { repository = "joshhansen/Umpire" }
 [dev-dependencies]
 criterion = "0.3.1"
 
+[features]
+pytorch = []
+
 [[bench]]
 name = "ai_train"
 harness = false
