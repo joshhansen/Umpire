@@ -29,7 +29,7 @@ use crossterm::{
 use tokio::sync::RwLock as RwLockTokio;
 
 use common::{
-    cli::{self, parse_spec},
+    cli::{self, parse_ai_spec, Specified},
     conf,
     game::{
         ai::{AISpec, TrainingInstance},
@@ -46,10 +46,6 @@ use rand::{prelude::SliceRandom, thread_rng};
 
 use umpire_ai::{rl::trained_agent, Storable, AI};
 use umpire_tui::{color::palette16, map::Map, Draw};
-
-fn parse_ai_spec<S: AsRef<str>>(spec: S) -> Result<Vec<AISpec>, String> {
-    parse_spec(spec, "AI")
-}
 
 fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
     let mut ai_specs: Vec<AISpec> = Vec::new();
@@ -438,7 +434,6 @@ async fn main() -> Result<(), String> {
                             //FIXME Debug output
                             // println!("{:?}", game);
                         }
-                        println!("Turn: {}", turn.turn().await);
                     }
 
                     turn.force_end_turn().await.unwrap();
@@ -485,7 +480,7 @@ async fn main() -> Result<(), String> {
 
             println!();
             for i in 0..num_ais {
-                let spec = &ai_specs_s[i];
+                let spec = ai_specs[i].spec();
                 println!(
                     "{} wins: {}",
                     spec,

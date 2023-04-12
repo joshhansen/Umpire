@@ -2,7 +2,7 @@ use clap::{builder::Str, value_parser, Arg, ArgAction, Command};
 
 use crate::{
     conf::{FOG_OF_WAR, MAP_HEIGHT, MAP_WIDTH},
-    game::player::PlayerType,
+    game::{ai::AISpec, player::PlayerType},
     util::Wrap2d,
 };
 
@@ -131,4 +131,27 @@ pub fn parse_spec<S1: AsRef<str>, S2: AsRef<str>, T: Specified>(
 /// * hr123,ai/model.ai,ai/tf_model
 pub fn parse_player_spec<S: AsRef<str>>(spec: S) -> Result<Vec<PlayerType>, String> {
     parse_spec(spec, "player")
+}
+
+pub fn parse_ai_spec<S: AsRef<str>>(spec: S) -> Result<Vec<AISpec>, String> {
+    parse_spec(spec, "AI")
+}
+
+#[cfg(test)]
+mod test {
+    use super::parse_ai_spec;
+    use crate::game::ai::AISpec;
+
+    #[test]
+    fn test_parse_ai_spec() {
+        assert_eq!(
+            parse_ai_spec("rr"),
+            Ok(vec![AISpec::Random, AISpec::Random])
+        );
+
+        assert_eq!(
+            parse_ai_spec("r,r"),
+            Ok(vec![AISpec::Random, AISpec::Random])
+        );
+    }
 }
