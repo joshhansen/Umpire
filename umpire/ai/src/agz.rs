@@ -7,6 +7,7 @@ use std::{fs::OpenOptions, io::Cursor};
 
 use async_trait::async_trait;
 
+use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use tch::{Device, Tensor};
 
@@ -70,8 +71,13 @@ impl AgzActionModel {
         })
     }
 
-    pub fn train(&mut self, data: &Vec<AgzDatum>) {
+    pub fn train(&mut self, data: &Vec<AgzDatum>, sample_prob: f64) {
+        let mut rand = thread_rng();
         for datum in data {
+            if rand.gen::<f64>() > sample_prob {
+                continue;
+            }
+
             let target = datum.outcome.to_training_target();
 
             if let Ok(city_action) = NextCityAction::try_from(datum.action) {

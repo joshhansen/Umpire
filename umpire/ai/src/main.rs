@@ -686,9 +686,11 @@ async fn main() -> Result<(), String> {
 
             let mut agz = AgzActionModel::new(device, learning_rate)?;
 
+            let sample_prob = 0.2;
+
             for i in 0..episodes {
                 println!("Iteration {}", i);
-                agz.train(&input);
+                agz.train(&input, sample_prob);
             }
 
             let output_path = Path::new(output_path.as_str());
