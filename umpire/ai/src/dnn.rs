@@ -142,9 +142,9 @@ impl DNN {
         })
     }
 
-    pub fn train(&mut self, features: Tensor, action: &usize, value: f64) {
+    pub fn train(&mut self, features: &Tensor, action: &usize, value: f64) {
         let actual_estimate: Tensor =
-            self.forward_t(&features, true)
+            self.forward_t(features, true)
                 .slice(0, *action as i64, *action as i64 + 1, 1);
 
         let two: Tensor = Tensor::from(2.0f64);
@@ -182,7 +182,7 @@ impl StateActionFunction<Game, usize> for DNN {
     ) {
         let features = self.tensor_for(state);
 
-        self.train(features, action, value)
+        self.train(&features, action, value)
     }
 }
 

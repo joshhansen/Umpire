@@ -27,10 +27,13 @@ use crossterm::{
 };
 
 #[cfg(feature = "pytorch")]
-use tch::Device;
+use tch::{Device, Tensor};
 
 #[cfg(feature = "pytorch")]
-use umpire_ai::agz::AgzActionModel;
+use umpire_ai::agz::{AgzActionModel, AgzDatum};
+
+#[cfg(feature = "pytorch")]
+use common::util::densify;
 
 use tokio::sync::RwLock as RwLockTokio;
 
@@ -651,19 +654,34 @@ async fn main() -> Result<(), String> {
 
         #[cfg(feature = "pytorch")]
         {
-            let input: Vec<TrainingInstance> = input_paths
+            let device = Device::cuda_if_available();
+
+            println!("PyTorch Device: {:?}", device);
+
+            //FIXME Load these using Tensors so as to utilize VRAM
+            let input: Vec<AgzDatum> = input_paths
                 .into_iter()
                 .flat_map(|input_path| {
                     let r = File::open(input_path).unwrap();
 
                     let data: Vec<TrainingInstance> = bincode::deserialize_from(r).unwrap();
-                    data
+                    data.into_iter().map(|datum| {
+                        let features = densify(datum.num_features, &datum.features);
+
+                        let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
+
+                        let features = Tensor::try_from(features).unwrap().to_device(device);
+
+                        AgzDatum {
+                            features,
+                            action: datum.action,
+                            outcome: datum.outcome.unwrap(),
+                        }
+                    })
                 })
                 .collect();
 
             println!("Loaded {} instances", input.len());
-
-            let device = Device::cuda_if_available();
 
             let mut agz = AgzActionModel::new(device, learning_rate)?;
 
