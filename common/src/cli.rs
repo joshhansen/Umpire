@@ -85,7 +85,7 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .short('D')
                 .long("dnnlr")
                 .help("The learning rate of the neural network (if any)")
-                .value_parser(value_parser!(f32))
+                .value_parser(value_parser!(f64))
                 .default_value("10e-3"),
 
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)

@@ -35,24 +35,34 @@ pub const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
 pub const DEEP_FEATS: i64 = 4;
 pub const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum TrainingOutcome {
     Victory,
     Defeat,
     Inconclusive,
 }
 
+impl TrainingOutcome {
+    pub fn to_training_target(self) -> f64 {
+        match self {
+            Self::Victory => 1.0,
+            Self::Inconclusive => 0.0,
+            Self::Defeat => -1.0,
+        }
+    }
+}
+
 /// An instance in which an action was taken in a game state and a reward was achieved; annotated with whether the
 /// player later went on to victory, defeat, or an inconclusive outcome
 #[derive(Serialize, Deserialize)]
 pub struct TrainingInstance {
-    player: PlayerNum, // the player that took the action
-    num_features: usize,
-    features: HashMap<usize, f64>,
-    pre_score: f64,             // the player's score prior to the action
+    pub player: PlayerNum, // the player that took the action
+    pub num_features: usize,
+    pub features: HashMap<usize, f64>,
+    pub pre_score: f64,         // the player's score prior to the action
     pub action: AiPlayerAction, // the action taken
-    post_score: f64,            // the player's score after the action
-    outcome: Option<TrainingOutcome>, // how did things work out for the player?
+    pub post_score: f64,        // the player's score after the action
+    pub outcome: Option<TrainingOutcome>, // how did things work out for the player?
                                 // set as None until the outcome is determined
 }
 impl TrainingInstance {

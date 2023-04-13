@@ -641,6 +641,14 @@ pub fn sparsify(v: Vec<f64>) -> (usize, HashMap<usize, f64>) {
     (num_features, features)
 }
 
+pub fn densify(len: usize, features: &HashMap<usize, f64>) -> Vec<f64> {
+    let mut x = Vec::with_capacity(len);
+    for i in 0..len {
+        x.push(*features.get(&i).unwrap_or(&0f64));
+    }
+    x
+}
+
 #[cfg(test)]
 mod test {
     use crate::game::map::dijkstra::RELATIVE_NEIGHBORS;

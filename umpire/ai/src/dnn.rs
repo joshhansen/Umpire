@@ -70,9 +70,7 @@ impl DNN {
             .to_device(Device::cuda_if_available())
     }
 
-    pub fn new(learning_rate: f32, possible_actions: i64) -> Result<Self, String> {
-        let device = Device::cuda_if_available();
-        println!("Device: {:?}", device);
+    pub fn new(device: Device, learning_rate: f64, possible_actions: i64) -> Result<Self, String> {
         let vars = nn::VarStore::new(device);
 
         let mut lr = vars.root().zeros_no_train("learning_rate", &[1]);
@@ -83,14 +81,18 @@ impl DNN {
             )
         })?);
 
-        Self::with_varstore(vars, possible_actions)
+        Self::with_varstore(vars, learning_rate, possible_actions)
     }
 
     /// `possible_actions`: the number of values to predict among
-    pub fn with_varstore(vars: nn::VarStore, possible_actions: i64) -> Result<Self, String> {
+    pub fn with_varstore(
+        vars: nn::VarStore,
+        learning_rate: f64,
+        possible_actions: i64,
+    ) -> Result<Self, String> {
         let path = vars.root();
 
-        let learning_rate = 10e-3_f64;
+        // let learning_rate = 10e-3_f64;
 
         // let learning_rate: f64 = path
         //     .get("learning_rate")
@@ -139,6 +141,24 @@ impl DNN {
             optimizer,
         })
     }
+
+    pub fn train(&mut self, features: Tensor, action: &usize, value: f64) {
+        let actual_estimate: Tensor =
+            self.forward_t(&features, true)
+                .slice(0, *action as i64, *action as i64 + 1, 1);
+
+        let two: Tensor = Tensor::from(2.0f64);
+
+        let loss: Tensor = (value - actual_estimate).pow(&two); // we're doing mean squared error
+
+        self.optimizer.backward_step(&loss);
+    }
+
+    pub fn evaluate_tensor(&self, features: &Tensor, action: &usize) -> f64 {
+        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
+
+        result_tensor.double_value(&[*action as i64])
+    }
 }
 
 impl StateActionFunction<Game, usize> for DNN {
@@ -147,9 +167,7 @@ impl StateActionFunction<Game, usize> for DNN {
     fn evaluate(&self, state: &Game, action: &usize) -> Self::Output {
         let features = self.tensor_for(state);
 
-        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
-
-        result_tensor.double_value(&[*action as i64])
+        self.evaluate_tensor(&features, action)
     }
 
     fn update_with_error(
@@ -164,15 +182,7 @@ impl StateActionFunction<Game, usize> for DNN {
     ) {
         let features = self.tensor_for(state);
 
-        let exponent = Tensor::from(2.0f64);
-
-        let actual_estimate: Tensor =
-            self.forward_t(&features, true)
-                .slice(0, *action as i64, *action as i64 + 1, 1);
-
-        let loss: Tensor = (value - actual_estimate).pow(&exponent); // we're doing mean squared error
-
-        self.optimizer.backward_step(&loss);
+        self.train(features, action, value)
     }
 }
 
@@ -254,7 +264,7 @@ impl Loadable for DNN {
 
         vars.load(path).map_err(|err| err.to_string())?;
 
-        Self::with_varstore(vars, POSSIBLE_ACTIONS)
+        Self::with_varstore(vars, 10e-3_f64, POSSIBLE_ACTIONS)
     }
 }
 

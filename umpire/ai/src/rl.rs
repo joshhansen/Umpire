@@ -39,10 +39,16 @@ use rand::{seq::SliceRandom, thread_rng, Rng};
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "pytorch")]
+use tch::Device;
+
+#[cfg(feature = "pytorch")]
+use common::game::ai::POSSIBLE_ACTIONS;
+
 use common::{
     game::{
         action::AiPlayerAction,
-        ai::{fX, player_features, POSSIBLE_ACTIONS},
+        ai::{fX, player_features},
         unit::UnitType,
         Game, PlayerNum, PlayerSecret, TurnPhase,
     },
@@ -674,7 +680,7 @@ fn agent(
     epsilon_decay: f64,
     decay_prob: f64,
     min_epsilon: f64,
-    _dnn_learning_rate: f32,
+    _dnn_learning_rate: f64,
     avoid_skip: bool,
 ) -> Result<Agent, String> {
     let n_actions = AiPlayerAction::possible_actions().len();
@@ -688,7 +694,11 @@ fn agent(
         AI::Random(_) => {
             #[cfg(feature = "pytorch")]
             let fa_ai = if deep {
-                AI::DNN(Mutex::new(DNN::new(_dnn_learning_rate, POSSIBLE_ACTIONS)?))
+                AI::DNN(Mutex::new(DNN::new(
+                    Device::cuda_if_available(),
+                    _dnn_learning_rate,
+                    POSSIBLE_ACTIONS,
+                )?))
             } else {
                 // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
                 let basis = Constant::new(5.0);
@@ -742,7 +752,7 @@ pub fn trained_agent(
     epsilon_decay: f64,
     decay_prob: f64,
     min_epsilon: f64,
-    dnn_learning_rate: f32,
+    dnn_learning_rate: f64,
     avoid_skip: bool,
     fix_output_loc: bool,
     fog_of_war: bool,

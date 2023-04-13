@@ -26,6 +26,12 @@ use crossterm::{
     terminal::{size, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
+#[cfg(feature = "pytorch")]
+use tch::Device;
+
+#[cfg(feature = "pytorch")]
+use umpire_ai::agz::AgzActionModel;
+
 use tokio::sync::RwLock as RwLockTokio;
 
 use common::{
@@ -554,7 +560,7 @@ async fn main() -> Result<(), String> {
             .clone();
         let min_epsilon = sub_matches.get_one::<f64>("min_epsilon").unwrap().clone();
         let dnn_learning_rate = sub_matches
-            .get_one::<f32>("dnn_learning_rate")
+            .get_one::<f64>("dnn_learning_rate")
             .unwrap()
             .clone();
 
@@ -629,7 +635,7 @@ async fn main() -> Result<(), String> {
         })?;
     } else if subcommand == "agztrain" {
         let learning_rate = sub_matches
-            .get_one::<f32>("dnn_learning_rate")
+            .get_one::<f64>("dnn_learning_rate")
             .unwrap()
             .clone();
 
@@ -643,17 +649,26 @@ async fn main() -> Result<(), String> {
 
         let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
 
-        let input: Vec<TrainingInstance> = input_paths
-            .into_iter()
-            .flat_map(|input_path| {
-                let r = File::open(input_path).unwrap();
+        #[cfg(feature = "pytorch")]
+        {
+            let input: Vec<TrainingInstance> = input_paths
+                .into_iter()
+                .flat_map(|input_path| {
+                    let r = File::open(input_path).unwrap();
 
-                let data: Vec<TrainingInstance> = bincode::deserialize_from(r).unwrap();
-                data
-            })
-            .collect();
+                    let data: Vec<TrainingInstance> = bincode::deserialize_from(r).unwrap();
+                    data
+                })
+                .collect();
 
-        println!("Loaded {} instances", input.len());
+            println!("Loaded {} instances", input.len());
+
+            let device = Device::cuda_if_available();
+
+            let mut agz = AgzActionModel::new(device, learning_rate)?;
+
+            agz.train(&input);
+        }
     } else {
         return Err(String::from("A subcommand must be given"));
     }

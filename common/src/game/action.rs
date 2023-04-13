@@ -225,6 +225,18 @@ impl Into<usize> for NextCityAction {
     }
 }
 
+impl TryFrom<AiPlayerAction> for NextCityAction {
+    type Error = ();
+    fn try_from(action: AiPlayerAction) -> Result<Self, Self::Error> {
+        match action {
+            AiPlayerAction::SetNextCityProduction { unit_type } => {
+                Ok(NextCityAction::SetProduction { unit_type })
+            }
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub enum NextUnitAction {
     Move { direction: Direction },
@@ -291,6 +303,18 @@ impl From<usize> for NextUnitAction {
             x => Self::Move {
                 direction: Direction::values()[x - 2],
             },
+        }
+    }
+}
+
+impl TryFrom<AiPlayerAction> for NextUnitAction {
+    type Error = ();
+    fn try_from(action: AiPlayerAction) -> Result<Self, ()> {
+        match action {
+            AiPlayerAction::MoveNextUnit { direction } => Ok(NextUnitAction::Move { direction }),
+            AiPlayerAction::DisbandNextUnit => Ok(NextUnitAction::Disband),
+            AiPlayerAction::SkipNextUnit => Ok(NextUnitAction::Skip),
+            _ => Err(()),
         }
     }
 }
