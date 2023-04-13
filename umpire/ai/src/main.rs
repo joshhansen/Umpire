@@ -658,7 +658,8 @@ async fn main() -> Result<(), String> {
 
             println!("PyTorch Device: {:?}", device);
 
-            //FIXME Load these using Tensors so as to utilize VRAM
+            // FIXME Deserialize incrementally?
+            // Try to avoid allocating the whole Vec<TrainingInstance>
             let input: Vec<AgzDatum> = input_paths
                 .into_iter()
                 .flat_map(|input_path| {

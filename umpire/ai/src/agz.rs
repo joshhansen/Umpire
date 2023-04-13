@@ -3,8 +3,11 @@
 //! Based on self-play game outcomes, learn P(victory|action; environment)
 //!
 //! Divided into two sub-models, one for city actions, one for unit actions
+use std::{fs::OpenOptions, io::Cursor};
+
 use async_trait::async_trait;
 
+use serde::{Deserialize, Serialize};
 use tch::{Device, Tensor};
 
 use common::game::{
@@ -14,12 +17,35 @@ use common::game::{
     turn_async::ActionwiseTurnTaker2,
 };
 
-use crate::{dnn::DNN, Loadable, Storable};
+use crate::{dnn::DNN, Loadable, LoadableFromBytes, Storable, StorableAsBytes};
 
 pub struct AgzDatum {
     pub features: Tensor,
     pub action: AiPlayerAction,
     pub outcome: TrainingOutcome,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AgzActionModelEncoding {
+    city_actions: Vec<Vec<u8>>,
+    unit_actions: Vec<Vec<u8>>,
+}
+impl AgzActionModelEncoding {
+    pub fn decode(self, device: Device) -> AgzActionModel {
+        AgzActionModel {
+            device,
+            city_actions: self
+                .city_actions
+                .iter()
+                .map(|bytes| DNN::load_from_bytes(Cursor::new(&bytes[..])).unwrap())
+                .collect(),
+            unit_actions: self
+                .unit_actions
+                .iter()
+                .map(|bytes| DNN::load_from_bytes(Cursor::new(&bytes[..])).unwrap())
+                .collect(),
+        }
+    }
 }
 
 pub struct AgzActionModel {
@@ -69,6 +95,21 @@ impl AgzActionModel {
             .map(|x| *x as f32)
             .collect()
     }
+
+    fn encode(self) -> AgzActionModelEncoding {
+        AgzActionModelEncoding {
+            city_actions: self
+                .city_actions
+                .into_iter()
+                .map(|dnn| dnn.store_as_bytes().unwrap())
+                .collect(),
+            unit_actions: self
+                .unit_actions
+                .into_iter()
+                .map(|dnn| dnn.store_as_bytes().unwrap())
+                .collect(),
+        }
+    }
 }
 
 #[async_trait]
@@ -110,12 +151,33 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
 impl Storable for AgzActionModel {
     fn store(self, path: &std::path::Path) -> Result<(), String> {
-        todo!()
+        let w = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .append(false)
+            .open(path)
+            .map_err(|e| format!("Error opening {}: {}", path.display(), e))?;
+
+        let enc = self.encode();
+
+        bincode::serialize_into(w, &enc)
+            .map_err(|e| format!("Error serializing encoded agz action model: {}", e))
     }
 }
 
 impl Loadable for AgzActionModel {
     fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, String> {
-        todo!()
+        let r = OpenOptions::new()
+            .create_new(false)
+            .write(false)
+            .append(false)
+            .open(path.as_ref())
+            .map_err(|e| format!("Error opening {}: {}", path.as_ref().display(), e))?;
+
+        let enc: AgzActionModelEncoding = bincode::deserialize_from(r)
+            .map_err(|e| format!("Error deserializing encoded agz action model: {}", e))?;
+
+        let device = Device::cuda_if_available();
+        Ok(enc.decode(device)) //NOTE Unpropagated errors
     }
 }

@@ -47,7 +47,6 @@ impl<'de> Visitor<'de> for BytesVisitor {
 
 #[derive(Debug)]
 pub struct DNN {
-    possible_actions: i64,
     // path: nn::Path<'a>,
     vars: nn::VarStore,
     convs: Vec<nn::Conv2D>,
@@ -89,7 +88,9 @@ impl DNN {
         Self::with_varstore(vars)
     }
 
-    /// `possible_actions`: the number of values to predict among
+    /// Two variables must be set:
+    /// * `learning_rate`: the DNN learning rate, f64
+    /// * `possible_actions`: the number of values to predict among, i64
     pub fn with_varstore(vars: nn::VarStore) -> Result<Self, String> {
         let varmap = vars.variables();
 
@@ -140,7 +141,6 @@ impl DNN {
             .map_err(|err| err.to_string())?;
 
         Ok(Self {
-            possible_actions,
             vars,
             convs,
             dense0,
