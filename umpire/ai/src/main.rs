@@ -231,7 +231,7 @@ async fn main() -> Result<(), String> {
 
     // Arguments common across subcommands:
     let episodes = matches.get_one::<usize>("episodes").unwrap().clone();
-    let fix_output_loc = matches.contains_id("fix_output_loc");
+    let fix_output_loc: bool = matches.get_one("fix_output_loc").cloned().unwrap();
     let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
 
     let map_heights: Vec<u16> = matches
