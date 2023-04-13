@@ -19,13 +19,13 @@ use tch::{
 
 use common::game::{
     action::AiPlayerAction,
-    ai::{DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, POSSIBLE_ACTIONS, WIDE_LEN},
+    ai::{DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, WIDE_LEN},
     Game,
 };
 
-use super::{Loadable, Storable};
+use crate::{LoadableFromBytes, StorableAsBytes};
 
-// const LEARNING_RATE: f64 = 1e-4;
+use super::{Loadable, Storable};
 
 const BASE_CONV_FEATS: i64 = 8;
 
@@ -47,6 +47,7 @@ impl<'de> Visitor<'de> for BytesVisitor {
 
 #[derive(Debug)]
 pub struct DNN {
+    possible_actions: i64,
     // path: nn::Path<'a>,
     vars: nn::VarStore,
     convs: Vec<nn::Conv2D>,
@@ -74,22 +75,28 @@ impl DNN {
         let vars = nn::VarStore::new(device);
 
         let mut lr = vars.root().zeros_no_train("learning_rate", &[1]);
-        lr.copy_(&Tensor::try_from(vec![learning_rate]).map_err(|err| {
-            format!(
-                "Cant' create DNN because the learning rate could not be encoded as a tensor: {}",
-                err
-            )
+        lr.copy_(
+            &Tensor::try_from(vec![learning_rate]).map_err(|err| {
+                format!("Learning rate could not be encoded as a tensor: {}", err)
+            })?,
+        );
+
+        let mut pa = vars.root().zeros_no_train("possible_actions", &[1]);
+        pa.copy_(&Tensor::try_from(vec![possible_actions]).map_err(|err| {
+            format!("Possible actions could not be encoded as a tensor: {}", err)
         })?);
 
-        Self::with_varstore(vars, learning_rate, possible_actions)
+        Self::with_varstore(vars)
     }
 
     /// `possible_actions`: the number of values to predict among
-    pub fn with_varstore(
-        vars: nn::VarStore,
-        learning_rate: f64,
-        possible_actions: i64,
-    ) -> Result<Self, String> {
+    pub fn with_varstore(vars: nn::VarStore) -> Result<Self, String> {
+        let varmap = vars.variables();
+
+        let learning_rate: f64 = varmap[&String::from("learning_rate")].double_value(&[0]);
+
+        let possible_actions: i64 = varmap[&String::from("possible_actions")].int64_value(&[0]);
+
         let path = vars.root();
 
         // let learning_rate = 10e-3_f64;
@@ -133,6 +140,7 @@ impl DNN {
             .map_err(|err| err.to_string())?;
 
         Ok(Self {
+            possible_actions,
             vars,
             convs,
             dense0,
@@ -264,7 +272,7 @@ impl Loadable for DNN {
 
         vars.load(path).map_err(|err| err.to_string())?;
 
-        Self::with_varstore(vars, 10e-3_f64, POSSIBLE_ACTIONS)
+        Self::with_varstore(vars)
     }
 }
 
@@ -348,5 +356,29 @@ impl Storable for DNN {
 
         // saver.save(&self.session, &(*graph), path)
         //      .map_err(|err| format!("Error saving DNN: {}", err))
+    }
+}
+
+impl StorableAsBytes for DNN {
+    fn store_as_bytes(self) -> Result<Vec<u8>, String> {
+        let mut bytes: Vec<u8> = Vec::new();
+        self.vars
+            .save_to_stream(&mut bytes)
+            .map_err(|err| err.to_string())?;
+
+        Ok(bytes)
+    }
+}
+
+impl LoadableFromBytes for DNN {
+    fn load_from_bytes<S: std::io::Read + std::io::Seek>(bytes: S) -> Result<Self, String> {
+        let device = Device::cuda_if_available();
+
+        let mut vars = nn::VarStore::new(device);
+
+        vars.load_from_stream(bytes)
+            .map_err(|err| err.to_string())?;
+
+        Self::with_varstore(vars)
     }
 }

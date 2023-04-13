@@ -685,7 +685,14 @@ async fn main() -> Result<(), String> {
 
             let mut agz = AgzActionModel::new(device, learning_rate)?;
 
-            agz.train(&input);
+            for i in 0..episodes {
+                println!("Iteration {}", i);
+                agz.train(&input);
+            }
+
+            let output_path = Path::new(output_path.as_str());
+
+            agz.store(output_path)?;
         }
     } else {
         return Err(String::from("A subcommand must be given"));

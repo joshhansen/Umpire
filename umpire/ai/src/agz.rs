@@ -5,7 +5,7 @@
 //! Divided into two sub-models, one for city actions, one for unit actions
 use async_trait::async_trait;
 
-use tch::{nn::VarStore, Device, Tensor};
+use tch::{Device, Tensor};
 
 use common::game::{
     action::{AiPlayerAction, NextCityAction, NextUnitAction},
@@ -14,7 +14,7 @@ use common::game::{
     turn_async::ActionwiseTurnTaker2,
 };
 
-use crate::dnn::DNN;
+use crate::{dnn::DNN, Loadable, Storable};
 
 pub struct AgzDatum {
     pub features: Tensor,
@@ -36,10 +36,10 @@ impl AgzActionModel {
         Ok(Self {
             device,
             city_actions: (0..possible_city_actions)
-                .map(|_| DNN::with_varstore(VarStore::new(device), learning_rate, 1).unwrap())
+                .map(|_| DNN::new(device, learning_rate, 1).unwrap())
                 .collect(),
             unit_actions: (0..possible_unit_actions)
-                .map(|_| DNN::with_varstore(VarStore::new(device), learning_rate, 1).unwrap())
+                .map(|_| DNN::new(device, learning_rate, 1).unwrap())
                 .collect(),
         })
     }
@@ -105,5 +105,17 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
             .0;
 
         Some(NextUnitAction::try_from(unit_action_idx).unwrap())
+    }
+}
+
+impl Storable for AgzActionModel {
+    fn store(self, path: &std::path::Path) -> Result<(), String> {
+        todo!()
+    }
+}
+
+impl Loadable for AgzActionModel {
+    fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, String> {
+        todo!()
     }
 }

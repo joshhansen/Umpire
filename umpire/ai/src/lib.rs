@@ -32,6 +32,14 @@ pub trait Storable {
     fn store(self, path: &Path) -> Result<(), String>;
 }
 
+pub trait StorableAsBytes {
+    fn store_as_bytes(self) -> Result<Vec<u8>, String>;
+}
+
+pub trait LoadableFromBytes: Sized {
+    fn load_from_bytes<S: std::io::Read + std::io::Seek>(bytes: S) -> Result<Self, String>;
+}
+
 // Sub-modules
 #[cfg(feature = "pytorch")]
 pub mod agz;
