@@ -70,7 +70,7 @@ impl DNN {
             .to_device(Device::cuda_if_available())
     }
 
-    pub fn new(learning_rate: f32) -> Result<Self, String> {
+    pub fn new(learning_rate: f32, possible_actions: i64) -> Result<Self, String> {
         let device = Device::cuda_if_available();
         println!("Device: {:?}", device);
         let vars = nn::VarStore::new(device);
@@ -83,10 +83,11 @@ impl DNN {
             )
         })?);
 
-        Self::with_varstore(vars)
+        Self::with_varstore(vars, possible_actions)
     }
 
-    fn with_varstore(vars: nn::VarStore) -> Result<Self, String> {
+    /// `possible_actions`: the number of values to predict among
+    pub fn with_varstore(vars: nn::VarStore, possible_actions: i64) -> Result<Self, String> {
         let path = vars.root();
 
         let learning_rate = 10e-3_f64;
@@ -123,7 +124,7 @@ impl DNN {
 
         let dense0 = nn::linear(&path, 2329, 256, Default::default());
         let dense1 = nn::linear(&path, 256, 128, Default::default());
-        let dense2 = nn::linear(&path, 128, POSSIBLE_ACTIONS as i64, Default::default());
+        let dense2 = nn::linear(&path, 128, possible_actions, Default::default());
 
         let optimizer = nn::Adam::default()
             .build(&vars, learning_rate)
@@ -253,7 +254,7 @@ impl Loadable for DNN {
 
         vars.load(path).map_err(|err| err.to_string())?;
 
-        Self::with_varstore(vars)
+        Self::with_varstore(vars, POSSIBLE_ACTIONS)
     }
 }
 

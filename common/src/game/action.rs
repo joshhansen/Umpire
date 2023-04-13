@@ -84,7 +84,7 @@ impl AiPlayerAction {
     // Direction::DownRight,  17
     // SkipNextTurn           18
     pub fn possible_actions() -> Vec<Self> {
-        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS);
+        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS as usize);
         for unit_type in UnitType::values().iter().cloned() {
             a.push(AiPlayerAction::SetNextCityProduction { unit_type });
         }
@@ -176,6 +176,13 @@ pub enum NextCityAction {
     SetProduction { unit_type: UnitType },
 }
 
+impl NextCityAction {
+    /// The number of possible city actions
+    pub fn possible() -> usize {
+        UnitType::values().len()
+    }
+}
+
 impl Actionable for NextCityAction {
     fn to_action(&self, game: &mut Game, secret: PlayerSecret) -> UmpireResult<PlayerAction> {
         let next_city_loc = game.player_production_set_requests(secret)?.next().unwrap();
@@ -199,11 +206,36 @@ impl Into<AiPlayerAction> for NextCityAction {
     }
 }
 
+impl From<usize> for NextCityAction {
+    fn from(idx: usize) -> Self {
+        Self::SetProduction {
+            unit_type: UnitType::values()[idx],
+        }
+    }
+}
+
+impl Into<usize> for NextCityAction {
+    fn into(self) -> usize {
+        match self {
+            Self::SetProduction { unit_type } => UnitType::values()
+                .iter()
+                .position(|ut| *ut == unit_type)
+                .unwrap(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub enum NextUnitAction {
     Move { direction: Direction },
     Disband,
     Skip,
+}
+
+impl NextUnitAction {
+    pub fn possible() -> usize {
+        Direction::values().len() + 2
+    }
 }
 
 impl Actionable for NextUnitAction {
@@ -247,6 +279,34 @@ impl Into<AiPlayerAction> for NextUnitAction {
             Self::Move { direction } => AiPlayerAction::MoveNextUnit { direction },
             Self::Disband => AiPlayerAction::DisbandNextUnit,
             Self::Skip => AiPlayerAction::SkipNextUnit,
+        }
+    }
+}
+
+impl From<usize> for NextUnitAction {
+    fn from(idx: usize) -> Self {
+        match idx {
+            0 => Self::Disband,
+            1 => Self::Skip,
+            x => Self::Move {
+                direction: Direction::values()[x - 2],
+            },
+        }
+    }
+}
+
+impl Into<usize> for NextUnitAction {
+    fn into(self) -> usize {
+        match self {
+            Self::Disband => 0,
+            Self::Skip => 1,
+            Self::Move { direction } => {
+                Direction::values()
+                    .iter()
+                    .position(|d| *d == direction)
+                    .unwrap()
+                    + 2
+            }
         }
     }
 }

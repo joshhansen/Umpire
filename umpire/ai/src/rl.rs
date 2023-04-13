@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 use common::{
     game::{
         action::AiPlayerAction,
-        ai::{fX, player_features},
+        ai::{fX, player_features, POSSIBLE_ACTIONS},
         unit::UnitType,
         Game, PlayerNum, PlayerSecret, TurnPhase,
     },
@@ -688,7 +688,7 @@ fn agent(
         AI::Random(_) => {
             #[cfg(feature = "pytorch")]
             let fa_ai = if deep {
-                AI::DNN(Mutex::new(DNN::new(_dnn_learning_rate)?))
+                AI::DNN(Mutex::new(DNN::new(_dnn_learning_rate, POSSIBLE_ACTIONS)?))
             } else {
                 // let basis = Fourier::from_space(2, domain_builder().state_space().space).with_constant();
                 let basis = Constant::new(5.0);

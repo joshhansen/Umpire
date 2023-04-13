@@ -17,7 +17,11 @@ use super::{
 pub type fX = f64;
 
 //FIXME Someday compute this at compile time
-pub const POSSIBLE_ACTIONS: usize = UnitType::values().len() + Direction::values().len() + 2;
+pub const POSSIBLE_ACTIONS: i64 = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
+
+pub const POSSIBLE_CITY_ACTIONS: i64 = UnitType::values().len() as i64; // all possible productions
+
+pub const POSSIBLE_UNIT_ACTIONS: i64 = Direction::values().len() as i64 + 2; // plus skip and disband
 
 pub const ADDED_WIDE_FEATURES: i64 = 4;
 pub const UNIT_TYPE_WRIT_LARGE_LEN: i64 = UnitType::values().len() as i64 + 1; // what sort of unit is being considered, including
@@ -45,11 +49,11 @@ pub struct TrainingInstance {
     player: PlayerNum, // the player that took the action
     num_features: usize,
     features: HashMap<usize, f64>,
-    pre_score: f64,         // the player's score prior to the action
-    action: AiPlayerAction, // the action taken
-    post_score: f64,        // the player's score after the action
+    pre_score: f64,             // the player's score prior to the action
+    pub action: AiPlayerAction, // the action taken
+    post_score: f64,            // the player's score after the action
     outcome: Option<TrainingOutcome>, // how did things work out for the player?
-                            // set as None until the outcome is determined
+                                // set as None until the outcome is determined
 }
 impl TrainingInstance {
     pub fn undetermined(

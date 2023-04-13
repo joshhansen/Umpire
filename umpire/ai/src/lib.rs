@@ -34,6 +34,9 @@ pub trait Storable {
 
 // Sub-modules
 #[cfg(feature = "pytorch")]
+pub mod agz;
+
+#[cfg(feature = "pytorch")]
 pub mod dnn;
 mod random;
 pub mod rl;
