@@ -174,9 +174,7 @@ impl Storable for AgzActionModel {
 impl Loadable for AgzActionModel {
     fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, String> {
         let r = OpenOptions::new()
-            .create_new(false)
-            .write(false)
-            .append(false)
+            .read(true)
             .open(path.as_ref())
             .map_err(|e| format!("Error opening {}: {}", path.as_ref().display(), e))?;
 
