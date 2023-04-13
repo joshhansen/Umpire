@@ -686,7 +686,7 @@ async fn main() -> Result<(), String> {
 
             let mut agz = AgzActionModel::new(device, learning_rate)?;
 
-            let sample_prob = 0.2;
+            let sample_prob = 0.05;
 
             println!("Sample probability: {}", sample_prob);
 
