@@ -81,6 +81,13 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .action(ArgAction::Append)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
                 .value_parser(value_parser!(u16)),
 
+            'D' => Arg::new("dnn_learning_rate")
+                .short('D')
+                .long("dnnlr")
+                .help("The learning rate of the neural network (if any)")
+                .value_parser(value_parser!(f32))
+                .default_value("10e-3"),
+
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
         });
     }

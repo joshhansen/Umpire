@@ -128,7 +128,7 @@ async fn main() -> Result<(), String> {
     )
 
     .subcommand(
-        cli::app("train", "")
+        cli::app("train", "D")
         .about(format!("Train an AI for the game of {}", conf::APP_NAME))
         .arg_required_else_help(true)
         .arg(
@@ -184,14 +184,6 @@ async fn main() -> Result<(), String> {
             .default_value("0.0")
         )
         .arg(
-            Arg::new("dnn_learning_rate")
-            .short('D')
-            .long("dnnlr")
-            .help("The learning rate of the neural network (if any)")
-            .value_parser(value_parser!(f32))
-            .default_value("10e-3")
-        )
-        .arg(
             Arg::new("deep")
             .short('d')
             .long("deep")
@@ -222,7 +214,38 @@ async fn main() -> Result<(), String> {
         //         .multiple(true)
         //         .required(true)
         // )
-    )
+    )// subcommand train
+
+    .subcommand(
+        cli::app("agztrain", "D")
+        .about(format!("Train an AlphaGo Zero-inspired neural network AI for the game of {}", conf::APP_NAME))
+        .arg_required_else_help(true)
+        // .arg(
+        //     Arg::new("initial_model_path")
+        //         .short('i')
+        //         .long("initial")
+        //         .help("Serialized AI model file path for the initial model to use as a starting point for training")
+        //         .value_parser(|s: &str| {
+        //             if Path::new(&s).exists() {
+        //                 Ok(String::from(s))
+        //             } else {
+        //                 Err(format!("Initial model path '{}' does not exist", s))
+        //             }
+        //         })
+        // )
+        .arg(
+            Arg::new("out")
+            .help("Output path to serialize the resulting AI model to")
+            .short('o')
+            .required(true)
+        )
+        .arg(
+            Arg::new("input")
+                .help("Input files containing TrainingInstances")
+                .action(ArgAction::Append)
+                .required(true)
+        )
+    )// subcommand agztrain
 
     .get_matches();
 
@@ -270,6 +293,7 @@ async fn main() -> Result<(), String> {
     match subcommand {
         "eval" => println!("Evaluating {} AIs", conf::APP_NAME),
         "train" => println!("Training {} AI", conf::APP_NAME),
+        "agztrain" => println!("Training {} AI - a la AlphaGo Zero", conf::APP_NAME),
         c => unreachable!("Unrecognized subcommand {} should have been caught by the agument parser; there's a bug somehere", c)
     }
 
@@ -365,6 +389,7 @@ async fn main() -> Result<(), String> {
         };
 
         let mut victory_counts: HashMap<Option<PlayerNum>, usize> = HashMap::new();
+        let mut all_instances: Vec<TrainingInstance> = Vec::new();
         for _ in 0..episodes {
             let city_namer = IntNamer::new("city");
 
@@ -453,7 +478,7 @@ async fn main() -> Result<(), String> {
                 }
             }
 
-            if let Some(player_partial_data) = player_partial_data.as_mut() {
+            if let Some(mut player_partial_data) = player_partial_data {
                 // Mark the training instances (if we've been tracking them) with the game's outcome
 
                 let players: Vec<usize> = player_partial_data.keys().cloned().collect();
@@ -478,13 +503,12 @@ async fn main() -> Result<(), String> {
                     }
                 }
 
-                // Now write the resolved instances
-                for instances in player_partial_data.values() {
-                    for instance in instances {
-                        let data = bincode::serialize(instance).unwrap();
-                        data_outfile.as_mut().unwrap().write_all(&data).unwrap();
-                    }
-                }
+                let mut instances: Vec<TrainingInstance> = player_partial_data
+                    .into_values()
+                    .flat_map(|values| values.into_iter())
+                    .collect();
+
+                all_instances.append(&mut instances);
             }
 
             *victory_counts
@@ -498,6 +522,13 @@ async fn main() -> Result<(), String> {
         execute!(stdout, LeaveAlternateScreen).unwrap();
 
         print_results(&victory_counts);
+
+        if generate_data {
+            // Write the training instances
+            let data = bincode::serialize(&all_instances).unwrap();
+
+            data_outfile.as_mut().unwrap().write_all(&data).unwrap();
+        }
     } else if subcommand == "train" {
         // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
 
@@ -596,6 +627,33 @@ async fn main() -> Result<(), String> {
                 err
             )
         })?;
+    } else if subcommand == "agztrain" {
+        let learning_rate = sub_matches
+            .get_one::<f32>("dnn_learning_rate")
+            .unwrap()
+            .clone();
+
+        println!("Learning rate: {}", learning_rate);
+
+        let input_paths: Vec<String> = sub_matches
+            .get_many::<String>("input")
+            .unwrap()
+            .cloned()
+            .collect();
+
+        let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
+
+        let input: Vec<TrainingInstance> = input_paths
+            .into_iter()
+            .flat_map(|input_path| {
+                let r = File::open(input_path).unwrap();
+
+                let data: Vec<TrainingInstance> = bincode::deserialize_from(r).unwrap();
+                data
+            })
+            .collect();
+
+        println!("Loaded {} instances", input.len());
     } else {
         return Err(String::from("A subcommand must be given"));
     }
