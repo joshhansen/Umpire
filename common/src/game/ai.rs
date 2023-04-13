@@ -291,8 +291,9 @@ pub enum AISpec {
     /// A horrible AI that makes decisions randomly
     Random,
 
-    /// AI loaded from a path. If it's a file, deserialize the usual `rsrl` `LFA`-based model. If it's a directory,
-    /// load it as a TensorFlow SavedModel.
+    /// AI loaded from a path.
+    ///
+    /// See the Loadable impl for `AI` for more information.
     FromPath(String),
 
     /// AI loaded from a preset AI level, beginning at 1

@@ -8,6 +8,9 @@ use std::ops::Deref;
 
 use async_trait::async_trait;
 
+#[cfg(feature = "pytorch")]
+use futures::lock::Mutex as MutexAsync;
+
 use rand::{thread_rng, Rng};
 
 use rsrl::fa::{EnumerableStateActionFunction, StateActionFunction};
@@ -50,6 +53,9 @@ mod random;
 pub mod rl;
 
 #[cfg(feature = "pytorch")]
+use agz::AgzActionModel;
+
+#[cfg(feature = "pytorch")]
 use dnn::DNN;
 
 use rl::LFA_;
@@ -59,6 +65,10 @@ pub enum AI {
     LFA(LFA_),
     #[cfg(feature = "pytorch")]
     DNN(Mutex<DNN>),
+
+    /// AlphaGo Zero style action model
+    #[cfg(feature = "pytorch")]
+    AGZ(MutexAsync<AgzActionModel>),
 }
 
 impl AI {
@@ -77,6 +87,8 @@ impl fmt::Debug for AI {
                 Self::LFA(_) => "lfa",
                 #[cfg(feature = "pytorch")]
                 Self::DNN(_) => "dnn",
+                #[cfg(feature = "pytorch")]
+                Self::AGZ(_) => "agz",
             }
         )
     }
@@ -94,6 +106,10 @@ impl StateActionFunction<Game, usize> for AI {
             Self::LFA(fa) => fa.evaluate(state, action),
             #[cfg(feature = "pytorch")]
             Self::DNN(fa) => fa.lock().unwrap().evaluate(state, action),
+            #[cfg(feature = "pytorch")]
+            Self::AGZ(_agz) => {
+                unimplemented!("We haven't implemented the RSRL traits for AgzActionModel yet")
+            }
         }
     }
 
@@ -128,6 +144,10 @@ impl StateActionFunction<Game, usize> for AI {
                 raw_error,
                 learning_rate,
             ),
+            #[cfg(feature = "pytorch")]
+            Self::AGZ(_agz) => {
+                unimplemented!("We haven't implemented the RSRL traits for AgzActionModel yet")
+            }
         }
     }
 }
@@ -198,12 +218,26 @@ impl From<AISpec> for AI {
 }
 
 impl Loadable for AI {
+    /// Loads the actual AI instance from a file.
+    ///
+    /// With feature "pytorch" enabled, files ending with .agz will be deserialized as AlphaGo Zero
+    /// style action models (`AI::AGZ`).
+    ///
+    /// With feature "pytorch" enabled, files ending with .deep will be deserialized as an `rsrl`
+    /// Q-learning model with DNN action model (`AI::DNN`).
+    ///
+    /// Everything else will be loaded as an `rsrl` Q-learning model with a linear action model (`AI::LFA`).
     fn load<P: AsRef<Path>>(path: P) -> Result<Self, String> {
         if !path.as_ref().exists() {
             return Err(format!(
                 "Could not load AI from path '{:?}' because it doesn't exist",
                 path.as_ref()
             ));
+        }
+
+        #[cfg(feature = "pytorch")]
+        if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("agz")) {
+            return AgzActionModel::load(path).map(|agz| Self::AGZ(MutexAsync::new(agz)));
         }
 
         #[cfg(feature = "pytorch")]
@@ -234,7 +268,9 @@ impl Storable for AI {
                 file.write_all(&data).map_err(|err| format!("Couldn't write to {}: {}", display, err))
             },
             #[cfg(feature = "pytorch")]
-            Self::DNN(fa) => fa.into_inner().unwrap().store(path)
+            Self::DNN(fa) => fa.into_inner().unwrap().store(path),
+            #[cfg(feature = "pytorch")]
+            Self::AGZ(agz) => agz.into_inner().store(path),
         }
     }
 }
@@ -250,6 +286,8 @@ impl AI {
                 // println!("ACTION: {:?}", UmpireAction::from_idx(action));
                 Ok(action)
             }
+            #[cfg(feature = "pytorch")]
+            Self::AGZ(_agz) => Err(String::from("Call AgzActionModel::take_turn etc. directly")),
         }
     }
 
@@ -323,6 +361,8 @@ impl TurnTakerAsync for AI {
             Self::LFA(_fa) => self._take_turn_unended(turn, generate_data).await,
             #[cfg(feature = "pytorch")]
             Self::DNN(_fa) => self._take_turn_unended(turn, generate_data).await,
+            #[cfg(feature = "pytorch")]
+            Self::AGZ(agz) => agz.lock().await.take_turn(turn, generate_data).await,
         }
     }
 }
