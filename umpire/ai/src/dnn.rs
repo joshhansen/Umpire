@@ -5,8 +5,6 @@ use std::{
     path::Path,
 };
 
-use futures;
-
 use rsrl::{
     fa::{EnumerableStateActionFunction, StateActionFunction},
     DerefVec,
@@ -59,7 +57,7 @@ pub struct DNN {
 }
 
 impl DNN {
-    async fn tensor_for(&self, state: &Game) -> Tensor {
+    fn tensor_for(&self, state: &Game) -> Tensor {
         //NOTE We could avoid this extra allocation if we could figure out how to use 64-bit weights in PyTorch
         //     or 32-bit weights in `rsrl`
         let features_f64 = state.deref_vec();
@@ -146,7 +144,7 @@ impl StateActionFunction<Game, usize> for DNN {
     type Output = f64;
 
     fn evaluate(&self, state: &Game, action: &usize) -> Self::Output {
-        let features = futures::executor::block_on(async { self.tensor_for(state).await });
+        let features = self.tensor_for(state);
 
         let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
 
@@ -163,7 +161,7 @@ impl StateActionFunction<Game, usize> for DNN {
         _raw_error: Self::Output,
         _learning_rate: Self::Output,
     ) {
-        let features = futures::executor::block_on(async { self.tensor_for(state).await });
+        let features = self.tensor_for(state);
 
         let exponent = Tensor::from(2.0f64);
 
