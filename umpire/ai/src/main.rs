@@ -688,6 +688,8 @@ async fn main() -> Result<(), String> {
 
             let sample_prob = 0.2;
 
+            println!("Sample probability: {}", sample_prob);
+
             for i in 0..episodes {
                 println!("Iteration {}", i);
                 agz.train(&input, sample_prob);
