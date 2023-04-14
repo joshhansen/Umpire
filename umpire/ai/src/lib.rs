@@ -40,7 +40,7 @@ pub trait StorableAsBytes {
 }
 
 pub trait LoadableFromBytes: Sized {
-    fn load_from_bytes<S: std::io::Read + std::io::Seek>(bytes: S) -> Result<Self, String>;
+    fn load_from_bytes<S: std::io::Read>(bytes: S) -> Result<Self, String>;
 }
 
 // Sub-modules

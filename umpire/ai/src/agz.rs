@@ -3,7 +3,7 @@
 //! Based on self-play game outcomes, learn P(victory|action; environment)
 //!
 //! Divided into two sub-models, one for city actions, one for unit actions
-use std::{fs::OpenOptions, io::Cursor};
+use std::fs::OpenOptions;
 
 use async_trait::async_trait;
 
@@ -38,12 +38,12 @@ impl AgzActionModelEncoding {
             city_actions: self
                 .city_actions
                 .iter()
-                .map(|bytes| DNN::load_from_bytes(Cursor::new(&bytes[..])).unwrap())
+                .map(|bytes| DNN::load_from_bytes(&bytes[..]).unwrap())
                 .collect(),
             unit_actions: self
                 .unit_actions
                 .iter()
-                .map(|bytes| DNN::load_from_bytes(Cursor::new(&bytes[..])).unwrap())
+                .map(|bytes| DNN::load_from_bytes(&bytes[..]).unwrap())
                 .collect(),
         }
     }
@@ -118,6 +118,7 @@ impl AgzActionModel {
     }
 }
 
+//FIXME FIlter by legal actions
 #[async_trait]
 impl ActionwiseTurnTaker2 for AgzActionModel {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {

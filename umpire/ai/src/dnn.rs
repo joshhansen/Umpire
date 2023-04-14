@@ -1,6 +1,8 @@
 use std::{
     cmp::{Ordering, PartialEq, PartialOrd},
     fmt,
+    fs::File,
+    io::Cursor,
     ops::{Mul, Sub},
     path::Path,
 };
@@ -10,7 +12,10 @@ use rsrl::{
     DerefVec,
 };
 
-use serde::de::{self, Visitor};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Serialize,
+};
 
 use tch::{
     nn::{self, ModuleT, Optimizer, OptimizerConfig},
@@ -45,9 +50,18 @@ impl<'de> Visitor<'de> for BytesVisitor {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct DNNEncoding {
+    learning_rate: f64,
+    possible_actions: i64,
+    varstore_bytes: Vec<u8>,
+}
+
 #[derive(Debug)]
 pub struct DNN {
     // path: nn::Path<'a>,
+    learning_rate: f64,
+    possible_actions: i64,
     vars: nn::VarStore,
     convs: Vec<nn::Conv2D>,
     dense0: nn::Linear,
@@ -73,39 +87,73 @@ impl DNN {
     pub fn new(device: Device, learning_rate: f64, possible_actions: i64) -> Result<Self, String> {
         let vars = nn::VarStore::new(device);
 
-        let mut lr = vars.root().zeros_no_train("learning_rate", &[1]);
-        lr.copy_(
-            &Tensor::try_from(vec![learning_rate]).map_err(|err| {
-                format!("Learning rate could not be encoded as a tensor: {}", err)
-            })?,
-        );
+        // let meta = vars.root().sub("meta");
 
-        let mut pa = vars.root().zeros_no_train("possible_actions", &[1]);
-        pa.copy_(&Tensor::try_from(vec![possible_actions]).map_err(|err| {
-            format!("Possible actions could not be encoded as a tensor: {}", err)
-        })?);
+        // let mut lr = meta.f_zeros_no_train("learning_rate", &[]).unwrap();
 
-        Self::with_varstore(vars)
+        // lr.copy_(&Tensor::try_from(learning_rate).unwrap());
+
+        // let mut pa = meta.f_zeros_no_train("possible_actions", &[]).unwrap();
+
+        // pa.copy_(&Tensor::try_from(possible_actions).unwrap());
+
+        // println!(
+        //     "Variables upon creation: {:?}",
+        //     vars.variables().keys().collect::<Vec<&String>>()
+        // );
+
+        // println!(
+        //     "Named variables keys upon creation: {:?}",
+        //     vars.variables_
+        //         .lock()
+        //         .unwrap()
+        //         .named_variables
+        //         .keys()
+        //         .collect::<Vec<&String>>()
+        // );
+
+        // println!(
+        //     "Meta vars upon creation: {:?}",
+        //     meta.path(name)
+        //     meta.keys().collect::<Vec<&String>>()
+        // );
+
+        // lr.set_data(new_data)
+
+        // vars.variables_.lock().unwrap().named_variables.insert(
+        //     String::from("learning_rate"),
+        //     Tensor::try_from(learning_rate).unwrap(),
+        // );
+
+        // vars.variables_.lock().unwrap().named_variables.insert(
+        //     String::from("possible_actions"),
+        //     Tensor::try_from(possible_actions).unwrap(),
+        // );
+
+        // let mut lr = vars.root().zeros_no_train("learning_rate", &[1]);
+        // lr.copy_(
+        //     &Tensor::try_from(vec![learning_rate]).map_err(|err| {
+        //         format!("Learning rate could not be encoded as a tensor: {}", err)
+        //     })?,
+        // );
+
+        // let mut pa = vars.root().zeros_no_train("possible_actions", &[1]);
+        // pa.copy_(&Tensor::try_from(vec![possible_actions]).map_err(|err| {
+        //     format!("Possible actions could not be encoded as a tensor: {}", err)
+        // })?);
+
+        Self::with_varstore(vars, learning_rate, possible_actions)
     }
 
     /// Two variables must be set:
     /// * `learning_rate`: the DNN learning rate, f64
     /// * `possible_actions`: the number of values to predict among, i64
-    pub fn with_varstore(vars: nn::VarStore) -> Result<Self, String> {
-        let varmap = vars.variables();
-
-        let learning_rate: f64 = varmap[&String::from("learning_rate")].double_value(&[0]);
-
-        let possible_actions: i64 = varmap[&String::from("possible_actions")].int64_value(&[0]);
-
+    pub fn with_varstore(
+        vars: nn::VarStore,
+        learning_rate: f64,
+        possible_actions: i64,
+    ) -> Result<Self, String> {
         let path = vars.root();
-
-        // let learning_rate = 10e-3_f64;
-
-        // let learning_rate: f64 = path
-        //     .get("learning_rate")
-        //     .ok_or(format!("Learning rate not set in VarStore"))?
-        //     .double_value(&[0]);
 
         let conv0 = nn::conv2d(&path, 1, BASE_CONV_FEATS, 3, Default::default()); // -> 9x9
         let conv1 = nn::conv2d(
@@ -141,6 +189,8 @@ impl DNN {
             .map_err(|err| err.to_string())?;
 
         Ok(Self {
+            learning_rate,
+            possible_actions,
             vars,
             convs,
             dense0,
@@ -266,13 +316,9 @@ impl Loadable for DNN {
             ));
         }
 
-        let device = Device::cuda_if_available();
+        let r = File::open(path).map_err(|err| err.to_string())?;
 
-        let mut vars = nn::VarStore::new(device);
-
-        vars.load(path).map_err(|err| err.to_string())?;
-
-        Self::with_varstore(vars)
+        Self::load_from_bytes(r)
     }
 }
 
@@ -361,24 +407,37 @@ impl Storable for DNN {
 
 impl StorableAsBytes for DNN {
     fn store_as_bytes(self) -> Result<Vec<u8>, String> {
-        let mut bytes: Vec<u8> = Vec::new();
+        let mut varstore_bytes: Vec<u8> = Vec::new();
+
         self.vars
-            .save_to_stream(&mut bytes)
+            .save_to_stream(&mut varstore_bytes)
             .map_err(|err| err.to_string())?;
+
+        let enc = DNNEncoding {
+            learning_rate: self.learning_rate,
+            possible_actions: self.possible_actions,
+            varstore_bytes,
+        };
+
+        let mut bytes: Vec<u8> = Vec::new();
+
+        bincode::serialize_into(&mut bytes, &enc).map_err(|e| e.to_string())?;
 
         Ok(bytes)
     }
 }
 
 impl LoadableFromBytes for DNN {
-    fn load_from_bytes<S: std::io::Read + std::io::Seek>(bytes: S) -> Result<Self, String> {
+    fn load_from_bytes<S: std::io::Read>(bytes: S) -> Result<Self, String> {
         let device = Device::cuda_if_available();
 
         let mut vars = nn::VarStore::new(device);
 
-        vars.load_from_stream(bytes)
+        let enc: DNNEncoding = bincode::deserialize_from(bytes).map_err(|err| err.to_string())?;
+
+        vars.load_from_stream(Cursor::new(&enc.varstore_bytes[..]))
             .map_err(|err| err.to_string())?;
 
-        Self::with_varstore(vars)
+        Self::with_varstore(vars, enc.learning_rate, enc.possible_actions)
     }
 }
