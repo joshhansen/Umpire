@@ -711,6 +711,9 @@ async fn main() -> Result<(), String> {
                 }
             }
 
+            println!("Train size: {}", train.len());
+            println!("Test size: {}", test.len());
+
             println!("Error: {}", agz.error(&test));
 
             for i in 0..episodes {
