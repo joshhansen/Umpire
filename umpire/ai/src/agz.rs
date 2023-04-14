@@ -149,10 +149,6 @@ impl AgzActionModel {
 #[async_trait]
 impl ActionwiseTurnTaker2 for AgzActionModel {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
-        let feats = Self::features(turn, TrainingFocus::City).await;
-
-        let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
-
         let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
             .await
             .iter()
@@ -163,6 +159,10 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
         if legal_action_indices.is_empty() {
             return None;
         }
+
+        let feats = Self::features(turn, TrainingFocus::City).await;
+
+        let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
         let city_action_idx = self
             .city_actions
@@ -178,10 +178,6 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
     }
 
     async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction> {
-        let feats = Self::features(turn, TrainingFocus::Unit).await;
-
-        let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
-
         let legal_action_indices: HashSet<usize> = NextUnitAction::legal(turn)
             .await
             .iter()
@@ -192,6 +188,10 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
         if legal_action_indices.is_empty() {
             return None;
         }
+
+        let feats = Self::features(turn, TrainingFocus::Unit).await;
+
+        let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
         let unit_action_idx = self
             .unit_actions
