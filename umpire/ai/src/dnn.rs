@@ -19,7 +19,7 @@ use serde::{
 
 use tch::{
     nn::{self, ModuleT, Optimizer, OptimizerConfig},
-    Device, Tensor,
+    Device, Reduction, Tensor,
 };
 
 use common::game::{
@@ -205,9 +205,10 @@ impl DNN {
             self.forward_t(features, true)
                 .slice(0, *action as i64, *action as i64 + 1, 1);
 
-        let two: Tensor = Tensor::from(2.0f64);
+        let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
 
-        let loss: Tensor = (value - actual_estimate).pow(&two); // we're doing mean squared error
+        let loss: Tensor =
+            actual_estimate.binary_cross_entropy::<&Tensor>(&value_tensor, None, Reduction::None);
 
         self.optimizer.backward_step(&loss);
     }
