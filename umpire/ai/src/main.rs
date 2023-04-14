@@ -711,6 +711,8 @@ async fn main() -> Result<(), String> {
                 }
             }
 
+            println!("Error: {}", agz.error(&test));
+
             for i in 0..episodes {
                 println!("Iteration {}", i);
                 agz.train(&train, sample_prob);
