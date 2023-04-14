@@ -87,61 +87,6 @@ impl DNN {
     pub fn new(device: Device, learning_rate: f64, possible_actions: i64) -> Result<Self, String> {
         let vars = nn::VarStore::new(device);
 
-        // let meta = vars.root().sub("meta");
-
-        // let mut lr = meta.f_zeros_no_train("learning_rate", &[]).unwrap();
-
-        // lr.copy_(&Tensor::try_from(learning_rate).unwrap());
-
-        // let mut pa = meta.f_zeros_no_train("possible_actions", &[]).unwrap();
-
-        // pa.copy_(&Tensor::try_from(possible_actions).unwrap());
-
-        // println!(
-        //     "Variables upon creation: {:?}",
-        //     vars.variables().keys().collect::<Vec<&String>>()
-        // );
-
-        // println!(
-        //     "Named variables keys upon creation: {:?}",
-        //     vars.variables_
-        //         .lock()
-        //         .unwrap()
-        //         .named_variables
-        //         .keys()
-        //         .collect::<Vec<&String>>()
-        // );
-
-        // println!(
-        //     "Meta vars upon creation: {:?}",
-        //     meta.path(name)
-        //     meta.keys().collect::<Vec<&String>>()
-        // );
-
-        // lr.set_data(new_data)
-
-        // vars.variables_.lock().unwrap().named_variables.insert(
-        //     String::from("learning_rate"),
-        //     Tensor::try_from(learning_rate).unwrap(),
-        // );
-
-        // vars.variables_.lock().unwrap().named_variables.insert(
-        //     String::from("possible_actions"),
-        //     Tensor::try_from(possible_actions).unwrap(),
-        // );
-
-        // let mut lr = vars.root().zeros_no_train("learning_rate", &[1]);
-        // lr.copy_(
-        //     &Tensor::try_from(vec![learning_rate]).map_err(|err| {
-        //         format!("Learning rate could not be encoded as a tensor: {}", err)
-        //     })?,
-        // );
-
-        // let mut pa = vars.root().zeros_no_train("possible_actions", &[1]);
-        // pa.copy_(&Tensor::try_from(vec![possible_actions]).map_err(|err| {
-        //     format!("Possible actions could not be encoded as a tensor: {}", err)
-        // })?);
-
         Self::with_varstore(vars, learning_rate, possible_actions)
     }
 
