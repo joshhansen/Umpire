@@ -245,34 +245,6 @@ impl StateActionFunction<Game, usize> for DNN {
     }
 }
 
-struct TensorAndScalar(pub Tensor, pub f64);
-
-impl Mul for TensorAndScalar {
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self::Output {
-        Self(self.0 * rhs.0, self.1 * rhs.1)
-    }
-}
-
-impl Sub for TensorAndScalar {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0, self.1 - rhs.1)
-    }
-}
-
-impl PartialEq for TensorAndScalar {
-    fn eq(&self, other: &Self) -> bool {
-        self.1 == other.1
-    }
-}
-
-impl PartialOrd for TensorAndScalar {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.1.partial_cmp(&other.1)
-    }
-}
-
 impl EnumerableStateActionFunction<Game> for DNN {
     fn n_actions(&self) -> usize {
         AiPlayerAction::possible_actions().len()
