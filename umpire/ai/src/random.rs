@@ -176,7 +176,7 @@ mod test {
             let mut ctrl = PlayerControl::new(game, 0, secrets[0]).await;
 
             for _ in 0..1000 {
-                let mut turn = ctrl.turn_ctrl().await;
+                let mut turn = ctrl.turn_ctrl(true).await;
                 ai.take_turn(&mut turn, false).await;
                 turn.force_end_turn().await.unwrap();
             }
@@ -196,7 +196,7 @@ mod test {
                     let ctrl = &mut ctrls[player];
 
                     {
-                        let mut turn = ctrl.turn_ctrl().await;
+                        let mut turn = ctrl.turn_ctrl(true).await;
 
                         ai.take_turn(&mut turn, false).await;
 
@@ -245,7 +245,7 @@ mod test {
         for _turn in 0..1000 {
             {
                 let ctrl = &mut ctrls[0];
-                let mut turn = ctrl.turn_ctrl().await;
+                let mut turn = ctrl.turn_ctrl(true).await;
 
                 turn.force_end_turn().await.unwrap();
                 // drop this to end first player's turn without moving the infantry or transport
@@ -253,7 +253,7 @@ mod test {
 
             {
                 let ctrl = &mut ctrls[1];
-                let mut turn = ctrl.turn_ctrl().await;
+                let mut turn = ctrl.turn_ctrl(true).await;
 
                 ai.take_turn(&mut turn, false).await;
 

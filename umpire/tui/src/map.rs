@@ -693,7 +693,7 @@ mod test {
 
         let mut ctrl = PlayerControl::new(game, 0, secrets[0]).await;
 
-        let mut turn = ctrl.turn_ctrl().await;
+        let mut turn = ctrl.turn_ctrl(false).await;
 
         let rect = Rect {
             left: 0,

@@ -165,7 +165,7 @@ mod test {
         {
             let ctrl = &mut ctrls[0];
 
-            let mut turn = ctrl.turn_ctrl().await;
+            let mut turn = ctrl.turn_ctrl(false).await;
 
             turn.order_unit_skip(unit_id).await.unwrap();
 
@@ -177,7 +177,7 @@ mod test {
 
         {
             let ctrl = &mut ctrls[1];
-            let mut turn = ctrl.turn_ctrl().await;
+            let mut turn = ctrl.turn_ctrl(false).await;
 
             turn.order_unit_skip(other_unit_id).await.unwrap();
 
