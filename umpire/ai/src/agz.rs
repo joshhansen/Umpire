@@ -132,12 +132,16 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
             .map(|a| a.into())
             .collect();
 
+        if legal_action_indices.is_empty() {
+            return None;
+        }
+
         let city_action_idx = self
             .city_actions
             .iter()
             .map(|dnn| dnn.evaluate_tensor(&feats, &0))
             .enumerate()
-            .filter(|(i, a)| legal_action_indices.contains(i))
+            .filter(|(i, _p_victory_ish)| legal_action_indices.contains(i))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .unwrap()
             .0;
@@ -157,12 +161,16 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
             .map(|a| a.into())
             .collect();
 
+        if legal_action_indices.is_empty() {
+            return None;
+        }
+
         let unit_action_idx = self
             .unit_actions
             .iter()
             .map(|dnn| dnn.evaluate_tensor(&feats, &0))
             .enumerate()
-            .filter(|(i, a)| legal_action_indices.contains(&i))
+            .filter(|(i, _p_victory_ish)| legal_action_indices.contains(&i))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .unwrap()
             .0;
