@@ -76,15 +76,8 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                 None
             };
 
-            let maybe_action = self.next_action(turn).await;
-
-            if let Some(action) = maybe_action {
-                // If an action was specified...
-                turn.take_simple_action(action).await.unwrap();
-
-                if generate_data {
-                    let post_score = turn.player_score().await.unwrap();
-
+            if let Some(action) = self.next_action(turn).await {
+                let (num_features, features) = if generate_data {
                     // Determine if the spatial features should focus on the next city or the next unit
                     let focus = if NextCityAction::try_from(action).is_ok() {
                         TrainingFocus::City
@@ -93,12 +86,22 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                     };
 
                     let (num_features, features) = sparsify(turn.player_features(focus).await);
+                    (Some(num_features), Some(features))
+                } else {
+                    (None, None)
+                };
+
+                // If an action was specified...
+                turn.take_simple_action(action).await.unwrap();
+
+                if generate_data {
+                    let post_score = turn.player_score().await.unwrap();
 
                     training_instances.as_mut().map(|v| {
                         v.push(TrainingInstance::undetermined(
                             player,
-                            num_features,
-                            features,
+                            num_features.unwrap(),
+                            features.unwrap(),
                             pre_score.unwrap(),
                             action,
                             post_score,
