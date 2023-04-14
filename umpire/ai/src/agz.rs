@@ -13,7 +13,7 @@ use tch::{Device, Tensor};
 
 use common::game::{
     action::{AiPlayerAction, NextCityAction, NextUnitAction},
-    ai::TrainingOutcome,
+    ai::{TrainingFocus, TrainingOutcome},
     player::PlayerTurn,
     turn_async::ActionwiseTurnTaker2,
 };
@@ -122,8 +122,8 @@ impl AgzActionModel {
         sse
     }
 
-    async fn features(turn: &PlayerTurn<'_>) -> Vec<f32> {
-        turn.player_features()
+    async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
+        turn.player_features(focus)
             .await
             .iter()
             .map(|x| *x as f32)
@@ -149,7 +149,7 @@ impl AgzActionModel {
 #[async_trait]
 impl ActionwiseTurnTaker2 for AgzActionModel {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
-        let feats = Self::features(turn).await;
+        let feats = Self::features(turn, TrainingFocus::City).await;
 
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
@@ -178,7 +178,7 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
     }
 
     async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction> {
-        let feats = Self::features(turn).await;
+        let feats = Self::features(turn, TrainingFocus::Unit).await;
 
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 

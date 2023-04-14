@@ -35,6 +35,17 @@ pub const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
 pub const DEEP_FEATS: i64 = 4;
 pub const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
 
+/// We customize the feature vector depending on if we're training a model for city actions or unit actions
+/// This just lets us specify which.
+///
+/// UnitIfExistsElseCity is for compatibility as that was the old behavior
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TrainingFocus {
+    City,
+    Unit,
+    UnitIfExistsElseCity,
+}
+
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum TrainingOutcome {
     Victory,

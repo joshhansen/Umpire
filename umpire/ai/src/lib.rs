@@ -18,7 +18,7 @@ use rsrl::fa::{EnumerableStateActionFunction, StateActionFunction};
 use common::{
     game::{
         action::AiPlayerAction,
-        ai::{AISpec, TrainingInstance},
+        ai::{AISpec, TrainingFocus, TrainingInstance},
         player::PlayerTurn,
         turn::TurnOutcome,
         turn_async::TurnTaker as TurnTakerAsync,
@@ -312,7 +312,9 @@ impl AI {
             // outcome: TrainingOutcome,// how did things work out for the player?
 
             let (num_features, features, pre_score) = if generate_data {
-                let features = game.player_features().await;
+                let features = game
+                    .player_features(TrainingFocus::UnitIfExistsElseCity)
+                    .await;
                 let (num_features, features) = sparsify(features);
 
                 (

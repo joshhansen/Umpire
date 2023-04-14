@@ -10,7 +10,7 @@ use common::{
         action::{
             AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome,
         },
-        ai::fX,
+        ai::{fX, TrainingFocus},
         city::{City, CityID},
         error::GameError,
         map::Tile,
@@ -814,8 +814,9 @@ impl UmpireRpc for UmpireServer {
         self,
         _: Context,
         player_secret: PlayerSecret,
+        focus: TrainingFocus,
     ) -> UmpireResult<Vec<fX>> {
-        self.game.read().await.player_features(player_secret)
+        self.game.read().await.player_features(player_secret, focus)
     }
 
     async fn current_player_score(self, _: Context) -> f64 {

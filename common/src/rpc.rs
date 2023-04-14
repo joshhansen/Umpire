@@ -11,7 +11,7 @@ use crate::{
         action::{
             AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome,
         },
-        ai::fX,
+        ai::{fX, TrainingFocus},
         city::{City, CityID},
         error::GameError,
         map::Tile,
@@ -344,7 +344,10 @@ pub trait UmpireRpc {
         action: PlayerAction,
     ) -> ProposedActionResult;
 
-    async fn player_features(player_secret: PlayerSecret) -> UmpireResult<Vec<fX>>;
+    async fn player_features(
+        player_secret: PlayerSecret,
+        focus: TrainingFocus,
+    ) -> UmpireResult<Vec<fX>>;
 }
 
 pub struct RpcGame {
@@ -845,7 +848,11 @@ impl IGame for RpcGame {
         self.game.wrapping(context::current()).await.unwrap()
     }
 
-    async fn player_features(&self, _player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
+    async fn player_features(
+        &self,
+        _player_secret: PlayerSecret,
+        _focus: TrainingFocus,
+    ) -> UmpireResult<Vec<fX>> {
         unimplemented!();
     }
 

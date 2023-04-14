@@ -62,7 +62,7 @@ pub use self::player::{PlayerNum, PlayerType};
 
 use self::{
     action::{Actionable, PlayerAction, PlayerActionOutcome},
-    ai::{fX, FEATS_LEN},
+    ai::{fX, TrainingFocus, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
     move_::{Move, MoveComponent, MoveError},
     obs::{LocatedObs, LocatedObsLite},
@@ -2203,7 +2203,11 @@ impl Game {
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
     ///
-    pub fn player_features(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
+    pub fn player_features(
+        &self,
+        player_secret: PlayerSecret,
+        focus: TrainingFocus,
+    ) -> UmpireResult<Vec<fX>> {
         // For every tile we add these f64's:
         // is the tile observed or not?
         // which player controls the tile (one hot encoded)
@@ -2275,25 +2279,36 @@ impl Game {
 
         x.extend(counts_vec);
 
-        // Relatively positioned around next unit (if any) or city
-
-        let loc = if let Some(unit_id) = unit_id {
-            Some(match self.player_unit_loc(player_secret, unit_id)? {
-                Some(loc) => loc,
-                None => {
-                    panic!("Unit was in orders requests but not in current player observations")
+        // Relatively positioned around city or unit, depending on the training focus
+        let loc =
+            match focus {
+                TrainingFocus::City => Some(city_loc.expect(
+                    "There should be a next city if we're generating a city feature vector",
+                )),
+                TrainingFocus::Unit => Some(
+                    self.player_unit_loc(
+                        player_secret,
+                        unit_id.expect(
+                            "There should be a next unit if we're generating a unit feature vector",
+                        ),
+                    )?
+                    .unwrap(),
+                ),
+                TrainingFocus::UnitIfExistsElseCity => {
+                    if let Some(unit_id) = unit_id {
+                        self.player_unit_loc(player_secret, unit_id)?
+                    } else {
+                        city_loc
+                    }
                 }
-            })
-        } else {
-            city_loc
-        };
+            };
 
         let mut is_enemy_belligerent = Vec::new();
         let mut is_observed = Vec::new();
         let mut is_neutral = Vec::new();
         let mut is_city = Vec::new();
 
-        let player = self.current_player();
+        let player = self.player_with_secret(player_secret)?;
 
         // 2d features
         for inc_x in -5..=5 {
@@ -2348,9 +2363,9 @@ impl Game {
         Ok(x)
     }
 
-    fn current_player_features(&self) -> Vec<fX> {
+    fn current_player_features(&self, focus: TrainingFocus) -> Vec<fX> {
         let player_secret = self.player_secrets[self.current_player];
-        self.player_features(player_secret).unwrap()
+        self.player_features(player_secret, focus).unwrap()
     }
 }
 
@@ -2382,7 +2397,7 @@ impl fmt::Debug for Game {
 
 impl DerefVec for Game {
     fn deref_vec(&self) -> Vec<fX> {
-        self.current_player_features()
+        self.current_player_features(TrainingFocus::UnitIfExistsElseCity)
     }
 }
 

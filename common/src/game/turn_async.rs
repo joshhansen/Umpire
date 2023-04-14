@@ -13,7 +13,7 @@ use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
     action::{AiPlayerAction, NextCityAction, NextUnitAction},
-    ai::TrainingInstance,
+    ai::{TrainingFocus, TrainingInstance},
     player::{PlayerControl, PlayerTurn},
     turn::TurnOutcome,
     PlayerNum, PlayerSecret,
@@ -70,28 +70,35 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
         let turn_num = turn.turn().await;
 
         loop {
-            let (num_features, features, pre_score) = if generate_data {
-                let (num_features, features) = sparsify(turn.player_features().await);
-                (
-                    Some(num_features),
-                    Some(features),
-                    Some(turn.player_score().await.unwrap()),
-                )
+            let pre_score = if generate_data {
+                Some(turn.player_score().await.unwrap())
             } else {
-                (None, None, None)
+                None
             };
 
-            if let Some(action) = self.next_action(turn).await {
+            let maybe_action = self.next_action(turn).await;
+
+            if let Some(action) = maybe_action {
                 // If an action was specified...
                 turn.take_simple_action(action).await.unwrap();
 
                 if generate_data {
                     let post_score = turn.player_score().await.unwrap();
+
+                    // Determine if the spatial features should focus on the next city or the next unit
+                    let focus = if NextCityAction::try_from(action).is_ok() {
+                        TrainingFocus::City
+                    } else {
+                        TrainingFocus::Unit
+                    };
+
+                    let (num_features, features) = sparsify(turn.player_features(focus).await);
+
                     training_instances.as_mut().map(|v| {
                         v.push(TrainingInstance::undetermined(
                             player,
-                            num_features.unwrap(),
-                            features.unwrap(),
+                            num_features,
+                            features,
                             pre_score.unwrap(),
                             action,
                             post_score,

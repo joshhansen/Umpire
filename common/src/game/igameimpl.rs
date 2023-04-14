@@ -24,7 +24,7 @@ use super::{
         Actionable, AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction,
         PlayerActionOutcome,
     },
-    ai::fX,
+    ai::{fX, TrainingFocus},
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
@@ -518,8 +518,12 @@ impl IGame for Game {
         self.player_scores()
     }
 
-    async fn player_features(&self, player_secret: PlayerSecret) -> UmpireResult<Vec<fX>> {
-        self.player_features(player_secret)
+    async fn player_features(
+        &self,
+        player_secret: PlayerSecret,
+        focus: TrainingFocus,
+    ) -> UmpireResult<Vec<fX>> {
+        self.player_features(player_secret, focus)
     }
 
     async fn take_simple_action(

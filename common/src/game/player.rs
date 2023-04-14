@@ -6,7 +6,7 @@ use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
     action::{AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome},
-    ai::{fX, AISpec},
+    ai::{fX, AISpec, TrainingFocus},
     error::GameError,
     map::dijkstra::Source,
     move_::Move,
@@ -302,13 +302,12 @@ impl PlayerControl {
         }
     }
 
-    /// Possibly split unit-relevant from city-relevant features
     /// FIXME Maintain this vector in the client, incrementally
-    pub async fn player_features(&self) -> Vec<fX> {
+    pub async fn player_features(&self, focus: TrainingFocus) -> Vec<fX> {
         self.game
             .read()
             .await
-            .player_features(self.secret)
+            .player_features(self.secret, focus)
             .await
             .unwrap()
     }
@@ -438,7 +437,7 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn player_city_by_loc(&self, loc: Location) -> Option<City>;
 
-            pub async fn player_features(&self) -> Vec<fX>;
+            pub async fn player_features(&self, focus: TrainingFocus) -> Vec<fX>;
 
             pub async fn player_production_set_requests(&self) -> Vec<Location>;
 
