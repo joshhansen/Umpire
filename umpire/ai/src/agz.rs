@@ -94,6 +94,34 @@ impl AgzActionModel {
         }
     }
 
+    pub fn error(&self, data: &Vec<AgzDatum>) -> f64 {
+        let mut sse = 0.0f64;
+        for datum in data {
+            let features = &datum.features;
+
+            let predicted_outcome = if let Ok(city_action) =
+                <AiPlayerAction as TryInto<NextCityAction>>::try_into(datum.action)
+            {
+                let city_action_idx: usize = city_action.into();
+
+                self.city_actions[city_action_idx].evaluate_tensor(features, &0)
+            } else {
+                let unit_action =
+                    <AiPlayerAction as TryInto<NextUnitAction>>::try_into(datum.action).unwrap();
+
+                let unit_action_idx: usize = unit_action.into();
+
+                self.unit_actions[unit_action_idx].evaluate_tensor(features, &0)
+            };
+
+            let actual_outcome = datum.outcome.to_training_target();
+
+            sse += (predicted_outcome - actual_outcome).powf(2.0);
+        }
+
+        sse
+    }
+
     async fn features(turn: &PlayerTurn<'_>) -> Vec<f32> {
         turn.player_features()
             .await

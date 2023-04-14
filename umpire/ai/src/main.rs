@@ -35,6 +35,9 @@ use umpire_ai::agz::{AgzActionModel, AgzDatum};
 #[cfg(feature = "pytorch")]
 use common::util::densify;
 
+#[cfg(feature = "pytorch")]
+use rand::Rng;
+
 use tokio::sync::RwLock as RwLockTokio;
 
 use common::{
@@ -686,13 +689,33 @@ async fn main() -> Result<(), String> {
 
             let mut agz = AgzActionModel::new(device, learning_rate)?;
 
+            let test_prob = 0.2;
+
+            println!("Test portion: {}", test_prob);
+
             let sample_prob = 0.05;
 
             println!("Sample probability: {}", sample_prob);
 
+            let mut train: Vec<AgzDatum> = Vec::new();
+
+            let mut test: Vec<AgzDatum> = Vec::new();
+
+            let mut rng = thread_rng();
+
+            for datum in input.into_iter() {
+                if rng.gen::<f64>() <= test_prob {
+                    test.push(datum);
+                } else {
+                    train.push(datum);
+                }
+            }
+
             for i in 0..episodes {
                 println!("Iteration {}", i);
-                agz.train(&input, sample_prob);
+                agz.train(&train, sample_prob);
+
+                println!("Error: {}", agz.error(&test));
             }
 
             let output_path = Path::new(output_path.as_str());
