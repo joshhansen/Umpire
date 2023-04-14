@@ -3,7 +3,7 @@
 //! Based on self-play game outcomes, learn P(victory|action; environment)
 //!
 //! Divided into two sub-models, one for city actions, one for unit actions
-use std::fs::OpenOptions;
+use std::{collections::HashSet, fs::OpenOptions};
 
 use async_trait::async_trait;
 
@@ -118,7 +118,6 @@ impl AgzActionModel {
     }
 }
 
-//FIXME FIlter by legal actions
 #[async_trait]
 impl ActionwiseTurnTaker2 for AgzActionModel {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
@@ -126,11 +125,19 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
+        let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
+            .await
+            .iter()
+            .copied()
+            .map(|a| a.into())
+            .collect();
+
         let city_action_idx = self
             .city_actions
             .iter()
             .map(|dnn| dnn.evaluate_tensor(&feats, &0))
             .enumerate()
+            .filter(|(i, a)| legal_action_indices.contains(i))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .unwrap()
             .0;
@@ -143,11 +150,19 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
+        let legal_action_indices: HashSet<usize> = NextUnitAction::legal(turn)
+            .await
+            .iter()
+            .copied()
+            .map(|a| a.into())
+            .collect();
+
         let unit_action_idx = self
             .unit_actions
             .iter()
             .map(|dnn| dnn.evaluate_tensor(&feats, &0))
             .enumerate()
+            .filter(|(i, a)| legal_action_indices.contains(&i))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .unwrap()
             .0;

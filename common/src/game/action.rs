@@ -13,6 +13,7 @@ use super::{
     ai::POSSIBLE_ACTIONS,
     city::CityID,
     move_::Move,
+    player::PlayerTurn,
     unit::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
@@ -171,13 +172,27 @@ impl Actionable for AiPlayerAction {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub enum NextCityAction {
     SetProduction { unit_type: UnitType },
 }
 
 impl NextCityAction {
-    /// The number of possible city actions
+    /// Currently possible actions
+    pub async fn legal(turn: &PlayerTurn<'_>) -> Vec<Self> {
+        if let Some(city_loc) = turn.player_production_set_requests().await.iter().next() {
+            turn.valid_productions(*city_loc)
+                .await
+                .iter()
+                .copied()
+                .map(|unit_type| Self::SetProduction { unit_type })
+                .collect()
+        } else {
+            Vec::new() // no legal actions because there's no next city
+        }
+    }
+
+    /// The number of possible city actions overall, regardless of current circumstances
     pub fn possible() -> usize {
         UnitType::values().len()
     }
@@ -237,7 +252,7 @@ impl TryFrom<AiPlayerAction> for NextCityAction {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub enum NextUnitAction {
     Move { direction: Direction },
     Disband,
@@ -245,6 +260,27 @@ pub enum NextUnitAction {
 }
 
 impl NextUnitAction {
+    /// Currently possible actions
+    pub async fn legal(turn: &PlayerTurn<'_>) -> Vec<Self> {
+        if let Some(unit_id) = turn.player_unit_orders_requests().await.iter().next() {
+            // disband, skip, then any move actions
+            vec![Self::Disband, Self::Skip]
+                .iter()
+                .copied()
+                .chain(
+                    turn.player_unit_legal_directions(*unit_id)
+                        .await
+                        .unwrap()
+                        .iter()
+                        .copied()
+                        .map(|direction| Self::Move { direction }),
+                )
+                .collect()
+        } else {
+            Vec::new() // no legal actions because there's no next unit
+        }
+    }
+
     pub fn possible() -> usize {
         Direction::values().len() + 2
     }
