@@ -93,30 +93,30 @@ impl DNN {
     ) -> Result<Self, String> {
         let path = vars.root();
 
-        let conv0 = nn::conv2d(&path, 1, BASE_CONV_FEATS, 3, Default::default()); // -> 9x9
-        let conv1 = nn::conv2d(
-            &path,
-            BASE_CONV_FEATS,
-            BASE_CONV_FEATS * 2,
-            3,
-            Default::default(),
-        ); // -> 7x7
-        let conv2 = nn::conv2d(
-            &path,
-            BASE_CONV_FEATS * 2,
-            BASE_CONV_FEATS * 4,
-            3,
-            Default::default(),
-        ); // -> 5x5
-        let conv3 = nn::conv2d(
-            &path,
-            BASE_CONV_FEATS * 4,
-            BASE_CONV_FEATS * 8,
-            3,
-            Default::default(),
-        ); // -> 3x3
-
-        let convs = vec![conv0, conv1, conv2, conv3];
+        let convs = vec![
+            nn::conv2d(&path, 1, BASE_CONV_FEATS, 3, Default::default()), // -> 9x9
+            nn::conv2d(
+                &path,
+                BASE_CONV_FEATS,
+                BASE_CONV_FEATS * 2,
+                3,
+                Default::default(),
+            ), // -> 7x7
+            nn::conv2d(
+                &path,
+                BASE_CONV_FEATS * 2,
+                BASE_CONV_FEATS * 4,
+                3,
+                Default::default(),
+            ), // -> 5x5
+            nn::conv2d(
+                &path,
+                BASE_CONV_FEATS * 4,
+                BASE_CONV_FEATS * 8,
+                3,
+                Default::default(),
+            ), // -> 3x3
+        ];
 
         let dense0 = nn::linear(&path, 2329, 256, Default::default());
         let dense1 = nn::linear(&path, 256, 128, Default::default());
