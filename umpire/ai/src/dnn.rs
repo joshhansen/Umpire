@@ -81,7 +81,7 @@ impl DNN {
         }
         Tensor::try_from(features)
             .unwrap()
-            .to_device(Device::cuda_if_available())
+            .to_device(self.vars.device())
     }
 
     pub fn new(device: Device, learning_rate: f64, possible_actions: i64) -> Result<Self, String> {
