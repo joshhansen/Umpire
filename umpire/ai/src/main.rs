@@ -689,7 +689,7 @@ async fn main() -> Result<(), String> {
 
             let mut agz = AgzActionModel::new(device, learning_rate)?;
 
-            let test_prob = 0.2;
+            let test_prob = 0.05;
 
             println!("Test portion: {}", test_prob);
 
