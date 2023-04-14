@@ -225,7 +225,7 @@ impl UmpireDomain {
     ) -> Result<Self, std::io::Error> {
         // Begin the first player's turn if it hasn't been started already
         if game.turn_phase() == TurnPhase::Pre {
-            game.begin_turn(secrets[0]).unwrap();
+            game.begin_turn(secrets[0], true).unwrap();
         }
 
         debug_assert_eq!(game.turn_phase(), TurnPhase::Main);
@@ -332,7 +332,9 @@ impl UmpireDomain {
             let secret = self.player_secrets[self.game.current_player()];
             let next_secret =
                 self.player_secrets[(self.game.current_player() + 1) % self.game.num_players()];
-            self.game.end_then_begin_turn(secret, next_secret).unwrap();
+            self.game
+                .end_then_begin_turn(secret, next_secret, true)
+                .unwrap();
         }
     }
 }

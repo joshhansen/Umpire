@@ -314,7 +314,14 @@ async fn main() -> Result<(), String> {
 
                 let ctrl = ctrls.get_mut(player).unwrap().as_mut().unwrap();
 
-                let mut turn = ctrl.turn_ctrl().await;
+                let is_ai = if let PlayerType::AI(_) = player_types[player] {
+                    true
+                } else {
+                    false
+                };
+
+                // Automatically clear productions for AIs, but not for humans
+                let mut turn = ctrl.turn_ctrl(is_ai).await;
 
                 match &player_types[player] {
                     PlayerType::Human => {

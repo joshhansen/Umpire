@@ -137,8 +137,16 @@ impl PlayerControl {
         Ok(result)
     }
 
-    pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart> {
-        let result = self.game.write().await.begin_turn(self.secret).await;
+    pub async fn begin_turn(
+        &mut self,
+        clear_after_unit_production: bool,
+    ) -> UmpireResult<TurnStart> {
+        let result = self
+            .game
+            .write()
+            .await
+            .begin_turn(self.secret, clear_after_unit_production)
+            .await;
 
         if let Ok(ref turn_start) = result {
             self.observations.track_many(turn_start.observations.iter());
@@ -305,8 +313,8 @@ impl PlayerControl {
             .unwrap()
     }
 
-    pub async fn turn_ctrl(&mut self) -> PlayerTurn {
-        PlayerTurn::new(self).await
+    pub async fn turn_ctrl(&mut self, clear_after_unit_production: bool) -> PlayerTurn {
+        PlayerTurn::new(self, clear_after_unit_production).await
     }
 }
 
@@ -320,8 +328,11 @@ pub struct PlayerTurn<'a> {
 }
 
 impl<'a> PlayerTurn<'a> {
-    pub async fn new(ctrl: &'a mut PlayerControl) -> PlayerTurn<'a> {
-        let turn_start = ctrl.begin_turn().await.unwrap();
+    pub async fn new(
+        ctrl: &'a mut PlayerControl,
+        clear_after_unit_production: bool,
+    ) -> PlayerTurn<'a> {
+        let turn_start = ctrl.begin_turn(clear_after_unit_production).await.unwrap();
         Self {
             ctrl,
             turn_start,
@@ -505,7 +516,7 @@ mod test {
         {
             let ctrl = &mut ctrls[0];
 
-            let mut turn = ctrl.turn_ctrl().await;
+            let mut turn = ctrl.turn_ctrl(false).await;
 
             assert_eq!(turn.turn().await, 0);
             assert_eq!(turn.current_player().await, 0);
@@ -522,7 +533,7 @@ mod test {
         {
             let ctrl = &mut ctrls[1];
 
-            let mut turn = ctrl.turn_ctrl().await;
+            let mut turn = ctrl.turn_ctrl(false).await;
 
             assert_eq!(turn.turn().await, 0);
             assert_eq!(turn.current_player().await, 1);

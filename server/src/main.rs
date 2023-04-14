@@ -108,16 +108,16 @@ impl UmpireRpc for UmpireServer {
         self.game.read().await.current_turn_is_done()
     }
 
-    async fn begin_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
-        self.game.write().await.begin_turn(player_secret)
-    }
-
-    async fn begin_turn_clearing(
+    async fn begin_turn(
         self,
         _: Context,
         player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
-        self.game.write().await.begin_turn_clearing(player_secret)
+        self.game
+            .write()
+            .await
+            .begin_turn(player_secret, clear_after_unit_production)
     }
 
     async fn end_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<()> {
@@ -137,23 +137,13 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
-        self.game
-            .write()
-            .await
-            .end_then_begin_turn(player_secret, next_player_secret)
-    }
-
-    async fn end_then_begin_turn_clearing(
-        self,
-        _: Context,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.game
-            .write()
-            .await
-            .end_then_begin_turn_clearing(player_secret, next_player_secret)
+        self.game.write().await.end_then_begin_turn(
+            player_secret,
+            next_player_secret,
+            clear_after_unit_production,
+        )
     }
 
     async fn force_end_then_begin_turn(
@@ -161,23 +151,13 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
-        self.game
-            .write()
-            .await
-            .force_end_then_begin_turn(player_secret, next_player_secret)
-    }
-
-    async fn force_end_then_begin_turn_clearing(
-        self,
-        _: Context,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.game
-            .write()
-            .await
-            .force_end_then_begin_turn_clearing(player_secret, next_player_secret)
+        self.game.write().await.force_end_then_begin_turn(
+            player_secret,
+            next_player_secret,
+            clear_after_unit_production,
+        )
     }
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -1056,7 +1036,8 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ai) = ais.get_mut(&ptype) {
                     let ctrl = &mut ai_ctrls[player].as_mut().unwrap();
 
-                    let mut turn = ctrl.turn_ctrl().await;
+                    // Always clear on unit production for the robots
+                    let mut turn = ctrl.turn_ctrl(true).await;
 
                     ai.take_turn(&mut turn, false).await;
 

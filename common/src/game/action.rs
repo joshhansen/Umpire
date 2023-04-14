@@ -373,7 +373,9 @@ impl Into<usize> for NextUnitAction {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum PlayerAction {
-    BeginTurn,
+    BeginTurn {
+        clear_after_unit_production: bool,
+    },
     EndTurn,
     SetCityProduction {
         city_id: CityID,
@@ -441,8 +443,10 @@ impl PlayerAction {
         player_secret: PlayerSecret,
     ) -> Result<PlayerActionOutcome, GameError> {
         match self {
-            PlayerAction::BeginTurn => game
-                .begin_turn(player_secret)
+            PlayerAction::BeginTurn {
+                clear_after_unit_production,
+            } => game
+                .begin_turn(player_secret, clear_after_unit_production)
                 .map(|turn_start| PlayerActionOutcome::TurnStarted(turn_start)),
             PlayerAction::EndTurn => game
                 .end_turn(player_secret)

@@ -44,15 +44,12 @@ impl IGame for Game {
         self.is_player_turn(secret)
     }
 
-    async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
-        self.begin_turn(player_secret)
-    }
-
-    async fn begin_turn_clearing(
+    async fn begin_turn(
         &mut self,
         player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
-        self.begin_turn_clearing(player_secret)
+        self.begin_turn(player_secret, clear_after_unit_production)
     }
 
     async fn turn_is_done(&self, player: PlayerNum, turn: TurnNum) -> UmpireResult<bool> {
@@ -79,32 +76,26 @@ impl IGame for Game {
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
-        self.end_then_begin_turn(player_secret, next_player_secret)
-    }
-
-    async fn end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.end_then_begin_turn_clearing(player_secret, next_player_secret)
+        self.end_then_begin_turn(
+            player_secret,
+            next_player_secret,
+            clear_after_unit_production,
+        )
     }
 
     async fn force_end_then_begin_turn(
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
-        self.force_end_then_begin_turn(player_secret, next_player_secret)
-    }
-
-    async fn force_end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.force_end_then_begin_turn_clearing(player_secret, next_player_secret)
+        self.force_end_then_begin_turn(
+            player_secret,
+            next_player_secret,
+            clear_after_unit_production,
+        )
     }
 
     async fn player_unit_legal_one_step_destinations(

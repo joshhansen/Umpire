@@ -483,13 +483,26 @@ impl Game {
     /// ## Errors
     /// * GameError::NotPlayersTurn
     /// * GameError::TurnAlreadyBegun
-    pub fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
+    pub fn begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
+    ) -> UmpireResult<TurnStart> {
         let player = self.validate_is_player_turn_pre_phase(player_secret)?;
 
         // "Beginning" a turn is what moves us from Pre to Main phase
         self.turn_phase = TurnPhase::Main;
 
         let production_outcomes = self.produce_units(player_secret)?;
+
+        if clear_after_unit_production {
+            for prod in production_outcomes.iter() {
+                if let UnitProductionOutcome::UnitProduced { city, .. } = prod {
+                    self.clear_production(player_secret, city.loc, false)
+                        .unwrap();
+                }
+            }
+        }
 
         self.refresh_moves_remaining(player_secret)?;
 
@@ -504,22 +517,6 @@ impl Game {
             production_outcomes,
             observations,
         })
-    }
-
-    /// Begin the turn of the specified player, claring productions
-    pub fn begin_turn_clearing(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
-        let result = self.begin_turn(player_secret)?;
-
-        let current_player_secret = self.player_secrets[self.current_player];
-
-        for prod in result.production_outcomes.iter() {
-            if let UnitProductionOutcome::UnitProduced { city, .. } = prod {
-                self.clear_production(current_player_secret, city.loc, false)
-                    .unwrap();
-            }
-        }
-
-        Ok(result)
     }
 
     /// Indicates whether the given player has completed the specified turn, or not
@@ -647,27 +644,16 @@ impl Game {
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
         self.validate_is_player_turn(player_secret)?;
 
         if self.current_turn_is_done() {
-            Ok(self.force_end_then_begin_turn(player_secret, next_player_secret)?)
-        } else {
-            Err(GameError::TurnEndRequirementsNotMet {
-                player: self.current_player,
-            })
-        }
-    }
-
-    pub fn end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.validate_is_player_turn(player_secret)?;
-
-        if self.current_turn_is_done() {
-            self.force_end_then_begin_turn_clearing(player_secret, next_player_secret)
+            Ok(self.force_end_then_begin_turn(
+                player_secret,
+                next_player_secret,
+                clear_after_unit_production,
+            )?)
         } else {
             Err(GameError::TurnEndRequirementsNotMet {
                 player: self.current_player,
@@ -687,21 +673,11 @@ impl Game {
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
         self.force_end_turn(player_secret)?;
 
-        self.begin_turn(next_player_secret)
-    }
-
-    /// End the turn without checking that the player has filled all production and orders requests.
-    pub fn force_end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.force_end_turn(player_secret)?;
-
-        self.begin_turn_clearing(next_player_secret)
+        self.begin_turn(next_player_secret, clear_after_unit_production)
     }
 
     /// Register the current observations of player units

@@ -35,11 +35,11 @@ pub trait IGame: Send + Sync {
 
     async fn is_player_turn(&self, secret: PlayerSecret) -> UmpireResult<bool>;
 
-    async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart>;
-
-    /// Begin the turn of the specified player, claring productions
-    async fn begin_turn_clearing(&mut self, player_secret: PlayerSecret)
-        -> UmpireResult<TurnStart>;
+    async fn begin_turn(
+        &mut self,
+        player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
+    ) -> UmpireResult<TurnStart>;
 
     /// Indicates whether the given player has completed the specified turn, or not
     ///
@@ -81,12 +81,7 @@ pub trait IGame: Send + Sync {
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart>;
-
-    async fn end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart>;
 
     /// End the turn without checking that the player has filled all production and orders requests.
@@ -94,13 +89,7 @@ pub trait IGame: Send + Sync {
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart>;
-
-    /// End the turn without checking that the player has filled all production and orders requests.
-    async fn force_end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart>;
 
     /// The set of destinations that the specified unit could actually attempt a move onto in exactly one movement step.

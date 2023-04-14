@@ -44,9 +44,10 @@ pub trait UmpireRpc {
 
     async fn current_turn_is_done() -> bool;
 
-    async fn begin_turn(player_secret: PlayerSecret) -> UmpireResult<TurnStart>;
-
-    async fn begin_turn_clearing(player_secret: PlayerSecret) -> UmpireResult<TurnStart>;
+    async fn begin_turn(
+        player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
+    ) -> UmpireResult<TurnStart>;
 
     async fn end_turn(player_secret: PlayerSecret) -> UmpireResult<()>;
 
@@ -57,21 +58,13 @@ pub trait UmpireRpc {
     async fn end_then_begin_turn(
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart>;
-
-    async fn end_then_begin_turn_clearing(
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart>;
 
     async fn force_end_then_begin_turn(
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart>;
-
-    async fn force_end_then_begin_turn_clearing(
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart>;
 
     /// The victor---if any---meaning the player who has defeated all other players.
@@ -377,19 +370,17 @@ impl IGame for RpcGame {
         self.game.num_players(context::current()).await.unwrap()
     }
 
-    async fn begin_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnStart> {
-        self.game
-            .begin_turn(context::current(), player_secret)
-            .await
-            .unwrap()
-    }
-
-    async fn begin_turn_clearing(
+    async fn begin_turn(
         &mut self,
         player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
         self.game
-            .begin_turn_clearing(context::current(), player_secret)
+            .begin_turn(
+                context::current(),
+                player_secret,
+                clear_after_unit_production,
+            )
             .await
             .unwrap()
     }
@@ -430,20 +421,15 @@ impl IGame for RpcGame {
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
         self.game
-            .end_then_begin_turn(context::current(), player_secret, next_player_secret)
-            .await
-            .unwrap()
-    }
-
-    async fn end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.game
-            .end_then_begin_turn_clearing(context::current(), player_secret, next_player_secret)
+            .end_then_begin_turn(
+                context::current(),
+                player_secret,
+                next_player_secret,
+                clear_after_unit_production,
+            )
             .await
             .unwrap()
     }
@@ -452,23 +438,14 @@ impl IGame for RpcGame {
         &mut self,
         player_secret: PlayerSecret,
         next_player_secret: PlayerSecret,
+        clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart> {
         self.game
-            .force_end_then_begin_turn(context::current(), player_secret, next_player_secret)
-            .await
-            .unwrap()
-    }
-
-    async fn force_end_then_begin_turn_clearing(
-        &mut self,
-        player_secret: PlayerSecret,
-        next_player_secret: PlayerSecret,
-    ) -> UmpireResult<TurnStart> {
-        self.game
-            .force_end_then_begin_turn_clearing(
+            .force_end_then_begin_turn(
                 context::current(),
                 player_secret,
                 next_player_secret,
+                clear_after_unit_production,
             )
             .await
             .unwrap()

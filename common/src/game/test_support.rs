@@ -109,7 +109,7 @@ pub fn game_two_cities_dims(dims: Dims) -> (Game, Vec<PlayerSecret>) {
         Wrap2d::BOTH,
     );
 
-    game.begin_turn(secrets[0]).unwrap();
+    game.begin_turn(secrets[0], false).unwrap();
 
     let loc: Location = game
         .current_player_production_set_requests()
@@ -121,7 +121,7 @@ pub fn game_two_cities_dims(dims: Dims) -> (Game, Vec<PlayerSecret>) {
         .unwrap();
 
     let player = game
-        .end_then_begin_turn(secrets[0], secrets[1])
+        .end_then_begin_turn(secrets[0], secrets[1], false)
         .unwrap()
         .current_player;
     assert_eq!(player, 1);
@@ -135,7 +135,7 @@ pub fn game_two_cities_dims(dims: Dims) -> (Game, Vec<PlayerSecret>) {
         .unwrap();
 
     let player = game
-        .end_then_begin_turn(secrets[1], secrets[0])
+        .end_then_begin_turn(secrets[1], secrets[0], false)
         .unwrap()
         .current_player;
     assert_eq!(player, 0);
@@ -187,23 +187,23 @@ pub fn game_two_cities_two_infantry_dims(dims: Dims) -> (Game, Vec<PlayerSecret>
 
     for _ in 0..5 {
         let player = game
-            .end_then_begin_turn(secrets[0], secrets[1])
+            .end_then_begin_turn(secrets[0], secrets[1], false)
             .unwrap()
             .current_player;
         assert_eq!(player, 1);
         let player = game
-            .end_then_begin_turn(secrets[1], secrets[0])
+            .end_then_begin_turn(secrets[1], secrets[0], false)
             .unwrap()
             .current_player;
         assert_eq!(player, 0);
     }
 
     assert_eq!(
-        game.end_then_begin_turn(secrets[0], secrets[1]),
+        game.end_then_begin_turn(secrets[0], secrets[1], false),
         Err(GameError::TurnEndRequirementsNotMet { player: 0 })
     );
     assert_eq!(
-        game.end_then_begin_turn(secrets[0], secrets[1]),
+        game.end_then_begin_turn(secrets[0], secrets[1], false),
         Err(GameError::TurnEndRequirementsNotMet { player: 0 })
     );
 

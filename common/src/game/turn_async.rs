@@ -28,6 +28,7 @@ pub trait TurnTakerSuperuser {
         game: Arc<RwLockTokio<Game>>,
         player: PlayerNum,
         secret: PlayerSecret,
+        clear_after_unit_production: bool,
         generate_data: bool,
     ) -> TurnOutcome;
 }
@@ -35,7 +36,12 @@ pub trait TurnTakerSuperuser {
 /// Take a turn, but you have to begin and end the turn yourself
 #[async_trait]
 pub trait TurnTakerDIY {
-    async fn take_turn(&mut self, player: &mut PlayerControl, generate_data: bool) -> TurnOutcome;
+    async fn take_turn(
+        &mut self,
+        player: &mut PlayerControl,
+        clear_after_unit_production: bool,
+        generate_data: bool,
+    ) -> TurnOutcome;
 }
 
 /// Take a turn that has already been started for you, and will be ended
@@ -129,8 +135,13 @@ impl<T: ActionwiseTurnTaker2 + Send> ActionwiseTurnTaker for T {
 
 #[async_trait]
 impl<T: TurnTaker + Send> TurnTakerDIY for T {
-    async fn take_turn(&mut self, player: &mut PlayerControl, generate_data: bool) -> TurnOutcome {
-        let mut turn = player.turn_ctrl().await;
+    async fn take_turn(
+        &mut self,
+        player: &mut PlayerControl,
+        clear_after_unit_production: bool,
+        generate_data: bool,
+    ) -> TurnOutcome {
+        let mut turn = player.turn_ctrl(clear_after_unit_production).await;
 
         let outcome = <Self as TurnTaker>::take_turn(self, &mut turn, generate_data).await;
 
@@ -147,10 +158,17 @@ impl<T: TurnTakerDIY + Send> TurnTakerSuperuser for T {
         game: Arc<RwLockTokio<Game>>,
         player: PlayerNum,
         secret: PlayerSecret,
+        clear_after_unit_production: bool,
         generate_data: bool,
     ) -> TurnOutcome {
         let mut ctrl = PlayerControl::new(game, player, secret).await;
 
-        <Self as TurnTakerDIY>::take_turn(self, &mut ctrl, generate_data).await
+        <Self as TurnTakerDIY>::take_turn(
+            self,
+            &mut ctrl,
+            clear_after_unit_production,
+            generate_data,
+        )
+        .await
     }
 }

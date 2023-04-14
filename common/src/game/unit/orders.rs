@@ -331,7 +331,7 @@ pub mod test_support {
 
         let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
-        game.begin_turn(secrets[0]).unwrap();
+        game.begin_turn(secrets[0], false).unwrap();
 
         // Request a fighter to be produced
         let city_loc = game
@@ -343,7 +343,8 @@ pub mod test_support {
 
         // Wait until the fighter is produced
         while game.current_player_unit_orders_requests().count() == 0 {
-            game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
+            game.end_then_begin_turn(secrets[0], secrets[0], false)
+                .unwrap();
         }
 
         game.clear_production(secrets[0], city_loc, true).unwrap();
@@ -363,7 +364,9 @@ pub mod test_support {
         let mut done = false;
 
         while game.current_player_unit_orders_requests().count() == 0 {
-            let turn_start = game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
+            let turn_start = game
+                .end_then_begin_turn(secrets[0], secrets[0], false)
+                .unwrap();
             assert_eq!(turn_start.orders_results.len(), 1);
 
             let orders_result = turn_start.orders_results.get(0).unwrap();
@@ -413,7 +416,7 @@ pub mod test {
             Wrap2d::BOTH,
         );
 
-        game.begin_turn(secrets[0]).unwrap();
+        game.begin_turn(secrets[0], false).unwrap();
 
         let id = game
             .current_player_toplevel_unit_by_loc(Location { x: 0, y: 0 })
@@ -441,7 +444,9 @@ pub mod test {
 
         // Wait while the go-to order is carried out
         while game.current_player_unit_orders_requests().next().is_none() {
-            let turn_start = game.end_then_begin_turn(secrets[0], secrets[0]).unwrap();
+            let turn_start = game
+                .end_then_begin_turn(secrets[0], secrets[0], false)
+                .unwrap();
             assert_eq!(turn_start.current_player, 0);
 
             match turn_start.orders_results.len() {
@@ -482,7 +487,7 @@ pub mod test {
         let map = MapData::try_from("i--------------------").unwrap();
         let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
 
-        game.begin_turn(secrets[0]).unwrap();
+        game.begin_turn(secrets[0], false).unwrap();
 
         let unit_id: UnitID = game.current_player_unit_orders_requests().next().unwrap();
 
