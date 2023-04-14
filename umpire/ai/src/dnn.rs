@@ -1,11 +1,4 @@
-use std::{
-    cmp::{Ordering, PartialEq, PartialOrd},
-    fmt,
-    fs::File,
-    io::Cursor,
-    ops::{Mul, Sub},
-    path::Path,
-};
+use std::{fmt, fs::File, io::Cursor, path::Path};
 
 use rsrl::{
     fa::{EnumerableStateActionFunction, StateActionFunction},
