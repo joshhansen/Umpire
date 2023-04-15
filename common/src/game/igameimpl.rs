@@ -29,7 +29,7 @@ use super::{
     obs::LocatedObsLite,
     player::PlayerNum,
     Game, PlayerSecret, ProductionCleared, ProposedActionResult, ProposedOrdersResult,
-    ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
+    ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
 };
 
 pub use super::traits::IGame;
@@ -331,7 +331,7 @@ impl IGame for Game {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<Unit> {
+    ) -> UmpireResult<UnitDisbanded> {
         self.disband_unit_by_id(player_secret, unit_id)
     }
 

@@ -483,7 +483,9 @@ impl PlayerAction {
             }
             PlayerAction::DisbandUnit { unit_id } => game
                 .disband_unit_by_id(player_secret, unit_id)
-                .map(|disbanded| PlayerActionOutcome::DisbandUnit { disbanded }),
+                .map(|disbanded| PlayerActionOutcome::DisbandUnit {
+                    disbanded: disbanded.unit,
+                }),
             PlayerAction::OrderUnit { unit_id, orders } => game
                 .set_and_follow_orders(player_secret, unit_id, orders)
                 .map(|orders_outcome| PlayerActionOutcome::OrderUnit {

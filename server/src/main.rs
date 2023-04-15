@@ -24,6 +24,7 @@ use common::{
         },
         Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProposedActionResult,
         ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
+        UnitDisbanded,
     },
     name::{city_namer, unit_namer},
     rpc::UmpireRpc,
@@ -533,7 +534,7 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         id: UnitID,
-    ) -> UmpireResult<Unit> {
+    ) -> UmpireResult<UnitDisbanded> {
         self.game
             .write()
             .await

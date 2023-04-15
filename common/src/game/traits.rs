@@ -26,7 +26,7 @@ use super::{
     obs::LocatedObsLite,
     player::PlayerNum,
     Game, PlayerSecret, ProductionCleared, ProposedActionResult, ProposedOrdersResult,
-    ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
+    ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
 };
 
 #[async_trait]
@@ -297,7 +297,7 @@ pub trait IGame: Send + Sync {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<Unit>;
+    ) -> UmpireResult<UnitDisbanded>;
 
     /// Sets the production of the current player's city at location `loc` to `production`, returning the prior setting.
     ///

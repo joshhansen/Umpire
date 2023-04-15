@@ -23,6 +23,7 @@ use crate::{
         },
         Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProposedActionResult,
         ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
+        UnitDisbanded,
     },
     util::{Dims, Direction, Location, Wrap2d},
 };
@@ -204,7 +205,10 @@ pub trait UmpireRpc {
         dest: Location,
     ) -> ProposedResult<Move, GameError>;
 
-    async fn disband_unit_by_id(player_secret: PlayerSecret, id: UnitID) -> UmpireResult<Unit>;
+    async fn disband_unit_by_id(
+        player_secret: PlayerSecret,
+        id: UnitID,
+    ) -> UmpireResult<UnitDisbanded>;
 
     /// Sets the production of the current player's city at location `loc` to `production`.
     ///
@@ -765,7 +769,7 @@ impl IGame for RpcGame {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<Unit> {
+    ) -> UmpireResult<UnitDisbanded> {
         self.game
             .disband_unit_by_id(context::current(), player_secret, unit_id)
             .await

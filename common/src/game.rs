@@ -104,8 +104,8 @@ pub type ActionNum = u64;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProductionCleared {
-    prior_production: Option<UnitType>,
-    obs: LocatedObsLite,
+    pub prior_production: Option<UnitType>,
+    pub obs: LocatedObsLite,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -115,6 +115,12 @@ pub struct TurnStart {
     pub orders_results: Vec<OrdersResult>,
     pub production_outcomes: Vec<UnitProductionOutcome>,
     pub observations: Vec<LocatedObs>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct UnitDisbanded {
+    pub unit: Unit,
+    pub obs: LocatedObsLite,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -473,10 +479,10 @@ impl Game {
         Ok(())
     }
 
-    /// Mark for accounting purposes that the current player took an action
-    fn action_taken(&mut self) {
+    /// Mark for accounting purposes that the player took an action
+    fn action_taken(&mut self, player: PlayerNum) {
         self.action_count += 1;
-        self.action_counts[self.current_player] += 1;
+        self.action_counts[player] += 1;
     }
 
     pub fn current_turn_begun(&self) -> bool {
@@ -988,6 +994,13 @@ impl Game {
                 .filter(|city| city.production().is_some() || !city.ignore_cleared_production())
                 .count()
         })
+    }
+
+    #[cfg(test)]
+    fn player_action_count(&self, player_secret: PlayerSecret) -> UmpireResult<ActionNum> {
+        let player = self.player_with_secret(player_secret)?;
+
+        Ok(self.action_counts[player])
     }
 
     pub fn player_units(
@@ -1692,19 +1705,19 @@ impl Game {
             }
         }
 
-        self.action_taken();
+        self.action_taken(player);
 
         Move::new(unit, src, moves).map_err(GameError::MoveError)
     }
 
-    /// Disbands
+    /// Disbands a unit
     ///
-    /// Must be player's turn
+    /// Must be main phase of player's turn
     pub fn disband_unit_by_id(
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<Unit> {
+    ) -> UmpireResult<UnitDisbanded> {
         let player = self.validate_is_player_turn_main_phase(player_secret)?;
 
         let unit = self
@@ -1712,19 +1725,19 @@ impl Game {
             .pop_player_unit_by_id(player, unit_id)
             .ok_or(GameError::NoSuchUnit { id: unit_id })?;
 
-        // Make a fresh observation with the disbanding unit so that its absence is noted.
-        let obs_tracker = self.player_observations.tracker_mut(player).unwrap();
-        unit.observe(
-            &self.map,
-            self.turn,
-            self.action_count,
-            self.wrapping,
-            obs_tracker,
-        );
+        // Mark the action as taken so the change shows up in the observation
+        self.action_taken(player);
 
-        self.action_taken();
+        // Let everyone in line of sight know the unit is gone
+        let obs = self.observe(unit.loc).unwrap().lite();
 
-        Ok(unit)
+        // Also explicitly update this player's observations, since its unit was no longer
+        // there to see it---otherwise the player's observations continue to show the
+        // disbanded unit, even though it's know to the player that it's no longer there.
+        // self.player_observations_by_idx_mut(player)
+        //     .track_lite(obs.clone());
+
+        Ok(UnitDisbanded { unit, obs })
     }
 
     /// Sets the production of the current player's city at location `loc` to `production`, returning the prior setting.
@@ -1742,7 +1755,7 @@ impl Game {
             .map
             .set_player_city_production_by_loc(player, loc, production);
         if result.is_ok() {
-            self.action_taken();
+            self.action_taken(player);
         }
         result
     }
@@ -1761,7 +1774,7 @@ impl Game {
             .map
             .set_player_city_production_by_id(player, city_id, production);
         if result.is_ok() {
-            self.action_taken();
+            self.action_taken(player);
         }
         result
     }
@@ -1918,7 +1931,7 @@ impl Game {
             .unwrap()
             .clone();
 
-        self.action_taken();
+        self.action_taken(player);
 
         Ok(OrdersOutcome::completed_without_move(ordered_unit, orders))
     }
@@ -1928,17 +1941,22 @@ impl Game {
         player_secret: PlayerSecret,
         unit_id: UnitID,
     ) -> OrdersResult {
+        let player = self.player_with_secret(player_secret)?;
+
         let orders = Orders::Skip;
         let unit = self
             .player_unit_by_id(player_secret, unit_id)?
             .unwrap()
             .clone();
+
         let result = self
             .set_orders(player_secret, unit_id, orders)
             .map(|_| OrdersOutcome::in_progress_without_move(unit, orders));
+
         if result.is_ok() {
-            self.action_taken();
+            self.action_taken(player);
         }
+
         result
     }
 
@@ -2102,14 +2120,14 @@ impl Game {
         id: UnitID,
         orders: Orders,
     ) -> OrdersResult {
-        self.validate_is_player_turn(player_secret)?;
+        let player = self.validate_is_player_turn(player_secret)?;
 
         self.set_orders(player_secret, id, orders)?;
 
         let result = self.follow_unit_orders(player_secret, id);
 
         if result.is_ok() {
-            self.action_taken();
+            self.action_taken(player);
         }
 
         result

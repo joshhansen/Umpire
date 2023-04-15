@@ -12,7 +12,7 @@ use super::{
     move_::Move,
     obs::{LocatedObsLite, ObsTracker},
     IGame, PlayerSecret, ProductionCleared, ProposedOrdersResult, ProposedUmpireResult, TurnPhase,
-    TurnStart, UmpireResult,
+    TurnStart, UmpireResult, UnitDisbanded,
 };
 use crate::{
     cli::Specified,
@@ -193,10 +193,24 @@ impl PlayerControl {
         result
     }
 
+    pub async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<UnitDisbanded> {
+        let result = self
+            .game
+            .write()
+            .await
+            .disband_unit_by_id(self.secret, id)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.observations.track_lite(outcome.obs.clone());
+        }
+
+        result
+    }
+
     delegate! {
         to self.game.write().await {
-            /// TODO Update observations
-            pub async fn disband_unit_by_id(&mut self, [self.secret], id: UnitID) -> UmpireResult<Unit>;
+
 
             /// TODO Update observations
             pub async fn end_turn(&mut self, [self.secret]) -> UmpireResult<()>;
@@ -422,7 +436,7 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn clear_productions(&mut self, ignore_cleared_production: bool) -> UmpireResult<Vec<ProductionCleared>>;
 
-            pub async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<Unit>;
+            pub async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<UnitDisbanded>;
 
             // pub async fn end_turn(&mut self) -> UmpireResult<()>;
 

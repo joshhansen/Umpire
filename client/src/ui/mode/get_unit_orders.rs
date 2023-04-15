@@ -180,8 +180,12 @@ impl IMode for GetUnitOrdersMode {
                                 Self::clear_buf(ui);
                                 return ModeStatus::Continue;
                             } else if c == conf::KEY_DISBAND {
-                                let unit = game.disband_unit_by_id(self.unit_id).await.unwrap();
-                                ui.log_message(format!("Disbanded unit {}", unit.short_desc()));
+                                let unit_disbanded =
+                                    game.disband_unit_by_id(self.unit_id).await.unwrap();
+                                ui.log_message(format!(
+                                    "Disbanded unit {}",
+                                    unit_disbanded.unit.short_desc()
+                                ));
                                 *mode = Mode::GetOrders;
                                 Self::clear_buf(ui);
                                 return ModeStatus::Continue;
