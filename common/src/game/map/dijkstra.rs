@@ -654,8 +654,8 @@ pub fn neighbors_unit_could_move_to_iter<'a, T: Source<Tile>>(
     neighbors_iter_owned_filter(tiles, loc, neighb_iter, filter, wrapping)
 }
 
-pub fn directions_unit_could_move_iter<'a, T: Source<Tile>>(
-    tiles: &'a T,
+pub fn directions_unit_could_move_iter<'a, S: Source<Obs>>(
+    tiles: &'a S,
     unit: &'a Unit,
     wrapping: Wrap2d,
 ) -> impl Iterator<Item = Direction> + 'a {

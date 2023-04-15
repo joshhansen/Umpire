@@ -865,11 +865,9 @@ impl Game {
             .player_unit_by_id(player_secret, unit_id)?
             .ok_or_else(|| GameError::NoSuchUnit { id: unit_id })?;
 
-        Ok(directions_unit_could_move_iter(
-            &self.map,
-            &unit,
-            self.wrapping,
-        ))
+        let obs = self.player_observations(player_secret).unwrap();
+
+        Ok(directions_unit_could_move_iter(obs, &unit, self.wrapping))
     }
 
     /// The current player's most recent observation of the tile at location `loc`, if any
