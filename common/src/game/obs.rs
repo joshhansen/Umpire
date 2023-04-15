@@ -214,6 +214,18 @@ impl ObsTracker {
             self._track(obs.loc, obs.obs.clone());
         }
     }
+
+    pub fn track_many_lite<'a>(&mut self, observations: impl Iterator<Item = &'a LocatedObsLite>) {
+        for obs in observations {
+            self.track_lite(obs.clone());
+        }
+    }
+
+    pub fn track_many_lite_owned(&mut self, observations: impl Iterator<Item = LocatedObsLite>) {
+        for obs in observations {
+            self.track_lite(obs);
+        }
+    }
 }
 
 impl Dimensioned for ObsTracker {

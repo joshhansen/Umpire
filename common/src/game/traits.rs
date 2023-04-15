@@ -334,7 +334,7 @@ pub trait IGame: Send + Sync {
         &mut self,
         player_secret: PlayerSecret,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<()>;
+    ) -> UmpireResult<Vec<ProductionCleared>>;
 
     async fn turn(&self) -> TurnNum;
 

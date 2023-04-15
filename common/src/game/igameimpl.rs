@@ -366,8 +366,9 @@ impl IGame for Game {
         &mut self,
         player_secret: PlayerSecret,
         ignore_cleared_productions: bool,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<Vec<ProductionCleared>> {
         self.clear_productions(player_secret, ignore_cleared_productions)
+            .map(|prods_cleared| prods_cleared.collect())
     }
 
     async fn turn(&self) -> TurnNum {

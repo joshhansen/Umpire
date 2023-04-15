@@ -233,7 +233,7 @@ pub trait UmpireRpc {
     async fn clear_productions(
         player_secret: PlayerSecret,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<()>;
+    ) -> UmpireResult<Vec<ProductionCleared>>;
 
     async fn turn() -> TurnNum;
 
@@ -817,7 +817,7 @@ impl IGame for RpcGame {
         &mut self,
         player_secret: PlayerSecret,
         ignore_cleared_productions: bool,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<Vec<ProductionCleared>> {
         self.game
             .clear_productions(
                 context::current(),

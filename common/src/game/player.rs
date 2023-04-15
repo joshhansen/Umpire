@@ -174,11 +174,27 @@ impl PlayerControl {
         result
     }
 
+    pub async fn clear_productions(
+        &mut self,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<Vec<ProductionCleared>> {
+        let result = self
+            .game
+            .write()
+            .await
+            .clear_productions(self.secret, ignore_cleared_production)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.observations
+                .track_many_lite_owned(outcome.iter().map(|prod_cleared| prod_cleared.obs.clone()));
+        }
+
+        result
+    }
+
     delegate! {
         to self.game.write().await {
-            /// TODO Update observations
-            pub async fn clear_productions(&mut self, [self.secret], ignore_cleared_production: bool) -> UmpireResult<()>;
-
             /// TODO Update observations
             pub async fn disband_unit_by_id(&mut self, [self.secret], id: UnitID) -> UmpireResult<Unit>;
 
@@ -404,7 +420,7 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn clear_production(&mut self, loc: Location, ignore_cleared_production: bool) -> UmpireResult<ProductionCleared>;
 
-            pub async fn clear_productions(&mut self, ignore_cleared_production: bool) -> UmpireResult<()>;
+            pub async fn clear_productions(&mut self, ignore_cleared_production: bool) -> UmpireResult<Vec<ProductionCleared>>;
 
             pub async fn disband_unit_by_id(&mut self, id: UnitID) -> UmpireResult<Unit>;
 

@@ -590,11 +590,12 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<Vec<ProductionCleared>> {
         self.game
             .write()
             .await
             .clear_productions(player_secret, ignore_cleared_production)
+            .map(|prods_cleared| prods_cleared.collect())
     }
 
     async fn turn(self, _: Context) -> TurnNum {

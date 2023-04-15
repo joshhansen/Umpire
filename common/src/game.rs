@@ -1795,11 +1795,11 @@ impl Game {
     }
 
     /// Clear the production on all cities belonging to the specified player
-    pub fn clear_productions(
-        &mut self,
+    pub fn clear_productions<'a>(
+        &'a mut self,
         player_secret: PlayerSecret,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<()> {
+    ) -> UmpireResult<impl Iterator<Item = ProductionCleared> + 'a> {
         let player = self.validate_is_player_turn(player_secret)?;
 
         let city_locs: Vec<Location> = self
@@ -1808,11 +1808,10 @@ impl Game {
             .map(|city| city.loc)
             .collect();
 
-        for loc in city_locs {
-            self.clear_production(player_secret, loc, ignore_cleared_production)?;
-        }
-
-        Ok(())
+        Ok(city_locs.into_iter().map(move |city_loc| {
+            self.clear_production(player_secret, city_loc, ignore_cleared_production)
+                .unwrap()
+        }))
     }
 
     pub fn turn(&self) -> TurnNum {
