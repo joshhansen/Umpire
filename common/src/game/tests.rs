@@ -1323,7 +1323,11 @@ fn test_disband_unit_by_id() {
             Obs::Unobserved => panic!("Tile should be observed after turn start"),
         }
 
+        assert_eq!(game.action_count, 0);
+
         let result = game.disband_unit_by_id(secrets[0], infantry_id);
+
+        assert_eq!(game.action_count, 1);
 
         match result {
             Ok(disbanded) => match disbanded.obs.obs {
@@ -1338,6 +1342,21 @@ fn test_disband_unit_by_id() {
                 }
             },
             Err(e) => panic!("Could not disband unit; error {}", e),
+        }
+
+        // Make sure not just the returned obs, but the stored as well is updated
+        let obs = game.player_obs(secrets[0], loc).unwrap();
+
+        match obs {
+            Obs::Observed {
+                turn, action_count, ..
+            } => {
+                assert_eq!(*turn, 0);
+                assert_eq!(*action_count, 1);
+            }
+            Obs::Unobserved => {
+                panic!("Tile should not be unobserved after disbanding a unit there")
+            }
         }
     }
 }

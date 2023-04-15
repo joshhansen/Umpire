@@ -1734,8 +1734,8 @@ impl Game {
         // Also explicitly update this player's observations, since its unit was no longer
         // there to see it---otherwise the player's observations continue to show the
         // disbanded unit, even though it's know to the player that it's no longer there.
-        // self.player_observations_by_idx_mut(player)
-        //     .track_lite(obs.clone());
+        self.player_observations_by_idx_mut(player)
+            .track_lite(obs.clone());
 
         Ok(UnitDisbanded { unit, obs })
     }
