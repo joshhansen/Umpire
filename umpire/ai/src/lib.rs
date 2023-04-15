@@ -194,19 +194,19 @@ impl From<AISpec> for AI {
             AISpec::FromLevel(level) => {
                 let lfa: LFA_ = match level {
                     1 => bincode::deserialize(include_bytes!(
-                        "../../../ai/10x10_e100_s100000_a__scorefix__turnpenalty.ai"
+                        "../../../ai/lfa/10x10_e100_s100000_a__scorefix__turnpenalty.ai"
                     ))
                     .unwrap(),
                     2 => bincode::deserialize(include_bytes!(
-                        "../../../ai/20x20_e100_s100000_a__scorefix__turnpenalty.ai"
+                        "../../../ai/lfa/20x20_e100_s100000_a__scorefix__turnpenalty.ai"
                     ))
                     .unwrap(),
                     3 => bincode::deserialize(include_bytes!(
-                        "../../../ai/10-30_e100_s100000_a__scorefix__turnpenalty.ai"
+                        "../../../ai/lfa/10-30_e100_s100000_a__scorefix__turnpenalty.ai"
                     ))
                     .unwrap(),
                     4 => bincode::deserialize(include_bytes!(
-                        "../../../ai/10-40+full_e100_s100000_a.ai"
+                        "../../../ai/lfa/10-40+full_e100_s100000_a.ai"
                     ))
                     .unwrap(),
                     level => unreachable!("Unsupported AI level: {}", level),
