@@ -28,8 +28,8 @@ use super::{
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
-    Game, PlayerSecret, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
-    TurnPhase, TurnStart, UmpireResult,
+    Game, PlayerSecret, ProductionCleared, ProposedActionResult, ProposedOrdersResult,
+    ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
 };
 
 pub use super::traits::IGame;
@@ -358,7 +358,7 @@ impl IGame for Game {
         player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionCleared> {
         self.clear_production(player_secret, loc, ignore_cleared_production)
     }
 

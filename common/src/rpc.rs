@@ -21,7 +21,7 @@ use crate::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProposedActionResult,
+        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProposedActionResult,
         ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
     },
     util::{Dims, Direction, Location, Wrap2d},
@@ -228,7 +228,7 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<Option<UnitType>>;
+    ) -> UmpireResult<ProductionCleared>;
 
     async fn clear_productions(
         player_secret: PlayerSecret,
@@ -801,7 +801,7 @@ impl IGame for RpcGame {
         player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionCleared> {
         self.game
             .clear_production(
                 context::current(),

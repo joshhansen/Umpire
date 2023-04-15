@@ -25,8 +25,8 @@ use super::{
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
-    Game, PlayerSecret, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
-    TurnPhase, TurnStart, UmpireResult,
+    Game, PlayerSecret, ProductionCleared, ProposedActionResult, ProposedOrdersResult,
+    ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
 };
 
 #[async_trait]
@@ -328,7 +328,7 @@ pub trait IGame: Send + Sync {
         player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<Option<UnitType>>;
+    ) -> UmpireResult<ProductionCleared>;
 
     async fn clear_productions(
         &mut self,

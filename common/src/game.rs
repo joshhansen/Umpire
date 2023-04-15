@@ -102,6 +102,12 @@ pub type TurnNum = u64;
 /// A more granular way of keeping time than turns
 pub type ActionNum = u64;
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProductionCleared {
+    prior_production: Option<UnitType>,
+    obs: LocatedObsLite,
+}
+
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct TurnStart {
     pub turn: TurnNum,
@@ -1769,14 +1775,23 @@ impl Game {
         player_secret: PlayerSecret,
         loc: Location,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionCleared> {
         let city = self.player_city_by_loc(player_secret, loc)?;
         if city.is_none() {
             return Err(GameError::NoCityAtLocation { loc });
         }
 
-        self.map
+        let prior = self
+            .map
             .clear_city_production_by_loc(loc, ignore_cleared_production)
+            .unwrap();
+
+        let obs = self.observe(loc).unwrap().lite();
+
+        Ok(ProductionCleared {
+            prior_production: prior,
+            obs,
+        })
     }
 
     /// Clear the production on all cities belonging to the specified player

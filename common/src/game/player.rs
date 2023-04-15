@@ -11,8 +11,8 @@ use super::{
     map::dijkstra::Source,
     move_::Move,
     obs::{LocatedObsLite, ObsTracker},
-    IGame, PlayerSecret, ProposedOrdersResult, ProposedUmpireResult, TurnPhase, TurnStart,
-    UmpireResult,
+    IGame, PlayerSecret, ProductionCleared, ProposedOrdersResult, ProposedUmpireResult, TurnPhase,
+    TurnStart, UmpireResult,
 };
 use crate::{
     cli::Specified,
@@ -155,11 +155,27 @@ impl PlayerControl {
         result
     }
 
+    pub async fn clear_production(
+        &mut self,
+        loc: Location,
+        ignore_cleared_production: bool,
+    ) -> UmpireResult<ProductionCleared> {
+        let result = self
+            .game
+            .write()
+            .await
+            .clear_production(self.secret, loc, ignore_cleared_production)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.observations.track_lite(outcome.obs.clone());
+        }
+
+        result
+    }
+
     delegate! {
         to self.game.write().await {
-            /// TODO Update observations
-            pub async fn clear_production(&mut self, [self.secret], loc: Location, ignore_cleared_production: bool) -> UmpireResult<Option<UnitType>>;
-
             /// TODO Update observations
             pub async fn clear_productions(&mut self, [self.secret], ignore_cleared_production: bool) -> UmpireResult<()>;
 
@@ -386,7 +402,7 @@ impl<'a> PlayerTurn<'a> {
 
             // pub async fn begin_turn(&mut self) -> UmpireResult<TurnStart>;
 
-            pub async fn clear_production(&mut self, loc: Location, ignore_cleared_production: bool) -> UmpireResult<Option<UnitType>>;
+            pub async fn clear_production(&mut self, loc: Location, ignore_cleared_production: bool) -> UmpireResult<ProductionCleared>;
 
             pub async fn clear_productions(&mut self, ignore_cleared_production: bool) -> UmpireResult<()>;
 
