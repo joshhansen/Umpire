@@ -7,9 +7,7 @@ use common::{
     cli::{self, players_arg, Specified},
     conf,
     game::{
-        action::{
-            AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome,
-        },
+        action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
         ai::{fX, TrainingFocus},
         city::{City, CityID},
         error::GameError,
@@ -842,24 +840,6 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         action: AiPlayerAction,
-    ) -> UmpireResult<PlayerActionOutcome> {
-        self.game.write().await.take_action(player_secret, action)
-    }
-
-    async fn take_next_city_action(
-        self,
-        _: Context,
-        player_secret: PlayerSecret,
-        action: NextCityAction,
-    ) -> UmpireResult<PlayerActionOutcome> {
-        self.game.write().await.take_action(player_secret, action)
-    }
-
-    async fn take_next_unit_action(
-        self,
-        _: Context,
-        player_secret: PlayerSecret,
-        action: NextUnitAction,
     ) -> UmpireResult<PlayerActionOutcome> {
         self.game.write().await.take_action(player_secret, action)
     }

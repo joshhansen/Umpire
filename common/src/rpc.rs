@@ -8,9 +8,7 @@ use tarpc::context;
 
 use crate::{
     game::{
-        action::{
-            AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome,
-        },
+        action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
         ai::{fX, TrainingFocus},
         city::{City, CityID},
         error::GameError,
@@ -332,16 +330,6 @@ pub trait UmpireRpc {
     async fn take_simple_action(
         player_secret: PlayerSecret,
         action: AiPlayerAction,
-    ) -> UmpireResult<PlayerActionOutcome>;
-
-    async fn take_next_city_action(
-        player_secret: PlayerSecret,
-        action: NextCityAction,
-    ) -> UmpireResult<PlayerActionOutcome>;
-
-    async fn take_next_unit_action(
-        player_secret: PlayerSecret,
-        action: NextUnitAction,
     ) -> UmpireResult<PlayerActionOutcome>;
 
     async fn take_action(
@@ -1046,28 +1034,6 @@ impl IGame for RpcGame {
     ) -> UmpireResult<PlayerActionOutcome> {
         self.game
             .take_simple_action(context::current(), player_secret, action)
-            .await
-            .unwrap()
-    }
-
-    async fn take_next_city_action(
-        &mut self,
-        player_secret: PlayerSecret,
-        action: NextCityAction,
-    ) -> UmpireResult<PlayerActionOutcome> {
-        self.game
-            .take_next_city_action(context::current(), player_secret, action)
-            .await
-            .unwrap()
-    }
-
-    async fn take_next_unit_action(
-        &mut self,
-        player_secret: PlayerSecret,
-        action: NextUnitAction,
-    ) -> UmpireResult<PlayerActionOutcome> {
-        self.game
-            .take_next_unit_action(context::current(), player_secret, action)
             .await
             .unwrap()
     }

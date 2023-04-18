@@ -20,10 +20,7 @@ use crate::{
 };
 
 use super::{
-    action::{
-        Actionable, AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction,
-        PlayerActionOutcome,
-    },
+    action::{Actionable, AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, TrainingFocus},
     move_::Move,
     obs::LocatedObsLite,
@@ -532,24 +529,6 @@ impl IGame for Game {
         &mut self,
         player_secret: PlayerSecret,
         action: AiPlayerAction,
-    ) -> UmpireResult<PlayerActionOutcome> {
-        let action = action.to_action(self, player_secret)?;
-        self.take_action(player_secret, action)
-    }
-
-    async fn take_next_city_action(
-        &mut self,
-        player_secret: PlayerSecret,
-        action: NextCityAction,
-    ) -> UmpireResult<PlayerActionOutcome> {
-        let action = action.to_action(self, player_secret)?;
-        self.take_action(player_secret, action)
-    }
-
-    async fn take_next_unit_action(
-        &mut self,
-        player_secret: PlayerSecret,
-        action: NextUnitAction,
     ) -> UmpireResult<PlayerActionOutcome> {
         let action = action.to_action(self, player_secret)?;
         self.take_action(player_secret, action)
