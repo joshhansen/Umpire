@@ -208,6 +208,26 @@ impl PlayerControl {
         result
     }
 
+    pub async fn end_turn(&mut self) -> UmpireResult<()> {
+        let result = self.game.write().await.end_turn(self.secret).await;
+
+        if result.is_ok() {
+            self.observations.archive();
+        }
+
+        result
+    }
+
+    pub async fn force_end_turn(&mut self) -> UmpireResult<()> {
+        let result = self.game.write().await.force_end_turn(self.secret).await;
+
+        if result.is_ok() {
+            self.observations.archive();
+        }
+
+        result
+    }
+
     pub async fn order_unit_sentry(&mut self, unit_id: UnitID) -> UmpireResult<OrdersSet> {
         let result = self
             .game
@@ -259,12 +279,6 @@ impl PlayerControl {
 
     delegate! {
         to self.game.write().await {
-            /// TODO Update observations
-            pub async fn end_turn(&mut self, [self.secret]) -> UmpireResult<()>;
-
-            /// TODO Update observations
-            pub async fn force_end_turn(&mut self, [self.secret]) -> UmpireResult<()>;
-
             /// TODO Update observations
             pub async fn take_action(&mut self, [self.secret], action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
 
