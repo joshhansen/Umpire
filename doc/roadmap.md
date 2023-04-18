@@ -14,15 +14,21 @@
  - Inventory PlayerTurnControl - make sure it's fully restricted to the player's view of game state
  - Reduce PlayerTurnControl API to minimal actions and results format
  - ~~PlayerTurnControl -> PlayerGameView - client has a local copy of player's view of the game~~
- - Use UmpireClient RPC calls to maintain client-local PlayerGameView's; pass these to the UI
-   for synchronous rendering.
- - Low-level client-server protocol, updating client state incrementally
- - server runs exactly one game
+ - ~~Use UmpireClient RPC calls to maintain client-local PlayerGameView's; pass these to the UI
+   for synchronous rendering.~~ Mostly true; not totally synchronous, though
+ - ~~Low-level client-server protocol, updating client state incrementally~~
+ - ~~server runs exactly one game~~
  - ~~each client controls exactly one player~~ Clients can register arbitrary numbers of players
  - switch from async_trait to nightly async trait fn
 * CHORE: Replace failure with thiserror
 * CHORE: Audit dependencies, removing as possible
+* CHORE: Audit and minimize PlayerControl, PlayerTurn, IGame, server, and UmpireRpcClient
+* CLIENT: Indicate in UI when it is other player's turn (and whose)
+* SERVER: When human drops connection, open it up for someone else? Or let the dropped user reconnect?
+* CLIENT: . to skip
+* CLIENT: Allow a kind of examine mode while waiting for your turn?
 * ~~CHORE: Upgrade `pastel`~~
+* Finish transition to new observation system; animate new observations since last turn upon starting new turn
 
 ## 0.6 Milestones
 * TODO Make game states uniquely identifiable and restorable?
@@ -35,6 +41,7 @@
 * FIXME Rendering issues if wrapping is off
 * FIXME Autoscale splashscreen to fit terminal dimensions
 * CHORE: Upgrade rand
+* AI: An RL ai that plays kinda well???
 
 ## 0.7 Milestones
 * TODO Make splash screen respect color palette
