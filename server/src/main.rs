@@ -783,16 +783,6 @@ impl UmpireRpc for UmpireServer {
             .set_and_follow_orders(player_secret, id, orders)
     }
 
-    // async fn propose_end_turn(self, _: Context) -> (Game, Result<TurnStart, PlayerNum>) {
-    //     let (mut game, secrets) = self.game.clone();
-    //     let result = game.end_turn();
-    //     (game, result)
-    // }
-
-    // async fn apply_proposal<T>(mut self, _: Context, proposal: Proposed<T>) -> T {
-    //     proposal.apply(&mut self.game)
-    // }
-
     /// Feature vector for use in AI training
     ///
     /// Map of the output vector:
