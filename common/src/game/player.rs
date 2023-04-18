@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
-    action::{AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome},
+    action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, AISpec, TrainingFocus},
     error::GameError,
     map::dijkstra::Source,
@@ -270,12 +270,6 @@ impl PlayerControl {
 
             /// TODO Update observations
             pub async fn take_simple_action(&mut self, [self.secret], action: AiPlayerAction) -> UmpireResult<PlayerActionOutcome>;
-
-            /// TODO Update observations
-            pub async fn take_next_city_action(&mut self, [self.secret], action: NextCityAction) -> UmpireResult<PlayerActionOutcome>;
-
-            /// TODO Update observations
-            pub async fn take_next_unit_action(&mut self, [self.secret], action: NextUnitAction) -> UmpireResult<PlayerActionOutcome>;
         }
 
         to self.game.read().await {
@@ -491,10 +485,6 @@ impl<'a> PlayerTurn<'a> {
             pub async fn take_action(&mut self, action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
 
             pub async fn take_simple_action(&mut self, action: AiPlayerAction) -> UmpireResult<PlayerActionOutcome>;
-
-            pub async fn take_next_city_action(&mut self, action: NextCityAction) -> UmpireResult<PlayerActionOutcome>;
-
-            pub async fn take_next_unit_action(&mut self, action: NextUnitAction) -> UmpireResult<PlayerActionOutcome>;
 
             // Immutable
             pub async fn clone_underlying_game_state(&self) -> Result<Game, String>;
