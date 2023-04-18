@@ -224,7 +224,7 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>>;
+    ) -> UmpireResult<ProductionSet>;
 
     async fn clear_production(
         player_secret: PlayerSecret,
@@ -787,7 +787,7 @@ impl IGame for RpcGame {
         player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionSet> {
         self.game
             .set_production_by_id(context::current(), player_secret, city_id, production)
             .await

@@ -318,7 +318,7 @@ pub trait IGame: Send + Sync {
         player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>>;
+    ) -> UmpireResult<ProductionSet>;
 
     /// Clears the production of a city at location `loc` if one exists and is controlled by the
     /// specified player.

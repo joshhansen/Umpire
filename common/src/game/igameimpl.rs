@@ -347,7 +347,7 @@ impl IGame for Game {
         player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionSet> {
         self.set_production_by_id(player_secret, city_id, production)
     }
 

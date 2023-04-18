@@ -1783,15 +1783,26 @@ impl Game {
         player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionSet> {
         let player = self.player_with_secret(player_secret)?;
-        let result = self
+        let prior_production = self
             .map
-            .set_player_city_production_by_id(player, city_id, production);
-        if result.is_ok() {
-            self.action_taken(player);
-        }
-        result
+            .set_player_city_production_by_id(player, city_id, production)?;
+
+        self.action_taken(player);
+
+        let loc = self
+            .player_city_by_id(player_secret, city_id)
+            .unwrap()
+            .unwrap()
+            .loc;
+
+        let obs = self.observe(loc).unwrap().lite();
+
+        Ok(ProductionSet {
+            prior_production,
+            obs,
+        })
     }
 
     /// Clears the production of a city at location `loc` if one exists and is controlled by the

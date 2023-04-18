@@ -18,7 +18,7 @@ use super::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError, OrdersSet, PlayerSecret, TurnStart, UmpireResult,
+    Game, GameError, OrdersSet, PlayerSecret, ProductionSet, TurnStart, UmpireResult,
 };
 
 /// Something that can be converted into a PlayerAction
@@ -411,11 +411,7 @@ impl Actionable for PlayerAction {
 pub enum PlayerActionOutcome {
     TurnStarted(TurnStart),
     TurnEnded,
-    SetCityProduction {
-        city_id: CityID,
-        production: UnitType,
-        prior_production: Option<UnitType>,
-    },
+    ProductionSet(ProductionSet),
     MoveUnit {
         unit_id: UnitID,
         /// When moving by direction, this could be None
@@ -456,11 +452,7 @@ impl PlayerAction {
                 production,
             } => game
                 .set_production_by_id(player_secret, city_id, production)
-                .map(|prior_production| PlayerActionOutcome::SetCityProduction {
-                    city_id,
-                    production,
-                    prior_production,
-                }),
+                .map(PlayerActionOutcome::ProductionSet),
             PlayerAction::MoveUnit { unit_id, dest } => game
                 .move_unit_by_id(player_secret, unit_id, dest)
                 .map(|move_| PlayerActionOutcome::MoveUnit {

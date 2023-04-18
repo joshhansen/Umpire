@@ -564,7 +564,7 @@ impl UmpireRpc for UmpireServer {
         player_secret: PlayerSecret,
         city_id: CityID,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionSet> {
         self.game
             .write()
             .await
