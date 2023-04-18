@@ -277,15 +277,70 @@ impl PlayerControl {
         result
     }
 
-    delegate! {
-        to self.game.write().await {
-            /// TODO Update observations
-            pub async fn take_action(&mut self, [self.secret], action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
+    fn update_action_observations(&mut self, outcome: &PlayerActionOutcome) {
+        match outcome {
+            PlayerActionOutcome::MoveUnit { move_, .. } => {
+                self.observations.track_many(move_.observations());
+            }
+            PlayerActionOutcome::OrderUnit { orders_outcome, .. } => match orders_outcome.move_ {
+                Some(ref move_) => {
+                    self.observations.track_many(move_.observations());
+                }
+                None => {}
+            },
+            PlayerActionOutcome::ProductionSet(ps) => {
+                self.observations.track_lite(ps.obs.clone());
+            }
+            PlayerActionOutcome::TurnEnded => {
+                self.observations.archive();
+            }
 
-            /// TODO Update observations
-            pub async fn take_simple_action(&mut self, [self.secret], action: AiPlayerAction) -> UmpireResult<PlayerActionOutcome>;
+            PlayerActionOutcome::UnitDisbanded(ud) => {
+                self.observations.track_lite(ud.obs.clone());
+            }
+            PlayerActionOutcome::TurnStarted(ts) => {
+                self.observations.track_many(ts.observations.iter());
+            }
+            PlayerActionOutcome::UnitSkipped { orders_outcome, .. } => {
+                self.observations.track_lite(orders_outcome.obs.clone());
+            }
+        }
+    }
+
+    pub async fn take_action(&mut self, action: PlayerAction) -> UmpireResult<PlayerActionOutcome> {
+        let result = self
+            .game
+            .write()
+            .await
+            .take_action(self.secret, action)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.update_action_observations(outcome);
         }
 
+        result
+    }
+
+    pub async fn take_simple_action(
+        &mut self,
+        action: AiPlayerAction,
+    ) -> UmpireResult<PlayerActionOutcome> {
+        let result = self
+            .game
+            .write()
+            .await
+            .take_simple_action(self.secret, action)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.update_action_observations(outcome);
+        }
+
+        result
+    }
+
+    delegate! {
         to self.game.read().await {
             pub async fn current_player(&self) -> PlayerNum;
 

@@ -16,9 +16,10 @@ use super::{
     player::PlayerTurn,
     unit::{
         orders::{Orders, OrdersOutcome},
-        Unit, UnitID, UnitType,
+        UnitID, UnitType,
     },
     Game, GameError, OrdersSet, PlayerSecret, ProductionSet, TurnStart, UmpireResult,
+    UnitDisbanded,
 };
 
 /// Something that can be converted into a PlayerAction
@@ -418,14 +419,12 @@ pub enum PlayerActionOutcome {
         dest: Option<Location>,
         move_: Move,
     },
-    DisbandUnit {
-        disbanded: Unit,
-    },
     OrderUnit {
         unit_id: UnitID,
         orders: Orders,
         orders_outcome: OrdersOutcome,
     },
+    UnitDisbanded(UnitDisbanded),
     UnitSkipped {
         unit_id: UnitID,
         orders_outcome: OrdersSet,
@@ -473,12 +472,9 @@ impl PlayerAction {
                         move_,
                     })
             }
-            Self::DisbandUnit { unit_id } => {
-                game.disband_unit_by_id(player_secret, unit_id)
-                    .map(|disbanded| PlayerActionOutcome::DisbandUnit {
-                        disbanded: disbanded.unit,
-                    })
-            }
+            Self::DisbandUnit { unit_id } => game
+                .disband_unit_by_id(player_secret, unit_id)
+                .map(PlayerActionOutcome::UnitDisbanded),
             Self::OrderUnit { unit_id, orders } => game
                 .set_and_follow_orders(player_secret, unit_id, orders)
                 .map(|orders_outcome| PlayerActionOutcome::OrderUnit {
