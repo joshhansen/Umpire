@@ -2284,7 +2284,7 @@ impl Game {
 
         // General statistics
 
-        // NOTE Update dnn::ADDED_WIDE_FEATURES to reflect the number of generic features added here
+        // NOTE Update WIDE_LEN to reflect the number of generic features added here
 
         // - current turn
         x.push(self.turn as fX);
@@ -2317,7 +2317,6 @@ impl Game {
         // Also includes whether it's a city or not
         x.push(if city_loc.is_some() { 1.0 } else { 0.0 });
 
-        // NOTE The unit counts are not included in dnn::ADDED_WIDE_FEATURES
         // - number of each type of unit controlled by player
         let empty_map = HashMap::new();
         let type_counts = self
