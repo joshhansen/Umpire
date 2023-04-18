@@ -28,17 +28,25 @@ binary will launch the game.
 
 Cargo can also be installed from this repository:
 
-    git clone git@github.com:joshhansen/Umpire.git && cd Umpire
+     git clone https://github.com/joshhansen/Umpire.git && cd Umpire
     cargo run --release
 
 This should grab the source code, build it, and run the game.
 
 ## Playing Umpire
+
 Upon loading, Umpire shows a ridiculous ASCII art splash screen of a baseball
 umpire. It has nothing to do with military strategy.
 
-Right now Umpire lacks an AI and can only be played as hotseat style
-multiplayer. The Message Log will indicate whose turn it is. When a turn begins,
+Running `umpire` with no arguments starts a local game including one human player and three AI players of varying difficulties.
+
+If a hostname is provided, the client will attempt to connect to a server at the destination:
+
+```bash
+umpire example.com
+```
+
+The Message Log will indicate whose turn it is. When a turn begins,
 the player is prompted with any necessary decisions.
 
 Players control cities which can produce units, and control units which can
@@ -65,18 +73,45 @@ An effort has been made to support a range of color palettes. These can be contr
 flag. The 16 color palette is the best tested at present.
 
 ## Startup Options
-The full list of startup options can be seen thus:
+
+All binaries included in Umpire respond to a wide range of command-line flags, visible when run with `--help`:
 
     cargo run --release -- --help
 
 
-Any options desired can be placed after the `--`. These include things such as
-whether to enable fog of war, and how many players to include in the game.
+When running with Cargo, any options desired can be placed after the `--`. These include things such as
+whether to enable fog of war, and how many players of which type to include in the game.
 
 The same can be done with the `umpire` binary:
 
     umpire --help
 
+
+## Server
+A server is provided, allowing networked multiplayer using an RPC protocol. The server runs AIs and coordinates remote clients.
+
+The server should be installed in the same path as the main binary. Run `umpired --help` for command-line options.
+
+A sample SystemD service definition is included in the distribution; see `umpired.service`.
+FIXME
+
+## AI
+
+The AI's were trained using reinforcement learning, specifically Q-Learning provided by `rsrl`.
+
+Work has also been done on an AlphaGo Zero style self-trained model, though this is not yet included in the default slate of AIs.
+
+The tools used to train the included AI algorithms are provided. Run `umpire-ai --help` for more information.
+
+## Features
+
+One Cargo feature is available: `"pytorch"`. It's enabled by default.
+
+PyTorch is used for neural network training; however, it is difficult to install in some environments. If you wish to disable it, build with the default features disabled:
+
+```bash
+cargo build --all --no-default-features
+```
 
 ## Name
 Why is Umpire called Umpire? Because it's silly, and it harks back to the game
@@ -85,3 +120,11 @@ that inspired it.
 ## License
 Umpire is licensed under version 3 of the GNU General Public License (GPLv3).
 See `LICENSE` for detailed license terms.
+
+
+
+TODO: Client binary named `umpire`
+TODO: Server binary named `umpired`
+TODO: Distribute `umpired.service` along with binaries
+TODO: New release on crates.io - pytorch disabled
+~~TODO: Double-check that cargo run runs client~~
