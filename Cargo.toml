@@ -1,5 +1,5 @@
 [package]
-name = "umpire"
+name = "umpire-workspace"
 description = "Combat Quest of the Millennium"
 version = "0.5.0-pre"
 authors = ["Josh Hansen <hansen.joshuaa@gmail.com>"]
@@ -51,7 +51,7 @@ travis-ci = { repository = "joshhansen/Umpire" }
 criterion = "0.3.1"
 
 [features]
-default = ["pytorch"]
+default = []
 pytorch = []
 
 [[bench]]

@@ -33,5 +33,5 @@ blas-src = { workspace = true }
 openblas-src = { workspace = true }
 
 [features]
-default = ["pytorch"]
+default = []
 pytorch = ["dep:tch"]

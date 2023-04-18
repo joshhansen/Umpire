@@ -2896,7 +2896,24 @@ checksum = "497961ef93d974e23eb6f433eb5fe1b7930b659f06d12dec6fc44a8f554c0bba"
 name = "umpire"
 version = "0.5.0-pre"
 dependencies = [
- "criterion",
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "clap 4.2.1",
+ "common",
+ "cpal",
+ "crossterm",
+ "dasp",
+ "failure",
+ "pitch_calc 0.12.0",
+ "rand 0.7.3",
+ "serde",
+ "synth",
+ "tarpc",
+ "tokio",
+ "umpire-ai",
+ "umpire-tui",
+ "uuid",
 ]
 
 [[package]]
@@ -2924,46 +2941,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "umpire-client"
-version = "0.5.0-pre"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "clap 4.2.1",
- "common",
- "cpal",
- "crossterm",
- "dasp",
- "failure",
- "pitch_calc 0.12.0",
- "rand 0.7.3",
- "serde",
- "synth",
- "tarpc",
- "tokio",
- "umpire-ai",
- "umpire-tui",
- "uuid",
-]
-
-[[package]]
-name = "umpire-server"
-version = "0.5.0-pre"
-dependencies = [
- "anyhow",
- "clap 4.2.1",
- "common",
- "futures",
- "get_if_addrs",
- "serde",
- "tarpc",
- "tokio",
- "umpire-ai",
- "uuid",
-]
-
-[[package]]
 name = "umpire-tui"
 version = "0.5.0-pre"
 dependencies = [
@@ -2977,6 +2954,29 @@ dependencies = [
  "pastel",
  "rand 0.7.3",
  "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "umpire-workspace"
+version = "0.5.0-pre"
+dependencies = [
+ "criterion",
+]
+
+[[package]]
+name = "umpired"
+version = "0.5.0-pre"
+dependencies = [
+ "anyhow",
+ "clap 4.2.1",
+ "common",
+ "futures",
+ "get_if_addrs",
+ "serde",
+ "tarpc",
+ "tokio",
+ "umpire-ai",
  "uuid",
 ]
 

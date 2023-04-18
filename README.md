@@ -88,12 +88,12 @@ The same can be done with the `umpire` binary:
 
 
 ## Server
+
 A server is provided, allowing networked multiplayer using an RPC protocol. The server runs AIs and coordinates remote clients.
 
 The server should be installed in the same path as the main binary. Run `umpired --help` for command-line options.
 
-A sample SystemD service definition is included in the distribution; see `umpired.service`.
-FIXME
+A sample SystemD service definition is included in the repository; see `server/umpired.service`.
 
 ## AI
 
@@ -105,26 +105,28 @@ The tools used to train the included AI algorithms are provided. Run `umpire-ai 
 
 ## Features
 
-One Cargo feature is available: `"pytorch"`. It's enabled by default.
+One Cargo feature is available: `"pytorch"`.
 
-PyTorch is used for neural network training; however, it is difficult to install in some environments. If you wish to disable it, build with the default features disabled:
+PyTorch is used for neural network training; however, it is difficult to install in some environments, so it is disabled by default. If you wish to enable it, pass `-F pytorch`:
 
 ```bash
-cargo build --all --no-default-features
+cargo build --all -F pytorch
 ```
 
 ## Name
+
 Why is Umpire called Umpire? Because it's silly, and it harks back to the game
 that inspired it.
 
+## History
+
+* Umpire 0.5.0---networked multiplayer; basic AI; AI training framework
+
 ## License
+
 Umpire is licensed under version 3 of the GNU General Public License (GPLv3).
 See `LICENSE` for detailed license terms.
 
 
-
-TODO: Client binary named `umpire`
-TODO: Server binary named `umpired`
-TODO: Distribute `umpired.service` along with binaries
 TODO: New release on crates.io - pytorch disabled
 ~~TODO: Double-check that cargo run runs client~~
