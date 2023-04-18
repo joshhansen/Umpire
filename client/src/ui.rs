@@ -657,21 +657,18 @@ impl TermUI {
                 //     (Some(None),Some(None))
                 // };
 
-                self.map_scroller
-                    .scrollable
-                    .draw_tile_no_flush(
-                        game,
-                        &mut self.stdout,
-                        viewport_loc,
-                        false,
-                        false,
-                        None,
-                        None,
-                        None,
-                        Some(&located_obs.obs),
-                        &self.palette,
-                    )
-                    .await?;
+                self.map_scroller.scrollable.draw_tile_no_flush(
+                    game,
+                    &mut self.stdout,
+                    viewport_loc,
+                    false,
+                    false,
+                    None,
+                    None,
+                    None,
+                    Some(&located_obs.obs),
+                    &self.palette,
+                )?;
             }
         }
         Ok(())
@@ -713,8 +710,7 @@ impl TermUI {
                     Some(sym),
                     None,
                     &self.palette,
-                )
-                .await?;
+                )?;
                 sleep_millis(100);
                 map.draw_tile_and_flush(
                     game,
@@ -727,8 +723,7 @@ impl TermUI {
                     Some(sym),
                     None,
                     &self.palette,
-                )
-                .await?;
+                )?;
             } else {
                 sleep_millis(100);
             }
@@ -938,21 +933,18 @@ impl UI for TermUI {
         // observations.
         obs_override: Option<&Obs>,
     ) -> IoResult<()> {
-        self.map_scroller
-            .scrollable
-            .draw_tile_and_flush(
-                game,
-                &mut self.stdout,
-                viewport_loc,
-                highlight,
-                unit_active,
-                city_override,
-                unit_override,
-                symbol_override,
-                obs_override,
-                &self.palette,
-            )
-            .await
+        self.map_scroller.scrollable.draw_tile_and_flush(
+            game,
+            &mut self.stdout,
+            viewport_loc,
+            highlight,
+            unit_active,
+            city_override,
+            unit_override,
+            symbol_override,
+            obs_override,
+            &self.palette,
+        )
     }
 
     async fn draw_map_tile_no_flush(
@@ -975,21 +967,18 @@ impl UI for TermUI {
         // observations.
         obs_override: Option<&Obs>,
     ) -> IoResult<()> {
-        self.map_scroller
-            .scrollable
-            .draw_tile_no_flush(
-                game,
-                &mut self.stdout,
-                viewport_loc,
-                highlight,
-                unit_active,
-                city_override,
-                unit_override,
-                symbol_override,
-                obs_override,
-                &self.palette,
-            )
-            .await
+        self.map_scroller.scrollable.draw_tile_no_flush(
+            game,
+            &mut self.stdout,
+            viewport_loc,
+            highlight,
+            unit_active,
+            city_override,
+            unit_override,
+            symbol_override,
+            obs_override,
+            &self.palette,
+        )
     }
 
     async fn draw_no_flush(&mut self, game: &PlayerTurn) -> IoResult<()> {
@@ -1094,7 +1083,7 @@ impl UI for TermUI {
         game: &PlayerTurn,
         viewport_loc: Location,
     ) -> Option<Location> {
-        self.map().viewport_to_map_coords(game, viewport_loc).await
+        self.map().viewport_to_map_coords(game, viewport_loc)
     }
 }
 

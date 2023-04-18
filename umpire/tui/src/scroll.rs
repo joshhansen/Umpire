@@ -47,13 +47,13 @@ impl<S: ScrollableComponent + Send> Scroller<S> {
             * (f32::from(self.scrollable.offset().y) / f32::from(map_height))) as u16
     }
 
-    async fn draw_scroll_bars(
+    fn draw_scroll_bars(
         &mut self,
         game: &PlayerTurn<'_>,
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
-        let dims = game.dims().await;
+        let dims = game.dims();
         let viewport_rect = self.scrollable.rect();
         let h_scroll_x: u16 = self.h_scroll_x(dims.width);
         let h_scroll_y = viewport_rect.bottom();
@@ -138,7 +138,7 @@ impl<S: ScrollableComponent + Send> Draw for Scroller<S> {
         stdout: &mut Stdout,
         palette: &Palette,
     ) -> IoResult<()> {
-        self.draw_scroll_bars(game, stdout, palette).await?;
+        self.draw_scroll_bars(game, stdout, palette)?;
         self.scrollable.draw_no_flush(game, stdout, palette).await
     }
 }

@@ -39,7 +39,7 @@ impl SetProductionMode {
     }
 
     async fn write_buf<U: UI>(&self, game: &PlayerTurn<'_>, ui: &mut U) {
-        let tile = game.tile(self.loc).await.unwrap();
+        let tile = game.tile(self.loc).unwrap();
         let city = tile.city.as_ref().unwrap();
 
         ui.clear_sidebar();

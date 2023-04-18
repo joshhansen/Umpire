@@ -96,7 +96,15 @@ pub struct PlayerControl {
     game: Arc<RwLockTokio<dyn IGame>>,
     pub player: PlayerNum,
     secret: PlayerSecret,
+
+    /// Dims never change; cache them
+    dims: Dims,
+
+    /// A local copy of the player's observations
     observations: ObsTracker,
+
+    /// Wrapping never changes; cache it
+    wrapping: Wrap2d,
 }
 
 impl PlayerControl {
@@ -106,23 +114,38 @@ impl PlayerControl {
         player: PlayerNum,
         secret: PlayerSecret,
     ) -> Self {
-        let observations = game.read().await.player_observations(secret).await.unwrap();
-        Self::from_observations(game, player, secret, observations)
+        let (dims, observations, wrapping) = {
+            let g = game.read().await;
+
+            (
+                g.dims().await,
+                g.player_observations(secret).await.unwrap(),
+                g.wrapping().await,
+            )
+        };
+
+        Self::from_observations(game, player, secret, dims, observations, wrapping)
     }
 
     pub fn from_observations(
         game: Arc<RwLockTokio<dyn IGame>>,
         player: PlayerNum,
         secret: PlayerSecret,
+        dims: Dims,
         observations: ObsTracker,
+        wrapping: Wrap2d,
     ) -> Self {
         Self {
             game,
             player,
             secret,
+            dims,
             observations,
+            wrapping,
         }
     }
+
+    // Mutable
 
     pub async fn activate_unit_by_loc(&mut self, loc: Location) -> UmpireResult<LocatedObsLite> {
         let result = self
@@ -340,11 +363,19 @@ impl PlayerControl {
         result
     }
 
+    // Immutable
+
+    pub fn dims(&self) -> Dims {
+        self.dims
+    }
+
+    pub fn wrapping(&self) -> Wrap2d {
+        self.wrapping
+    }
+
     delegate! {
         to self.game.read().await {
             pub async fn current_player(&self) -> PlayerNum;
-
-            pub async fn dims(&self) -> Dims;
 
             #[unwrap]
             pub async fn is_player_turn(&self, [self.secret]) -> bool;
@@ -407,8 +438,6 @@ impl PlayerControl {
             pub async fn valid_productions_conservative(&self, [self.secret], loc: Location) -> Vec<UnitType>;
 
             pub async fn victor(&self) -> Option<PlayerNum>;
-
-            pub async fn wrapping(&self) -> Wrap2d;
         }
     }
 
@@ -433,7 +462,7 @@ impl PlayerControl {
     }
 
     /// The player's most recent observation at the given location
-    pub async fn obs(&self, loc: Location) -> Obs {
+    pub fn obs(&self, loc: Location) -> Obs {
         self.observations.get(loc).clone()
     }
 
@@ -442,7 +471,7 @@ impl PlayerControl {
     }
 
     /// The tile at the given location, as present in the player's observations (or not)
-    pub async fn tile(&self, loc: Location) -> Option<Cow<Tile>> {
+    pub fn tile(&self, loc: Location) -> Option<Cow<Tile>> {
         match self.observations.get(loc) {
             Obs::Observed { tile, .. } => Some(Cow::Borrowed(tile)),
             Obs::Unobserved => None,
@@ -560,7 +589,7 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn current_player(&self) -> PlayerNum;
 
-            pub async fn dims(&self) -> Dims;
+            pub fn dims(&self) -> Dims;
 
             pub async fn is_player_turn(&self) -> bool;
 
@@ -574,7 +603,7 @@ impl<'a> PlayerTurn<'a> {
                 dest: Location,
             ) -> ProposedOrdersResult;
 
-            pub async fn obs(&self, loc: Location) -> Obs;
+            pub fn obs(&self, loc: Location) -> Obs;
 
             pub async fn player_cities_producing_or_not_ignored(&self) -> usize;
 
@@ -596,7 +625,7 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn player_unit_loc(&self, id: UnitID) -> Option<Location>;
 
-            pub async fn tile(&self, loc: Location) -> Option<Cow<Tile>>;
+            pub fn tile(&self, loc: Location) -> Option<Cow<Tile>>;
 
             pub async fn turn(&self) -> TurnNum;
 
@@ -609,7 +638,7 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn victor(&self) -> Option<PlayerNum>;
 
-            pub async fn wrapping(&self) -> Wrap2d;
+            pub fn wrapping(&self) -> Wrap2d;
         }
     }
 }
