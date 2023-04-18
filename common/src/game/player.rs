@@ -11,8 +11,8 @@ use super::{
     map::dijkstra::Source,
     move_::Move,
     obs::{LocatedObsLite, ObsTracker},
-    IGame, PlayerSecret, ProductionCleared, ProposedOrdersResult, ProposedUmpireResult, TurnPhase,
-    TurnStart, UmpireResult, UnitDisbanded,
+    IGame, PlayerSecret, ProductionCleared, ProductionSet, ProposedOrdersResult,
+    ProposedUmpireResult, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
 };
 use crate::{
     cli::Specified,
@@ -208,10 +208,27 @@ impl PlayerControl {
         result
     }
 
+    pub async fn set_production_by_loc(
+        &mut self,
+        loc: Location,
+        production: UnitType,
+    ) -> UmpireResult<ProductionSet> {
+        let result = self
+            .game
+            .write()
+            .await
+            .set_production_by_loc(self.secret, loc, production)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.observations.track_lite(outcome.obs.clone());
+        }
+
+        result
+    }
+
     delegate! {
         to self.game.write().await {
-
-
             /// TODO Update observations
             pub async fn end_turn(&mut self, [self.secret]) -> UmpireResult<()>;
 
@@ -223,9 +240,6 @@ impl PlayerControl {
 
             /// TODO Update observations
             pub async fn order_unit_skip(&mut self, [self.secret], unit_id: UnitID) -> OrdersResult;
-
-            /// TODO Update observations
-            pub async fn set_production_by_loc(&mut self, [self.secret], loc: Location, production: UnitType) -> UmpireResult<Option<UnitType>>;
 
             /// TODO Update observations
             pub async fn take_action(&mut self, [self.secret], action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
@@ -448,7 +462,7 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn order_unit_skip(&mut self,  unit_id: UnitID) -> OrdersResult;
 
-            pub async fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> UmpireResult<Option<UnitType>>;
+            pub async fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> UmpireResult<ProductionSet>;
 
             pub async fn take_action(&mut self, action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
 

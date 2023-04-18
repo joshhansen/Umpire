@@ -22,9 +22,9 @@ use common::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProposedActionResult,
-        ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
-        UnitDisbanded,
+        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProductionSet,
+        ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart,
+        UmpireResult, UnitDisbanded,
     },
     name::{city_namer, unit_namer},
     rpc::UmpireRpc,
@@ -550,7 +550,7 @@ impl UmpireRpc for UmpireServer {
         player_secret: PlayerSecret,
         loc: Location,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionSet> {
         self.game
             .write()
             .await

@@ -125,7 +125,8 @@ fn test_move_unit() {
             .unwrap();
 
         assert_eq!(
-            game.set_production_by_loc(secrets[0], loc, UnitType::Armor),
+            game.set_production_by_loc(secrets[0], loc, UnitType::Armor)
+                .map(|ps| ps.prior_production),
             Ok(None)
         );
 
@@ -143,7 +144,8 @@ fn test_move_unit() {
             .unwrap();
 
         assert_eq!(
-            game.set_production_by_loc(secrets[1], loc, UnitType::Carrier),
+            game.set_production_by_loc(secrets[1], loc, UnitType::Carrier)
+                .map(|ps| ps.prior_production),
             Ok(None)
         );
 
@@ -227,7 +229,10 @@ fn test_move_unit() {
                 let conquered_city = move_result.conquered_city().unwrap();
                 let production_set_result =
                     game.set_production_by_loc(secrets[0], conquered_city.loc, UnitType::Fighter);
-                assert_eq!(production_set_result, Ok(Some(UnitType::Carrier)));
+                assert_eq!(
+                    production_set_result.map(|ps| ps.prior_production),
+                    Ok(Some(UnitType::Carrier))
+                );
             }
         } else {
             // The unit was destroyed

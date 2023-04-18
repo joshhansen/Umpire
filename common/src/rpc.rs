@@ -21,9 +21,9 @@ use crate::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProposedActionResult,
-        ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
-        UnitDisbanded,
+        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProductionSet,
+        ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart,
+        UmpireResult, UnitDisbanded,
     },
     util::{Dims, Direction, Location, Wrap2d},
 };
@@ -217,7 +217,7 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
         loc: Location,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>>;
+    ) -> UmpireResult<ProductionSet>;
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
     ///
@@ -781,7 +781,7 @@ impl IGame for RpcGame {
         player_secret: PlayerSecret,
         loc: Location,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionSet> {
         self.game
             .set_production_by_loc(context::current(), player_secret, loc, production)
             .await

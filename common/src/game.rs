@@ -108,6 +108,12 @@ pub struct ProductionCleared {
     pub obs: LocatedObsLite,
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProductionSet {
+    pub prior_production: Option<UnitType>,
+    pub obs: LocatedObsLite,
+}
+
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct TurnStart {
     pub turn: TurnNum,
@@ -1746,16 +1752,21 @@ impl Game {
         player_secret: PlayerSecret,
         loc: Location,
         production: UnitType,
-    ) -> UmpireResult<Option<UnitType>> {
+    ) -> UmpireResult<ProductionSet> {
         let player = self.player_with_secret(player_secret)?;
 
-        let result = self
+        let prior_production = self
             .map
-            .set_player_city_production_by_loc(player, loc, production);
-        if result.is_ok() {
-            self.action_taken(player);
-        }
-        result
+            .set_player_city_production_by_loc(player, loc, production)?;
+
+        self.action_taken(player);
+
+        let obs = self.observe(loc).unwrap().lite();
+
+        Ok(ProductionSet {
+            prior_production,
+            obs,
+        })
     }
 
     /// Sets the production of the current player's city with ID `city_id` to `production`.
