@@ -577,7 +577,7 @@ async fn main() -> Result<(), String> {
             .clone();
 
         let avoid_skip = sub_matches.contains_id("avoid_skip");
-        let deep = sub_matches.contains_id("deep");
+        let deep: bool = sub_matches.get_one("deep").cloned().unwrap();
         let initial_model_path = sub_matches.get_one::<String>("initial_model_path").cloned();
         let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
 
