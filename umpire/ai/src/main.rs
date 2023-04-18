@@ -80,6 +80,12 @@ fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>, String> {
 
 static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
 
+static SUBCMD_AGZTRAIN: &'static str = "agztrain";
+
+static SUBCMD_EVAL: &'static str = "eval";
+
+static SUBCMD_QTRAIN: &'static str = "qtrain";
+
 #[tokio::main]
 async fn main() -> Result<(), String> {
     let matches = cli::app("Umpire AI Trainer", "fvwHW")
@@ -123,7 +129,7 @@ async fn main() -> Result<(), String> {
     // )
 
     .subcommand(
-        Command::new("eval")
+        Command::new(SUBCMD_EVAL)
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
             Arg::new("ai_models")
@@ -140,8 +146,8 @@ async fn main() -> Result<(), String> {
     )
 
     .subcommand(
-        cli::app("train", "D")
-        .about(format!("Train an AI for the game of {}", conf::APP_NAME))
+        cli::app(SUBCMD_QTRAIN, "D")
+        .about(format!("Train a Q-Learning AI for the game of {}", conf::APP_NAME))
         .arg_required_else_help(true)
         .arg(
             Arg::new("avoid_skip")
@@ -226,10 +232,10 @@ async fn main() -> Result<(), String> {
         //         .multiple(true)
         //         .required(true)
         // )
-    )// subcommand train
+    )// subcommand qtrain
 
     .subcommand(
-        cli::app("agztrain", "D")
+        cli::app(SUBCMD_AGZTRAIN, "D")
         .about(format!("Train an AlphaGo Zero-inspired neural network AI for the game of {}", conf::APP_NAME))
         .arg_required_else_help(true)
         // .arg(
@@ -303,8 +309,8 @@ async fn main() -> Result<(), String> {
     let (subcommand, sub_matches) = matches.subcommand().unwrap();
 
     match subcommand {
-        "eval" => println!("Evaluating {} AIs", conf::APP_NAME),
-        "train" => println!("Training {} AI", conf::APP_NAME),
+        "evail" => println!("Evaluating {} AIs", conf::APP_NAME),
+        "qtrain" => println!("Training {} AI - Q-Learning", conf::APP_NAME),
         "agztrain" => println!("Training {} AI - a la AlphaGo Zero", conf::APP_NAME),
         c => unreachable!("Unrecognized subcommand {} should have been caught by the agument parser; there's a bug somehere", c)
     }
@@ -331,7 +337,7 @@ async fn main() -> Result<(), String> {
 
     println!("Verbosity: {}", verbosity);
 
-    if subcommand == "eval" {
+    if subcommand == SUBCMD_EVAL {
         // if dims.len() > 1 {
         //     return Err(String::from("Only one set of dimensions can be given for evaluation"));
         // }
@@ -541,7 +547,7 @@ async fn main() -> Result<(), String> {
 
             data_outfile.as_mut().unwrap().write_all(&data).unwrap();
         }
-    } else if subcommand == "train" {
+    } else if subcommand == SUBCMD_QTRAIN {
         // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
 
         // if opponent_specs_s.is_empty() {
@@ -639,7 +645,7 @@ async fn main() -> Result<(), String> {
                 err
             )
         })?;
-    } else if subcommand == "agztrain" {
+    } else if subcommand == SUBCMD_AGZTRAIN {
         let learning_rate = sub_matches
             .get_one::<f64>("dnn_learning_rate")
             .unwrap()
