@@ -439,28 +439,28 @@ impl PlayerAction {
         player_secret: PlayerSecret,
     ) -> Result<PlayerActionOutcome, GameError> {
         match self {
-            PlayerAction::BeginTurn {
+            Self::BeginTurn {
                 clear_after_unit_production,
             } => game
                 .begin_turn(player_secret, clear_after_unit_production)
                 .map(|turn_start| PlayerActionOutcome::TurnStarted(turn_start)),
-            PlayerAction::EndTurn => game
+            Self::EndTurn => game
                 .end_turn(player_secret)
                 .map(|_| PlayerActionOutcome::TurnEnded),
-            PlayerAction::SetCityProduction {
+            Self::SetCityProduction {
                 city_id,
                 production,
             } => game
                 .set_production_by_id(player_secret, city_id, production)
                 .map(PlayerActionOutcome::ProductionSet),
-            PlayerAction::MoveUnit { unit_id, dest } => game
+            Self::MoveUnit { unit_id, dest } => game
                 .move_unit_by_id(player_secret, unit_id, dest)
                 .map(|move_| PlayerActionOutcome::MoveUnit {
                     unit_id,
                     dest: Some(dest),
                     move_,
                 }),
-            PlayerAction::MoveUnitInDirection { unit_id, direction } => {
+            Self::MoveUnitInDirection { unit_id, direction } => {
                 let dest = game
                     .current_player_unit_by_id(unit_id)
                     .unwrap()
@@ -473,12 +473,13 @@ impl PlayerAction {
                         move_,
                     })
             }
-            PlayerAction::DisbandUnit { unit_id } => game
-                .disband_unit_by_id(player_secret, unit_id)
-                .map(|disbanded| PlayerActionOutcome::DisbandUnit {
-                    disbanded: disbanded.unit,
-                }),
-            PlayerAction::OrderUnit { unit_id, orders } => game
+            Self::DisbandUnit { unit_id } => {
+                game.disband_unit_by_id(player_secret, unit_id)
+                    .map(|disbanded| PlayerActionOutcome::DisbandUnit {
+                        disbanded: disbanded.unit,
+                    })
+            }
+            Self::OrderUnit { unit_id, orders } => game
                 .set_and_follow_orders(player_secret, unit_id, orders)
                 .map(|orders_outcome| PlayerActionOutcome::OrderUnit {
                     unit_id,
