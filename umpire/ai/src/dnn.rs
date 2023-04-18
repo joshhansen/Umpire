@@ -17,15 +17,13 @@ use tch::{
 
 use common::game::{
     action::AiPlayerAction,
-    ai::{DEEP_HEIGHT, DEEP_LEN, DEEP_WIDTH, WIDE_LEN},
+    ai::{BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_LEN, DEEP_OUT_LEN, DEEP_WIDTH, WIDE_LEN},
     Game,
 };
 
 use crate::{LoadableFromBytes, StorableAsBytes};
 
 use super::{Loadable, Storable};
-
-const BASE_CONV_FEATS: i64 = 8;
 
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
@@ -94,10 +92,16 @@ impl DNN {
         let path = vars.root();
 
         let convs = vec![
-            nn::conv2d(&path, 1, BASE_CONV_FEATS, 3, Default::default()), // -> 9x9
             nn::conv2d(
                 &path,
                 BASE_CONV_FEATS,
+                BASE_CONV_FEATS * 2,
+                3,
+                Default::default(),
+            ), // -> 9x9
+            nn::conv2d(
+                &path,
+                BASE_CONV_FEATS * 2,
                 BASE_CONV_FEATS * 2,
                 3,
                 Default::default(),
@@ -105,22 +109,22 @@ impl DNN {
             nn::conv2d(
                 &path,
                 BASE_CONV_FEATS * 2,
-                BASE_CONV_FEATS * 4,
+                BASE_CONV_FEATS * 2,
                 3,
                 Default::default(),
             ), // -> 5x5
             nn::conv2d(
                 &path,
-                BASE_CONV_FEATS * 4,
-                BASE_CONV_FEATS * 8,
+                BASE_CONV_FEATS * 2,
+                BASE_CONV_FEATS,
                 3,
                 Default::default(),
             ), // -> 3x3
         ];
 
-        let dense0 = nn::linear(&path, 2329, 256, Default::default());
-        let dense1 = nn::linear(&path, 256, 128, Default::default());
-        let dense2 = nn::linear(&path, 128, possible_actions, Default::default());
+        let dense0 = nn::linear(&path, WIDE_LEN + DEEP_OUT_LEN, 64, Default::default());
+        let dense1 = nn::linear(&path, 64, 32, Default::default());
+        let dense2 = nn::linear(&path, 32, possible_actions, Default::default());
 
         let optimizer = nn::Adam::default()
             .build(&vars, learning_rate)
@@ -235,42 +239,22 @@ impl Loadable for DNN {
 
 impl nn::ModuleT for DNN {
     fn forward_t(&self, xs: &Tensor, _train: bool) -> Tensor {
-        let split: Vec<Tensor> =
-            xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN, DEEP_LEN, DEEP_LEN, DEEP_LEN], 0);
+        let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
-        // Wide features
+        // Wide featuers that will pass through to the dense layers directly
         let wide = &split[0];
 
-        // Deep features
-        let mut is_enemy_belligerent = split[1].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
-        let mut is_observed = split[2].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
-        let mut is_neutral = split[3].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
-        let mut is_city = split[4].view([1, 1, DEEP_WIDTH, DEEP_HEIGHT]);
+        // Input features to the 2d convolution
+        let mut deep = split[1].view([1, BASE_CONV_FEATS, DEEP_WIDTH, DEEP_HEIGHT]);
 
         for conv in &self.convs {
-            is_enemy_belligerent = is_enemy_belligerent.apply(conv).relu();
-            is_observed = is_observed.apply(conv).relu();
-            is_neutral = is_neutral.apply(conv).relu();
-            is_city = is_city.apply(conv).relu();
+            deep = deep.apply(conv).relu();
         }
 
-        let enemy_feats = is_enemy_belligerent.view([-1]);
-        let observed_feats = is_observed.view([-1]);
-        let neutral_feats = is_neutral.view([-1]);
-        let city_feats = is_city.view([-1]);
+        // Reshape back to vector
+        deep = deep.view([-1]);
 
-        // println!("Deep feats shapes: {:?} {:?} {:?}", enemy_feats.size(), observed_feats.size(), neutral_feats.size());
-
-        let wide_and_deep = Tensor::cat(
-            &[
-                wide,
-                &enemy_feats,
-                &observed_feats,
-                &neutral_feats,
-                &city_feats,
-            ],
-            0,
-        );
+        let wide_and_deep = Tensor::cat(&[wide, &deep], 0);
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
 

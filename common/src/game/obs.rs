@@ -2,17 +2,21 @@ use std::{collections::HashMap, fmt};
 
 use serde::{Deserialize, Serialize};
 
-use super::{map::dijkstra::Filter, ActionNum, PlayerNum};
+use super::{
+    ai::BASE_CONV_FEATS, alignment::AlignedMaybe, map::dijkstra::Filter, ActionNum, PlayerNum,
+};
 use crate::{
     game::{
+        fX,
         map::{
             dijkstra::{Source, SourceMut},
             grid::LocationGridI,
-            LocationGrid, Tile,
+            LocationGrid, Terrain, Tile,
         },
+        unit::UnitType,
         TurnNum,
     },
-    util::{Dimensioned, Dims, Located, LocatedItem, Location, Vec2d, Wrap2d},
+    util::{indicator as b, Dimensioned, Dims, Located, LocatedItem, Location, Vec2d, Wrap2d},
 };
 
 /// What a particular player knows about a tile
@@ -42,6 +46,74 @@ impl Obs {
 
     pub fn is_unobserved(&self) -> bool {
         *self == Obs::Unobserved
+    }
+
+    /// Observation features:
+    /// - known to be land (0 or 1)
+    /// - known to be sea (0 or 1)
+    /// - known to have city (0 or 1)
+    /// - known to have unit of type - 10 bits (one hot encoded)
+    /// - carried_units - count
+    /// - city/unit friendly - 1 bit
+    /// - city/unit non-friendly - 1 bit (separate to allow unobserved to be neither friendly nor unfriendly)
+    pub fn features(&self, player: PlayerNum) -> Vec<fX> {
+        let mut x = Vec::with_capacity(BASE_CONV_FEATS as usize);
+
+        // 0: known to be land (0 or 1)
+        x.push(match self {
+            Self::Observed { ref tile, .. } => b(tile.terrain == Terrain::Land),
+            Self::Unobserved => 0.0,
+        });
+
+        // 1: known to be sea (0 or 1)
+        x.push(match self {
+            Self::Observed { ref tile, .. } => b(tile.terrain == Terrain::Water),
+            Self::Unobserved => 0.0,
+        });
+
+        // 2: known to have city (0 or 1)
+        x.push(match self {
+            Self::Observed { ref tile, .. } => b(tile.city.is_some()),
+            Self::Unobserved => 0.0,
+        });
+
+        // 3-12: known to have unit of type - 10 bits (one hot encoded)
+        x.extend(match self {
+            Self::Observed { ref tile, .. } => tile
+                .unit
+                .as_ref()
+                .map_or_else(|| UnitType::none_features(), |unit| unit.type_.features()),
+            Self::Unobserved => UnitType::none_features(),
+        });
+
+        // 13:  carried_units - count
+        x.push(match self {
+            Self::Observed { ref tile, .. } => tile
+                .unit
+                .as_ref()
+                .map_or(0.0, |unit| unit.carried_units().count() as fX),
+            Self::Unobserved => 0.0,
+        });
+
+        // 14: city/unit friendly - 1 bit
+        x.push(match self {
+            Self::Observed { ref tile, .. } => tile
+                .alignment_maybe()
+                .map_or(0.0, |alignment| b(alignment.is_friendly_to_player(player))),
+            Self::Unobserved => 0.0,
+        });
+
+        // 15: city/unit non-friendly - 1 bit
+        x.push(match self {
+            Self::Observed { ref tile, .. } => tile
+                .alignment_maybe()
+                .map_or(0.0, |alignment| b(alignment.is_enemy_of_player(player))),
+            Self::Unobserved => 0.0,
+        });
+
+        debug_assert_eq!(x.len(), BASE_CONV_FEATS as usize);
+
+        x
     }
 }
 

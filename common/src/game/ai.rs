@@ -31,9 +31,18 @@ pub const WIDE_LEN: i64 =
     UNIT_TYPE_WRIT_LARGE_LEN + UnitType::values().len() as i64 + ADDED_WIDE_FEATURES;
 pub const DEEP_WIDTH: i64 = 11;
 pub const DEEP_HEIGHT: i64 = 11;
-pub const DEEP_LEN: i64 = DEEP_WIDTH * DEEP_HEIGHT;
-pub const DEEP_FEATS: i64 = 4;
-pub const FEATS_LEN: i64 = WIDE_LEN + DEEP_FEATS * DEEP_LEN;
+pub const DEEP_TILES: i64 = DEEP_WIDTH * DEEP_HEIGHT;
+
+/// Number of "channels" in convolution output
+pub const BASE_CONV_FEATS: i64 = 16;
+
+pub const DEEP_LEN: i64 = DEEP_TILES * BASE_CONV_FEATS;
+
+/// Total length of convolution output after reducing to 3x3
+pub const DEEP_OUT_LEN: i64 = 9 * BASE_CONV_FEATS;
+
+/// Total length of the feature vectors that are input to the dnn
+pub const FEATS_LEN: i64 = WIDE_LEN + DEEP_LEN;
 
 /// We customize the feature vector depending on if we're training a model for city actions or unit actions
 /// This just lets us specify which.
@@ -130,7 +139,7 @@ impl TrainingInstance {
 /// * 121: is_observed (11x11)
 /// * 121: is_neutral (11x11)
 ///
-pub async fn player_features(
+pub async fn player_features_classic(
     game: &dyn IGame,
     player_secret: PlayerSecret,
 ) -> UmpireResult<Vec<fX>> {

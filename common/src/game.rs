@@ -2220,7 +2220,7 @@ impl Game {
     ///
     /// Map of the output vector:
     ///
-    /// # 15: 1d features
+    /// # 25: 1d features
     /// * 1: current turn
     /// * 1: current player city count
     /// * 1: number of tiles observed by current player
@@ -2228,11 +2228,32 @@ impl Game {
     /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
     /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
     ///                                                     submarines, cruisers, battleships, carriers)
-    /// # 363: 2d features, three layers
+    /// # 484: 2d features, four layers
     /// * 121: is_enemy_belligerent (11x11)
     /// * 121: is_observed (11x11)
     /// * 121: is_neutral (11x11)
+    /// * 121: is_city (11x11)
     ///
+    /// Ideas: give all the info as raw as possible.
+    /// Use the neural network to extract features rather than proclaiming them a priori
+    /// For a tile:
+    ///
+    /// - known to be land (0 or 1)
+    /// - known to be sea (0 or 1)
+    /// - known to have city (0 or 1)
+    /// - known to have unit of type - 10 bits (one hot encoded)
+    /// - carried_units - count
+    /// - city/unit friendly - 1 bit
+    /// - city/unit non-friendly - 1 bit (separate to allow unobserved to be neither friendly nor unfriendly)
+    ///
+    /// 16 "channels" per tile to start
+    ///
+    /// Convolve down from 11x11 to 1x1; then concat with wide feats and pass to dense layers
+    ///
+    /// 11 * 16 + 25 = 201
+    ///
+    /// This should really reduce the model's size, while hopefully giving it a more integrated
+    /// view of the map.
     pub fn player_features(
         &self,
         player_secret: PlayerSecret,
@@ -2259,7 +2280,7 @@ impl Game {
         };
 
         // We also add a context around the currently active unit (if any)
-        let mut x = Vec::with_capacity(FEATS_LEN as usize);
+        let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN as usize);
 
         // General statistics
 
@@ -2333,11 +2354,6 @@ impl Game {
                 }
             };
 
-        let mut is_enemy_belligerent = Vec::new();
-        let mut is_observed = Vec::new();
-        let mut is_neutral = Vec::new();
-        let mut is_city = Vec::new();
-
         let player = self.player_with_secret(player_secret)?;
 
         // 2d features
@@ -2353,42 +2369,11 @@ impl Game {
                     &Obs::Unobserved
                 };
 
-                // x.extend_from_slice(&obs_to_vec(&obs, self.num_players));
-                // push_obs_to_vec(&mut x, &obs, self.num_players);
-
-                let mut enemy = 0.0;
-                let mut observed = 0.0;
-                let mut neutral = 0.0;
-                let mut city = 0.0;
-
-                if let Obs::Observed { tile, .. } = obs {
-                    observed = 1.0;
-
-                    if tile.city.is_some() {
-                        city = 1.0;
-                    }
-
-                    if let Some(alignment) = tile.alignment_maybe() {
-                        if alignment.is_neutral() {
-                            neutral = 1.0;
-                        } else if alignment.is_belligerent() && alignment.is_enemy_of_player(player)
-                        {
-                            enemy = 1.0;
-                        }
-                    }
-                }
-
-                is_enemy_belligerent.push(enemy);
-                is_observed.push(observed);
-                is_neutral.push(neutral);
-                is_city.push(city);
+                x.extend(obs.features(player));
             }
         }
 
-        x.extend(is_enemy_belligerent);
-        x.extend(is_observed);
-        x.extend(is_neutral);
-        x.extend(is_city);
+        debug_assert_eq!(x.len(), FEATS_LEN as usize);
 
         Ok(x)
     }

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::conf;
+use crate::{conf, game::ai::fX};
 
 /// A location in a non-negative coordinate space such as the game map or viewport
 pub type Location = Vec2d<u16>;
@@ -647,6 +647,15 @@ pub fn densify(len: usize, features: &HashMap<usize, f64>) -> Vec<f64> {
         x.push(*features.get(&i).unwrap_or(&0f64));
     }
     x
+}
+
+/// An indicator function to turn bool into fX
+pub fn indicator(b: bool) -> fX {
+    if b {
+        1.0
+    } else {
+        0.0
+    }
 }
 
 #[cfg(test)]

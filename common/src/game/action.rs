@@ -181,7 +181,7 @@ impl NextCityAction {
     /// Currently possible actions
     pub async fn legal(turn: &PlayerTurn<'_>) -> Vec<Self> {
         if let Some(city_loc) = turn.player_production_set_requests().await.iter().next() {
-            turn.valid_productions(*city_loc)
+            turn.valid_productions_conservative(*city_loc)
                 .await
                 .iter()
                 .copied()

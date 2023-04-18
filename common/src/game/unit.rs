@@ -17,10 +17,12 @@ use crate::{
         GameError,
     },
     name::Named,
-    util::{Located, Location},
+    util::{indicator as b, Located, Location},
 };
 
 use self::orders::Orders;
+
+use super::ai::fX;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct UnitID {
@@ -330,6 +332,16 @@ impl UnitType {
             )),
             _ => None,
         }
+    }
+
+    /// One-hot feature encoding of this unit type
+    pub fn features(self) -> Vec<fX> {
+        UnitType::values().iter().map(|ut| b(self == *ut)).collect()
+    }
+
+    /// Zeros of the same length as the output of `features`
+    pub fn none_features() -> Vec<fX> {
+        vec![0.0; UnitType::values().len()]
     }
 }
 
