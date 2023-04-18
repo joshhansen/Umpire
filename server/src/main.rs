@@ -863,7 +863,7 @@ async fn main() -> anyhow::Result<()> {
                 .short('i')
                 .long("iface")
                 .help("The network interface to bind to")
-                .default_value("eth0"),
+                .default_value("lo"),
         )
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
