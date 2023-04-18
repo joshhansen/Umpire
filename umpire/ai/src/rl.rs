@@ -48,7 +48,7 @@ use common::game::ai::POSSIBLE_ACTIONS;
 use common::{
     game::{
         action::AiPlayerAction,
-        ai::{fX, player_features},
+        ai::{fX, player_features_classic},
         unit::UnitType,
         Game, PlayerNum, PlayerSecret, TurnPhase,
     },
@@ -394,10 +394,14 @@ impl Domain for UmpireDomain {
 
                 let memory = futures::executor::block_on(async {
                     Memory {
-                        from: player_features(from_state, player_secret).await.unwrap(),
+                        from: player_features_classic(from_state, player_secret)
+                            .await
+                            .unwrap(),
                         action: action_idx,
                         reward,
-                        to: player_features(to_state, player_secret).await.unwrap(),
+                        to: player_features_classic(to_state, player_secret)
+                            .await
+                            .unwrap(),
                     }
                 });
 
