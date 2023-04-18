@@ -11,7 +11,7 @@ use super::{
     map::dijkstra::Source,
     move_::Move,
     obs::{LocatedObsLite, ObsTracker},
-    IGame, PlayerSecret, ProductionCleared, ProductionSet, ProposedOrdersResult,
+    IGame, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedOrdersResult,
     ProposedUmpireResult, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
 };
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
         city::City,
         map::tile::Tile,
         obs::Obs,
-        unit::{orders::OrdersResult, Unit, UnitID, UnitType},
+        unit::{Unit, UnitID, UnitType},
         Game, TurnNum,
     },
     util::{Dims, Direction, Location, Wrap2d},
@@ -208,6 +208,36 @@ impl PlayerControl {
         result
     }
 
+    pub async fn order_unit_sentry(&mut self, unit_id: UnitID) -> UmpireResult<OrdersSet> {
+        let result = self
+            .game
+            .write()
+            .await
+            .order_unit_sentry(self.secret, unit_id)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.observations.track_lite(outcome.obs.clone());
+        }
+
+        result
+    }
+
+    pub async fn order_unit_skip(&mut self, unit_id: UnitID) -> UmpireResult<OrdersSet> {
+        let result = self
+            .game
+            .write()
+            .await
+            .order_unit_skip(self.secret, unit_id)
+            .await;
+
+        if let Ok(ref outcome) = result {
+            self.observations.track_lite(outcome.obs.clone());
+        }
+
+        result
+    }
+
     pub async fn set_production_by_loc(
         &mut self,
         loc: Location,
@@ -234,12 +264,6 @@ impl PlayerControl {
 
             /// TODO Update observations
             pub async fn force_end_turn(&mut self, [self.secret]) -> UmpireResult<()>;
-
-            /// TODO Update observations
-            pub async fn order_unit_sentry(&mut self, [self.secret], unit_id: UnitID) -> OrdersResult;
-
-            /// TODO Update observations
-            pub async fn order_unit_skip(&mut self, [self.secret], unit_id: UnitID) -> OrdersResult;
 
             /// TODO Update observations
             pub async fn take_action(&mut self, [self.secret], action: PlayerAction) -> UmpireResult<PlayerActionOutcome>;
@@ -458,9 +482,9 @@ impl<'a> PlayerTurn<'a> {
 
             pub async fn move_unit_by_id_in_direction(&mut self, id: UnitID, direction: Direction) -> UmpireResult<Move>;
 
-            pub async fn order_unit_sentry(&mut self, unit_id: UnitID) -> OrdersResult;
+            pub async fn order_unit_sentry(&mut self, unit_id: UnitID) -> UmpireResult<OrdersSet>;
 
-            pub async fn order_unit_skip(&mut self,  unit_id: UnitID) -> OrdersResult;
+            pub async fn order_unit_skip(&mut self,  unit_id: UnitID) -> UmpireResult<OrdersSet>;
 
             pub async fn set_production_by_loc(&mut self, loc: Location, production: UnitType) -> UmpireResult<ProductionSet>;
 

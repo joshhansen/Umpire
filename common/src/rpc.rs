@@ -21,9 +21,9 @@ use crate::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, PlayerNum, PlayerSecret, PlayerType, ProductionCleared, ProductionSet,
-        ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart,
-        UmpireResult, UnitDisbanded,
+        Game, IGame, OrdersSet, PlayerNum, PlayerSecret, PlayerType, ProductionCleared,
+        ProductionSet, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
+        TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
     },
     util::{Dims, Direction, Location, Wrap2d},
 };
@@ -264,9 +264,15 @@ pub trait UmpireRpc {
     ) -> UmpireResult<Vec<UnitType>>;
 
     /// If the current player controls a unit with ID `id`, order it to sentry
-    async fn order_unit_sentry(player_secret: PlayerSecret, unit_id: UnitID) -> OrdersResult;
+    async fn order_unit_sentry(
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<OrdersSet>;
 
-    async fn order_unit_skip(player_secret: PlayerSecret, unit_id: UnitID) -> OrdersResult;
+    async fn order_unit_skip(
+        player_secret: PlayerSecret,
+        unit_id: UnitID,
+    ) -> UmpireResult<OrdersSet>;
 
     async fn order_unit_go_to(
         player_secret: PlayerSecret,
@@ -299,7 +305,7 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
         id: UnitID,
         orders: Orders,
-    ) -> UmpireResult<Option<Orders>>;
+    ) -> UmpireResult<OrdersSet>;
 
     async fn clear_orders(player_secret: PlayerSecret, id: UnitID) -> UmpireResult<Option<Orders>>;
 
@@ -886,7 +892,7 @@ impl IGame for RpcGame {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult {
+    ) -> UmpireResult<OrdersSet> {
         self.game
             .order_unit_sentry(context::current(), player_secret, unit_id)
             .await
@@ -897,7 +903,7 @@ impl IGame for RpcGame {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult {
+    ) -> UmpireResult<OrdersSet> {
         self.game
             .order_unit_skip(context::current(), player_secret, unit_id)
             .await
@@ -966,7 +972,7 @@ impl IGame for RpcGame {
         player_secret: PlayerSecret,
         id: UnitID,
         orders: Orders,
-    ) -> UmpireResult<Option<Orders>> {
+    ) -> UmpireResult<OrdersSet> {
         self.game
             .set_orders(context::current(), player_secret, id, orders)
             .await

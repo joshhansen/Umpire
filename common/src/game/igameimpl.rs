@@ -28,7 +28,7 @@ use super::{
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
-    Game, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
+    Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
     ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
     UnitDisbanded,
 };
@@ -414,7 +414,7 @@ impl IGame for Game {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult {
+    ) -> UmpireResult<OrdersSet> {
         self.order_unit_sentry(player_secret, unit_id)
     }
 
@@ -422,7 +422,7 @@ impl IGame for Game {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult {
+    ) -> UmpireResult<OrdersSet> {
         self.order_unit_skip(player_secret, unit_id)
     }
 
@@ -473,7 +473,7 @@ impl IGame for Game {
         player_secret: PlayerSecret,
         id: UnitID,
         orders: Orders,
-    ) -> UmpireResult<Option<Orders>> {
+    ) -> UmpireResult<OrdersSet> {
         self.set_orders(player_secret, id, orders)
     }
 

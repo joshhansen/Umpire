@@ -25,7 +25,7 @@ use super::{
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
-    Game, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
+    Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
     ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
     UnitDisbanded,
 };
@@ -363,13 +363,13 @@ pub trait IGame: Send + Sync {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult;
+    ) -> UmpireResult<OrdersSet>;
 
     async fn order_unit_skip(
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult;
+    ) -> UmpireResult<OrdersSet>;
 
     async fn order_unit_go_to(
         &mut self,
@@ -415,7 +415,7 @@ pub trait IGame: Send + Sync {
         player_secret: PlayerSecret,
         id: UnitID,
         orders: Orders,
-    ) -> UmpireResult<Option<Orders>>;
+    ) -> UmpireResult<OrdersSet>;
 
     /// Clear the orders of the unit controlled by the current player with ID `id`.
     ///

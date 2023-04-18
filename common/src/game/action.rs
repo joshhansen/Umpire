@@ -18,7 +18,7 @@ use super::{
         orders::{Orders, OrdersOutcome},
         Unit, UnitID, UnitType,
     },
-    Game, GameError, PlayerSecret, TurnStart, UmpireResult,
+    Game, GameError, OrdersSet, PlayerSecret, TurnStart, UmpireResult,
 };
 
 /// Something that can be converted into a PlayerAction
@@ -432,7 +432,7 @@ pub enum PlayerActionOutcome {
     },
     UnitSkipped {
         unit_id: UnitID,
-        orders_outcome: OrdersOutcome,
+        orders_outcome: OrdersSet,
     },
 }
 

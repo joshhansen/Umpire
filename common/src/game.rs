@@ -103,6 +103,12 @@ pub type TurnNum = u64;
 pub type ActionNum = u64;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct OrdersSet {
+    pub prior_orders: Option<Orders>,
+    pub obs: LocatedObsLite,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ProductionCleared {
     pub prior_production: Option<UnitType>,
     pub obs: LocatedObsLite,
@@ -1928,45 +1934,16 @@ impl Game {
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult {
-        let player = self.player_with_secret(player_secret)?;
-
-        let orders = Orders::Sentry;
-
-        self.map.set_player_unit_orders(player, unit_id, orders)?;
-
-        let ordered_unit = self
-            .player_unit_by_id(player_secret, unit_id)?
-            .unwrap()
-            .clone();
-
-        self.action_taken(player);
-
-        Ok(OrdersOutcome::completed_without_move(ordered_unit, orders))
+    ) -> UmpireResult<OrdersSet> {
+        self.set_orders(player_secret, unit_id, Orders::Sentry)
     }
 
     pub fn order_unit_skip(
         &mut self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> OrdersResult {
-        let player = self.player_with_secret(player_secret)?;
-
-        let orders = Orders::Skip;
-        let unit = self
-            .player_unit_by_id(player_secret, unit_id)?
-            .unwrap()
-            .clone();
-
-        let result = self
-            .set_orders(player_secret, unit_id, orders)
-            .map(|_| OrdersOutcome::in_progress_without_move(unit, orders));
-
-        if result.is_ok() {
-            self.action_taken(player);
-        }
-
-        result
+    ) -> UmpireResult<OrdersSet> {
+        self.set_orders(player_secret, unit_id, Orders::Skip)
     }
 
     pub fn order_unit_go_to(
@@ -2041,10 +2018,18 @@ impl Game {
         player_secret: PlayerSecret,
         id: UnitID,
         orders: Orders,
-    ) -> UmpireResult<Option<Orders>> {
+    ) -> UmpireResult<OrdersSet> {
         let player = self.player_with_secret(player_secret)?;
 
-        self.map.set_player_unit_orders(player, id, orders)
+        let prior_orders = self.map.set_player_unit_orders(player, id, orders)?;
+
+        self.action_taken(player);
+
+        let loc = self.player_unit_loc(player_secret, id).unwrap().unwrap();
+
+        let obs = self.observe(loc).unwrap().lite();
+
+        Ok(OrdersSet { prior_orders, obs })
     }
 
     /// Clear the orders of the unit controlled by the current player with ID `id`.
