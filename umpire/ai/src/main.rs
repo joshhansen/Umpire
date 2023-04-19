@@ -143,6 +143,14 @@ async fn main() -> Result<(), String> {
             .long("datagenpath")
             .help("Generate state-action value function training data based on the eval output, serializing to this path")
         )
+        .arg(
+            Arg::new("datagenprob")
+            .short('p')
+            .long("datagenprob")
+            .help("The probability that a training instance will be included in the serialized output. Since training instances in the same episode are highly correlated it can be helpful to use only a sample.")
+            .value_parser(value_parser!(f64))
+            .default_value("1.0")
+        )
     )
 
     .subcommand(
@@ -364,6 +372,9 @@ async fn main() -> Result<(), String> {
                 )
             }
         }
+
+        let datagen_prob = sub_matches.get_one::<f64>("datagenprob").cloned().unwrap();
+
         let generate_data = datagenpath.is_some();
 
         let mut data_outfile = datagenpath.map(|datagenpath| File::create(datagenpath).unwrap());
@@ -524,6 +535,7 @@ async fn main() -> Result<(), String> {
                 let mut instances: Vec<TrainingInstance> = player_partial_data
                     .into_values()
                     .flat_map(|values| values.into_iter())
+                    .filter(|_instance| rng.gen::<f64>() <= datagen_prob)
                     .collect();
 
                 all_instances.append(&mut instances);
