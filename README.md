@@ -120,7 +120,7 @@ that inspired it.
 
 ## History
 
-* Umpire 0.5.0---networked multiplayer; basic AI; AI training framework
+* Umpire 0.5.0---networked multiplayer; reinforcement learning AI; AI training framework
 
 ## License
 
