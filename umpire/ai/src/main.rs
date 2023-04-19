@@ -309,7 +309,7 @@ async fn main() -> Result<(), String> {
     let (subcommand, sub_matches) = matches.subcommand().unwrap();
 
     match subcommand {
-        "evail" => println!("Evaluating {} AIs", conf::APP_NAME),
+        "eval" => println!("Evaluating {} AIs", conf::APP_NAME),
         "qtrain" => println!("Training {} AI - Q-Learning", conf::APP_NAME),
         "agztrain" => println!("Training {} AI - a la AlphaGo Zero", conf::APP_NAME),
         c => unreachable!("Unrecognized subcommand {} should have been caught by the agument parser; there's a bug somehere", c)
