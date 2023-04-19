@@ -477,15 +477,29 @@ impl Unit {
     }
 
     pub(in crate::game) fn record_movement(&mut self, moves: u16) -> Result<u16, String> {
-        if self.moves_remaining >= moves {
-            self.moves_remaining -= moves;
-            Ok(self.moves_remaining)
-        } else {
-            Err(format!(
+        if let Fuel::Limited { max, remaining } = self.fuel {
+            if remaining < moves {
+                return Err(format!(
+                    "Could not move {} moves because only {} of {} fuel remains",
+                    moves, remaining, max
+                ));
+            }
+        }
+
+        if self.moves_remaining < moves {
+            return Err(format!(
                 "Could not move {} moves because only {} remain",
                 moves, self.moves_remaining
-            ))
+            ));
         }
+
+        self.moves_remaining -= moves;
+
+        if let Fuel::Limited { remaining, .. } = &mut self.fuel {
+            *remaining -= moves;
+        }
+
+        Ok(self.moves_remaining)
     }
 
     pub(in crate::game) fn refresh_moves_remaining(&mut self) {

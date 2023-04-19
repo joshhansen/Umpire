@@ -68,6 +68,7 @@ use self::{
     obs::{LocatedObs, LocatedObsLite},
     player::PlayerControl,
     proposed::Proposed2,
+    unit::Fuel,
 };
 
 pub use self::traits::IGame;
@@ -1480,6 +1481,16 @@ impl Game {
                         moves_remaining: unit.moves_remaining(),
                     })
                     .map_err(GameError::MoveError);
+                }
+
+                if let Fuel::Limited {
+                    max: _max,
+                    remaining,
+                } = unit.fuel
+                {
+                    if distance > remaining {
+                        return Err(MoveError::InsufficientFuel).map_err(GameError::MoveError);
+                    }
                 }
 
                 let shortest_path: Vec<Location> = shortest_paths

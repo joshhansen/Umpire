@@ -207,4 +207,7 @@ pub enum MoveError {
         // dest: Location,
         // bounds: Dims,
     },
+
+    #[fail(display = "Insufficient fuel")]
+    InsufficientFuel,
 }
