@@ -106,6 +106,14 @@ impl Move {
             .iter()
             .flat_map(|c| c.observations_after_move.iter())
     }
+
+    /// Did the move end with the unit running out of fuel?
+    pub fn fuel_ran_out(&self) -> bool {
+        self.components
+            .last()
+            .map(|move_| move_.fuel_ran_out)
+            .unwrap_or(false)
+    }
 }
 
 //FIXME The name is a misnomer---UnitAction or something would be more accurate
@@ -118,6 +126,9 @@ pub struct MoveComponent {
     pub unit_combat: Option<CombatOutcome<Unit, Unit>>,
     pub city_combat: Option<CombatOutcome<Unit, City>>,
     pub observations_after_move: Vec<LocatedObs>,
+
+    /// Flag to mark after the fact whether fuel ran out in this move
+    pub fuel_ran_out: bool,
 }
 impl MoveComponent {
     pub fn new(prev_loc: Location, loc: Location) -> Self {
@@ -128,10 +139,13 @@ impl MoveComponent {
             unit_combat: None,
             city_combat: None,
             observations_after_move: Vec::with_capacity(0),
+            fuel_ran_out: false,
         }
     }
 
     /// Did the unit survive the move and combat represented by this component?
+    ///
+    /// Running out of fuel after moving counts as _not_ surviving.
     pub fn moved_successfully(&self) -> bool {
         if let Some(ref combat) = self.unit_combat {
             if combat.destroyed() {
@@ -143,6 +157,11 @@ impl MoveComponent {
                 return false;
             }
         }
+
+        if self.fuel_ran_out {
+            return false;
+        }
+
         true
     }
 

@@ -77,9 +77,24 @@ fn test_move_unit_by_id_far() {
             .wrapping()
             .wrapped_add(game.dims(), unit_loc, delta)
             .unwrap();
-        let result = game.move_unit_by_id(secrets[0], unit_id, dest).unwrap();
-        assert!(result.moved_successfully());
-        assert_eq!(result.ending_loc(), Some(dest));
+
+        match game.move_unit_by_id(secrets[0], unit_id, dest) {
+            Ok(result) => {
+                // If the move happens, but is considered unsuccessful, make sure it's only
+                // due to running out of fuel.
+                // In such a case, we're done moving so break
+                if !result.moved_successfully() {
+                    assert!(result.fuel_ran_out());
+                    break;
+                }
+
+                assert_eq!(result.ending_loc(), Some(dest));
+            }
+            Err(e) => {
+                // The only error we're expecting is not having enough fuel to make the move
+                assert_eq!(e, GameError::MoveError(MoveError::InsufficientFuel));
+            }
+        }
 
         game.force_end_then_begin_turn(secrets[0], secrets[0], false)
             .unwrap();
@@ -1417,5 +1432,40 @@ pub fn test_turn_is_done() {
             assert!(!game.turn_is_done(0, turn).unwrap()); // not done because we just produced an infantry
             assert!(!game.current_turn_is_done()); // not done because we just produced an infantry
         }
+    }
+}
+
+#[test]
+pub fn test_fuel_limit() {
+    let map = MapData::try_from("f                    ").unwrap();
+
+    let start = Location::new(0, 0);
+
+    let id = {
+        let tile = map.tile(start).unwrap();
+        let unit = tile.unit.as_ref().unwrap();
+        assert_eq!(unit.alignment, Alignment::Belligerent { player: 0 });
+        unit.id
+    };
+
+    let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+
+    for turn in 0..4 {
+        game.begin_turn(secrets[0], false).unwrap();
+
+        for step in 0..UnitType::Fighter.movement_per_turn() {
+            let move_ = game
+                .move_unit_by_id_in_direction(secrets[0], id, Direction::Right)
+                .unwrap();
+
+            if turn == 3 && step == UnitType::Fighter.movement_per_turn() - 1 {
+                assert!(move_.fuel_ran_out());
+                assert_eq!(game.player_unit_by_id(secrets[0], id), Ok(None));
+            } else {
+                assert!(!move_.fuel_ran_out(), "turn {} step {}", turn, step);
+            }
+        }
+
+        game.end_turn(secrets[0]).unwrap();
     }
 }

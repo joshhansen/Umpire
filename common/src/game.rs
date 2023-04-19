@@ -1662,6 +1662,17 @@ impl Game {
                     unit.record_movement(1).unwrap();
                 }
 
+                if let Fuel::Limited { remaining, .. } = unit.fuel {
+                    if remaining == 0 {
+                        // Tell the client that fuel ran out
+                        move_.fuel_ran_out = true;
+
+                        // Destroy the unit whose fuel ran out
+                        self.map.pop_unit_by_id(unit_id).unwrap();
+                    }
+                }
+
+                // Observe now after the unit is potentially destroyed
                 move_.observations_after_move =
                     vec![self.observe(prev_loc).unwrap(), self.observe(loc).unwrap()];
 

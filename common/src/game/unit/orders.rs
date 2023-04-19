@@ -313,51 +313,41 @@ pub fn go_to(
 pub mod test_support {
     use crate::{
         game::{
-            map::gen::generate_map,
+            alignment::Alignment,
+            map::{MapData, Terrain},
             unit::{orders::Orders, UnitType},
             Game, PlayerNum,
         },
-        name::IntNamer,
-        util::{Dims, Wrap2d},
+        util::{Dims, Location, Wrap2d},
     };
 
     use super::OrdersStatus;
 
     // We keep this out of cfg(test) so it can be used in a benchmark
     pub fn test_explore(dims: Dims) {
-        let mut city_namer = IntNamer::new("city");
         let players: PlayerNum = 1;
-        let map = generate_map(&mut city_namer, dims, players);
+
+        let mut map = MapData::new(dims, |_| Terrain::Land);
+        let unit_id = map
+            .new_unit(
+                Location::new(0, 0),
+                UnitType::Armor,
+                Alignment::Belligerent { player: 0 },
+                "Ban Duo",
+            )
+            .unwrap();
 
         let (mut game, secrets) = Game::new_with_map(map, players, true, None, Wrap2d::BOTH);
 
         game.begin_turn(secrets[0], false).unwrap();
 
-        // Request a fighter to be produced
-        let city_loc = game
-            .current_player_production_set_requests()
-            .next()
-            .unwrap();
-        game.set_production_by_loc(secrets[0], city_loc, UnitType::Fighter)
-            .unwrap();
-
-        // Wait until the fighter is produced
-        while game.current_player_unit_orders_requests().count() == 0 {
-            game.end_then_begin_turn(secrets[0], secrets[0], false)
-                .unwrap();
-        }
-
-        game.clear_production(secrets[0], city_loc, true).unwrap();
-
-        let fighter_id = game.current_player_unit_orders_requests().next().unwrap();
-
-        let outcome = game.order_unit_explore(secrets[0], fighter_id).unwrap();
+        let outcome = game.order_unit_explore(secrets[0], unit_id).unwrap();
         assert_eq!(outcome.status, OrdersStatus::InProgress);
         assert!(outcome.move_.is_some());
         assert!(!outcome.move_.as_ref().unwrap().components.is_empty());
 
-        let fighter = game.current_player_unit_by_id(fighter_id).unwrap();
-        assert_eq!(fighter.orders, Some(Orders::Explore));
+        let unit = game.current_player_unit_by_id(unit_id).unwrap();
+        assert_eq!(unit.orders, Some(Orders::Explore));
 
         // Wait until the fighter has explored everything
 
