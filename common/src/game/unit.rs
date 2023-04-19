@@ -182,8 +182,8 @@ impl UnitType {
 
     pub fn max_hp(self) -> u16 {
         match self {
-            UnitType::Infantry | UnitType::Fighter | UnitType::Bomber => 1,
-            UnitType::Armor | UnitType::Destroyer | UnitType::Submarine => 2,
+            UnitType::Infantry | UnitType::Fighter => 1,
+            UnitType::Armor | UnitType::Bomber | UnitType::Destroyer | UnitType::Submarine => 2,
             UnitType::Transport => 3,
             UnitType::Cruiser => 4,
             UnitType::Battleship => 8,
@@ -191,15 +191,18 @@ impl UnitType {
         }
     }
 
+    /// The number of turns a city must dedicate its production to the unit type to produce a single unit of that type
     pub fn cost(self) -> u16 {
         match self {
             UnitType::Infantry => 6,
-            UnitType::Armor | UnitType::Fighter | UnitType::Bomber => 12,
-            UnitType::Transport => 30,
+            UnitType::Armor => 11, // Cheaper per HP than infantry - trade first-mover advantage for long-term efficiency
+            UnitType::Fighter => 12,
+            UnitType::Bomber => 18, // Longer range AND tougher than fighters
             UnitType::Destroyer | UnitType::Submarine => 24,
+            UnitType::Transport => 30,
             UnitType::Cruiser => 36,
-            UnitType::Battleship => 60,
             UnitType::Carrier => 48,
+            UnitType::Battleship => 60,
         }
     }
 
@@ -226,6 +229,7 @@ impl UnitType {
         }
     }
 
+    //TODO Replace with impl From<char>
     pub fn try_from_key(c: char) -> Result<UnitType, ()> {
         for unit_type in &UnitType::values() {
             if unit_type.key() == c {
@@ -298,8 +302,8 @@ impl UnitType {
         match self {
             UnitType::Infantry | UnitType::Battleship | UnitType::Carrier => 1,
             UnitType::Armor | UnitType::Transport | UnitType::Submarine | UnitType::Cruiser => 2,
-            UnitType::Destroyer => 3,
-            UnitType::Fighter | UnitType::Bomber => 5,
+            UnitType::Bomber | UnitType::Destroyer => 3,
+            UnitType::Fighter => 5,
         }
     }
 
@@ -307,6 +311,7 @@ impl UnitType {
     pub fn fuel(&self) -> Fuel {
         match self {
             UnitType::Fighter => Fuel::limited(20),
+            UnitType::Bomber => Fuel::limited(30),
             _ => Fuel::Unlimited,
         }
     }

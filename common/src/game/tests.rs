@@ -170,13 +170,11 @@ fn test_move_unit() {
         assert_eq!(result.unwrap().current_player, 0);
     }
 
-    for _ in 0..11 {
+    for _ in 0..(UnitType::Armor.cost() - 1) {
         let result = game.end_then_begin_turn(secrets[0], secrets[1], false);
-        assert!(result.is_ok());
         assert_eq!(result.unwrap().current_player, 1);
 
         let result = game.end_then_begin_turn(secrets[1], secrets[0], false);
-        assert!(result.is_ok());
         assert_eq!(result.unwrap().current_player, 0);
     }
     assert_eq!(
