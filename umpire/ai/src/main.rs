@@ -684,6 +684,10 @@ async fn main() -> Result<(), String> {
             let input: Vec<AgzDatum> = input_paths
                 .into_iter()
                 .flat_map(|input_path| {
+                    if verbosity > 0 {
+                        println!("Loading {}", input_path);
+                    }
+
                     let r = File::open(input_path).unwrap();
 
                     let data: Vec<TrainingInstance> = bincode::deserialize_from(r).unwrap();
