@@ -266,6 +266,20 @@ async fn main() -> Result<(), String> {
             .required(true)
         )
         .arg(
+            Arg::new("batchprob")
+                .short('b')
+                .help("Probability of an instance being used in a given batch")
+                .value_parser(value_parser!(f64))
+                .default_value("0.05")
+        )
+        .arg(
+            Arg::new("testprob")
+                .short('t')
+                .help("Probability of an instance being included in the test set")
+                .value_parser(value_parser!(f64))
+                .default_value("0.05")
+        )
+        .arg(
             Arg::new("input")
                 .help("Input files containing TrainingInstances")
                 .action(ArgAction::Append)
@@ -711,13 +725,13 @@ async fn main() -> Result<(), String> {
 
             let mut agz = AgzActionModel::new(device, learning_rate)?;
 
-            let test_prob = 0.05;
+            let test_prob: f64 = sub_matches.get_one("testprob").cloned().unwrap();
 
             println!("Test portion: {}", test_prob);
 
-            let sample_prob = 0.05;
+            let batch_prob: f64 = sub_matches.get_one("batchprob").cloned().unwrap();
 
-            println!("Sample probability: {}", sample_prob);
+            println!("Batch probability: {}", batch_prob);
 
             let mut train: Vec<AgzDatum> = Vec::new();
 
@@ -740,7 +754,7 @@ async fn main() -> Result<(), String> {
 
             for i in 0..episodes {
                 println!("Iteration {}", i);
-                agz.train(&train, sample_prob);
+                agz.train(&train, batch_prob);
 
                 println!("Error: {}", agz.error(&test));
             }
