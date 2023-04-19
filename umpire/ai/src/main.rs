@@ -35,7 +35,6 @@ use umpire_ai::agz::{AgzActionModel, AgzDatum};
 #[cfg(feature = "pytorch")]
 use common::util::densify;
 
-#[cfg(feature = "pytorch")]
 use rand::Rng;
 
 use tokio::sync::RwLock as RwLockTokio;
@@ -264,6 +263,13 @@ async fn main() -> Result<(), String> {
             .help("Output path to serialize the resulting AI model to")
             .short('o')
             .required(true)
+        )
+        .arg(
+            Arg::new("sampleprob")
+                .short('s')
+                .help("Probability of an available instance being included in training")
+                .value_parser(value_parser!(f64))
+                .default_value("1.0")
         )
         .arg(
             Arg::new("batchprob")
@@ -549,6 +555,7 @@ async fn main() -> Result<(), String> {
                 let mut instances: Vec<TrainingInstance> = player_partial_data
                     .into_values()
                     .flat_map(|values| values.into_iter())
+                    // Keep a random subset of instances
                     .filter(|_instance| rng.gen::<f64>() <= datagen_prob)
                     .collect();
 
@@ -693,6 +700,10 @@ async fn main() -> Result<(), String> {
 
             println!("PyTorch Device: {:?}", device);
 
+            let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
+
+            let mut rng = thread_rng();
+
             // FIXME Deserialize incrementally?
             // Try to avoid allocating the whole Vec<TrainingInstance>
             let input: Vec<AgzDatum> = input_paths
@@ -705,19 +716,21 @@ async fn main() -> Result<(), String> {
                     let r = File::open(input_path).unwrap();
 
                     let data: Vec<TrainingInstance> = bincode::deserialize_from(r).unwrap();
-                    data.into_iter().map(|datum| {
-                        let features = densify(datum.num_features, &datum.features);
+                    data.into_iter()
+                        .filter(move |_| rng.gen::<f64>() <= sample_prob)
+                        .map(|datum| {
+                            let features = densify(datum.num_features, &datum.features);
 
-                        let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
+                            let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
 
-                        let features = Tensor::try_from(features).unwrap().to_device(device);
+                            let features = Tensor::try_from(features).unwrap().to_device(device);
 
-                        AgzDatum {
-                            features,
-                            action: datum.action,
-                            outcome: datum.outcome.unwrap(),
-                        }
-                    })
+                            AgzDatum {
+                                features,
+                                action: datum.action,
+                                outcome: datum.outcome.unwrap(),
+                            }
+                        })
                 })
                 .collect();
 
