@@ -3,7 +3,11 @@ use crossterm::event::KeyCode;
 
 use common::{
     conf::{self, key_desc},
-    game::{action::PlayerActionOutcome, player::PlayerTurn, unit::UnitID},
+    game::{
+        action::PlayerActionOutcome,
+        player::PlayerTurn,
+        unit::{Fuel, UnitID},
+    },
     util::{Direction, Rect},
 };
 
@@ -34,8 +38,16 @@ impl GetUnitOrdersMode {
         let unit = game.player_unit_by_id(self.unit_id).await.unwrap();
 
         ui.set_sidebar_row(0, format!("Get Orders for {}", unit));
+
+        let inc = if let Fuel::Limited { max, remaining } = unit.fuel {
+            ui.set_sidebar_row(2, format!("  Fuel: {} / {}", remaining, max));
+            2
+        } else {
+            0
+        };
+
         ui.set_sidebar_row(
-            2,
+            inc + 2,
             format!(
                 "Move: ↖ ↗          {} {}",
                 conf::KEY_UP_LEFT,
@@ -43,7 +55,7 @@ impl GetUnitOrdersMode {
             ),
         );
         ui.set_sidebar_row(
-            3,
+            inc + 3,
             format!(
                 "       ← ↓ ↑ →      {} {} {} {}",
                 conf::KEY_LEFT,
@@ -53,19 +65,19 @@ impl GetUnitOrdersMode {
             ),
         );
         ui.set_sidebar_row(
-            4,
+            inc + 4,
             format!(
                 "      ↙ ↘          {} {}",
                 conf::KEY_DOWN_LEFT,
                 conf::KEY_DOWN_RIGHT
             ),
         );
-        ui.set_sidebar_row(6, cols("Examine:", conf::KEY_EXAMINE));
-        ui.set_sidebar_row(8, cols("Explore:", conf::KEY_EXPLORE));
-        ui.set_sidebar_row(10, cols("Skip:", key_desc(conf::KEY_SKIP)));
-        ui.set_sidebar_row(12, cols("Sentry:", conf::KEY_SENTRY));
-        ui.set_sidebar_row(14, cols("Disband:", conf::KEY_DISBAND));
-        ui.set_sidebar_row(16, cols("Quit:", conf::KEY_QUIT));
+        ui.set_sidebar_row(inc + 6, cols("Examine:", conf::KEY_EXAMINE));
+        ui.set_sidebar_row(inc + 8, cols("Explore:", conf::KEY_EXPLORE));
+        ui.set_sidebar_row(inc + 10, cols("Skip:", key_desc(conf::KEY_SKIP)));
+        ui.set_sidebar_row(inc + 12, cols("Sentry:", conf::KEY_SENTRY));
+        ui.set_sidebar_row(inc + 14, cols("Disband:", conf::KEY_DISBAND));
+        ui.set_sidebar_row(inc + 16, cols("Quit:", conf::KEY_QUIT));
     }
 }
 

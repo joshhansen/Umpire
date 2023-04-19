@@ -303,9 +303,10 @@ impl UnitType {
         }
     }
 
+    /// The starting fuel configuration for units of this type
     pub fn fuel(&self) -> Fuel {
         match self {
-            UnitType::Fighter => Fuel::Limited { remaining: 20 },
+            UnitType::Fighter => Fuel::limited(20),
             _ => Fuel::Unlimited,
         }
     }
@@ -371,7 +372,15 @@ impl Ord for UnitType {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Fuel {
     Unlimited,
-    Limited { remaining: u16 },
+    Limited { max: u16, remaining: u16 },
+}
+impl Fuel {
+    pub fn limited(max_fuel: u16) -> Self {
+        Self::Limited {
+            max: max_fuel,
+            remaining: max_fuel,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -386,7 +395,7 @@ pub struct Unit {
     name: String,
     pub orders: Option<Orders>,
     carrying_space: Option<CarryingSpace>,
-    fuel: Fuel,
+    pub fuel: Fuel,
 }
 
 impl Unit {
