@@ -215,7 +215,7 @@ impl UI for DefaultUI {
     }
 
     fn viewport_size(&self) -> ViewportSize {
-        ViewportSize::REGULAR
+        ViewportSize::Regular
     }
 
     fn term_dims(&self) -> Dims {
@@ -374,9 +374,9 @@ const MAX_MID_HEIGHT: u16 = 25;
 
 #[derive(Clone, Copy)]
 pub enum ViewportSize {
-    REGULAR,
-    THEATER,
-    FULLSCREEN,
+    Regular,
+    Theater,
+    Fullscreen,
 }
 
 impl ViewportSize {
@@ -389,19 +389,19 @@ impl ViewportSize {
             x => cmp::min(x / 2, MAX_MID_HEIGHT),
         };
         match *self {
-            ViewportSize::REGULAR => Rect {
+            ViewportSize::Regular => Rect {
                 left: 0,
                 top: HEADER_HEIGHT,
                 width: (term_dims.width - V_SCROLLBAR_WIDTH) / 2,
                 height: mid_y,
             },
-            ViewportSize::THEATER => Rect {
+            ViewportSize::Theater => Rect {
                 left: 0,
                 top: HEADER_HEIGHT,
                 width: term_dims.width - V_SCROLLBAR_WIDTH,
                 height: mid_y,
             },
-            ViewportSize::FULLSCREEN => Rect {
+            ViewportSize::Fullscreen => Rect {
                 left: 0,
                 top: 0,
                 width: term_dims.width - V_SCROLLBAR_WIDTH,
@@ -433,17 +433,17 @@ fn log_area_rect(term_dims: Dims, viewport_size: ViewportSize) -> Rect {
     let viewport_rect = viewport_size.rect(term_dims);
 
     match viewport_size {
-        ViewportSize::REGULAR => Rect {
+        ViewportSize::Regular => Rect {
             left: 0,
             top: viewport_rect.bottom() + 2,
             width: viewport_rect.width,
             height: term_dims.height - viewport_rect.height - 4,
         },
-        ViewportSize::THEATER => {
-            log_area_rect(term_dims, ViewportSize::REGULAR).set_width(viewport_rect.width / 2)
+        ViewportSize::Theater => {
+            log_area_rect(term_dims, ViewportSize::Regular).set_width(viewport_rect.width / 2)
         }
-        ViewportSize::FULLSCREEN => {
-            log_area_rect(term_dims, ViewportSize::THEATER).set_top(viewport_rect.bottom() + 1)
+        ViewportSize::Fullscreen => {
+            log_area_rect(term_dims, ViewportSize::Theater).set_top(viewport_rect.bottom() + 1)
         }
     }
 }
@@ -453,22 +453,22 @@ fn sidebar_rect(term_dims: Dims, viewport_size: ViewportSize) -> Rect {
     let viewport_rect = viewport_size.rect(term_dims);
 
     match viewport_size {
-        ViewportSize::REGULAR => Rect {
+        ViewportSize::Regular => Rect {
             left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
             top: HEADER_HEIGHT + 1,
             width: term_dims.width - viewport_rect.width - 2,
             height: term_dims.height - HEADER_HEIGHT,
         },
-        ViewportSize::THEATER => Rect {
-            left: sidebar_rect(term_dims, ViewportSize::REGULAR).left,
+        ViewportSize::Theater => Rect {
+            left: sidebar_rect(term_dims, ViewportSize::Regular).left,
             top: viewport_rect.bottom() + 2,
-            width: sidebar_rect(term_dims, ViewportSize::REGULAR).width,
+            width: sidebar_rect(term_dims, ViewportSize::Regular).width,
             height: term_dims.height - viewport_rect.height - 4,
         },
-        ViewportSize::FULLSCREEN => Rect {
-            left: sidebar_rect(term_dims, ViewportSize::REGULAR).left,
+        ViewportSize::Fullscreen => Rect {
+            left: sidebar_rect(term_dims, ViewportSize::Regular).left,
             top: term_dims.height,
-            width: sidebar_rect(term_dims, ViewportSize::REGULAR).width,
+            width: sidebar_rect(term_dims, ViewportSize::Regular).width,
             height: 1,
         },
     }
@@ -524,7 +524,7 @@ impl TermUI {
         let term_dims = Dims { width, height };
         // let term_dims = Dims::new(120, 60);
 
-        let viewport_size = ViewportSize::REGULAR;
+        let viewport_size = ViewportSize::Regular;
         let viewport_rect = viewport_size.rect(term_dims);
         let sidebar_rect = sidebar_rect(term_dims, viewport_size);
 
@@ -1084,9 +1084,9 @@ impl UI for TermUI {
 
     async fn rotate_viewport_size(&mut self, game: &PlayerTurn) -> IoResult<()> {
         let new_size = match self.viewport_size {
-            ViewportSize::REGULAR => ViewportSize::THEATER,
-            ViewportSize::THEATER => ViewportSize::FULLSCREEN,
-            ViewportSize::FULLSCREEN => ViewportSize::REGULAR,
+            ViewportSize::Regular => ViewportSize::Theater,
+            ViewportSize::Theater => ViewportSize::Fullscreen,
+            ViewportSize::Fullscreen => ViewportSize::Regular,
         };
 
         self.set_viewport_size(game, new_size).await?;
