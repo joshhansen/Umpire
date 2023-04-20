@@ -396,7 +396,7 @@ pub struct Unit {
     pub alignment: Alignment,
     hp: u16,
     max_hp: u16,
-    moves_remaining: u16,
+    pub moves_remaining: u16,
     name: String,
     pub orders: Option<Orders>,
     carrying_space: Option<CarryingSpace>,

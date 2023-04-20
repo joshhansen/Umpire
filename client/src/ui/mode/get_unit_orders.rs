@@ -39,15 +39,25 @@ impl GetUnitOrdersMode {
 
         ui.set_sidebar_row(0, format!("Get Orders for {}", unit));
 
-        let inc = if let Fuel::Limited { max, remaining } = unit.fuel {
-            ui.set_sidebar_row(2, format!("  Fuel: {} / {}", remaining, max));
-            2
-        } else {
-            0
-        };
+        let mut moves_s = format!(
+            "  Moves: {} / {}",
+            unit.moves_remaining,
+            unit.movement_per_turn()
+        );
+
+        if let Fuel::Limited { max, remaining } = unit.fuel {
+            // Right pad
+            while moves_s.len() < 18 {
+                moves_s.push(' ');
+            }
+
+            moves_s.push_str(format!("Fuel: {} / {}", remaining, max).as_str());
+        }
+
+        ui.set_sidebar_row(2, moves_s);
 
         ui.set_sidebar_row(
-            inc + 2,
+            4,
             format!(
                 "Move: ↖ ↗          {} {}",
                 conf::KEY_UP_LEFT,
@@ -55,7 +65,7 @@ impl GetUnitOrdersMode {
             ),
         );
         ui.set_sidebar_row(
-            inc + 3,
+            5,
             format!(
                 "       ← ↓ ↑ →      {} {} {} {}",
                 conf::KEY_LEFT,
@@ -65,19 +75,19 @@ impl GetUnitOrdersMode {
             ),
         );
         ui.set_sidebar_row(
-            inc + 4,
+            6,
             format!(
                 "      ↙ ↘          {} {}",
                 conf::KEY_DOWN_LEFT,
                 conf::KEY_DOWN_RIGHT
             ),
         );
-        ui.set_sidebar_row(inc + 6, cols("Examine:", conf::KEY_EXAMINE));
-        ui.set_sidebar_row(inc + 8, cols("Explore:", conf::KEY_EXPLORE));
-        ui.set_sidebar_row(inc + 10, cols("Skip:", key_desc(conf::KEY_SKIP)));
-        ui.set_sidebar_row(inc + 12, cols("Sentry:", conf::KEY_SENTRY));
-        ui.set_sidebar_row(inc + 14, cols("Disband:", conf::KEY_DISBAND));
-        ui.set_sidebar_row(inc + 16, cols("Quit:", conf::KEY_QUIT));
+        ui.set_sidebar_row(8, cols("Examine:", conf::KEY_EXAMINE));
+        ui.set_sidebar_row(10, cols("Explore:", conf::KEY_EXPLORE));
+        ui.set_sidebar_row(12, cols("Skip:", key_desc(conf::KEY_SKIP)));
+        ui.set_sidebar_row(14, cols("Sentry:", conf::KEY_SENTRY));
+        ui.set_sidebar_row(16, cols("Disband:", conf::KEY_DISBAND));
+        ui.set_sidebar_row(18, cols("Quit:", conf::KEY_QUIT));
     }
 }
 
