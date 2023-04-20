@@ -152,8 +152,4 @@ impl<S: ScrollableComponent + Send> Component for Scroller<S> {
     fn rect(&self) -> Rect {
         self.rect
     }
-
-    fn is_done(&self) -> bool {
-        false
-    }
 }

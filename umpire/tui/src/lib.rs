@@ -39,8 +39,6 @@ pub trait Component: Draw {
 
     fn rect(&self) -> Rect;
 
-    fn is_done(&self) -> bool;
-
     // fn goto(&self, x: u16, y: u16) -> termion::cursor::Goto {
     //     let rect = self.rect();
     //     goto(rect.left + x, rect.top + y)

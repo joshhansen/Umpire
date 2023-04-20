@@ -46,10 +46,6 @@ impl Component for CurrentPlayer {
     fn rect(&self) -> Rect {
         self.rect
     }
-
-    fn is_done(&self) -> bool {
-        false
-    }
 }
 
 pub struct Turn {
@@ -89,9 +85,5 @@ impl Component for Turn {
 
     fn rect(&self) -> Rect {
         self.rect
-    }
-
-    fn is_done(&self) -> bool {
-        false
     }
 }

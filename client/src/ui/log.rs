@@ -151,8 +151,4 @@ impl Component for LogArea {
     fn rect(&self) -> Rect {
         self.rect
     }
-
-    fn is_done(&self) -> bool {
-        false
-    }
 }

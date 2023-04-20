@@ -512,10 +512,6 @@ impl Component for Map {
     fn rect(&self) -> Rect {
         self.rect
     }
-
-    fn is_done(&self) -> bool {
-        false
-    }
 }
 
 #[async_trait]
