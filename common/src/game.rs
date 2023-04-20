@@ -1736,11 +1736,21 @@ impl Game {
                     }
                 }
 
-                // Observe now after the unit is potentially destroyed
-                move_.observations_after_move =
-                    vec![self.observe(prev_loc).unwrap(), self.observe(loc).unwrap()];
+                // Check for duplicate unit
+                debug_assert!(
+                    self.player_toplevel_unit_by_loc(player_secret, prev_loc)
+                        .unwrap()
+                        .map_or(0, |unit| if unit.id == unit_id { 1 } else { 0 })
+                        + self
+                            .player_toplevel_unit_by_loc(player_secret, loc)
+                            .unwrap()
+                            .map_or(0, |unit| if unit.id == unit_id { 1 } else { 0 })
+                        < 2,
+                    "Too many copies of unit on map"
+                );
 
-                debug_assert_eq!(
+                // Check for duplicate observations
+                debug_assert!(
                     {
                         self.player_observations(player_secret)
                             .unwrap()
@@ -1753,8 +1763,30 @@ impl Game {
                                 Obs::Unobserved => false,
                             })
                             .count()
-                    },
-                    1
+                    } < 2,
+                    "Too many copies of unit in observations"
+                );
+
+                // Observe now after the unit is potentially destroyed
+                move_.observations_after_move =
+                    vec![self.observe(prev_loc).unwrap(), self.observe(loc).unwrap()];
+
+                // Check again for duplicate observations
+                debug_assert!(
+                    {
+                        self.player_observations(player_secret)
+                            .unwrap()
+                            .iter()
+                            .filter(|obs| match obs {
+                                Obs::Observed { tile, .. } => match tile.unit.as_ref() {
+                                    Some(unit) => unit.id == unit_id,
+                                    None => false,
+                                },
+                                Obs::Unobserved => false,
+                            })
+                            .count()
+                    } < 2,
+                    "Too many copies of unit in observations"
                 );
 
                 // Inspect all observations besides at the unit's previous and current location to see if any changes in
