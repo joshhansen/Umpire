@@ -50,6 +50,16 @@ impl Rect {
         self.top + self.height
     }
 
+    pub fn set_top(mut self, top: u16) -> Self {
+        self.top = top;
+        self
+    }
+
+    pub fn set_width(mut self, width: u16) -> Self {
+        self.width = width;
+        self
+    }
+
     pub fn center(self) -> Location {
         Location {
             x: self.left + self.width / 2,
