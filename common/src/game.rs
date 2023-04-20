@@ -1480,7 +1480,7 @@ impl Game {
         let player = self.validate_is_player_turn_main_phase(player_secret)?;
 
         if !self.dims().contain(dest) {
-            return Err(MoveError::DestinationOutOfBounds {}).map_err(GameError::MoveError);
+            return Err(MoveError::DestinationOutOfBounds).map_err(GameError::MoveError);
         }
 
         // Grab a copy of the unit to work with

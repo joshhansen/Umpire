@@ -220,12 +220,8 @@ pub enum MoveError {
         dest: Location,
     },
 
-    // #[fail(display="Destination {} lies outside of bounds {}", dest, bounds)]
     #[fail(display = "Destination out of bounds")]
-    DestinationOutOfBounds {
-        // dest: Location,
-        // bounds: Dims,
-    },
+    DestinationOutOfBounds,
 
     #[fail(display = "Insufficient fuel")]
     InsufficientFuel,
