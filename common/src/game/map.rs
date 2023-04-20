@@ -31,6 +31,7 @@ use crate::{
 
 use self::dijkstra::Source;
 use super::unit::orders::Orders;
+use super::UmpireResult;
 
 #[derive(Debug, Fail)]
 pub enum NewUnitError {
@@ -604,16 +605,12 @@ impl MapData {
         Ok(())
     }
 
-    pub fn record_unit_movement(
-        &mut self,
-        id: UnitID,
-        moves: u16,
-    ) -> Result<Result<u16, String>, GameError> {
+    pub fn record_unit_movement(&mut self, id: UnitID, moves: u16) -> UmpireResult<u16> {
         let unit = self
             .unit_by_id_mut(id)
             .ok_or(GameError::NoSuchUnit { id })?;
 
-        Ok(unit.record_movement(moves))
+        unit.record_movement(moves)
     }
 
     pub fn unit_loc(&self, id: UnitID) -> Option<Location> {

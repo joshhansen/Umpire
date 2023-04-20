@@ -22,7 +22,7 @@ use crate::{
 
 use self::orders::Orders;
 
-use super::ai::fX;
+use super::{ai::fX, move_::MoveError, UmpireResult};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct UnitID {
@@ -481,21 +481,18 @@ impl Unit {
         self.moves_remaining = 0;
     }
 
-    pub(in crate::game) fn record_movement(&mut self, moves: u16) -> Result<u16, String> {
+    pub(in crate::game) fn record_movement(&mut self, moves: u16) -> UmpireResult<u16> {
         if let Fuel::Limited { max, remaining } = self.fuel {
             if remaining < moves {
-                return Err(format!(
-                    "Could not move {} moves because only {} of {} fuel remains",
-                    moves, remaining, max
-                ));
+                return Err(GameError::MoveError(MoveError::InsufficientFuel));
             }
         }
 
         if self.moves_remaining < moves {
-            return Err(format!(
-                "Could not move {} moves because only {} remain",
-                moves, self.moves_remaining
-            ));
+            return Err(GameError::MoveError(MoveError::RemainingMovesExceeded {
+                intended_distance: moves,
+                moves_remaining: self.moves_remaining,
+            }));
         }
 
         self.moves_remaining -= moves;

@@ -1538,9 +1538,6 @@ impl Game {
 
                 if distance > unit.moves_remaining() {
                     return Err(MoveError::RemainingMovesExceeded {
-                        id: unit_id,
-                        src,
-                        dest,
                         intended_distance: distance,
                         moves_remaining: unit.moves_remaining(),
                     })
@@ -1845,7 +1842,6 @@ impl Game {
                     .sum();
                 self.map
                     .record_unit_movement(unit_id, distance_moved)
-                    .unwrap()
                     .unwrap();
             }
         }

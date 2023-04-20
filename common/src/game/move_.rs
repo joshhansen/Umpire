@@ -184,13 +184,10 @@ pub enum MoveError {
     ZeroLengthMove,
 
     #[fail(
-        display = "Ordered move of unit with ID {:?} from {} to {} spans a distance ({}) greater than the number of moves remaining ({})",
-        id, src, dest, intended_distance, moves_remaining
+        display = "Ordered move of unit spans a distance ({}) greater than the number of moves remaining ({})",
+        intended_distance, moves_remaining
     )]
     RemainingMovesExceeded {
-        id: UnitID,
-        src: Location,
-        dest: Location,
         intended_distance: u16,
         moves_remaining: u16,
     },
