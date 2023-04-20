@@ -503,6 +503,10 @@ impl ScrollableComponent for Map {
 impl Component for Map {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
+
+        // When the rectangle this widget represents is reset, it invalidates our caches; re-initialize
+        self.displayed_tiles = LocationGrid::new(rect.dims(), |_loc| None);
+        self.displayed_tile_currentness = LocationGrid::new(rect.dims(), |_loc| None);
     }
 
     fn rect(&self) -> Rect {
