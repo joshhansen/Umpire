@@ -126,28 +126,6 @@ pub trait UI: LogTarget + MoveAnimator {
         obs_override: Option<&Obs>,
     ) -> IoResult<()>;
 
-    /// Renders a particular location in the map viewport
-    async fn draw_map_tile_no_flush(
-        &mut self,
-        game: &PlayerTurn,
-        viewport_loc: Location,
-        highlight: bool,   // Highlighting as for a cursor
-        unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
-
-        // Pretend the given city is actually at this location (instead of what might really be there)
-        city_override: Option<Option<&City>>,
-
-        // Pretend the given unit is actually at this location (instead of what might really be there)
-        unit_override: Option<Option<&Unit>>,
-
-        // A symbol to display instead of what's really here
-        symbol_override: Option<&str>,
-
-        // Override the entire observation that would be at this location, instead of using the current player's
-        // observations.
-        obs_override: Option<&Obs>,
-    ) -> IoResult<()>;
-
     /// Block until a key is pressed; return that key
     fn get_key(&self) -> Result<KeyEvent, RecvError>;
 
@@ -270,31 +248,6 @@ impl UI for DefaultUI {
     ///
     /// Flushes stdout for convenience
     async fn draw_map_tile_and_flush(
-        &mut self,
-        _game: &PlayerTurn,
-        _viewport_loc: Location,
-        _highlight: bool,   // Highlighting as for a cursor
-        _unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
-
-        // Pretend the given city is actually at this location (instead of what might really be there)
-        _city_override: Option<Option<&City>>,
-
-        // Pretend the given unit is actually at this location (instead of what might really be there)
-        _unit_override: Option<Option<&Unit>>,
-
-        // A symbol to display instead of what's really here
-        _symbol_override: Option<&str>,
-
-        // Override the entire observation that would be at this location, instead of using the current player's
-        // observations.
-        _obs_override: Option<&Obs>,
-    ) -> IoResult<()> {
-        // do nothing
-        Ok(())
-    }
-
-    /// Renders a particular location in the map viewport
-    async fn draw_map_tile_no_flush(
         &mut self,
         _game: &PlayerTurn,
         _viewport_loc: Location,
@@ -967,40 +920,6 @@ impl UI for TermUI {
         obs_override: Option<&Obs>,
     ) -> IoResult<()> {
         self.map_scroller.scrollable.draw_tile_and_flush(
-            game,
-            &mut self.stdout,
-            viewport_loc,
-            highlight,
-            unit_active,
-            city_override,
-            unit_override,
-            symbol_override,
-            obs_override,
-            &self.palette,
-        )
-    }
-
-    async fn draw_map_tile_no_flush(
-        &mut self,
-        game: &PlayerTurn,
-        viewport_loc: Location,
-        highlight: bool,   // Highlighting as for a cursor
-        unit_active: bool, // Indicate that the unit (if present) is active, i.e. ready to respond to orders
-
-        // Pretend the given city is actually at this location (instead of what might really be there)
-        city_override: Option<Option<&City>>,
-
-        // Pretend the given unit is actually at this location (instead of what might really be there)
-        unit_override: Option<Option<&Unit>>,
-
-        // A symbol to display instead of what's really here
-        symbol_override: Option<&str>,
-
-        // Override the entire observation that would be at this location, instead of using the current player's
-        // observations.
-        obs_override: Option<&Obs>,
-    ) -> IoResult<()> {
-        self.map_scroller.scrollable.draw_tile_no_flush(
             game,
             &mut self.stdout,
             viewport_loc,
