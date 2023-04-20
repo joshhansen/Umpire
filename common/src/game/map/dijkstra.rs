@@ -14,7 +14,7 @@ use crate::{
         map::LocationGridI,
         map::{LocationGrid, SparseLocationGrid, Terrain, Tile},
         obs::Obs,
-        unit::{Unit, UnitType},
+        unit::{Fuel, Unit, UnitType},
     },
     util::{Dimensioned, Dims, Direction, LocatedItem, Location, Vec2d, Wrap2d},
 };
@@ -215,11 +215,13 @@ impl<'a> Filter<Obs> for PacifistXenophileUnitMovementFilter<'a> {
     }
 }
 
-/// A filter that yields observed tiles that a unit could reach in exploration (visiting tiles of appropriate terrain which contain no unit
-/// and only friendly cities if any)
+/// A filter that yields observed tiles that a unit could reach in exploration (visiting tiles of
+/// appropriate terrain which contain no unitand only friendly cities if any)
 ///
-/// This disallows visits to carrier units under the presumption that an exploring unit would not bother boarding a transport or landing on an
-/// aircraft carrier.
+/// This disallows visits to carrier units under the presumption that an exploring unit would not bother
+/// boarding a transport or landing on an aircraft carrier.
+///
+/// This also prohibits moves that would expend the last of a fuel-limited unit's remaining fuel.
 pub struct ObservedReachableByPacifistUnit<'a> {
     pub unit: &'a Unit,
 }
@@ -236,6 +238,14 @@ impl<'a> Filter<Obs> for ObservedReachableByPacifistUnit<'a> {
                 }
             }
 
+            if let Fuel::Limited { remaining, .. } = self.unit.fuel {
+                if remaining <= 1 {
+                    // Say we can't move if the move would make us run out of fuel, or if we already ran out of fuel
+                    return false;
+                }
+            }
+
+            // Otherwise hand off to the usual theoretical "could we move there" calculation
             self.unit.can_move_on_tile(tile)
         } else {
             false
