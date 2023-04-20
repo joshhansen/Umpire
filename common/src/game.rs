@@ -633,22 +633,29 @@ impl Game {
     pub fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
         let player = self.validate_is_player_turn_main_phase(player_secret)?;
 
-        // Any unit with limited fuel that's hosted by a city or carrier at end of turn gets refueled
+        let observations = {
+            // Any unit with limited fuel that's hosted by a city or carrier at end of turn gets refueled
+            let mut unit_ids_to_refuel = self.player_carried_unit_ids(player_secret)?;
 
-        let mut observations: Vec<LocatedObsLite> = Vec::with_capacity(0);
+            unit_ids_to_refuel.extend(self.player_toplevel_units_in_cities(player_secret)?);
 
-        for id in self.player_carried_unit_ids(player_secret)? {
-            let (unit_loc, refueled) = {
-                let unit = self.player_unit_by_id_by_idx_mut(player, id).unwrap();
+            let mut observations: Vec<LocatedObsLite> = Vec::with_capacity(0);
 
-                (unit.loc, unit.refuel())
-            };
+            for id in unit_ids_to_refuel {
+                let (unit_loc, refueled) = {
+                    let unit = self.player_unit_by_id_by_idx_mut(player, id).unwrap();
 
-            if refueled > 0 {
-                // Take note of the change in fuel level
-                observations.push(self.observe(unit_loc).unwrap().lite());
+                    (unit.loc, unit.refuel())
+                };
+
+                if refueled > 0 {
+                    // Take note of the change in fuel level
+                    observations.push(self.observe(unit_loc).unwrap().lite());
+                }
             }
-        }
+
+            observations
+        };
 
         self.player_observations_mut(player_secret)?.archive();
 
@@ -1049,7 +1056,7 @@ impl Game {
     }
 
     fn player_carried_unit_ids(
-        &mut self,
+        &self,
         player_secret: PlayerSecret,
     ) -> UmpireResult<HashSet<UnitID>> {
         let player = self.player_with_secret(player_secret)?;
@@ -1057,6 +1064,25 @@ impl Game {
             .map
             .player_toplevel_units(player)
             .flat_map(|unit| unit.carried_units().map(|unit| unit.id))
+            .collect())
+    }
+
+    fn player_toplevel_units_in_cities(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<HashSet<UnitID>> {
+        let player = self.player_with_secret(player_secret)?;
+
+        let locs_and_ids: Vec<(Location, UnitID)> = self
+            .map
+            .player_toplevel_units(player)
+            .map(|unit| (unit.loc, unit.id))
+            .collect();
+
+        Ok(locs_and_ids
+            .into_iter()
+            .filter(|(loc, _id)| self.map.player_city_by_loc(player, *loc).is_some())
+            .map(|(_loc, id)| id)
             .collect())
     }
 

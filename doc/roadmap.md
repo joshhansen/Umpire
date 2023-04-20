@@ -10,7 +10,7 @@
 * ~~CHORE: Upgrade clap~~
 * FIXME Explore and go-to moves aren't animating visibly
 * ~~TODO Fuel limits for aircraft~~
-* FIXME Fighter/bomber refuel when ending turn in city/carrier
+* ~~FIXME Fighter/bomber refuel when ending turn in city/carrier~~
 * FIXME Stale tiles in UI when moving more than one tile at a time
 * FIXME Viewport toggle
 * TODO Client/server architecture

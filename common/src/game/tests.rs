@@ -13,7 +13,7 @@ use crate::{
         test_support::game_two_cities_two_infantry,
         unit::{
             orders::{Orders, OrdersStatus},
-            TransportMode, Unit, UnitID, UnitType,
+            Fuel, TransportMode, Unit, UnitID, UnitType,
         },
         Alignment, Game, GameError, TurnNum,
     },
@@ -1466,4 +1466,118 @@ pub fn test_fuel_limit() {
 
         game.end_turn(secrets[0]).unwrap();
     }
+}
+
+#[test]
+pub fn test_refuel_in_carrier() {
+    let map = MapData::try_from("b k").unwrap();
+
+    let id = map.toplevel_unit_by_loc(Location::new(0, 0)).unwrap().id;
+
+    let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+
+    game.begin_turn(secrets[0], false).unwrap();
+
+    game.move_unit_by_id_in_direction(secrets[0], id, Direction::Right)
+        .unwrap();
+
+    let max = match UnitType::Bomber.fuel() {
+        Fuel::Limited { max, .. } => max,
+        _ => panic!(),
+    };
+
+    assert_eq!(
+        game.player_unit_by_id(secrets[0], id)
+            .unwrap()
+            .unwrap()
+            .fuel,
+        Fuel::Limited {
+            max,
+            remaining: max - 1
+        }
+    );
+
+    game.move_unit_by_id_in_direction(secrets[0], id, Direction::Right)
+        .unwrap();
+
+    assert_eq!(
+        game.player_unit_by_id(secrets[0], id)
+            .unwrap()
+            .unwrap()
+            .fuel,
+        Fuel::Limited {
+            max,
+            remaining: max - 2
+        }
+    );
+
+    game.force_end_turn(secrets[0]).unwrap();
+
+    assert_eq!(
+        game.player_unit_by_id(secrets[0], id)
+            .unwrap()
+            .unwrap()
+            .fuel,
+        Fuel::Limited {
+            max,
+            remaining: max
+        }
+    );
+}
+
+#[test]
+pub fn test_refuel_in_city() {
+    let map = MapData::try_from("f 0").unwrap();
+
+    let id = map.toplevel_unit_by_loc(Location::new(0, 0)).unwrap().id;
+
+    let (mut game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::NEITHER);
+
+    game.begin_turn(secrets[0], false).unwrap();
+
+    game.move_unit_by_id_in_direction(secrets[0], id, Direction::Right)
+        .unwrap();
+
+    let max = match UnitType::Fighter.fuel() {
+        Fuel::Limited { max, .. } => max,
+        _ => panic!(),
+    };
+
+    assert_eq!(
+        game.player_unit_by_id(secrets[0], id)
+            .unwrap()
+            .unwrap()
+            .fuel,
+        Fuel::Limited {
+            max,
+            remaining: max - 1
+        }
+    );
+
+    game.move_unit_by_id_in_direction(secrets[0], id, Direction::Right)
+        .unwrap();
+
+    assert_eq!(
+        game.player_unit_by_id(secrets[0], id)
+            .unwrap()
+            .unwrap()
+            .fuel,
+        Fuel::Limited {
+            max,
+            remaining: max - 2
+        }
+    );
+
+    game.force_end_turn(secrets[0]).unwrap();
+
+    assert_eq!(
+        game.player_unit_by_id(secrets[0], id)
+            .unwrap()
+            .unwrap()
+            .fuel,
+        Fuel::Limited {
+            max,
+            remaining: max
+        }
+    );
 }
