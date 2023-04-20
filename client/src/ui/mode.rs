@@ -65,8 +65,7 @@ impl Mode {
             Mode::TurnOver => TurnOverMode {}.run(game, ui, self, prev_mode).await,
             Mode::SetProductions => SetProductionsMode {}.run(game, ui, self, prev_mode).await,
             Mode::SetProduction { city_loc } => {
-                let viewport_rect = ui.viewport_rect();
-                let rect = sidebar_rect(viewport_rect, ui.term_dims());
+                let rect = sidebar_rect(ui.term_dims(), ui.viewport_size());
                 let mode = SetProductionMode {
                     rect,
                     loc: city_loc,
@@ -80,8 +79,7 @@ impl Mode {
                 unit_id,
                 first_move,
             } => {
-                let viewport_rect = ui.viewport_rect();
-                let rect = sidebar_rect(viewport_rect, ui.term_dims());
+                let rect = sidebar_rect(ui.term_dims(), ui.viewport_size());
                 GetUnitOrdersMode {
                     rect,
                     unit_id,
@@ -200,6 +198,11 @@ pub trait IMode {
                 }
                 conf::KEY_VIEWPORT_SIZE_ROTATE => {
                     ui.rotate_viewport_size(game).await.unwrap();
+
+                    if let Some(loc) = ui.cursor_map_loc(mode, game).await {
+                        ui.center_map(loc);
+                    }
+
                     return Ok(KeyStatus::Handled(StateDisposition::Stay));
                 }
                 _ => {}

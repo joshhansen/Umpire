@@ -76,6 +76,8 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn viewport_rect(&self) -> Rect;
 
+    fn viewport_size(&self) -> ViewportSize;
+
     fn term_dims(&self) -> Dims;
 
     fn unicode(&self) -> bool;
@@ -210,6 +212,10 @@ impl UI for DefaultUI {
 
     fn viewport_rect(&self) -> Rect {
         Rect::new(0, 0, 0, 0)
+    }
+
+    fn viewport_size(&self) -> ViewportSize {
+        ViewportSize::REGULAR
     }
 
     fn term_dims(&self) -> Dims {
@@ -366,7 +372,8 @@ use self::mode::Mode;
 
 const MAX_MID_HEIGHT: u16 = 25;
 
-enum ViewportSize {
+#[derive(Clone, Copy)]
+pub enum ViewportSize {
     REGULAR,
     THEATER,
     FULLSCREEN,
@@ -422,27 +429,48 @@ fn turn_rect(current_player_rect: Rect) -> Rect {
     }
 }
 
-fn log_area_rect(viewport_rect: Rect, term_dims: Dims) -> Rect {
-    Rect {
-        left: 0,
-        top: viewport_rect.bottom() + 2,
-        width: viewport_rect.width,
-        height: term_dims.height - viewport_rect.height - 4,
+fn log_area_rect(term_dims: Dims, viewport_size: ViewportSize) -> Rect {
+    let viewport_rect = viewport_size.rect(term_dims);
+
+    match viewport_size {
+        ViewportSize::REGULAR => Rect {
+            left: 0,
+            top: viewport_rect.bottom() + 2,
+            width: viewport_rect.width,
+            height: term_dims.height - viewport_rect.height - 4,
+        },
+        ViewportSize::THEATER => {
+            log_area_rect(term_dims, ViewportSize::REGULAR).set_width(viewport_rect.width / 2)
+        }
+        ViewportSize::FULLSCREEN => {
+            log_area_rect(term_dims, ViewportSize::THEATER).set_top(viewport_rect.bottom() + 1)
+        }
     }
 }
 
-fn sidebar_rect(viewport_rect: Rect, term_dims: Dims) -> Rect {
-    // Rect {
-    //     left: viewport_rect.right() + 1,
-    //     top: viewport_rect.top,
-    //     width: term_dims.width - viewport_rect.width,
-    //     height: term_dims.height
-    // }
-    Rect {
-        left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
-        top: HEADER_HEIGHT + 1,
-        width: term_dims.width - viewport_rect.width - 2,
-        height: term_dims.height - HEADER_HEIGHT,
+/// Rectangle in which to draw the sidebar
+fn sidebar_rect(term_dims: Dims, viewport_size: ViewportSize) -> Rect {
+    let viewport_rect = viewport_size.rect(term_dims);
+
+    match viewport_size {
+        ViewportSize::REGULAR => Rect {
+            left: viewport_rect.width + V_SCROLLBAR_WIDTH + 1,
+            top: HEADER_HEIGHT + 1,
+            width: term_dims.width - viewport_rect.width - 2,
+            height: term_dims.height - HEADER_HEIGHT,
+        },
+        ViewportSize::THEATER => Rect {
+            left: sidebar_rect(term_dims, ViewportSize::REGULAR).left,
+            top: viewport_rect.bottom() + 2,
+            width: sidebar_rect(term_dims, ViewportSize::REGULAR).width,
+            height: term_dims.height - viewport_rect.height - 4,
+        },
+        ViewportSize::FULLSCREEN => Rect {
+            left: sidebar_rect(term_dims, ViewportSize::REGULAR).left,
+            top: term_dims.height,
+            width: sidebar_rect(term_dims, ViewportSize::REGULAR).width,
+            height: 1,
+        },
     }
 }
 
@@ -460,7 +488,6 @@ pub struct TermUI {
     sidebar_buf: RectBuffer,
     current_player: CurrentPlayer,
     turn: Turn,
-    first_draw: bool,
     palette: Palette,
     unicode: bool,
     confirm_turn_end: bool,
@@ -499,20 +526,14 @@ impl TermUI {
 
         let viewport_size = ViewportSize::REGULAR;
         let viewport_rect = viewport_size.rect(term_dims);
-        let sidebar_rect = sidebar_rect(viewport_rect, term_dims);
+        let sidebar_rect = sidebar_rect(term_dims, viewport_size);
 
         let map = Map::new(viewport_rect, map_dims, unicode);
 
-        let map_scroller_rect = Rect {
-            left: viewport_rect.left,
-            top: viewport_rect.top,
-            width: viewport_rect.width + 1,
-            height: viewport_rect.height + 1,
-        };
-        let mut map_scroller = Scroller::new(map_scroller_rect, map);
-        map_scroller.set_rect(viewport_rect);
+        // The scroller has the same dimensions as the scrolled, just draws over it
+        let map_scroller = Scroller::new(viewport_rect, map);
 
-        let log_rect = log_area_rect(viewport_rect, term_dims);
+        let log_rect = log_area_rect(term_dims, viewport_size);
         let log = LogArea::new(log_rect);
 
         let cp_rect = current_player_rect();
@@ -590,8 +611,6 @@ impl TermUI {
 
             turn: Turn::new(turn_rect(cp_rect)),
 
-            first_draw: true,
-
             palette,
 
             unicode,
@@ -635,8 +654,20 @@ impl TermUI {
         viewport_size: ViewportSize,
     ) -> IoResult<()> {
         self.viewport_size = viewport_size;
+
+        self.clear();
+
+        self.log
+            .set_rect(log_area_rect(self.term_dims, self.viewport_size));
+
         self.map_scroller
             .set_rect(self.viewport_size.rect(self.term_dims));
+
+        self.sidebar_buf
+            .set_rect(sidebar_rect(self.term_dims, self.viewport_size));
+
+        self.sidebar_buf.dirty();
+
         self.draw(game).await
     }
 
@@ -809,10 +840,8 @@ impl MoveAnimator for TermUI {
                 });
             }
 
-            if move_.moved_successfully() {
-                self.draw_located_observations(game, &move_.observations_after_move)
-                    .await?;
-            }
+            self.draw_located_observations(game, &move_.observations_after_move)
+                .await?;
 
             current_loc = target_loc;
 
@@ -837,6 +866,10 @@ impl UI for TermUI {
         self.viewport_size.rect(self.term_dims)
     }
 
+    fn viewport_size(&self) -> ViewportSize {
+        self.viewport_size
+    }
+
     fn term_dims(&self) -> Dims {
         self.term_dims
     }
@@ -850,7 +883,7 @@ impl UI for TermUI {
     }
 
     fn clear_sidebar(&mut self) {
-        self.sidebar_buf.clear(&mut self.stdout);
+        RectBuffer::clear(&mut self.sidebar_buf);
     }
 
     async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurn) -> Option<Location> {
@@ -982,25 +1015,21 @@ impl UI for TermUI {
     }
 
     async fn draw_no_flush(&mut self, game: &PlayerTurn) -> IoResult<()> {
-        if self.first_draw {
-            // write!(self.stdout, "{}{}{}{}",
-            //     // termion::clear::All,
-            //     goto(0,0),
-            //     termion::style::Underline,
-            //     conf::APP_NAME,
-            //     StrongReset::new(&self.palette)
-            // ).unwrap();
-            queue!(
-                self.stdout,
-                MoveTo(0, 0),
-                SetAttribute(Attribute::Underlined),
-                Print(conf::APP_NAME.to_string()),
-                SetAttribute(Attribute::Reset),
-                SetBackgroundColor(self.palette.get_single(Colors::Background))
-            )?;
-
-            self.first_draw = false;
-        }
+        // write!(self.stdout, "{}{}{}{}",
+        //     // termion::clear::All,
+        //     goto(0,0),
+        //     termion::style::Underline,
+        //     conf::APP_NAME,
+        //     StrongReset::new(&self.palette)
+        // ).unwrap();
+        queue!(
+            self.stdout,
+            MoveTo(0, 0),
+            SetAttribute(Attribute::Underlined),
+            Print(conf::APP_NAME.to_string()),
+            SetAttribute(Attribute::Reset),
+            SetBackgroundColor(self.palette.get_single(Colors::Background))
+        )?;
 
         self.log
             .draw_no_flush(game, &mut self.stdout, &self.palette)

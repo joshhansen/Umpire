@@ -47,6 +47,13 @@ impl RectBuffer {
         }
     }
 
+    /// Mark all rows as dirty and in need of redrawing
+    pub fn dirty(&mut self) {
+        for i in 0..self.rows.len() {
+            self.dirty_rows.insert(i);
+        }
+    }
+
     pub fn clear_row(&mut self, row_idx: usize) {
         self.set(row_idx, None);
     }
