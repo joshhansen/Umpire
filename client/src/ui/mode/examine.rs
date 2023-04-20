@@ -222,9 +222,8 @@ impl IMode for ExamineMode {
                                 // If shifting without wrapping takes us beyond the viewport then we need to shift the viewport
                                 // such that the cursor will still be at its edge
 
-                                // ui.map_scroller.scrollable.shift_viewport(dir.into());
-                                ui.shift_map_viewport(dir);
-                                // ui.map_scroller.draw(game, &mut ui.stdout, &ui.palette);
+                                ui.scroll_map_relative(dir);
+
                                 ui.draw_map(game).await.unwrap();
                                 // Don't change `mode` since we'll basically pick up where we left off
                             }

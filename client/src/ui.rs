@@ -141,9 +141,6 @@ pub trait UI: LogTarget + MoveAnimator {
 
     fn set_sidebar_row(&mut self, row_idx: usize, row: String);
 
-    #[deprecated]
-    fn shift_map_viewport<V: Into<Vec2d<i32>>>(&mut self, direction: V);
-
     async fn viewport_to_map_coords(
         &self,
         game: &PlayerTurn,
@@ -295,10 +292,6 @@ impl UI for DefaultUI {
     }
 
     fn scroll_map_relative<V: Into<Vec2d<i32>>>(&mut self, _direction: V) {
-        // do nothing
-    }
-
-    fn shift_map_viewport<V: Into<Vec2d<i32>>>(&mut self, _direction: V) {
         // do nothing
     }
 
@@ -1018,10 +1011,6 @@ impl UI for TermUI {
 
     fn set_sidebar_row(&mut self, row_idx: usize, row: String) {
         self.sidebar_buf.set_row(row_idx, row)
-    }
-
-    fn shift_map_viewport<V: Into<Vec2d<i32>>>(&mut self, direction: V) {
-        self.map_scroller.scrollable.shift_viewport(direction);
     }
 
     async fn viewport_to_map_coords(
