@@ -65,7 +65,7 @@ fn test_move_unit_by_id_far() {
     game.begin_turn(secrets[0], false).unwrap();
 
     let mut rand = thread_rng();
-    for _ in 0..10 {
+    for i in 0..10 {
         let mut delta = Vec2d::new(0, 0);
 
         while delta.x == 0 && delta.y == 0 {
@@ -95,6 +95,29 @@ fn test_move_unit_by_id_far() {
                 assert_eq!(e, GameError::MoveError(MoveError::InsufficientFuel));
             }
         }
+
+        // Make sure there are no duplicate unit observations
+        let observed_units = game
+            .player_observations(secrets[0])
+            .unwrap()
+            .iter()
+            .filter(|obs| match obs {
+                Obs::Observed { tile, .. } => match tile.unit.as_ref() {
+                    Some(unit) => {
+                        assert_eq!(unit.id, unit_id);
+                        assert_eq!(unit.type_, UnitType::Fighter);
+                        true
+                    }
+                    None => false,
+                },
+                Obs::Unobserved => false,
+            })
+            .count();
+        assert_eq!(
+            observed_units, 1,
+            "Extra copies of the unit found after move {}",
+            i
+        );
 
         game.force_end_then_begin_turn(secrets[0], secrets[0], false)
             .unwrap();
