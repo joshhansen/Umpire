@@ -121,6 +121,11 @@ pub struct ProductionSet {
     pub obs: LocatedObsLite,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TurnEnded {
+    pub observations: Vec<LocatedObsLite>,
+}
+
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct TurnStart {
     pub turn: TurnNum,
@@ -625,8 +630,25 @@ impl Game {
     }
 
     /// Ends the turn but doesn't check if requests are completed
-    pub fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
-        self.validate_is_player_turn_main_phase(player_secret)?;
+    pub fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
+        let player = self.validate_is_player_turn_main_phase(player_secret)?;
+
+        // Any unit with limited fuel that's hosted by a city or carrier at end of turn gets refueled
+
+        let mut observations: Vec<LocatedObsLite> = Vec::with_capacity(0);
+
+        for id in self.player_carried_unit_ids(player_secret)? {
+            let (unit_loc, refueled) = {
+                let unit = self.player_unit_by_id_by_idx_mut(player, id).unwrap();
+
+                (unit.loc, unit.refuel())
+            };
+
+            if refueled > 0 {
+                // Take note of the change in fuel level
+                observations.push(self.observe(unit_loc).unwrap().lite());
+            }
+        }
 
         self.player_observations_mut(player_secret)?.archive();
 
@@ -635,10 +657,10 @@ impl Game {
         // The next player's turn starts out in the Pre phase
         self.turn_phase = TurnPhase::Pre;
 
-        Ok(())
+        Ok(TurnEnded { observations })
     }
 
-    pub fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+    pub fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
         self.validate_is_player_turn(player_secret)?;
 
         if self.current_turn_is_done() {
@@ -1026,6 +1048,18 @@ impl Game {
         self.map.player_units(player)
     }
 
+    fn player_carried_unit_ids(
+        &mut self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<HashSet<UnitID>> {
+        let player = self.player_with_secret(player_secret)?;
+        Ok(self
+            .map
+            .player_toplevel_units(player)
+            .flat_map(|unit| unit.carried_units().map(|unit| unit.id))
+            .collect())
+    }
+
     /// Every unit controlled by the current player
     #[cfg(test)]
     fn current_player_units(&self) -> impl Iterator<Item = &Unit> {
@@ -1078,6 +1112,10 @@ impl Game {
 
     fn player_unit_by_id_by_idx(&self, player: PlayerNum, id: UnitID) -> Option<&Unit> {
         self.map.player_unit_by_id(player, id)
+    }
+
+    fn player_unit_by_id_by_idx_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
+        self.map.player_unit_by_id_mut(player, id)
     }
 
     /// If the current player controls a unit with ID `id`, return its location

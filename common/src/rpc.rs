@@ -20,8 +20,8 @@ use crate::{
             Unit, UnitID, UnitType,
         },
         Game, IGame, OrdersSet, PlayerNum, PlayerSecret, PlayerType, ProductionCleared,
-        ProductionSet, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
-        TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
+        ProductionSet, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnEnded,
+        TurnNum, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
     },
     util::{Dims, Direction, Location, Wrap2d},
 };
@@ -48,9 +48,9 @@ pub trait UmpireRpc {
         clear_after_unit_production: bool,
     ) -> UmpireResult<TurnStart>;
 
-    async fn end_turn(player_secret: PlayerSecret) -> UmpireResult<()>;
+    async fn end_turn(player_secret: PlayerSecret) -> UmpireResult<TurnEnded>;
 
-    async fn force_end_turn(player_secret: PlayerSecret) -> UmpireResult<()>;
+    async fn force_end_turn(player_secret: PlayerSecret) -> UmpireResult<TurnEnded>;
 
     async fn is_player_turn(secret: PlayerSecret) -> UmpireResult<bool>;
 
@@ -404,14 +404,14 @@ impl IGame for RpcGame {
         self.game.victor(context::current()).await.unwrap()
     }
 
-    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
         self.game
             .end_turn(context::current(), player_secret)
             .await
             .unwrap()
     }
 
-    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
         self.game
             .force_end_turn(context::current(), player_secret)
             .await

@@ -21,8 +21,8 @@ use common::{
             Unit, UnitID, UnitType,
         },
         Game, IGame, OrdersSet, PlayerNum, PlayerSecret, PlayerType, ProductionCleared,
-        ProductionSet, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnNum,
-        TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
+        ProductionSet, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnEnded,
+        TurnNum, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
     },
     name::{city_namer, unit_namer},
     rpc::UmpireRpc,
@@ -119,11 +119,15 @@ impl UmpireRpc for UmpireServer {
             .begin_turn(player_secret, clear_after_unit_production)
     }
 
-    async fn end_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<()> {
+    async fn end_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
         self.game.write().await.end_turn(player_secret)
     }
 
-    async fn force_end_turn(self, _: Context, player_secret: PlayerSecret) -> UmpireResult<()> {
+    async fn force_end_turn(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<TurnEnded> {
         self.game.write().await.force_end_turn(player_secret)
     }
 

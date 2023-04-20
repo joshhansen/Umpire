@@ -590,7 +590,7 @@ impl MapData {
             .filter(|unit| unit.belongs_to_player(player) && unit.id == id)
     }
 
-    fn player_unit_by_id_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
+    pub fn player_unit_by_id_mut(&mut self, player: PlayerNum, id: UnitID) -> Option<&mut Unit> {
         self.unit_by_id_mut(id)
             .filter(|unit| unit.belongs_to_player(player) && unit.id == id)
     }
@@ -892,7 +892,10 @@ impl MapData {
             .filter(move |unit| unit.belongs_to_player(player))
     }
 
-    fn player_toplevel_units_mut(&mut self, player: PlayerNum) -> impl Iterator<Item = &mut Unit> {
+    pub fn player_toplevel_units_mut(
+        &mut self,
+        player: PlayerNum,
+    ) -> impl Iterator<Item = &mut Unit> {
         self.toplevel_units_mut()
             .filter(move |unit| unit.belongs_to_player(player))
     }

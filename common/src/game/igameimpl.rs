@@ -26,7 +26,7 @@ use super::{
     obs::LocatedObsLite,
     player::PlayerNum,
     Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
-    ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
+    ProposedOrdersResult, ProposedResult, TurnEnded, TurnNum, TurnPhase, TurnStart, UmpireResult,
     UnitDisbanded,
 };
 
@@ -62,11 +62,11 @@ impl IGame for Game {
         self.victor()
     }
 
-    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
         self.end_turn(player_secret)
     }
 
-    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()> {
+    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded> {
         self.force_end_turn(player_secret)
     }
 

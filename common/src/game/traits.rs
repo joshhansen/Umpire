@@ -26,7 +26,7 @@ use super::{
     obs::LocatedObsLite,
     player::PlayerNum,
     Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
-    ProposedOrdersResult, ProposedResult, TurnNum, TurnPhase, TurnStart, UmpireResult,
+    ProposedOrdersResult, ProposedResult, TurnEnded, TurnNum, TurnPhase, TurnStart, UmpireResult,
     UnitDisbanded,
 };
 
@@ -59,9 +59,9 @@ pub trait IGame: Send + Sync {
     /// Defeat is defined as having no cities and having no units that can capture cities
     async fn victor(&self) -> Option<PlayerNum>;
 
-    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()>;
+    async fn end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded>;
 
-    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<()>;
+    async fn force_end_turn(&mut self, player_secret: PlayerSecret) -> UmpireResult<TurnEnded>;
 
     /// End the current human player's turn and begin the next human player's turn
     ///

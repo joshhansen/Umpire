@@ -564,6 +564,11 @@ impl Unit {
             .flat_map(|carrying_space| carrying_space.carried_units_mut())
     }
 
+    /// Is the unit a carrier?
+    pub fn carrier(&self) -> bool {
+        self.carrying_space.is_some()
+    }
+
     pub fn short_desc(&self) -> String {
         format!("{} \"{}\"", self.type_, self.name)
     }
@@ -602,6 +607,19 @@ impl Unit {
 
     pub fn max_hp(&self) -> u16 {
         self.max_hp
+    }
+
+    /// If the unit's fuel is limited, refill it. Otherwise, do nothing.
+    ///
+    /// Returns the quantity of fuel refilled.
+    pub fn refuel(&mut self) -> u16 {
+        if let Fuel::Limited { max, remaining } = &mut self.fuel {
+            let refueled = *max - *remaining;
+            *remaining = *max;
+            refueled
+        } else {
+            0
+        }
     }
 }
 

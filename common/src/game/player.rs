@@ -12,7 +12,7 @@ use super::{
     move_::Move,
     obs::{LocatedObsLite, ObsTracker},
     IGame, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedOrdersResult,
-    ProposedUmpireResult, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
+    ProposedUmpireResult, TurnEnded, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
 };
 use crate::{
     cli::Specified,
@@ -231,20 +231,24 @@ impl PlayerControl {
         result
     }
 
-    pub async fn end_turn(&mut self) -> UmpireResult<()> {
-        let result = self.game.write().await.end_turn(self.secret).await;
+    pub async fn end_turn(&mut self) -> UmpireResult<TurnEnded> {
+        let mut result = self.game.write().await.end_turn(self.secret).await;
 
-        if result.is_ok() {
+        if let Ok(ref mut outcome) = result {
+            self.observations
+                .track_many_lite(outcome.observations.iter());
             self.observations.archive();
         }
 
         result
     }
 
-    pub async fn force_end_turn(&mut self) -> UmpireResult<()> {
-        let result = self.game.write().await.force_end_turn(self.secret).await;
+    pub async fn force_end_turn(&mut self) -> UmpireResult<TurnEnded> {
+        let mut result = self.game.write().await.force_end_turn(self.secret).await;
 
-        if result.is_ok() {
+        if let Ok(ref mut outcome) = result {
+            self.observations
+                .track_many_lite(outcome.observations.iter());
             self.observations.archive();
         }
 
@@ -519,7 +523,7 @@ impl<'a> PlayerTurn<'a> {
         &self.turn_start
     }
 
-    pub async fn end_turn(&mut self) -> UmpireResult<()> {
+    pub async fn end_turn(&mut self) -> UmpireResult<TurnEnded> {
         if self.ended {
             return Err(GameError::NotPlayersTurn {
                 player: self.ctrl.player,
@@ -535,7 +539,7 @@ impl<'a> PlayerTurn<'a> {
         result
     }
 
-    pub async fn force_end_turn(&mut self) -> UmpireResult<()> {
+    pub async fn force_end_turn(&mut self) -> UmpireResult<TurnEnded> {
         if self.ended {
             return Err(GameError::NotPlayersTurn {
                 player: self.ctrl.player,
