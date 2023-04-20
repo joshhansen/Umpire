@@ -804,39 +804,21 @@ impl Game {
         let obs_lite = LocatedObsLite::new(loc, obs.clone());
         let mut old_obs = Obs::Unobserved;
 
-        if self.fog_of_war {
-            for player in 0..self.num_players {
-                // Make the observation available to the player if at least one of its top-level units or cities
-                // can see it
-                let include = self
+        for player in 0..self.num_players {
+            // Make the observation available to the player if at least one of its top-level units or cities
+            // can see it, or if fog of war is off
+            let include = !self.fog_of_war
+                || self
                     .player_active_observers_by_idx(player)?
                     .any(|observer| observer.can_see(loc));
 
-                if include {
-                    {
-                        let obs_queue = &mut self.player_pending_observations[player];
-                        obs_queue.push(obs_lite.clone());
-                    }
-
-                    // Also keep track on our side
-                    let observations = self.player_observations.tracker_mut(player).unwrap();
-                    let old_obs_incoming = observations.track_lite(obs_lite.clone());
-
-                    if player == self.current_player {
-                        if let Some(old_obs_incoming) = old_obs_incoming {
-                            old_obs = old_obs_incoming;
-                        }
-                    }
+            if include {
+                {
+                    let obs_queue = &mut self.player_pending_observations[player];
+                    obs_queue.push(obs_lite.clone());
                 }
-            }
-        } else {
-            // Without fog of war, we give all players all observations
-            self.player_pending_observations
-                .iter_mut()
-                .for_each(|obs_queue| obs_queue.push(obs_lite.clone()));
 
-            // Also keep track on our side
-            for player in 0..self.num_players {
+                // Also keep track on our side
                 let observations = self.player_observations.tracker_mut(player).unwrap();
                 let old_obs_incoming = observations.track_lite(obs_lite.clone());
 
