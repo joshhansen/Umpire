@@ -137,8 +137,6 @@ pub trait UI: LogTarget + MoveAnimator {
 
     async fn rotate_viewport_size(&mut self, game: &PlayerTurn) -> IoResult<()>;
 
-    // fn sidebar_buf_mut(&mut self) -> &mut RectBuffer;
-
     fn scroll_map_relative<V: Into<Vec2d<i32>>>(&mut self, direction: V);
 
     fn set_sidebar_row(&mut self, row_idx: usize, row: String);
