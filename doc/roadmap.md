@@ -9,7 +9,10 @@
 * ~~TODO Make active unit blink---it's too hard to see right now.~~
 * ~~CHORE: Upgrade clap~~
 * FIXME Explore and go-to moves aren't animating visibly
-* TODO Fuel limits for aircraft
+* ~~TODO Fuel limits for aircraft~~
+* FIXME Fighter/bomber refuel when ending turn in city/carrier
+* FIXME Stale tiles in UI when moving more than one tile at a time
+* FIXME Viewport toggle
 * TODO Client/server architecture
  - Inventory PlayerTurnControl - make sure it's fully restricted to the player's view of game state
  - Reduce PlayerTurnControl API to minimal actions and results format
