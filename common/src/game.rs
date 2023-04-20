@@ -1740,6 +1740,23 @@ impl Game {
                 move_.observations_after_move =
                     vec![self.observe(prev_loc).unwrap(), self.observe(loc).unwrap()];
 
+                debug_assert_eq!(
+                    {
+                        self.player_observations(player_secret)
+                            .unwrap()
+                            .iter()
+                            .filter(|obs| match obs {
+                                Obs::Observed { tile, .. } => match tile.unit.as_ref() {
+                                    Some(unit) => unit.id == unit_id,
+                                    None => false,
+                                },
+                                Obs::Unobserved => false,
+                            })
+                            .count()
+                    },
+                    1
+                );
+
                 // Inspect all observations besides at the unit's previous and current location to see if any changes in
                 // passability have occurred relevant to the unit's future moves.
                 // If so, request shortest_paths to be recalculated
