@@ -850,7 +850,7 @@ impl UI for TermUI {
     }
 
     fn clear_sidebar(&mut self) {
-        self.sidebar_buf.clear();
+        self.sidebar_buf.clear(&mut self.stdout);
     }
 
     async fn cursor_map_loc(&self, mode: &Mode, game: &PlayerTurn) -> Option<Location> {
