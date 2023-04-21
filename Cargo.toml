@@ -107,3 +107,7 @@ path = "benches/wrapping_lite.rs"
 [profile.release]
 opt-level = 'z'  # Optimize for size.
 lto = true # Link-time optimization is also dropping binary size by about 1100K
+
+[profile.release-dbg]
+inherits = "release"
+debug = true
