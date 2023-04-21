@@ -482,7 +482,7 @@ impl Unit {
     }
 
     pub(in crate::game) fn record_movement(&mut self, moves: u16) -> UmpireResult<u16> {
-        if let Fuel::Limited { max, remaining } = self.fuel {
+        if let Fuel::Limited { max: _, remaining } = self.fuel {
             if remaining < moves {
                 return Err(GameError::MoveError(MoveError::InsufficientFuel));
             }
