@@ -66,7 +66,7 @@ impl TrainingOutcome {
     pub fn to_training_target(self) -> f64 {
         match self {
             Self::Victory => 1.0,
-            Self::Inconclusive => 0.5,
+            Self::Inconclusive => 0.25, // punish draws, but now as harshly as defeats
             Self::Defeat => 0.0,
         }
     }
