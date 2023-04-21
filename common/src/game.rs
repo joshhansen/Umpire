@@ -491,7 +491,7 @@ impl Game {
             .collect();
 
         for loc in unit_locs {
-            self.observe(loc)?;
+            self.observable_event(loc)?;
         }
 
         Ok(())
@@ -650,7 +650,7 @@ impl Game {
 
                 if refueled > 0 {
                     // Take note of the change in fuel level
-                    observations.push(self.observe(unit_loc).unwrap().lite());
+                    observations.push(self.observable_event(unit_loc).unwrap().lite());
                 }
             }
 
@@ -779,6 +779,10 @@ impl Game {
         }
     }
 
+    fn observable_event(&mut self, loc: Location) -> UmpireResult<LocatedObs> {
+        self._observable_event(loc, false)
+    }
+
     /// Indicate that an observable event has just occurred at the given location
     ///
     /// Observations of the state of the specified tile should be routed to players as appropriate
@@ -786,17 +790,24 @@ impl Game {
     ///
     /// Returns the LocatedObs (including old_obs) from the perspective of the current player
     ///
+    /// ## Parameters
+    /// * `force_current_player_visibility` makes sure the current player gets a fresh observation
+    ///   of the location. This is especially useful when noting the removal of a unit, which is no
+    ///   longer there to observe itself.
     ///
     /// ## Errors
     /// * If the location is out of bounds
-    fn observe(&mut self, loc: Location) -> UmpireResult<LocatedObs> {
-        let tile = self
-            .map
-            .tile(loc)
-            .ok_or(GameError::NoTileAtLocation { loc })?
-            .clone();
+    fn _observable_event(
+        &mut self,
+        loc: Location,
+        force_current_player_visibility: bool,
+    ) -> UmpireResult<LocatedObs> {
         let obs = Obs::Observed {
-            tile,
+            tile: self
+                .map
+                .tile(loc)
+                .ok_or(GameError::NoTileAtLocation { loc })?
+                .clone(),
             turn: self.turn,
             action_count: self.action_count,
             current: true,
@@ -806,8 +817,9 @@ impl Game {
 
         for player in 0..self.num_players {
             // Make the observation available to the player if at least one of its top-level units or cities
-            // can see it, or if fog of war is off
+            // can see it, or if fog of war is off, or (for the current player) force_current_player_visibility is true
             let include = !self.fog_of_war
+                || (force_current_player_visibility && player == self.current_player)
                 || self
                     .player_active_observers_by_idx(player)?
                     .any(|observer| observer.can_see(loc));
@@ -819,8 +831,10 @@ impl Game {
                 }
 
                 // Also keep track on our side
-                let observations = self.player_observations.tracker_mut(player).unwrap();
-                let old_obs_incoming = observations.track_lite(obs_lite.clone());
+                let old_obs_incoming = self
+                    .player_observations
+                    .track(player, loc, obs.clone())
+                    .unwrap();
 
                 if player == self.current_player {
                     if let Some(old_obs_incoming) = old_obs_incoming {
@@ -828,6 +842,17 @@ impl Game {
                     }
                 }
             }
+        }
+
+        if force_current_player_visibility {
+            debug_assert_eq!(
+                self.player_observations
+                    .tracker(self.current_player)
+                    .unwrap()
+                    .get(loc),
+                &obs,
+                "The observation didn't make it into the current player's observations"
+            );
         }
 
         Ok(LocatedObs::new(loc, obs, old_obs))
@@ -1747,8 +1772,20 @@ impl Game {
                 );
 
                 // Observe now after the unit is potentially destroyed
-                move_.observations_after_move =
-                    vec![self.observe(prev_loc).unwrap(), self.observe(loc).unwrap()];
+                move_.observations_after_move = vec![
+                    self._observable_event(prev_loc, true).unwrap(),
+                    self._observable_event(loc, true).unwrap(),
+                ];
+
+                // Make sure the new observations stuck for the current player
+                debug_assert_eq!(
+                    &move_.observations_after_move[0].obs,
+                    self.player_obs(player_secret, prev_loc).unwrap()
+                );
+                debug_assert_eq!(
+                    &move_.observations_after_move[1].obs,
+                    self.player_obs(player_secret, loc).unwrap()
+                );
 
                 // Check again for duplicate observations
                 debug_assert!(
@@ -1765,7 +1802,19 @@ impl Game {
                             })
                             .count()
                     } < 2,
-                    "Too many copies of unit in observations"
+                    "Too many copies of unit in observations: {:?}\n{:?}",
+                    move_.observations_after_move,
+                    self.player_observations(player_secret)
+                        .unwrap()
+                        .iter()
+                        .filter(|obs| match obs {
+                            Obs::Observed { tile, .. } => match tile.unit.as_ref() {
+                                Some(unit) => unit.id == unit_id,
+                                None => false,
+                            },
+                            Obs::Unobserved => false,
+                        })
+                        .collect::<Vec<&Obs>>()
                 );
 
                 // Inspect all observations besides at the unit's previous and current location to see if any changes in
@@ -1852,13 +1901,7 @@ impl Game {
         self.action_taken(player);
 
         // Let everyone in line of sight know the unit is gone
-        let obs = self.observe(unit.loc).unwrap().lite();
-
-        // Also explicitly update this player's observations, since its unit was no longer
-        // there to see it---otherwise the player's observations continue to show the
-        // disbanded unit, even though it's know to the player that it's no longer there.
-        self.player_observations_by_idx_mut(player)
-            .track_lite(obs.clone());
+        let obs = self._observable_event(unit.loc, true).unwrap().lite();
 
         Ok(UnitDisbanded { unit, obs })
     }
@@ -1880,7 +1923,7 @@ impl Game {
 
         self.action_taken(player);
 
-        let obs = self.observe(loc).unwrap().lite();
+        let obs = self.observable_event(loc).unwrap().lite();
 
         Ok(ProductionSet {
             prior_production,
@@ -1910,7 +1953,7 @@ impl Game {
             .unwrap()
             .loc;
 
-        let obs = self.observe(loc).unwrap().lite();
+        let obs = self.observable_event(loc).unwrap().lite();
 
         Ok(ProductionSet {
             prior_production,
@@ -1938,7 +1981,7 @@ impl Game {
             .clear_city_production_by_loc(loc, ignore_cleared_production)
             .unwrap();
 
-        let obs = self.observe(loc).unwrap().lite();
+        let obs = self.observable_event(loc).unwrap().lite();
 
         Ok(ProductionCleared {
             prior_production: prior,
@@ -2130,7 +2173,7 @@ impl Game {
 
         self.map.activate_player_unit(player, unit_id)?;
 
-        Ok(self.observe(loc).unwrap().lite())
+        Ok(self.observable_event(loc).unwrap().lite())
     }
 
     /// If the current player controls a unit with ID `id`, set its orders to `orders`
@@ -2151,7 +2194,7 @@ impl Game {
 
         let loc = self.player_unit_loc(player_secret, id).unwrap().unwrap();
 
-        let obs = self.observe(loc).unwrap().lite();
+        let obs = self.observable_event(loc).unwrap().lite();
 
         Ok(OrdersSet { prior_orders, obs })
     }
