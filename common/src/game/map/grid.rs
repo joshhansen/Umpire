@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fmt,
+    fmt::{self, Debug, Display},
     ops::{Index, IndexMut},
 };
 
@@ -92,9 +92,7 @@ impl<T> LocationGridI<T> for LocationGrid<T> {
     fn replace(&mut self, loc: Location, value: T) -> Option<T> {
         debug_assert!(self.dims.contain(loc));
 
-        self.grid
-            .get_mut((loc.x * self.dims.height + loc.y) as usize)
-            .map(|v| std::mem::replace(v, value))
+        self.get_mut(loc).map(|v| std::mem::replace(v, value))
     }
 }
 
@@ -133,19 +131,41 @@ impl<T> IndexMut<Location> for LocationGrid<T> {
     }
 }
 
-/// NOTE: this impl is identical to the Debug impl on SparseLocationGrid
-impl<T: fmt::Debug> fmt::Debug for LocationGrid<T> {
+impl<T: fmt::Display> fmt::Display for LocationGrid<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut result = write!(f, "");
+        let mut prev_y: Option<u16> = None;
+        for loc in self.dims.iter_locs() {
+            Display::fmt(&self[loc], f)?;
 
-        for y in 0..self.dims.height {
-            for x in 0..self.dims.width {
-                result = result.and(self[Location::new(x, y)].fmt(f));
+            if let Some(y) = prev_y {
+                if loc.y != y {
+                    write!(f, "\n")?;
+                }
             }
-            result = result.and(writeln!(f));
+
+            prev_y = Some(loc.y);
         }
 
-        result
+        Ok(())
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for LocationGrid<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut prev_y: Option<u16> = None;
+        for loc in self.dims.iter_locs() {
+            Debug::fmt(&self[loc], f)?;
+
+            if let Some(y) = prev_y {
+                if loc.y != y {
+                    write!(f, "\n")?;
+                }
+            }
+
+            prev_y = Some(loc.y);
+        }
+
+        Ok(())
     }
 }
 

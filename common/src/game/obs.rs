@@ -20,8 +20,7 @@ use crate::{
 };
 
 /// What a particular player knows about a tile
-/// FIXME Cleaner Debug impl
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Deserialize, PartialEq, Serialize)]
 pub enum Obs {
     Observed {
         tile: Tile,
@@ -114,6 +113,25 @@ impl Obs {
         debug_assert_eq!(x.len(), BASE_CONV_FEATS as usize);
 
         x
+    }
+}
+
+//FIXME Merge with Map::draw_tile_no_flush?
+impl fmt::Display for Obs {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Observed { tile, .. } => std::fmt::Display::fmt(&tile, f),
+            Self::Unobserved => write!(f, " "),
+        }
+    }
+}
+
+impl fmt::Debug for Obs {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Observed { tile, .. } => std::fmt::Debug::fmt(&tile, f),
+            Self::Unobserved => write!(f, " "),
+        }
     }
 }
 
@@ -316,9 +334,15 @@ impl Source<Obs> for ObsTracker {
     }
 }
 
+impl fmt::Display for ObsTracker {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.observations, f)
+    }
+}
+
 impl fmt::Debug for ObsTracker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.observations.fmt(f)
+        fmt::Debug::fmt(&self.observations, f)
     }
 }
 
@@ -345,12 +369,10 @@ impl PlayerObsTracker {
     /// Track an observation made by the given player at the specified location
     ///
     /// Returns Err(()) if no such player is recognized
-    pub fn track(&mut self, player: PlayerNum, loc: Location, obs: Obs) -> Result<(), ()> {
+    pub fn track(&mut self, player: PlayerNum, loc: Location, obs: Obs) -> Result<Option<Obs>, ()> {
         let observations = self.player_observations.get_mut(&player).ok_or(())?;
 
-        observations.observations.replace(loc, obs);
-
-        Ok(())
+        Ok(observations.observations.replace(loc, obs))
     }
 
     pub fn tracker(&self, player: PlayerNum) -> Option<&ObsTracker> {
