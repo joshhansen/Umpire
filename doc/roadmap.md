@@ -11,14 +11,14 @@
 * FIXME Explore and go-to moves aren't animating visibly
 * ~~TODO Fuel limits for aircraft~~
 * ~~FIXME Fighter/bomber refuel when ending turn in city/carrier~~
-* FIXME Stale tiles in UI when moving more than one tile at a time
+* ~~FIXME Stale tiles in UI when moving more than one tile at a time~~
 * FIXME Viewport toggle
 * TODO Client/server architecture
- - Inventory PlayerTurnControl - make sure it's fully restricted to the player's view of game state
- - Reduce PlayerTurnControl API to minimal actions and results format
+ - ~~Inventory PlayerTurnControl - make sure it's fully restricted to the player's view of game state~~
+ - ~~Reduce PlayerTurnControl API to minimal actions and results format~~
  - ~~PlayerTurnControl -> PlayerGameView - client has a local copy of player's view of the game~~
- - ~~Use UmpireClient RPC calls to maintain client-local PlayerGameView's; pass these to the UI
-   for synchronous rendering.~~ Mostly true; not totally synchronous, though
+ - ~~Use UmpireClient RPC calls to maintain client-local PlayerGameView's; pass these to the UI~~
+   ~~for synchronous rendering.~~ Mostly true; not totally synchronous, though
  - ~~Low-level client-server protocol, updating client state incrementally~~
  - ~~server runs exactly one game~~
  - ~~each client controls exactly one player~~ Clients can register arbitrary numbers of players
