@@ -10,11 +10,11 @@ use std::{
     time::Duration,
 };
 
-use failure::Fail;
-
 use rand::{distributions::Distribution, Rng};
 
 use serde::{Deserialize, Serialize};
+
+use thiserror::Error;
 
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -310,12 +310,9 @@ impl Direction {
     }
 }
 
-#[derive(Debug, Fail, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 enum WrapError {
-    #[fail(
-        display = "coord0? {}. Coordinate with value {} is out of the bounds 0 to {}",
-        coord0, coord, dimension_width
-    )]
+    #[error("coord0? {coord0}. Coordinate with value {coord} is out of the bounds 0 to {dimension_width}")]
     OutOfBounds {
         coord0: bool,
         coord: u16,
@@ -407,12 +404,9 @@ impl Wrap {
     }
 }
 
-#[derive(Debug, Fail, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Wrap2dError {
-    #[fail(
-        display = "Location {} is out of the bounds of dimensions {}",
-        loc, dims
-    )]
+    #[error("Location {loc} is out of the bounds of dimensions {dims}")]
     OutOfBounds { loc: Location, dims: Dims },
 }
 

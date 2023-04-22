@@ -17,7 +17,7 @@ use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
 };
 
-use failure::Fail;
+use thiserror::Error;
 
 use crate::{
     game::{
@@ -33,18 +33,12 @@ use self::dijkstra::Source;
 use super::unit::orders::Orders;
 use super::UmpireResult;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum NewUnitError {
-    #[fail(
-        display = "Attempted to create a unit at {} outside the bounds {}",
-        loc, dims
-    )]
+    #[error("Attempted to create a unit at {loc} outside the bounds {dims}")]
     OutOfBounds { loc: Location, dims: Dims },
 
-    #[fail(
-        display = "Attempted to create a unit at {} but the unit {:?} was already present; the city is producing {}",
-        loc, prior_unit, unit_type_under_production
-    )]
+    #[error("Attempted to create a unit at {loc} but the unit {prior_unit:?} was already present; the city is producing {unit_type_under_production}")]
     UnitAlreadyPresent {
         loc: Location,
         prior_unit: Unit,

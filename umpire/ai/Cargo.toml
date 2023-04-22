@@ -12,7 +12,6 @@ bincode = "1.2.1"
 clap = { workspace = true }
 common = { path = "../../common" }
 crossterm = { workspace = true }
-failure = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }

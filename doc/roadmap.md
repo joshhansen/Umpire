@@ -23,7 +23,7 @@
  - ~~server runs exactly one game~~
  - ~~each client controls exactly one player~~ Clients can register arbitrary numbers of players
  - switch from async_trait to nightly async trait fn
-* CHORE: Replace failure with thiserror
+* ~~CHORE: Replace failure with thiserror~~
 * CHORE: Audit dependencies, removing as possible
 * CHORE: Audit and minimize PlayerControl, PlayerTurn, IGame, server, and UmpireRpcClient
 * CLIENT: Indicate in UI when it is other player's turn (and whose)

@@ -1,17 +1,19 @@
-use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
+use std::sync::mpsc::Receiver;
 
-use synth::{oscillator, Envelope, Oscillator, Point, Synth};
+use common::game::unit::UnitType;
+
+use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 
 use dasp;
 
-const CHANNELS: i32 = 2;
-const SAMPLE_HZ: f64 = 44_100.0;
-
-use std::sync::mpsc::Receiver;
-
 use pitch_calc::{Letter, LetterOctave};
 
-use common::game::unit::UnitType;
+use synth::{oscillator, Envelope, Oscillator, Point, Synth};
+
+use thiserror::Error;
+
+const CHANNELS: i32 = 2;
+const SAMPLE_HZ: f64 = 44_100.0;
 
 pub enum Sounds {
     Silence,
@@ -144,21 +146,36 @@ fn synth_for_sound(
     }
 }
 
-pub(in crate::ui) fn play_sounds(
-    rx: Receiver<Sounds>,
-    sound: Sounds,
-) -> Result<(), failure::Error> {
+#[derive(Debug, Error)]
+pub enum AudioError {
+    #[error("Error building output stream")]
+    CantBuildOutputStream,
+
+    #[error("Error getting default output format")]
+    CantGetDefaultOutputFormat,
+
+    #[error("Error playing audio stream")]
+    CantPlayStream,
+}
+
+pub(in crate::ui) fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> anyhow::Result<()> {
     let mut synth = synth_for_sound(sound);
 
     let host = cpal::default_host();
     let device = host
         .default_output_device()
         .expect("failed to find a default output device");
-    let format = device.default_output_format()?;
+    let format = device
+        .default_output_format()
+        .map_err(|_| AudioError::CantGetDefaultOutputFormat)?;
 
     let event_loop = host.event_loop();
-    let stream_id = event_loop.build_output_stream(&device, &format)?;
-    event_loop.play_stream(stream_id.clone())?;
+    let stream_id = event_loop
+        .build_output_stream(&device, &format)
+        .map_err(|_| AudioError::CantBuildOutputStream)?;
+    event_loop
+        .play_stream(stream_id.clone())
+        .map_err(|_| AudioError::CantPlayStream)?;
 
     event_loop.run(move |_id, result| {
         let mut data = result.unwrap();

@@ -1,6 +1,6 @@
-use failure::Fail;
-
 use serde::{Deserialize, Serialize};
+
+use thiserror::Error;
 
 use crate::{
     game::{
@@ -178,48 +178,38 @@ impl MoveComponent {
     }
 }
 
-#[derive(Debug, Deserialize, Fail, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Error, PartialEq, Serialize)]
 pub enum MoveError {
-    #[fail(display = "Cannot execute a move of length zero")]
+    #[error("Cannot execute a move of length zero")]
     ZeroLengthMove,
 
-    #[fail(
-        display = "Ordered move of unit spans a distance ({}) greater than the number of moves remaining ({})",
-        intended_distance, moves_remaining
-    )]
+    #[error("Ordered move of unit spans a distance ({intended_distance}) greater than the number of moves remaining ({moves_remaining})")]
     RemainingMovesExceeded {
         intended_distance: u16,
         moves_remaining: u16,
     },
 
-    #[fail(
-        display = "Cannot move unit at source location {} because there is no unit there",
-        src
-    )]
+    #[error("Cannot move unit at source location {src} because there is no unit there")]
     SourceUnitNotAtLocation { src: Location },
 
-    #[fail(display = "Cannot move unit with ID {:?} because none exists", id)]
+    #[error("Cannot move unit with ID {id:?} because none exists")]
     SourceUnitDoesNotExist { id: UnitID },
 
-    #[fail(
-        display = "Cannot move unit at source location {} with ID {:?} becuase no such unit exists",
-        src, id
+    #[error(
+        "Cannot move unit at source location {src} with ID {id:?} becuase no such unit exists"
     )]
     SourceUnitWithIdNotAtLocation { id: UnitID, src: Location },
 
-    #[fail(
-        display = "No route from {} to {} for unit with ID {:?}",
-        src, dest, id
-    )]
+    #[error("No route from {src} to {dest} for unit with ID {id:?}")]
     NoRoute {
         id: UnitID,
         src: Location,
         dest: Location,
     },
 
-    #[fail(display = "Destination out of bounds")]
+    #[error("Destination out of bounds")]
     DestinationOutOfBounds,
 
-    #[fail(display = "Insufficient fuel")]
+    #[error("Insufficient fuel")]
     InsufficientFuel,
 }
