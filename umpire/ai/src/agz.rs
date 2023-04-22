@@ -26,36 +26,37 @@ pub struct AgzDatum {
     pub outcome: TrainingOutcome,
 }
 
+const possible_city_actions: usize = NextCityAction::possible();
+const possible_unit_actions: usize = NextUnitAction::possible();
+
 #[derive(Serialize, Deserialize)]
 pub struct AgzActionModelEncoding {
-    city_actions: Vec<u8>,
-    unit_actions: Vec<u8>,
+    actions: Vec<u8>,
 }
 impl AgzActionModelEncoding {
     pub fn decode(self, device: Device) -> Result<AgzActionModel, String> {
         Ok(AgzActionModel {
             device,
-            city_actions: DNN::load_from_bytes(&self.city_actions[..])?,
-            unit_actions: DNN::load_from_bytes(&self.unit_actions[..])?,
+
+            actions: DNN::load_from_bytes(&self.actions[..])?,
         })
     }
 }
 
 pub struct AgzActionModel {
     device: Device,
-    city_actions: DNN,
-    unit_actions: DNN,
+
+    /// This models all actions at once, city actions first
+    actions: DNN,
 }
 
 impl AgzActionModel {
     pub fn new(device: Device, learning_rate: f64) -> Result<Self, String> {
-        let possible_city_actions = NextCityAction::possible();
-        let possible_unit_actions = NextUnitAction::possible();
+        let total_actions = possible_city_actions + possible_unit_actions;
 
         Ok(Self {
             device,
-            city_actions: DNN::new(device, learning_rate, possible_city_actions as i64)?,
-            unit_actions: DNN::new(device, learning_rate, possible_unit_actions as i64)?,
+            actions: DNN::new(device, learning_rate, total_actions as i64)?,
         })
     }
 
@@ -69,16 +70,19 @@ impl AgzActionModel {
             let target = datum.outcome.to_training_target();
 
             if let Ok(city_action) = NextCityAction::try_from(datum.action) {
+                // City actions go first, so no offset is added
                 let city_action_idx: usize = city_action.into();
 
-                self.city_actions
+                self.actions
                     .train(&datum.features, &city_action_idx, target);
             } else {
                 let unit_action = NextUnitAction::try_from(datum.action).unwrap();
 
-                let unit_action_idx: usize = unit_action.into();
+                // We use the city action count as an offset since city actions go first
+                let raw_unit_action_idx: usize = unit_action.into();
+                let unit_action_idx: usize = possible_city_actions + raw_unit_action_idx;
 
-                self.unit_actions
+                self.actions
                     .train(&datum.features, &unit_action_idx, target);
             }
         }
@@ -92,18 +96,19 @@ impl AgzActionModel {
             let predicted_outcome = if let Ok(city_action) =
                 <AiPlayerAction as TryInto<NextCityAction>>::try_into(datum.action)
             {
+                // City actions go first, so no offset is added
                 let city_action_idx: usize = city_action.into();
 
-                self.city_actions
-                    .evaluate_tensor(features, &city_action_idx)
+                self.actions.evaluate_tensor(features, &city_action_idx)
             } else {
                 let unit_action =
                     <AiPlayerAction as TryInto<NextUnitAction>>::try_into(datum.action).unwrap();
 
-                let unit_action_idx: usize = unit_action.into();
+                // We use the city action count as an offset since city actions go first
+                let raw_unit_action_idx: usize = unit_action.into();
+                let unit_action_idx: usize = possible_city_actions + raw_unit_action_idx;
 
-                self.unit_actions
-                    .evaluate_tensor(features, &unit_action_idx)
+                self.actions.evaluate_tensor(features, &unit_action_idx)
             };
 
             let actual_outcome = datum.outcome.to_training_target();
@@ -124,8 +129,7 @@ impl AgzActionModel {
 
     fn encode(self) -> AgzActionModelEncoding {
         AgzActionModelEncoding {
-            city_actions: self.city_actions.store_as_bytes().unwrap(),
-            unit_actions: self.unit_actions.store_as_bytes().unwrap(),
+            actions: self.actions.store_as_bytes().unwrap(),
         }
     }
 }
@@ -148,8 +152,9 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
+        // No offset is subtracted because city actions go first
         let city_action_idx = self
-            .city_actions
+            .actions
             .evaluate_tensors(&feats)
             .iter()
             .enumerate()
@@ -178,7 +183,7 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
         let unit_action_idx = self
-            .unit_actions
+            .actions
             .evaluate_tensors(&feats)
             .iter()
             .enumerate()
@@ -187,7 +192,10 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
             .unwrap()
             .0;
 
-        Some(NextUnitAction::try_from(unit_action_idx).unwrap())
+        // Subtract the offset since city actions come before unit actions
+        let raw_unit_action_idx = unit_action_idx - possible_city_actions;
+
+        Some(NextUnitAction::try_from(raw_unit_action_idx).unwrap())
     }
 }
 

@@ -194,7 +194,7 @@ impl NextCityAction {
     }
 
     /// The number of possible city actions overall, regardless of current circumstances
-    pub fn possible() -> usize {
+    pub const fn possible() -> usize {
         UnitType::values().len()
     }
 }
@@ -282,7 +282,7 @@ impl NextUnitAction {
         }
     }
 
-    pub fn possible() -> usize {
+    pub const fn possible() -> usize {
         Direction::values().len() + 2
     }
 }
