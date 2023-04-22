@@ -28,31 +28,23 @@ pub struct AgzDatum {
 
 #[derive(Serialize, Deserialize)]
 pub struct AgzActionModelEncoding {
-    city_actions: Vec<Vec<u8>>,
-    unit_actions: Vec<Vec<u8>>,
+    city_actions: Vec<u8>,
+    unit_actions: Vec<u8>,
 }
 impl AgzActionModelEncoding {
-    pub fn decode(self, device: Device) -> AgzActionModel {
-        AgzActionModel {
+    pub fn decode(self, device: Device) -> Result<AgzActionModel, String> {
+        Ok(AgzActionModel {
             device,
-            city_actions: self
-                .city_actions
-                .iter()
-                .map(|bytes| DNN::load_from_bytes(&bytes[..]).unwrap())
-                .collect(),
-            unit_actions: self
-                .unit_actions
-                .iter()
-                .map(|bytes| DNN::load_from_bytes(&bytes[..]).unwrap())
-                .collect(),
-        }
+            city_actions: DNN::load_from_bytes(&self.city_actions[..])?,
+            unit_actions: DNN::load_from_bytes(&self.unit_actions[..])?,
+        })
     }
 }
 
 pub struct AgzActionModel {
     device: Device,
-    city_actions: Vec<DNN>,
-    unit_actions: Vec<DNN>,
+    city_actions: DNN,
+    unit_actions: DNN,
 }
 
 impl AgzActionModel {
@@ -62,12 +54,8 @@ impl AgzActionModel {
 
         Ok(Self {
             device,
-            city_actions: (0..possible_city_actions)
-                .map(|_| DNN::new(device, learning_rate, 1).unwrap())
-                .collect(),
-            unit_actions: (0..possible_unit_actions)
-                .map(|_| DNN::new(device, learning_rate, 1).unwrap())
-                .collect(),
+            city_actions: DNN::new(device, learning_rate, possible_city_actions as i64)?,
+            unit_actions: DNN::new(device, learning_rate, possible_unit_actions as i64)?,
         })
     }
 
@@ -83,13 +71,15 @@ impl AgzActionModel {
             if let Ok(city_action) = NextCityAction::try_from(datum.action) {
                 let city_action_idx: usize = city_action.into();
 
-                self.city_actions[city_action_idx].train(&datum.features, &0, target);
+                self.city_actions
+                    .train(&datum.features, &city_action_idx, target);
             } else {
                 let unit_action = NextUnitAction::try_from(datum.action).unwrap();
 
                 let unit_action_idx: usize = unit_action.into();
 
-                self.unit_actions[unit_action_idx].train(&datum.features, &0, target);
+                self.unit_actions
+                    .train(&datum.features, &unit_action_idx, target);
             }
         }
     }
@@ -104,14 +94,16 @@ impl AgzActionModel {
             {
                 let city_action_idx: usize = city_action.into();
 
-                self.city_actions[city_action_idx].evaluate_tensor(features, &0)
+                self.city_actions
+                    .evaluate_tensor(features, &city_action_idx)
             } else {
                 let unit_action =
                     <AiPlayerAction as TryInto<NextUnitAction>>::try_into(datum.action).unwrap();
 
                 let unit_action_idx: usize = unit_action.into();
 
-                self.unit_actions[unit_action_idx].evaluate_tensor(features, &0)
+                self.unit_actions
+                    .evaluate_tensor(features, &unit_action_idx)
             };
 
             let actual_outcome = datum.outcome.to_training_target();
@@ -132,16 +124,8 @@ impl AgzActionModel {
 
     fn encode(self) -> AgzActionModelEncoding {
         AgzActionModelEncoding {
-            city_actions: self
-                .city_actions
-                .into_iter()
-                .map(|dnn| dnn.store_as_bytes().unwrap())
-                .collect(),
-            unit_actions: self
-                .unit_actions
-                .into_iter()
-                .map(|dnn| dnn.store_as_bytes().unwrap())
-                .collect(),
+            city_actions: self.city_actions.store_as_bytes().unwrap(),
+            unit_actions: self.unit_actions.store_as_bytes().unwrap(),
         }
     }
 }
@@ -166,8 +150,8 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let city_action_idx = self
             .city_actions
+            .evaluate_tensors(&feats)
             .iter()
-            .map(|dnn| dnn.evaluate_tensor(&feats, &0))
             .enumerate()
             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(i))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
@@ -195,8 +179,8 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let unit_action_idx = self
             .unit_actions
+            .evaluate_tensors(&feats)
             .iter()
-            .map(|dnn| dnn.evaluate_tensor(&feats, &0))
             .enumerate()
             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(&i))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
@@ -234,6 +218,6 @@ impl Loadable for AgzActionModel {
             .map_err(|e| format!("Error deserializing encoded agz action model: {}", e))?;
 
         let device = Device::cuda_if_available();
-        Ok(enc.decode(device)) //NOTE Unpropagated errors
+        enc.decode(device)
     }
 }

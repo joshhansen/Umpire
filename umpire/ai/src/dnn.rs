@@ -152,11 +152,23 @@ impl DNN {
         let loss: Tensor =
             actual_estimate.binary_cross_entropy::<&Tensor>(&value_tensor, None, Reduction::None);
 
+        debug_assert!(loss.device().is_cuda());
+
         self.optimizer.backward_step(&loss);
+    }
+
+    pub fn evaluate_tensors(&self, features: &Tensor) -> Vec<f64> {
+        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
+
+        debug_assert!(result_tensor.device().is_cuda());
+
+        result_tensor.into()
     }
 
     pub fn evaluate_tensor(&self, features: &Tensor, action: &usize) -> f64 {
         let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
+
+        debug_assert!(result_tensor.device().is_cuda());
 
         result_tensor.double_value(&[*action as i64])
     }
@@ -255,6 +267,8 @@ impl nn::ModuleT for DNN {
         deep = deep.view([-1]);
 
         let wide_and_deep = Tensor::cat(&[wide, &deep], 0);
+
+        debug_assert!(wide_and_deep.device().is_cuda());
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
 
