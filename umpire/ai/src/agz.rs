@@ -26,8 +26,9 @@ pub struct AgzDatum {
     pub outcome: TrainingOutcome,
 }
 
-const possible_city_actions: usize = NextCityAction::possible();
-const possible_unit_actions: usize = NextUnitAction::possible();
+const POSSIBLE_CITY_ACTIONS: usize = NextCityAction::possible();
+const POSSIBLE_UNIT_ACTIONS: usize = NextUnitAction::possible();
+const TOTAL_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
 #[derive(Serialize, Deserialize)]
 pub struct AgzActionModelEncoding {
@@ -52,11 +53,9 @@ pub struct AgzActionModel {
 
 impl AgzActionModel {
     pub fn new(device: Device, learning_rate: f64) -> Result<Self, String> {
-        let total_actions = possible_city_actions + possible_unit_actions;
-
         Ok(Self {
             device,
-            actions: DNN::new(device, learning_rate, total_actions as i64)?,
+            actions: DNN::new(device, learning_rate, TOTAL_ACTIONS as i64)?,
         })
     }
 
@@ -73,6 +72,9 @@ impl AgzActionModel {
                 // City actions go first, so no offset is added
                 let city_action_idx: usize = city_action.into();
 
+                debug_assert!(city_action_idx < POSSIBLE_CITY_ACTIONS);
+                debug_assert!(city_action_idx < TOTAL_ACTIONS);
+
                 self.actions
                     .train(&datum.features, &city_action_idx, target);
             } else {
@@ -80,7 +82,10 @@ impl AgzActionModel {
 
                 // We use the city action count as an offset since city actions go first
                 let raw_unit_action_idx: usize = unit_action.into();
-                let unit_action_idx: usize = possible_city_actions + raw_unit_action_idx;
+                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
+
+                debug_assert!(POSSIBLE_CITY_ACTIONS <= unit_action_idx);
+                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
 
                 self.actions
                     .train(&datum.features, &unit_action_idx, target);
@@ -106,7 +111,9 @@ impl AgzActionModel {
 
                 // We use the city action count as an offset since city actions go first
                 let raw_unit_action_idx: usize = unit_action.into();
-                let unit_action_idx: usize = possible_city_actions + raw_unit_action_idx;
+                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
+
+                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
 
                 self.actions.evaluate_tensor(features, &unit_action_idx)
             };
@@ -186,16 +193,21 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
             .actions
             .evaluate_tensors(&feats)
             .iter()
-            .enumerate()
+            .skip(POSSIBLE_CITY_ACTIONS) // ignore the city prefix
+            .enumerate() // enumerate now so we get unit action indices
             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(&i))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
             .unwrap()
             .0;
 
-        // Subtract the offset since city actions come before unit actions
-        let raw_unit_action_idx = unit_action_idx - possible_city_actions;
+        debug_assert!(
+            unit_action_idx < POSSIBLE_UNIT_ACTIONS,
+            "unit_action_idx {} not less than POSSIBLE_UNIT_ACTIONS {}",
+            unit_action_idx,
+            POSSIBLE_UNIT_ACTIONS
+        );
 
-        Some(NextUnitAction::try_from(raw_unit_action_idx).unwrap())
+        Some(NextUnitAction::try_from(unit_action_idx).unwrap())
     }
 }
 
