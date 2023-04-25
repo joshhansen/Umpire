@@ -496,17 +496,21 @@ async fn main() -> Result<(), String> {
                     let ai = ais.get_mut(player).unwrap();
 
                     let mut turn = ctrl.turn_ctrl(true).await;
-                    let mut turn_outcome =
-                        ai.borrow_mut().take_turn(&mut turn, generate_data).await;
+                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, generate_data).await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
                             player_partial_data.entry(player).or_insert_with(Vec::new);
-                        partial_data.append(turn_outcome.training_instances.as_mut().unwrap());
-                    }
 
-                    //TODO write the instance somewhere specific to the player so we can annotate it with
-                    //     victory/defeat/inconclusive after the game runs the specified episodes
+                        partial_data.extend(
+                            turn_outcome
+                                .training_instances
+                                .unwrap()
+                                .into_iter()
+                                // Keep a random subset of instances
+                                .filter(|_instance| rng.gen::<f64>() <= datagen_prob),
+                        );
+                    }
 
                     if verbosity > 1 {
                         if fix_output_loc && draw {
@@ -554,14 +558,11 @@ async fn main() -> Result<(), String> {
                     }
                 }
 
-                let mut instances: Vec<TrainingInstance> = player_partial_data
-                    .into_values()
-                    .flat_map(|values| values.into_iter())
-                    // Keep a random subset of instances
-                    .filter(|_instance| rng.gen::<f64>() <= datagen_prob)
-                    .collect();
-
-                all_instances.append(&mut instances);
+                all_instances.extend(
+                    player_partial_data
+                        .into_values()
+                        .flat_map(|values| values.into_iter()),
+                );
             }
 
             *victory_counts
