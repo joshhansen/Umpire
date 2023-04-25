@@ -483,13 +483,15 @@ async fn main() -> Result<(), String> {
             let mut player_partial_data: Option<HashMap<PlayerNum, Vec<TrainingInstance>>> =
                 datagenpath.map(|_| HashMap::new());
 
-            'steps: for _ in 0..steps {
+            'steps: for s in 0..steps {
                 for player in 0..num_ais {
                     let ctrl = &mut ctrls[player];
 
                     if ctrl.victor().await.is_some() {
                         break 'steps;
                     }
+
+                    let draw = s % 200 / 100 == player as u64;
 
                     let ai = ais.get_mut(player).unwrap();
 
@@ -507,7 +509,7 @@ async fn main() -> Result<(), String> {
                     //     victory/defeat/inconclusive after the game runs the specified episodes
 
                     if verbosity > 1 {
-                        if fix_output_loc {
+                        if fix_output_loc && draw {
                             // let (ctrl, _turn_start) =
                             //     game.player_turn_control_nonending(secrets[i]).unwrap();
 
