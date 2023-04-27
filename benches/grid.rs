@@ -4,7 +4,7 @@ extern crate criterion;
 use criterion::black_box;
 use criterion::Criterion;
 
-use umpire::{
+use umpire_workspace::common::{
     game::map::{terrain::Terrain, LocationGrid, Tile},
     util::Dims,
 };

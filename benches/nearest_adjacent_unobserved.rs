@@ -4,7 +4,7 @@ extern crate criterion;
 use criterion::black_box;
 use criterion::Criterion;
 
-use umpire::{
+use umpire_workspace::common::{
     game::{
         map::{
             dijkstra::nearest_adjacent_unobserved_reachable_without_attacking, terrain::Terrain,
@@ -32,6 +32,7 @@ fn bench_nearest_adjacent_unobserved_reachable_without_attacking(
                 tile: Tile::new(Terrain::Land, loc),
                 turn: 0,
                 current: false,
+                action_count: 0,
             }
         }
     });

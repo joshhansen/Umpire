@@ -3,7 +3,7 @@ extern crate criterion;
 
 use criterion::{BatchSize, Criterion};
 
-use common::{
+use umpire_workspace::common::{
     game::{
         map::{terrain::Terrain, MapData},
         unit::UnitType,
@@ -28,14 +28,20 @@ fn criterion_benchmark(c: &mut Criterion) {
 
                 let (game, secrets) = Game::new_with_map(map, 1, true, None, Wrap2d::BOTH);
 
-                let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
+                let unit_loc = game
+                    .player_unit_by_id(secrets[0], unit_id)
+                    .unwrap()
+                    .unwrap()
+                    .loc;
                 let dest = game
                     .wrapping()
                     .wrapped_add(game.dims(), unit_loc, Vec2d::new(5, 5))
                     .unwrap();
-                (game, unit_id, dest)
+                (game, secrets, unit_id, dest)
             },
-            |(game, unit_id, dest)| game.move_unit_by_id(*unit_id, *dest).unwrap(),
+            |(game, secrets, unit_id, dest)| {
+                game.move_unit_by_id(secrets[0], *unit_id, *dest).unwrap()
+            },
             BatchSize::SmallInput,
         )
     });

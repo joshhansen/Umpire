@@ -3,7 +3,7 @@ extern crate criterion;
 
 use criterion::Criterion;
 
-use umpire::{game::unit::orders::test_support::test_explore, util::Dims};
+use umpire_workspace::common::{game::unit::orders::test_support::test_explore, util::Dims};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let dims = Dims::new(10, 10);

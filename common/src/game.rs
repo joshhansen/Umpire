@@ -34,7 +34,6 @@ use uuid::Uuid;
 
 use crate::{
     game::{
-        alignment::Alignment,
         city::{City, CityID},
         combat::CombatCapable,
         error::GameError,
@@ -57,6 +56,8 @@ use crate::{
     name::{IntNamer, Namer},
     util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
 };
+
+pub use crate::game::alignment::Alignment;
 
 pub use self::player::{PlayerNum, PlayerType};
 

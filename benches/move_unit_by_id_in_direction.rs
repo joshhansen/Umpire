@@ -5,7 +5,7 @@ use criterion::{BatchSize, Criterion};
 
 use rand::{thread_rng, Rng};
 
-use umpire::{
+use umpire_workspace::common::{
     game::{
         map::{terrain::Terrain, MapData},
         unit::UnitType,
@@ -32,9 +32,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
                 let dir_idx = thread_rng().gen_range(0, 8);
                 let dir = Direction::values()[dir_idx];
-                (game, unit_id, dir)
+                (game, secrets, unit_id, dir)
             },
-            |(game, unit_id, dir)| game.move_unit_by_id_in_direction(*unit_id, *dir).unwrap(),
+            |(game, secrets, unit_id, dir)| {
+                game.move_unit_by_id_in_direction(secrets[0], *unit_id, *dir)
+                    .unwrap()
+            },
             BatchSize::SmallInput,
         )
     });

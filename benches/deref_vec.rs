@@ -5,7 +5,7 @@ use criterion::Criterion;
 
 use rsrl::DerefVec;
 
-use umpire::{
+use umpire_workspace::common::{
     game::Game,
     name::IntNamer,
     util::{Dims, Wrap2d},

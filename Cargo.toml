@@ -45,7 +45,9 @@ openblas-src = { version = "0.6.0", default-features = false, features = ["cblas
 travis-ci = { repository = "joshhansen/Umpire" }
 
 [dependencies]
-
+common = { path = "./common" }
+rand = { workspace = true }
+rsrl = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.3.1"

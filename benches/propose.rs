@@ -3,7 +3,7 @@ extern crate criterion;
 
 use criterion::Criterion;
 
-use umpire::{
+use umpire_workspace::common::{
     game::{test_support::game_two_cities_two_infantry, unit::UnitID},
     util::Location,
 };
@@ -14,7 +14,11 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let (game, secrets) = game_two_cities_two_infantry();
 
-    let unit_id: UnitID = game.unit_orders_requests().next().unwrap();
+    let unit_id: UnitID = game
+        .player_unit_orders_requests(secrets[0])
+        .unwrap()
+        .next()
+        .unwrap();
 
     // {
     //     let unit = game.current_player_unit_by_id(unit_id).unwrap();
@@ -23,7 +27,10 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     // let proposed_move = game.propose_move_unit_by_id(unit_id, dest).unwrap();
     c.bench_function("test_propose_move_unit_by_id", |b| {
-        b.iter(|| game.propose_move_unit_by_id(unit_id, dest).delta.unwrap())
+        b.iter(|| {
+            game.propose_move_unit_by_id(secrets[0], unit_id, dest)
+                .unwrap()
+        })
     });
 }
 

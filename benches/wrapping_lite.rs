@@ -4,7 +4,7 @@ extern crate criterion;
 use criterion::black_box;
 use criterion::Criterion;
 
-use umpire::util::{Dims, Location, Vec2d, Wrap, Wrap2d};
+use umpire_workspace::common::util::{Dims, Location, Vec2d, Wrap, Wrap2d};
 
 const DIM_WIDTH: u16 = 90;
 const DIMS: Dims = Dims::new(90, 90);

@@ -2959,7 +2959,10 @@ dependencies = [
 name = "umpire-workspace"
 version = "0.5.0-pre"
 dependencies = [
+ "common",
  "criterion",
+ "rand 0.7.3",
+ "rsrl",
 ]
 
 [[package]]
