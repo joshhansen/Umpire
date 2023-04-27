@@ -952,9 +952,6 @@ async fn main() -> anyhow::Result<()> {
 
     println!("Binding to {}", server_addr.0);
 
-    // JSON transport is provided by the json_transport tarpc module. It makes it easy
-    // to start up a serde-powered json serialization strategy over TCP.
-
     let mut listener = tarpc::serde_transport::tcp::listen(&server_addr, Bincode::default).await?;
 
     println!("Listening on port {}", listener.local_addr().port());
