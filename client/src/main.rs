@@ -161,14 +161,14 @@ async fn main() -> Result<(), String> {
     let local_server = matches.contains_id("players");
 
     let (game, secrets, num_players, dims, player_types) = if local_server {
-        let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap(); //FIXME take from server
+        let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
 
-        let num_players: PlayerNum = player_types.len(); //FIXME take from server
-        let map_width = matches.get_one::<u16>("map_width").unwrap().clone(); //FIXME take from server
-        let map_height = matches.get_one::<u16>("map_height").unwrap().clone(); //FIXME take from server
+        let num_players: PlayerNum = player_types.len();
+        let map_width = matches.get_one::<u16>("map_width").unwrap().clone();
+        let map_height = matches.get_one::<u16>("map_height").unwrap().clone();
 
-        let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone(); //FIXME take from server
-        let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone(); //FIXME take from server
+        let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone();
+        let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
 
         let map_dims: Dims = Dims::new(map_width, map_height);
         if (map_dims.area() as PlayerNum) < num_players {
