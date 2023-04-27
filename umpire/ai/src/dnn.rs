@@ -250,7 +250,7 @@ impl Loadable for DNN {
 }
 
 impl nn::ModuleT for DNN {
-    fn forward_t(&self, xs: &Tensor, _train: bool) -> Tensor {
+    fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
         let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
         // Wide featuers that will pass through to the dense layers directly
@@ -260,7 +260,7 @@ impl nn::ModuleT for DNN {
         let mut deep = split[1].view([1, BASE_CONV_FEATS, DEEP_WIDTH, DEEP_HEIGHT]);
 
         for conv in &self.convs {
-            deep = deep.apply(conv).relu();
+            deep = deep.apply(conv).relu().dropout(0.4, train);
         }
 
         // Reshape back to vector
@@ -286,13 +286,12 @@ impl nn::ModuleT for DNN {
         wide_and_deep
             .apply(&self.dense0)
             .relu()
-            // .dropout_(0.1, train)
+            // .dropout_(0.2, train)
             .apply(&self.dense1)
             .relu()
-            // .dropout_(0.1, train)
+            // .dropout_(0.2, train)
             .apply(&self.dense2)
             .sigmoid()
-        // .dropout_(0.1, train)
     }
 }
 
