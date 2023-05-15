@@ -475,4 +475,34 @@ mod test {
         );
         infantry.observe(&map, turn, action_count, Wrap2d::BOTH, &mut tracker);
     }
+
+    #[test]
+    pub fn test_num_observed() {
+        let mut tracker = ObsTracker::new(Dims::new(10, 1));
+        assert_eq!(tracker.num_observed(), 0);
+
+        tracker._track(
+            Location { x: 0, y: 0 },
+            Obs::Observed {
+                tile: Tile::new(Terrain::Land, Location { x: 0, y: 0 }),
+                turn: 0,
+                action_count: 0,
+                current: true,
+            },
+        );
+
+        assert_eq!(tracker.num_observed(), 1);
+
+        tracker._track(
+            Location { x: 0, y: 0 },
+            Obs::Observed {
+                tile: Tile::new(Terrain::Land, Location { x: 0, y: 0 }),
+                turn: 0,
+                action_count: 0,
+                current: true,
+            },
+        );
+
+        assert_eq!(tracker.num_observed(), 1);
+    }
 }
