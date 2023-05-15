@@ -21,6 +21,8 @@ use crossterm::{
 
 use futures;
 
+use rand::{seq::SliceRandom, thread_rng, Rng};
+
 use rsrl::{
     control::{td::QLearning, Controller},
     domains::{Action, Domain, Observation, State, Transition},
@@ -34,8 +36,6 @@ use rsrl::{
     spaces::{Card, Dim, Interval, ProductSpace, Space},
     OnlineLearner, SerialExperiment, Shared,
 };
-
-use rand::{seq::SliceRandom, thread_rng, Rng};
 
 use serde::{Deserialize, Serialize};
 
