@@ -376,7 +376,7 @@ impl PlayerObsTracker {
     pub fn track(&mut self, player: PlayerNum, loc: Location, obs: Obs) -> Result<Option<Obs>, ()> {
         let observations = self.player_observations.get_mut(&player).ok_or(())?;
 
-        Ok(observations.observations.replace(loc, obs))
+        Ok(observations._track(loc, obs))
     }
 
     pub fn tracker(&self, player: PlayerNum) -> Option<&ObsTracker> {
