@@ -370,9 +370,6 @@ async fn main() -> Result<(), String> {
         //     return Err(String::from("Only one set of dimensions can be given for evaluation"));
         // }
 
-        let map_width = dims[0].width;
-        let map_height = dims[0].height;
-
         let ai_specs_s: Vec<String> = sub_matches
             .get_many::<String>("ai_models")
             .unwrap()
@@ -411,18 +408,6 @@ async fn main() -> Result<(), String> {
 
         let num_ais = ais.len();
 
-        let mut map = if fix_output_loc {
-            let mut map = Map::new(
-                Rect::new(0, 2, map_width, map_height),
-                Dims::new(map_width, map_height),
-                false,
-            );
-            map.set_viewport_offset(Vec2d::new(0, 0));
-            Some(map)
-        } else {
-            None
-        };
-
         let palette = palette16(num_ais).unwrap();
 
         let print_results = |victory_counts: &HashMap<Option<PlayerNum>, usize>| {
@@ -445,6 +430,18 @@ async fn main() -> Result<(), String> {
             let mut rng = thread_rng();
 
             let map_dims = dims.choose(&mut rng).cloned().unwrap();
+
+            let map_width = map_dims.width;
+            let map_height = map_dims.height;
+
+            let mut map = if fix_output_loc {
+                let mut map = Map::new(Rect::new(0, 2, map_width, map_height), map_dims, false);
+                map.set_viewport_offset(Vec2d::new(0, 0));
+                Some(map)
+            } else {
+                None
+            };
+
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
             let (game, secrets) =
@@ -461,7 +458,7 @@ async fn main() -> Result<(), String> {
                 execute!(stdout, MoveTo(0, 0)).unwrap();
             }
 
-            println!("Evaluating: {:?} {:?} {:?}", ai_specs_s, wrapping, dims);
+            println!("Evaluating: {:?} {:?} {}", ai_specs_s, wrapping, map_dims);
 
             if verbosity > 1 {
                 if fix_output_loc {
