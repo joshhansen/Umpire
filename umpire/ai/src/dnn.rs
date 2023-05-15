@@ -149,8 +149,7 @@ impl DNN {
 
         let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
 
-        let loss: Tensor =
-            actual_estimate.binary_cross_entropy::<&Tensor>(&value_tensor, None, Reduction::None);
+        let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::None);
 
         debug_assert!(loss.device().is_cuda());
 
