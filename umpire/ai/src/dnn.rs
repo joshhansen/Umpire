@@ -290,7 +290,7 @@ impl nn::ModuleT for DNN {
             .relu()
             // .dropout_(0.2, train)
             .apply(&self.dense2)
-            .sigmoid()
+            .softplus()
     }
 }
 
