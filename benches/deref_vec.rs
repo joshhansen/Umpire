@@ -13,7 +13,7 @@ use umpire_workspace::common::{
 
 fn criterion_benchmark(c: &mut Criterion) {
     let city_namer = IntNamer::new("city");
-    let (game, secrets) = Game::new(Dims::new(190, 80), city_namer, 4, false, None, Wrap2d::BOTH);
+    let (game, _secrets) = Game::new(Dims::new(190, 80), city_namer, 4, false, None, Wrap2d::BOTH);
 
     c.bench_function("deref_vec", |b| {
         b.iter(|| {
