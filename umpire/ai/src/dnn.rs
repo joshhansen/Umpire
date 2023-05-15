@@ -48,6 +48,13 @@ pub struct DNNEncoding {
     varstore_bytes: Vec<u8>,
 }
 
+/// Approach: give all the info as raw as possible.
+///
+/// Use the neural network to extract features rather than proclaiming them a priori
+///
+/// Reduces 11x11 with 16 channels down to 3x3 with 16 channels
+///
+/// See `Obs::features` and `Game::player_features` for more information
 #[derive(Debug)]
 pub struct DNN {
     // path: nn::Path<'a>,
