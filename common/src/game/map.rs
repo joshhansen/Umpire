@@ -985,6 +985,18 @@ impl MapData {
             .ok_or(GameError::NoSuchPlayer { player })
     }
 
+    /// The number of non-neutral players having at least one city or unit
+    pub fn players(&self) -> usize {
+        let mut alignments: HashSet<Alignment> = HashSet::new();
+
+        alignments.extend(self.alignment_city_counts.keys());
+        alignments.extend(self.alignment_unit_type_counts.keys());
+
+        alignments.remove(&Alignment::Neutral);
+
+        alignments.len()
+    }
+
     pub fn iter_locs(&self) -> impl Iterator<Item = Location> {
         self.tiles.iter_locs()
     }

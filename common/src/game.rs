@@ -291,6 +291,20 @@ impl Game {
         (game, secrets)
     }
 
+    pub fn new_from_string(s: &'static str) -> Result<(Self, Vec<Uuid>), String> {
+        let map = MapData::try_from(s)?;
+
+        let players = map.players();
+
+        Ok(Self::new_with_map(
+            map,
+            players,
+            false,
+            None,
+            Wrap2d::NEITHER,
+        ))
+    }
+
     /// Set up a sharable game instance and return it and controls for each player
     pub async fn setup_with_map(
         map: MapData,

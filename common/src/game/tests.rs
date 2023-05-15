@@ -21,6 +21,8 @@ use crate::{
     util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
 };
 
+use super::ai::TrainingFocus;
+
 #[test]
 fn test_game() {
     let (mut game, secrets) = game_two_cities_two_infantry();
@@ -1603,4 +1605,104 @@ pub fn test_refuel_in_city() {
             remaining: max
         }
     );
+}
+
+#[test]
+pub fn test_player_feature_playernum_invariance() {
+    // Make sure the feature vector only considers friendly/enemy relations, not
+    // player number itself
+
+    // For units
+    {
+        let (mut game0, secrets0) = Game::new_from_string("i   I").unwrap();
+
+        let (mut game1, secrets1) = Game::new_from_string("I   i").unwrap();
+
+        let loc0 = Location::new(0, 0);
+        let loc1 = Location::new(4, 0);
+
+        game0.begin_turn(secrets0[0], false).unwrap();
+
+        game1.begin_turn(secrets1[0], false).unwrap();
+
+        game0.force_end_turn(secrets0[0]).unwrap();
+
+        game1.force_end_turn(secrets1[0]).unwrap();
+
+        game0.begin_turn(secrets0[1], false).unwrap();
+
+        game1.begin_turn(secrets1[1], false).unwrap();
+
+        assert_eq!(
+            game0
+                .player_toplevel_unit_by_loc(secrets0[0], loc0)
+                .unwrap()
+                .unwrap()
+                .alignment,
+            game1
+                .player_toplevel_unit_by_loc(secrets1[0], loc1)
+                .unwrap()
+                .unwrap()
+                .alignment,
+            "Units 0 have same alignment"
+        );
+
+        assert_eq!(
+            game0
+                .player_toplevel_unit_by_loc(secrets0[1], loc1)
+                .unwrap()
+                .unwrap()
+                .alignment,
+            game1
+                .player_toplevel_unit_by_loc(secrets1[1], loc0)
+                .unwrap()
+                .unwrap()
+                .alignment,
+            "Units 1 have same alignment"
+        );
+
+        for player in 0..=1 {
+            assert_eq!(
+                game0
+                    .player_observations(secrets0[player])
+                    .unwrap()
+                    .num_observed(),
+                game1
+                    .player_observations(secrets1[player])
+                    .unwrap()
+                    .num_observed(),
+                "Player {} obs counts mismatch",
+                player
+            );
+        }
+
+        // These counts should be the same because the two units occupy identical positions in their game
+        assert_eq!(
+            game0
+                .player_observations(secrets0[0])
+                .unwrap()
+                .num_observed(),
+            game1
+                .player_observations(secrets1[1])
+                .unwrap()
+                .num_observed(),
+            "Game 0 player 0 and game 1 player 1 obs count mismatch"
+        );
+
+        let v0 = game0
+            .player_features(secrets0[0], TrainingFocus::Unit)
+            .unwrap();
+
+        let v1 = game1
+            .player_features(secrets1[1], TrainingFocus::Unit)
+            .unwrap();
+
+        assert_eq!(v0, v1);
+    }
+
+    // // For cities
+    // {
+    //     let game2 = Game::try_from("0   1").unwrap();
+    //     let game3 = Game::try_from("1   0").unwrap();
+    // }
 }
