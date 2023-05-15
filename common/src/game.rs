@@ -2386,38 +2386,13 @@ impl Game {
     ///
     /// # 25: 1d features
     /// * 1: current turn
-    /// * 1: current player city count
-    /// * 1: number of tiles observed by current player
-    /// * 1: percentage of tiles observed by current player
+    /// * 1: player city count
+    /// * 1: number of tiles observed by player
+    /// * 1: percentage of tiles observed by player
     /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
     /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
     ///                                                     submarines, cruisers, battleships, carriers)
-    /// # 484: 2d features, four layers
-    /// * 121: is_enemy_belligerent (11x11)
-    /// * 121: is_observed (11x11)
-    /// * 121: is_neutral (11x11)
-    /// * 121: is_city (11x11)
-    ///
-    /// Ideas: give all the info as raw as possible.
-    /// Use the neural network to extract features rather than proclaiming them a priori
-    /// For a tile:
-    ///
-    /// - known to be land (0 or 1)
-    /// - known to be sea (0 or 1)
-    /// - known to have city (0 or 1)
-    /// - known to have unit of type - 10 bits (one hot encoded)
-    /// - carried_units - count
-    /// - city/unit friendly - 1 bit
-    /// - city/unit non-friendly - 1 bit (separate to allow unobserved to be neither friendly nor unfriendly)
-    ///
-    /// 16 "channels" per tile to start
-    ///
-    /// Convolve down from 11x11 to 1x1; then concat with wide feats and pass to dense layers
-    ///
-    /// 11 * 16 + 25 = 201
-    ///
-    /// This should really reduce the model's size, while hopefully giving it a more integrated
-    /// view of the map.
+    /// # 1936: 2d features, 11x11, 16 channels
     pub fn player_features(
         &self,
         player_secret: PlayerSecret,
