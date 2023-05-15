@@ -92,3 +92,10 @@
 * UI themes: colors, symbols, maybe layouts
 * Name generation: use a generative model to produce novel names for
   cities, units, nations, etc. See https://github.com/Tw1ddle/MarkovNameGenerator for ideas
+* Additional unit types:
+ - hypersonic missiles
+ - anti-ship missiles
+ - anti-ship ballistic missiles
+ - unmanned aerial vehicles
+  + not player controllable; use different quality AIs to run
+ - amphibious assault ships
