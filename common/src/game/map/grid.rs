@@ -135,6 +135,10 @@ impl<T: fmt::Display> fmt::Display for LocationGrid<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut prev_y: Option<u16> = None;
         for loc in self.dims.iter_locs() {
+            if prev_y.is_some() {
+                write!(f, " ")?;
+            }
+
             Display::fmt(&self[loc], f)?;
 
             if let Some(y) = prev_y {
