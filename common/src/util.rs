@@ -662,6 +662,30 @@ pub fn indicator(b: bool) -> fX {
     }
 }
 
+pub fn weighted_sample_idx<R: Rng>(rand: &mut R, weighted_indices: &Vec<(usize, f64)>) -> usize {
+    debug_assert!(weighted_indices.iter().all(|(_i, weight)| *weight >= 0.0));
+
+    // println!("weighted sampling: {:?}", weighted_indices);
+    let total: f64 = weighted_indices.iter().map(|(_i, weight)| *weight).sum();
+
+    let x: f64 = rand.gen::<f64>() * total;
+
+    let mut sum_so_far = 0.0;
+
+    for (i, weight) in weighted_indices {
+        sum_so_far += *weight;
+
+        if sum_so_far >= x {
+            return *i;
+        }
+    }
+
+    unreachable!(
+        "Something's messed up in the weighted sampling: {:?}",
+        weighted_indices
+    );
+}
+
 #[cfg(test)]
 mod test {
     use crate::game::map::dijkstra::RELATIVE_NEIGHBORS;
