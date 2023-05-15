@@ -260,12 +260,16 @@ impl ObsTracker {
     }
 
     fn _track(&mut self, loc: Location, obs: Obs) -> Option<Obs> {
+        let new_is_unobserved = obs == Obs::Unobserved;
         let old = self.observations.replace(loc, obs);
 
         // Since we are always replacing with an Obs::Observed, the number observed will go up as long as there was
         // nothing or unobserved there previously
         if old.is_none() || old == Some(Obs::Unobserved) {
             self.num_observed += 1;
+        } else if new_is_unobserved {
+            // If there _was_ an observation, but now we're setting unobserved, decrease the count
+            self.num_observed -= 1;
         }
 
         old
