@@ -11,11 +11,14 @@ use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use tch::{Device, Tensor};
 
-use common::game::{
-    action::{AiPlayerAction, NextCityAction, NextUnitAction},
-    ai::{TrainingFocus, TrainingOutcome},
-    player::PlayerTurn,
-    turn_async::ActionwiseTurnTaker2,
+use common::{
+    game::{
+        action::{AiPlayerAction, NextCityAction, NextUnitAction},
+        ai::{fX, TrainingFocus, TrainingOutcome},
+        player::PlayerTurn,
+        turn_async::ActionwiseTurnTaker2,
+    },
+    util::weighted_sample_idx,
 };
 
 use crate::{dnn::DNN, Loadable, LoadableFromBytes, Storable, StorableAsBytes};
@@ -159,16 +162,25 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
+        let probs = self.actions.evaluate_tensors(&feats);
+
         // No offset is subtracted because city actions go first
-        let city_action_idx = self
-            .actions
-            .evaluate_tensors(&feats)
-            .iter()
-            .enumerate()
+        let city_action_probs: Vec<(usize, fX)> = probs
+            .into_iter()
+            .enumerate() // enumerating yields city action indices because city actions go first
             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(i))
-            .max_by(|(_, a), (_, b)| a.total_cmp(b))
-            .unwrap()
-            .0;
+            .collect();
+
+        let mut rng = thread_rng();
+
+        let city_action_idx = weighted_sample_idx(&mut rng, &city_action_probs);
+
+        debug_assert!(
+            city_action_idx < POSSIBLE_CITY_ACTIONS,
+            "city_action_idx {} not less than POSSIBLE_CITY_ACTIONS {}",
+            city_action_idx,
+            POSSIBLE_CITY_ACTIONS
+        );
 
         Some(NextCityAction::try_from(city_action_idx).unwrap())
     }
@@ -189,16 +201,18 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
 
-        let unit_action_idx = self
+        let unit_action_probs: Vec<(usize, fX)> = self
             .actions
             .evaluate_tensors(&feats)
-            .iter()
+            .into_iter()
             .skip(POSSIBLE_CITY_ACTIONS) // ignore the city prefix
             .enumerate() // enumerate now so we get unit action indices
             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(&i))
-            .max_by(|(_, a), (_, b)| a.total_cmp(b))
-            .unwrap()
-            .0;
+            .collect();
+
+        let mut rng = thread_rng();
+
+        let unit_action_idx = weighted_sample_idx(&mut rng, &unit_action_probs);
 
         debug_assert!(
             unit_action_idx < POSSIBLE_UNIT_ACTIONS,
