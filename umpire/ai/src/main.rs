@@ -9,13 +9,7 @@
 
 #![forbid(unsafe_code)]
 use std::{
-    cell::RefCell,
-    collections::HashMap,
-    fs::File,
-    io::{stdout, Write},
-    path::Path,
-    rc::Rc,
-    sync::Arc,
+    cell::RefCell, collections::HashMap, fs::File, io::stdout, path::Path, rc::Rc, sync::Arc,
 };
 
 use clap::{value_parser, Arg, ArgAction, Command};
@@ -576,9 +570,11 @@ async fn main() -> Result<(), String> {
 
         if generate_data {
             // Write the training instances
-            let data = bincode::serialize(&all_instances).unwrap();
+            let mut w = data_outfile.as_mut().unwrap();
 
-            data_outfile.as_mut().unwrap().write_all(&data).unwrap();
+            for instance in all_instances {
+                bincode::serialize_into(&mut w, &instance).unwrap();
+            }
         }
     } else if subcommand == SUBCMD_QTRAIN {
         // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
@@ -713,9 +709,24 @@ async fn main() -> Result<(), String> {
                         println!("Loading {}", input_path);
                     }
 
-                    let r = File::open(input_path).unwrap();
+                    let data = {
+                        let mut r = File::open(input_path).unwrap();
 
-                    let data: Vec<TrainingInstance> = bincode::deserialize_from(r).unwrap();
+                        let mut data: Vec<TrainingInstance> = Vec::new();
+
+                        loop {
+                            let maybe_instance: bincode::Result<TrainingInstance> =
+                                bincode::deserialize_from(&mut r);
+
+                            if let Ok(instance) = maybe_instance {
+                                data.push(instance);
+                            } else {
+                                break;
+                            }
+                        }
+                        data
+                    };
+
                     data.into_iter()
                         .filter(move |_| rng.gen::<f64>() <= sample_prob)
                         .map(|datum| {
