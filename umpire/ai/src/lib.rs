@@ -294,9 +294,9 @@ impl AI {
     async fn _take_turn_unended(
         &mut self,
         game: &mut PlayerTurn<'_>,
-        generate_data: bool,
+        datagen_prob: Option<f64>,
     ) -> TurnOutcome {
-        let mut training_instances = if generate_data {
+        let mut training_instances = if datagen_prob.is_some() {
             Some(Vec::new())
         } else {
             None
@@ -311,7 +311,7 @@ impl AI {
             // post_score: f64,// the player's score after the action
             // outcome: TrainingOutcome,// how did things work out for the player?
 
-            let (num_features, features, pre_score) = if generate_data {
+            let (num_features, features, pre_score) = if datagen_prob.is_some() {
                 let features = game
                     .player_features(TrainingFocus::UnitIfExistsElseCity)
                     .await;
@@ -333,18 +333,20 @@ impl AI {
 
             game.take_simple_action(action).await.unwrap();
 
-            if generate_data {
-                let post_score = game.player_score().await.unwrap();
-                training_instances.as_mut().map(|v| {
-                    v.push(TrainingInstance::undetermined(
-                        player,
-                        num_features.unwrap(),
-                        features.unwrap(),
-                        pre_score.unwrap(),
-                        action,
-                        post_score,
-                    ));
-                });
+            if let Some(datagen_prob) = datagen_prob {
+                if rand::random::<f64>() <= datagen_prob {
+                    let post_score = game.player_score().await.unwrap();
+                    training_instances.as_mut().map(|v| {
+                        v.push(TrainingInstance::undetermined(
+                            player,
+                            num_features.unwrap(),
+                            features.unwrap(),
+                            pre_score.unwrap(),
+                            action,
+                            post_score,
+                        ));
+                    });
+                }
             }
         }
 
@@ -357,14 +359,14 @@ impl AI {
 
 #[async_trait]
 impl TurnTakerAsync for AI {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, generate_data: bool) -> TurnOutcome {
+    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
         match self {
-            Self::Random(ai) => ai.take_turn(turn, generate_data).await,
-            Self::LFA(_fa) => self._take_turn_unended(turn, generate_data).await,
+            Self::Random(ai) => ai.take_turn(turn, datagen_prob).await,
+            Self::LFA(_fa) => self._take_turn_unended(turn, datagen_prob).await,
             #[cfg(feature = "pytorch")]
-            Self::DNN(_fa) => self._take_turn_unended(turn, generate_data).await,
+            Self::DNN(_fa) => self._take_turn_unended(turn, datagen_prob).await,
             #[cfg(feature = "pytorch")]
-            Self::AGZ(agz) => agz.lock().await.take_turn(turn, generate_data).await,
+            Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob).await,
         }
     }
 }

@@ -325,7 +325,7 @@ async fn main() -> Result<(), String> {
 
                 match &player_types[player] {
                     PlayerType::Human => {
-                        let turn_outcome = ui.take_turn(&mut turn, false).await;
+                        let turn_outcome = ui.take_turn(&mut turn, None).await;
                         assert!(turn_outcome.training_instances.is_none());
 
                         if turn_outcome.quit {
@@ -338,7 +338,7 @@ async fn main() -> Result<(), String> {
                             .get_mut(ai_type)
                             .unwrap()
                             .borrow_mut()
-                            .take_turn(&mut turn, false)
+                            .take_turn(&mut turn, None)
                             .await;
                         assert!(turn_outcome.training_instances.is_none());
 

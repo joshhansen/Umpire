@@ -1024,8 +1024,8 @@ impl UI for TermUI {
 
 #[async_trait]
 impl TurnTaker for TermUI {
-    async fn take_turn(&mut self, ctrl: &mut PlayerTurn, generate_data: bool) -> TurnOutcome {
-        if generate_data {
+    async fn take_turn(&mut self, ctrl: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+        if datagen_prob.is_some() {
             eprintln!("TermUI doesn't generate training data but generate_data was true");
             //FIXME Code smell: refused bequest
         }

@@ -384,9 +384,13 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        let datagen_prob = sub_matches.get_one::<f64>("datagenprob").cloned().unwrap();
-
         let generate_data = datagenpath.is_some();
+
+        let datagen_prob = if generate_data {
+            Some(sub_matches.get_one::<f64>("datagenprob").cloned().unwrap())
+        } else {
+            None
+        };
 
         let mut data_outfile = datagenpath.map(|datagenpath| File::create(datagenpath).unwrap());
 
@@ -487,20 +491,14 @@ async fn main() -> Result<(), String> {
                     let ai = ais.get_mut(player).unwrap();
 
                     let mut turn = ctrl.turn_ctrl(true).await;
-                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, generate_data).await;
+
+                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, datagen_prob).await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
                             player_partial_data.entry(player).or_insert_with(Vec::new);
 
-                        partial_data.extend(
-                            turn_outcome
-                                .training_instances
-                                .unwrap()
-                                .into_iter()
-                                // Keep a random subset of instances
-                                .filter(|_instance| rng.gen::<f64>() <= datagen_prob),
-                        );
+                        partial_data.extend(turn_outcome.training_instances.unwrap().into_iter());
                     }
 
                     if verbosity > 1 {

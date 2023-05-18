@@ -29,7 +29,7 @@ pub trait TurnTakerSuperuser {
         player: PlayerNum,
         secret: PlayerSecret,
         clear_after_unit_production: bool,
-        generate_data: bool,
+        datagen_prob: Option<f64>,
     ) -> TurnOutcome;
 }
 
@@ -40,7 +40,7 @@ pub trait TurnTakerDIY {
         &mut self,
         player: &mut PlayerControl,
         clear_after_unit_production: bool,
-        generate_data: bool,
+        datagen_prob: Option<f64>,
     ) -> TurnOutcome;
 }
 
@@ -48,7 +48,7 @@ pub trait TurnTakerDIY {
 /// for you.
 #[async_trait]
 pub trait TurnTaker {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, generate_data: bool) -> TurnOutcome;
+    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome;
 }
 
 /// Implements TurnTaker by indicating the next action the player should take, if any
@@ -59,25 +59,21 @@ pub trait ActionwiseTurnTaker {
 
 #[async_trait]
 impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, generate_data: bool) -> TurnOutcome {
-        let mut training_instances = if generate_data {
-            Some(Vec::new())
-        } else {
-            None
-        };
+    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+        let mut training_instances = datagen_prob.map(|_| Vec::new());
 
         let player = turn.current_player().await;
         let turn_num = turn.turn().await;
 
         loop {
-            let pre_score = if generate_data {
+            let pre_score = if let Some(_) = datagen_prob {
                 Some(turn.player_score().await.unwrap())
             } else {
                 None
             };
 
             if let Some(action) = self.next_action(turn).await {
-                let (num_features, features) = if generate_data {
+                let (num_features, features) = if let Some(_) = datagen_prob {
                     // Determine if the spatial features should focus on the next city or the next unit
                     let focus = if NextCityAction::try_from(action).is_ok() {
                         TrainingFocus::City
@@ -94,19 +90,21 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                 // If an action was specified...
                 turn.take_simple_action(action).await.unwrap();
 
-                if generate_data {
+                if let Some(datagen_prob) = datagen_prob {
                     let post_score = turn.player_score().await.unwrap();
 
-                    training_instances.as_mut().map(|v| {
-                        v.push(TrainingInstance::undetermined(
-                            player,
-                            num_features.unwrap(),
-                            features.unwrap(),
-                            pre_score.unwrap(),
-                            action,
-                            post_score,
-                        ));
-                    });
+                    if rand::random::<f64>() <= datagen_prob {
+                        training_instances.as_mut().map(|v| {
+                            v.push(TrainingInstance::undetermined(
+                                player,
+                                num_features.unwrap(),
+                                features.unwrap(),
+                                pre_score.unwrap(),
+                                action,
+                                post_score,
+                            ));
+                        });
+                    }
                 }
             }
 
@@ -149,11 +147,11 @@ impl<T: TurnTaker + Send> TurnTakerDIY for T {
         &mut self,
         player: &mut PlayerControl,
         clear_after_unit_production: bool,
-        generate_data: bool,
+        datagen_prob: Option<f64>,
     ) -> TurnOutcome {
         let mut turn = player.turn_ctrl(clear_after_unit_production).await;
 
-        let outcome = <Self as TurnTaker>::take_turn(self, &mut turn, generate_data).await;
+        let outcome = <Self as TurnTaker>::take_turn(self, &mut turn, datagen_prob).await;
 
         turn.force_end_turn().await.unwrap();
 
@@ -169,7 +167,7 @@ impl<T: TurnTakerDIY + Send> TurnTakerSuperuser for T {
         player: PlayerNum,
         secret: PlayerSecret,
         clear_after_unit_production: bool,
-        generate_data: bool,
+        datagen_prob: Option<f64>,
     ) -> TurnOutcome {
         let mut ctrl = PlayerControl::new(game, player, secret).await;
 
@@ -177,7 +175,7 @@ impl<T: TurnTakerDIY + Send> TurnTakerSuperuser for T {
             self,
             &mut ctrl,
             clear_after_unit_production,
-            generate_data,
+            datagen_prob,
         )
         .await
     }
