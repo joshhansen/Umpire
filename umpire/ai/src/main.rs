@@ -62,10 +62,18 @@ fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
 }
 
 fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>, String> {
+    let mut unique_ais: HashMap<AISpec, Rc<RefCell<AI>>> = HashMap::new();
+
+    for ai_type in ai_types {
+        unique_ais.entry(ai_type.clone()).or_insert_with(|| {
+            let ai: AI = ai_type.clone().into();
+            Rc::new(RefCell::new(ai))
+        });
+    }
+
     let mut ais: Vec<Rc<RefCell<AI>>> = Vec::with_capacity(ai_types.len());
     for ai_type in ai_types {
-        let ai: AI = ai_type.clone().into();
-        let ai = Rc::new(RefCell::new(ai));
+        let ai: Rc<RefCell<AI>> = Rc::clone(&unique_ais[ai_type]);
         ais.push(ai);
     }
     Ok(ais)
