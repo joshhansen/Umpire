@@ -21,7 +21,7 @@ use crossterm::{
 };
 
 #[cfg(feature = "pytorch")]
-use tch::{Device, Tensor};
+use tch::{no_grad_guard, Device, NoGradGuard, Tensor};
 
 #[cfg(feature = "pytorch")]
 use umpire_ai::agz::{AgzActionModel, AgzDatum};
@@ -69,6 +69,13 @@ fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>, String> {
         ais.push(ai);
     }
     Ok(ais)
+}
+
+enum MaybeNoGradGuard {
+    #[cfg(feature = "pytorch")]
+    NGG(NoGradGuard),
+
+    None,
 }
 
 static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
@@ -363,6 +370,16 @@ async fn main() -> Result<(), String> {
         // if dims.len() > 1 {
         //     return Err(String::from("Only one set of dimensions can be given for evaluation"));
         // }
+
+        // When pytorch is enabled, we store the no grad guard here to reduce memory usage
+        // Basically this omits all backprop functionality from residing in memory
+        // Okay since we don't train in the eval subcommand
+        let mut _ngg = MaybeNoGradGuard::None;
+
+        #[cfg(feature = "pytorch")]
+        {
+            _ngg = MaybeNoGradGuard::NGG(no_grad_guard());
+        }
 
         let ai_specs_s: Vec<String> = sub_matches
             .get_many::<String>("ai_models")
