@@ -164,7 +164,7 @@ impl DNN {
     }
 
     pub fn evaluate_tensors(&self, features: &Tensor) -> Vec<f64> {
-        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
+        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, false);
 
         debug_assert!(result_tensor.device().is_cuda());
 
@@ -172,7 +172,7 @@ impl DNN {
     }
 
     pub fn evaluate_tensor(&self, features: &Tensor, action: &usize) -> f64 {
-        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, true);
+        let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, false);
 
         debug_assert!(result_tensor.device().is_cuda());
 
