@@ -177,7 +177,7 @@ mod test {
 
             for _ in 0..1000 {
                 let mut turn = ctrl.turn_ctrl(true).await;
-                ai.take_turn(&mut turn, false).await;
+                ai.take_turn(&mut turn, None).await;
                 turn.force_end_turn().await.unwrap();
             }
         }
@@ -198,7 +198,7 @@ mod test {
                     {
                         let mut turn = ctrl.turn_ctrl(true).await;
 
-                        ai.take_turn(&mut turn, false).await;
+                        ai.take_turn(&mut turn, None).await;
 
                         turn.force_end_turn().await.unwrap();
                     }
@@ -255,7 +255,7 @@ mod test {
                 let ctrl = &mut ctrls[1];
                 let mut turn = ctrl.turn_ctrl(true).await;
 
-                ai.take_turn(&mut turn, false).await;
+                ai.take_turn(&mut turn, None).await;
 
                 turn.force_end_turn().await.unwrap();
             }
