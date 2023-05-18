@@ -421,7 +421,6 @@ async fn main() -> Result<(), String> {
         };
 
         let mut victory_counts: HashMap<Option<PlayerNum>, usize> = HashMap::new();
-        let mut all_instances: Vec<TrainingInstance> = Vec::new();
         for _ in 0..episodes {
             let city_namer = IntNamer::new("city");
 
@@ -547,11 +546,17 @@ async fn main() -> Result<(), String> {
                     }
                 }
 
-                all_instances.extend(
-                    player_partial_data
+                if generate_data {
+                    // Write the training instances
+                    let mut w = data_outfile.as_mut().unwrap();
+
+                    for instance in player_partial_data
                         .into_values()
-                        .flat_map(|values| values.into_iter()),
-                );
+                        .flat_map(|values| values.into_iter())
+                    {
+                        bincode::serialize_into(&mut w, &instance).unwrap();
+                    }
+                }
             }
 
             *victory_counts
@@ -565,15 +570,6 @@ async fn main() -> Result<(), String> {
         execute!(stdout, LeaveAlternateScreen).unwrap();
 
         print_results(&victory_counts);
-
-        if generate_data {
-            // Write the training instances
-            let mut w = data_outfile.as_mut().unwrap();
-
-            for instance in all_instances {
-                bincode::serialize_into(&mut w, &instance).unwrap();
-            }
-        }
     } else if subcommand == SUBCMD_QTRAIN {
         // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
 
