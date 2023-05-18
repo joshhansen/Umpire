@@ -21,6 +21,7 @@ homepage = "https://github.com/joshhansen/Umpire"
 
 [workspace]
 members = ["common", "client", "server", "umpire/ai", "umpire/tui"]
+default-members = ["client"]
 
 [workspace.dependencies]
 anyhow = "1.0"
@@ -48,6 +49,8 @@ travis-ci = { repository = "joshhansen/Umpire" }
 common = { path = "./common" }
 rand = { workspace = true }
 rsrl = { workspace = true }
+tokio = { workspace = true }
+umpire-ai = { path = "./umpire/ai" }
 
 [dev-dependencies]
 criterion = "0.3.1"

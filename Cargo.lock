@@ -2963,6 +2963,8 @@ dependencies = [
  "criterion",
  "rand 0.7.3",
  "rsrl",
+ "tokio",
+ "umpire-ai",
 ]
 
 [[package]]
