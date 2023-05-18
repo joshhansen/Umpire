@@ -168,7 +168,7 @@ impl DNN {
 
         debug_assert!(result_tensor.device().is_cuda());
 
-        result_tensor.into()
+        result_tensor.try_into().unwrap()
     }
 
     pub fn evaluate_tensor(&self, features: &Tensor, action: &usize) -> f64 {
