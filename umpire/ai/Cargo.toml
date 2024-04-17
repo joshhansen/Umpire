@@ -30,6 +30,7 @@ rsrl = { workspace = true }
 # BLAS for rsrl
 blas-src = { workspace = true }
 openblas-src = { workspace = true }
+burn = { version = "0.13.0", default-features = false, features = ["wgpu", "std", "fusion", "autotune"] }
 
 [features]
 default = []
