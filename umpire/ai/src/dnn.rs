@@ -1,5 +1,7 @@
 use std::{fmt, fs::File, io::Cursor, path::Path};
 
+use burn::{module::Module, nn};
+
 use rsrl::{
     fa::{EnumerableStateActionFunction, StateActionFunction},
     DerefVec,
@@ -8,11 +10,6 @@ use rsrl::{
 use serde::{
     de::{self, Visitor},
     Deserialize, Serialize,
-};
-
-use tch::{
-    nn::{self, ModuleT, Optimizer, OptimizerConfig},
-    Device, Reduction, Tensor,
 };
 
 use common::game::{
@@ -55,13 +52,13 @@ pub struct DNNEncoding {
 /// Reduces 11x11 with 16 channels down to 3x3 with 16 channels
 ///
 /// See `Obs::features` and `Game::player_features` for more information
-#[derive(Debug)]
-pub struct DNN {
+#[derive(Debug, Module)]
+pub struct DNN<B: Backend> {
     // path: nn::Path<'a>,
     learning_rate: f64,
     possible_actions: i64,
     vars: nn::VarStore,
-    convs: Vec<nn::Conv2D>,
+    convs: Vec<nn::conv::Conv2D>,
     dense0: nn::Linear,
     dense1: nn::Linear,
     dense2: nn::Linear,
