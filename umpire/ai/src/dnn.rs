@@ -1,6 +1,6 @@
 use std::{fmt, fs::File, io::Cursor, path::Path};
 
-use burn::{module::Module, nn};
+use burn::{module::Module, nn, optim::Optimizer, prelude::*};
 
 use rsrl::{
     fa::{EnumerableStateActionFunction, StateActionFunction},
@@ -54,15 +54,12 @@ pub struct DNNEncoding {
 /// See `Obs::features` and `Game::player_features` for more information
 #[derive(Debug, Module)]
 pub struct DNN<B: Backend> {
-    // path: nn::Path<'a>,
     learning_rate: f64,
     possible_actions: i64,
-    vars: nn::VarStore,
-    convs: Vec<nn::conv::Conv2D>,
-    dense0: nn::Linear,
-    dense1: nn::Linear,
-    dense2: nn::Linear,
-    optimizer: Optimizer,
+    convs: Vec<nn::conv::Conv2d<B>>,
+    dense0: nn::Linear<B>,
+    dense1: nn::Linear<B>,
+    dense2: nn::Linear<B>,
 }
 
 impl DNN {
@@ -79,20 +76,10 @@ impl DNN {
             .to_device(self.vars.device())
     }
 
-    pub fn new(device: Device, learning_rate: f64, possible_actions: i64) -> Result<Self, String> {
-        let vars = nn::VarStore::new(device);
-
-        Self::with_varstore(vars, learning_rate, possible_actions)
-    }
-
     /// Two variables must be set:
     /// * `learning_rate`: the DNN learning rate, f64
     /// * `possible_actions`: the number of values to predict among, i64
-    pub fn with_varstore(
-        vars: nn::VarStore,
-        learning_rate: f64,
-        possible_actions: i64,
-    ) -> Result<Self, String> {
+    pub fn new(device: Device, learning_rate: f64, possible_actions: i64) -> Result<Self, String> {
         let path = vars.root();
 
         let convs = vec![
@@ -137,7 +124,6 @@ impl DNN {
         Ok(Self {
             learning_rate,
             possible_actions,
-            vars,
             convs,
             dense0,
             dense1,
