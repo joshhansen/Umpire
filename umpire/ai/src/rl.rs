@@ -744,6 +744,7 @@ fn agent(
     })
 }
 
+#[deprecated]
 pub fn trained_agent(
     initialize_from: AI,
     deep: bool,
@@ -882,121 +883,4 @@ fn legal_argmaxima(vals: &[f64], legal_indices: &[usize]) -> (f64, Vec<usize>) {
     // debug_assert!(!ixs.is_empty(), "Found no legal argmaxima. vals: {:?}, legal_indices: {:?}, max: {}, ixs: {:?}", vals, legal_indices, max, ixs);
 
     (max, ixs)
-}
-
-#[cfg(test)]
-mod test {
-    use std::collections::{HashMap, HashSet};
-
-    use rand::thread_rng;
-
-    use rsrl::{control::Controller, domains::Domain};
-
-    use common::{
-        game::{
-            alignment::Alignment,
-            map::{MapData, Terrain},
-            unit::UnitType,
-            Game,
-        },
-        util::{Dims, Direction, Location, Wrap2d},
-    };
-
-    use crate::{
-        rl::{trained_agent, AiPlayerAction, UmpireDomain},
-        AI,
-    };
-
-    #[test]
-    fn test_ai_movement() {
-        let n = 10_000;
-
-        let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
-        let _unit_id = map
-            .new_unit(
-                Location::new(5, 5),
-                UnitType::Infantry,
-                Alignment::Belligerent { player: 0 },
-                "Aragorn",
-            )
-            .unwrap();
-
-        let mut directions: HashSet<Direction> = Direction::values().iter().cloned().collect();
-
-        let mut counts: HashMap<AiPlayerAction, usize> = HashMap::new();
-
-        let (game, secrets) = Game::new_with_map(map, 1, false, None, Wrap2d::BOTH);
-
-        let agent = trained_agent(
-            AI::random(0, false),
-            false,
-            secrets.len(),
-            vec![Dims::new(10, 10)],
-            vec![Wrap2d::BOTH],
-            10,
-            50,
-            0.05,
-            0.90,
-            0.05,
-            0.999,
-            0.0001,
-            0.2,
-            0.001,
-            false,
-            false,
-            true,
-            0,
-            None,
-            std::f64::NAN,
-        )
-        .unwrap();
-
-        let mut domain =
-            UmpireDomain::from_game(game.clone(), secrets.clone(), false, 0, None, std::f64::NAN)
-                .unwrap();
-
-        let mut rng = thread_rng();
-        for _ in 0..n {
-            // Reinitialize when somebody wins
-            if domain.game.victor().is_some() {
-                domain = UmpireDomain::from_game(
-                    game.clone(),
-                    secrets.clone(),
-                    false,
-                    0,
-                    None,
-                    std::f64::NAN,
-                )
-                .unwrap();
-            }
-
-            let idx = agent.sample_behaviour(&mut rng, domain.emit().state());
-
-            domain.step(idx);
-
-            let action = AiPlayerAction::from_idx(idx).unwrap();
-
-            println!("Action: {:?}", action);
-
-            *counts.entry(action).or_insert(0) += 1;
-
-            if let AiPlayerAction::MoveNextUnit { direction } = action {
-                directions.remove(&direction);
-            }
-        }
-
-        assert!(
-            directions.is_empty(),
-            "AI is failing to explore in these directions over {} steps: {}\nCounts: {}",
-            n,
-            directions
-                .iter()
-                .map(|dir| format!("{:?} ", dir))
-                .collect::<String>(),
-            counts
-                .iter()
-                .map(|(k, v)| format!("{:?}:{} ", k, v))
-                .collect::<String>()
-        );
-    }
 }

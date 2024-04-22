@@ -49,7 +49,7 @@ use rand::{prelude::SliceRandom, thread_rng};
 
 // use umpire_client::game::ai::{rl::trained_agent, Storable, AI};
 
-use umpire_ai::{rl::trained_agent, Storable, AI};
+use umpire_ai::AI;
 use umpire_tui::{color::palette16, map::Map, Draw};
 
 fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
@@ -91,8 +91,6 @@ static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separ
 static SUBCMD_AGZTRAIN: &'static str = "agztrain";
 
 static SUBCMD_EVAL: &'static str = "eval";
-
-static SUBCMD_QTRAIN: &'static str = "qtrain";
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
@@ -160,95 +158,6 @@ async fn main() -> Result<(), String> {
             .default_value("1.0")
         )
     )
-
-    .subcommand(
-        cli::app(SUBCMD_QTRAIN, "D")
-        .about(format!("Train a Q-Learning AI for the game of {}", conf::APP_NAME))
-        .arg_required_else_help(true)
-        .arg(
-            Arg::new("avoid_skip")
-            .short('a')
-            .long("avoid_skip")
-            .help("Execute policies in a way that avoids the SkipNextUnit action when possible")
-            .action(ArgAction::SetTrue)
-        )
-        .arg(
-            Arg::new("qlearning_alpha")
-            .short('A')
-            .long("alpha")
-            .help("The alpha parameter (learning rate) for the Q-Learning algorithm")
-            .value_parser(value_parser!(f64))
-            .default_value("0.01")
-        )
-        .arg(
-            Arg::new("qlearning_gamma")
-            .short('G')
-            .long("gamma")
-            .help("The gamma parameter (discount rate) for the Q-Learning algorithm")
-            .value_parser(value_parser!(f64))
-            .default_value("0.9")
-        )
-        .arg(
-            Arg::new("epsilon")
-            .short('E')
-            .long("epsilon")
-            .help("The epsilon of the epsilon-greedy training policy. The probability of taking a random action rather the policy action")
-            .value_parser(value_parser!(f64))
-            .default_value("0.05")
-        )
-        .arg(
-            Arg::new("epsilon_decay")
-            .long("epsilon-decay")
-            .help("A factor to multiply the epsilon by with some probability.")
-            .value_parser(value_parser!(f64))
-            .default_value("1.0")
-        )
-        .arg(
-            Arg::new("epsilon_decay_prob")
-            .long("epsilon-decay-prob")
-            .help("The probability, when sampling from the epsilon-greedy policy, of decaying the epsilon")
-            .value_parser(value_parser!(f64))
-            .default_value("10e-4")
-        )
-        .arg(
-            Arg::new("min_epsilon")
-            .long("min-epsilon")
-            .help("The lowest value that epsilon should decay to")
-            .value_parser(value_parser!(f64))
-            .default_value("0.0")
-        )
-        .arg(
-            Arg::new("deep")
-            .short('d')
-            .long("deep")
-            .help("Indicates that a deep neural network should be trained rather than a linear function approximator")
-            .action(ArgAction::SetTrue)
-        )
-        .arg(
-            Arg::new("initial_model_path")
-                .short('i')
-                .long("initial")
-                .help("Serialized AI model file path for the initial model to use as a starting point for training")
-                .value_parser(|s: &str| {
-                    if Path::new(&s).exists() {
-                        Ok(String::from(s))
-                    } else {
-                        Err(format!("Initial model path '{}' does not exist", s))
-                    }
-                })
-        )
-        .arg(
-            Arg::new("out")
-            .help("Output path to serialize the resulting AI model to")
-            .required(true)
-        )
-        // .arg(
-        //     Arg::new("opponent")
-        //         .help(AI_MODEL_SPECS_HELP)
-        //         .multiple(true)
-        //         .required(true)
-        // )
-    )// subcommand qtrain
 
     .subcommand(
         cli::app(SUBCMD_AGZTRAIN, "D")
@@ -595,104 +504,6 @@ async fn main() -> Result<(), String> {
         execute!(stdout, LeaveAlternateScreen).unwrap();
 
         print_results(&victory_counts);
-    } else if subcommand == SUBCMD_QTRAIN {
-        // let mut opponent_specs_s: Vec<&str> = sub_matches.values_of("opponent").unwrap().collect();
-
-        // if opponent_specs_s.is_empty() {
-        //     opponent_specs_s.push("random");
-        // }
-
-        // let opponent_specs: Vec<AISpec> = parse_ai_specs(&opponent_specs_s)?;
-
-        let alpha = sub_matches
-            .get_one::<f64>("qlearning_alpha")
-            .unwrap()
-            .clone();
-        let gamma = sub_matches
-            .get_one::<f64>("qlearning_gamma")
-            .unwrap()
-            .clone();
-        let epsilon = sub_matches.get_one::<f64>("epsilon").unwrap().clone();
-        let epsilon_decay = sub_matches.get_one::<f64>("epsilon_decay").unwrap().clone();
-        let decay_prob = sub_matches
-            .get_one::<f64>("epsilon_decay_prob")
-            .unwrap()
-            .clone();
-        let min_epsilon = sub_matches.get_one::<f64>("min_epsilon").unwrap().clone();
-        let dnn_learning_rate = sub_matches
-            .get_one::<f64>("dnn_learning_rate")
-            .unwrap()
-            .clone();
-
-        let avoid_skip = sub_matches.contains_id("avoid_skip");
-        let deep: bool = sub_matches.get_one("deep").cloned().unwrap();
-        let initial_model_path = sub_matches.get_one::<String>("initial_model_path").cloned();
-        let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
-
-        let initialize_from_spec_s = initial_model_path.unwrap_or(String::from("random"));
-
-        println!("Initialize From: {}", initialize_from_spec_s);
-
-        // println!("Opponents: {}", opponent_specs_s.join(", "));
-
-        println!("Output path: {}", output_path);
-        println!(
-            "alpha: {} gamma: {} epsilon: {} lr: {} avoid_skip: {} deep: {}",
-            alpha, gamma, epsilon, dnn_learning_rate, avoid_skip, deep
-        );
-
-        // let initialize_from_spec_s = initial_model_path.unwrap_or("random");
-        let initialize_from_spec =
-            AISpec::try_from(initialize_from_spec_s).map_err(|err| format!("{}", err))?;
-
-        let initialize_from: AI = initialize_from_spec.into();
-
-        let qf = {
-            // let domain_builder = Box::new(move || UmpireDomain::new_from_path(Dims::new(map_width, map_height), ai_model_path.as_ref(), verbose));
-
-            let agent = trained_agent(
-                initialize_from,
-                deep,
-                2,
-                dims,
-                wrappings,
-                episodes,
-                steps,
-                alpha,
-                gamma,
-                epsilon,
-                epsilon_decay,
-                decay_prob,
-                min_epsilon,
-                dnn_learning_rate,
-                avoid_skip,
-                fix_output_loc,
-                fog_of_war,
-                verbosity,
-                Some(Path::new("./memory.dat")),
-                0.01,
-            )?;
-
-            agent.q.q_func.0
-        };
-
-        // Pry the q function loose
-        let qfd = Rc::try_unwrap(qf)
-            .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))?
-            .into_inner();
-
-        let ai: AI = Rc::try_unwrap(qfd.0)
-            .map_err(|err| format!("Error unwrapping trained AI: {:?}", err))?
-            .into_inner();
-
-        let path = Path::new(&output_path);
-        ai.store(path).map_err(|err| {
-            format!(
-                "Error storing model at path {}: {}",
-                path.to_string_lossy(),
-                err
-            )
-        })?;
     } else if subcommand == SUBCMD_AGZTRAIN {
         let learning_rate = sub_matches
             .get_one::<f64>("dnn_learning_rate")
