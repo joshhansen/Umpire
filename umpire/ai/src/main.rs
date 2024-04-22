@@ -29,6 +29,7 @@ use umpire_ai::agz::{AgzActionModel, AgzDatum};
 #[cfg(feature = "pytorch")]
 use common::util::densify;
 
+#[cfg(feature = "pytorch")]
 use rand::Rng;
 
 use tokio::sync::RwLock as RwLockTokio;
@@ -512,16 +513,16 @@ async fn main() -> Result<(), String> {
 
         println!("Learning rate: {}", learning_rate);
 
-        let input_paths: Vec<String> = sub_matches
-            .get_many::<String>("input")
-            .unwrap()
-            .cloned()
-            .collect();
-
-        let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
-
         #[cfg(feature = "pytorch")]
         {
+            let input_paths: Vec<String> = sub_matches
+                .get_many::<String>("input")
+                .unwrap()
+                .cloned()
+                .collect();
+
+            let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
+
             let device = Device::cuda_if_available();
 
             println!("PyTorch Device: {:?}", device);
