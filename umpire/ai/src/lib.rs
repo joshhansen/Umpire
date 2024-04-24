@@ -1,19 +1,11 @@
 use std::{fmt, fs::File, io::Write, path::Path};
 
-#[cfg(feature = "pytorch")]
-use std::sync::Mutex;
-
-#[cfg(feature = "pytorch")]
-use std::ops::Deref;
-
 use async_trait::async_trait;
+
+use burn::prelude::*;
 
 #[cfg(feature = "pytorch")]
 use futures::lock::Mutex as MutexAsync;
-
-use rand::{thread_rng, Rng};
-
-use rsrl::fa::{EnumerableStateActionFunction, StateActionFunction};
 
 use common::{
     game::{
@@ -50,43 +42,31 @@ pub mod agz;
 #[cfg(feature = "pytorch")]
 pub mod dnn;
 mod random;
-pub mod rl;
 
 #[cfg(feature = "pytorch")]
 use agz::AgzActionModel;
 
-#[cfg(feature = "pytorch")]
-use dnn::DNN;
-
-use rl::LFA_;
-
-pub enum AI {
+pub enum AI<B: Backend> {
     Random(RandomAI),
-    LFA(LFA_),
-    #[cfg(feature = "pytorch")]
-    DNN(Mutex<DNN>),
 
     /// AlphaGo Zero style action model
     #[cfg(feature = "pytorch")]
-    AGZ(MutexAsync<AgzActionModel>),
+    AGZ(MutexAsync<AgzActionModel<B>>),
 }
 
-impl AI {
+impl<B: Backend> AI<B> {
     pub fn random(verbosity: usize, fix_output_loc: bool) -> Self {
         Self::Random(RandomAI::new(verbosity, fix_output_loc))
     }
 }
 
-impl fmt::Debug for AI {
+impl<B: Backend> fmt::Debug for AI<B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
                 Self::Random(_) => "random",
-                Self::LFA(_) => "lfa",
-                #[cfg(feature = "pytorch")]
-                Self::DNN(_) => "dnn",
                 #[cfg(feature = "pytorch")]
                 Self::AGZ(_) => "agz",
             }
@@ -94,130 +74,131 @@ impl fmt::Debug for AI {
     }
 }
 
-impl StateActionFunction<Game, usize> for AI {
-    type Output = f64;
+// impl StateActionFunction<Game, usize> for AI {
+//     type Output = f64;
 
-    fn evaluate(&self, state: &Game, action: &usize) -> Self::Output {
-        match self {
-            Self::Random(_) => {
-                let mut rng = thread_rng();
-                rng.gen()
-            }
-            Self::LFA(fa) => fa.evaluate(state, action),
-            #[cfg(feature = "pytorch")]
-            Self::DNN(fa) => fa.lock().unwrap().evaluate(state, action),
-            #[cfg(feature = "pytorch")]
-            Self::AGZ(_agz) => {
-                unimplemented!("We haven't implemented the RSRL traits for AgzActionModel yet")
-            }
-        }
-    }
+//     fn evaluate(&self, state: &Game, action: &usize) -> Self::Output {
+//         match self {
+//             Self::Random(_) => {
+//                 let mut rng = thread_rng();
+//                 rng.gen()
+//             }
+//             Self::LFA(fa) => fa.evaluate(state, action),
+//             #[cfg(feature = "pytorch")]
+//             Self::DNN(fa) => fa.lock().unwrap().evaluate(state, action),
+//             #[cfg(feature = "pytorch")]
+//             Self::AGZ(_agz) => {
+//                 unimplemented!("We haven't implemented the RSRL traits for AgzActionModel yet")
+//             }
+//         }
+//     }
 
-    fn update_with_error(
-        &mut self,
-        state: &Game,
-        action: &usize,
-        value: Self::Output,
-        estimate: Self::Output,
-        error: Self::Output,
-        raw_error: Self::Output,
-        learning_rate: f64,
-    ) {
-        match self {
-            Self::Random(_) => { /* do nothing */ }
-            Self::LFA(fa) => fa.update_with_error(
-                state,
-                action,
-                value,
-                estimate,
-                error,
-                raw_error,
-                learning_rate,
-            ),
-            #[cfg(feature = "pytorch")]
-            Self::DNN(fa) => fa.lock().unwrap().update_with_error(
-                state,
-                action,
-                value,
-                estimate,
-                error,
-                raw_error,
-                learning_rate,
-            ),
-            #[cfg(feature = "pytorch")]
-            Self::AGZ(_agz) => {
-                unimplemented!("We haven't implemented the RSRL traits for AgzActionModel yet")
-            }
-        }
-    }
-}
+//     fn update_with_error(
+//         &mut self,
+//         state: &Game,
+//         action: &usize,
+//         value: Self::Output,
+//         estimate: Self::Output,
+//         error: Self::Output,
+//         raw_error: Self::Output,
+//         learning_rate: f64,
+//     ) {
+//         match self {
+//             Self::Random(_) => { /* do nothing */ }
+//             Self::LFA(fa) => fa.update_with_error(
+//                 state,
+//                 action,
+//                 value,
+//                 estimate,
+//                 error,
+//                 raw_error,
+//                 learning_rate,
+//             ),
+//             #[cfg(feature = "pytorch")]
+//             Self::DNN(fa) => fa.lock().unwrap().update_with_error(
+//                 state,
+//                 action,
+//                 value,
+//                 estimate,
+//                 error,
+//                 raw_error,
+//                 learning_rate,
+//             ),
+//             #[cfg(feature = "pytorch")]
+//             Self::AGZ(_agz) => {
+//                 unimplemented!("We haven't implemented the RSRL traits for AgzActionModel yet")
+//             }
+//         }
+//     }
+// }
 
-impl EnumerableStateActionFunction<Game> for AI {
-    fn n_actions(&self) -> usize {
-        AiPlayerAction::possible_actions().len()
-    }
+// impl EnumerableStateActionFunction<Game> for AI {
+//     fn n_actions(&self) -> usize {
+//         AiPlayerAction::possible_actions().len()
+//     }
 
-    fn evaluate_all(&self, state: &Game) -> Vec<f64> {
-        (0..self.n_actions())
-            .map(|action| self.evaluate(state, &action))
-            .collect()
-    }
+//     fn evaluate_all(&self, state: &Game) -> Vec<f64> {
+//         (0..self.n_actions())
+//             .map(|action| self.evaluate(state, &action))
+//             .collect()
+//     }
 
-    fn update_all_with_errors(
-        &mut self,
-        state: &Game,
-        values: Vec<f64>,
-        estimates: Vec<f64>,
-        errors: Vec<f64>,
-        raw_errors: Vec<f64>,
-        learning_rate: f64,
-    ) {
-        for (i, value) in values.iter().enumerate() {
-            self.update_with_error(
-                state,
-                &i,
-                *value,
-                estimates[i],
-                errors[i],
-                raw_errors[i],
-                learning_rate,
-            );
-        }
-    }
-}
+//     fn update_all_with_errors(
+//         &mut self,
+//         state: &Game,
+//         values: Vec<f64>,
+//         estimates: Vec<f64>,
+//         errors: Vec<f64>,
+//         raw_errors: Vec<f64>,
+//         learning_rate: f64,
+//     ) {
+//         for (i, value) in values.iter().enumerate() {
+//             self.update_with_error(
+//                 state,
+//                 &i,
+//                 *value,
+//                 estimates[i],
+//                 errors[i],
+//                 raw_errors[i],
+//                 learning_rate,
+//             );
+//         }
+//     }
+// }
 
-impl From<AISpec> for AI {
+impl<B: Backend> From<AISpec> for AI<B> {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
             AISpec::Random => Self::Random(RandomAI::new(0, false)), //NOTE Assuming 0 verbosity
             AISpec::FromPath(path) => Self::load(Path::new(path.as_str())).unwrap(),
             AISpec::FromLevel(level) => {
-                let lfa: LFA_ = match level {
-                    1 => bincode::deserialize(include_bytes!(
-                        "../../../ai/lfa/10x10_e100_s100000_a__scorefix__turnpenalty.ai"
-                    ))
-                    .unwrap(),
-                    2 => bincode::deserialize(include_bytes!(
-                        "../../../ai/lfa/20x20_e100_s100000_a__scorefix__turnpenalty.ai"
-                    ))
-                    .unwrap(),
-                    3 => bincode::deserialize(include_bytes!(
-                        "../../../ai/lfa/10-30_e100_s100000_a__scorefix__turnpenalty.ai"
-                    ))
-                    .unwrap(),
-                    4 => bincode::deserialize(include_bytes!(
-                        "../../../ai/lfa/10-40+full_e100_s100000_a.ai"
-                    ))
-                    .unwrap(),
-                    level => unreachable!("Unsupported AI level: {}", level),
-                };
-                Self::LFA(lfa)
+                // let lfa: LFA_ = match level {
+                //     1 => bincode::deserialize(include_bytes!(
+                //         "../../../ai/lfa/10x10_e100_s100000_a__scorefix__turnpenalty.ai"
+                //     ))
+                //     .unwrap(),
+                //     2 => bincode::deserialize(include_bytes!(
+                //         "../../../ai/lfa/20x20_e100_s100000_a__scorefix__turnpenalty.ai"
+                //     ))
+                //     .unwrap(),
+                //     3 => bincode::deserialize(include_bytes!(
+                //         "../../../ai/lfa/10-30_e100_s100000_a__scorefix__turnpenalty.ai"
+                //     ))
+                //     .unwrap(),
+                //     4 => bincode::deserialize(include_bytes!(
+                //         "../../../ai/lfa/10-40+full_e100_s100000_a.ai"
+                //     ))
+                //     .unwrap(),
+                //     level => unreachable!("Unsupported AI level: {}", level),
+                // };
+                // Self::LFA(lfa)
+                panic!()
             }
         }
     }
 }
 
-impl Loadable for AI {
+impl<B: Backend> Loadable for AI<B> {
     /// Loads the actual AI instance from a file.
     ///
     /// With feature "pytorch" enabled, files ending with .agz will be deserialized as AlphaGo Zero
@@ -240,52 +221,34 @@ impl Loadable for AI {
             return AgzActionModel::load(path).map(|agz| Self::AGZ(MutexAsync::new(agz)));
         }
 
-        #[cfg(feature = "pytorch")]
-        if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("deep")) {
-            return DNN::load(path).map(|dnn| Self::DNN(Mutex::new(dnn)));
-        }
+        panic!("Could not load AI from path {}", path.as_ref().display());
 
-        let f = File::open(path).unwrap(); //NOTE unwrap on file open
-        let result: Result<LFA_, String> =
-            bincode::deserialize_from(f).map_err(|err| format!("{}", err));
-        result.map(Self::LFA)
+        // #[cfg(feature = "pytorch")]
+        // if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("deep")) {
+        //     return DNN::load(path).map(|dnn| Self::DNN(Mutex::new(dnn)));
+        // }
+
+        // let f = File::open(path).unwrap(); //NOTE unwrap on file open
+        // let result: Result<LFA_, String> =
+        //     bincode::deserialize_from(f).map_err(|err| format!("{}", err));
+        // result.map(Self::LFA)
     }
 }
 
-impl Storable for AI {
+impl<B: Backend> Storable for AI<B> {
     fn store(self, path: &Path) -> Result<(), String> {
         match self {
             Self::Random(_) => Err(String::from("Cannot store random AI; load explicitly using the appropriate specification (r/rand/random)")),
-            Self::LFA(fa) => {
-                let data = bincode::serialize(&fa).unwrap();
-
-                let display = path.display();
-
-                let mut file = File::create(&path).map_err(|err| {
-                    format!("couldn't create {}: {}", display, err)
-                })?;
-
-                file.write_all(&data).map_err(|err| format!("Couldn't write to {}: {}", display, err))
-            },
-            #[cfg(feature = "pytorch")]
-            Self::DNN(fa) => fa.into_inner().unwrap().store(path),
             #[cfg(feature = "pytorch")]
             Self::AGZ(agz) => agz.into_inner().store(path),
         }
     }
 }
 
-impl AI {
+impl<B: Backend> AI<B> {
     fn best_action(&self, game: &Game) -> Result<usize, String> {
         match self {
             Self::Random(_ai) => Err(String::from("Call RandomAI::take_turn etc. directly")),
-            Self::LFA(fa) => Ok(find_legal_max(fa, game, true).0),
-            #[cfg(feature = "pytorch")]
-            Self::DNN(fa) => {
-                let action = find_legal_max(fa.lock().unwrap().deref(), game, false).0;
-                // println!("ACTION: {:?}", UmpireAction::from_idx(action));
-                Ok(action)
-            }
             #[cfg(feature = "pytorch")]
             Self::AGZ(_agz) => Err(String::from("Call AgzActionModel::take_turn etc. directly")),
         }
@@ -358,13 +321,10 @@ impl AI {
 }
 
 #[async_trait]
-impl TurnTakerAsync for AI {
+impl<B: Backend> TurnTakerAsync for AI<B> {
     async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
         match self {
             Self::Random(ai) => ai.take_turn(turn, datagen_prob).await,
-            Self::LFA(_fa) => self._take_turn_unended(turn, datagen_prob).await,
-            #[cfg(feature = "pytorch")]
-            Self::DNN(_fa) => self._take_turn_unended(turn, datagen_prob).await,
             #[cfg(feature = "pytorch")]
             Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob).await,
         }
@@ -373,4 +333,3 @@ impl TurnTakerAsync for AI {
 
 // Exports
 pub use random::RandomAI;
-pub use rl::find_legal_max;

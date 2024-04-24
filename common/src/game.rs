@@ -26,8 +26,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use rsrl::DerefVec;
-
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock as RwLockTokio;
 use uuid::Uuid;
@@ -2559,12 +2557,6 @@ impl Source<Obs> for Game {
 impl fmt::Debug for Game {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.map.fmt(f)
-    }
-}
-
-impl DerefVec for Game {
-    fn deref_vec(&self) -> Vec<fX> {
-        self.current_player_features(TrainingFocus::UnitIfExistsElseCity)
     }
 }
 

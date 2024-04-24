@@ -1,15 +1,11 @@
-use std::{fmt, fs::File, io::Cursor, path::Path};
+use std::{fmt, fs::File, path::Path};
 
 use burn::{
     module::Module,
-    nn::{self, conv::Conv2dConfig, DropoutConfig, LinearConfig, Relu},
+    nn::{conv::Conv2dConfig, DropoutConfig, LinearConfig, Relu},
     optim::Optimizer,
     prelude::*,
-};
-
-use rsrl::{
-    fa::{EnumerableStateActionFunction, StateActionFunction},
-    DerefVec,
+    tensor::activation::softplus,
 };
 
 use serde::{
@@ -20,8 +16,9 @@ use serde::{
 use common::game::{
     action::AiPlayerAction,
     ai::{
-        BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_LEN, DEEP_OUT_LEN, DEEP_WIDTH, FEATS_LEN,
-        POSSIBLE_ACTIONS, WIDE_LEN,
+        BASE_CONV_FEATS, BASE_CONV_FEATS_USIZE, DEEP_HEIGHT, DEEP_HEIGHT_USIZE, DEEP_LEN,
+        DEEP_OUT_LEN, DEEP_OUT_LEN_USIZE, DEEP_WIDTH, DEEP_WIDTH_USIZE, FEATS_LEN, FEATS_LEN_USIZE,
+        POSSIBLE_ACTIONS, POSSIBLE_ACTIONS_USIZE, WIDE_LEN, WIDE_LEN_USIZE,
     },
     Game,
 };
@@ -46,29 +43,32 @@ impl<'de> Visitor<'de> for BytesVisitor {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct DNNEncoding {
-    learning_rate: f64,
-    possible_actions: i64,
-    varstore_bytes: Vec<u8>,
-}
-
 #[derive(Config, Debug)]
 pub struct DNNConfig {
     learning_rate: f64,
-    possible_actions: i64,
+    possible_actions: usize,
 }
 
 impl DNNConfig {
     pub fn init<B: Backend>(&self, device: &B::Device) -> DNN<B> {
         let convs = vec![
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS * 2], [3, 3]).init(device), // -> 9x9
-            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS * 2], [3, 3]).init(device), // -> 7x7
-            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS * 2], [3, 3]).init(device), // -> 5x5
-            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS], [3, 3]).init(device), // -> 3x3
+            Conv2dConfig::new([BASE_CONV_FEATS_USIZE, BASE_CONV_FEATS_USIZE * 2], [3, 3])
+                .init(device), // -> 9x9
+            Conv2dConfig::new(
+                [BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE * 2],
+                [3, 3],
+            )
+            .init(device), // -> 7x7
+            Conv2dConfig::new(
+                [BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE * 2],
+                [3, 3],
+            )
+            .init(device), // -> 5x5
+            Conv2dConfig::new([BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE], [3, 3])
+                .init(device), // -> 3x3
         ];
 
-        let activations = vec![Relu::new(), Relu::new(), Relu::new(), Relu::new()];
+        let relu = Relu::new();
 
         let dropouts = vec![
             DropoutConfig::new(0.4).init(),
@@ -77,7 +77,7 @@ impl DNNConfig {
             DropoutConfig::new(0.4).init(),
         ];
 
-        let dense0 = LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 64).init(device);
+        let dense0 = LinearConfig::new(WIDE_LEN_USIZE + DEEP_OUT_LEN_USIZE, 64).init(device);
         let dense1 = LinearConfig::new(64, 32).init(device);
         let dense2 = LinearConfig::new(32, self.possible_actions).init(device);
 
@@ -87,11 +87,11 @@ impl DNNConfig {
 
         DNN {
             convs,
-            activations,
             dropouts,
             dense0,
             dense1,
             dense2,
+            relu,
         }
         // Model {
         //     conv1: Conv2dConfig::new([1, 8], [3, 3]).init(device),
@@ -114,36 +114,26 @@ impl DNNConfig {
 /// See `Obs::features` and `Game::player_features` for more information
 #[derive(Debug, Module)]
 pub struct DNN<B: Backend> {
+    relu: nn::Relu,
     convs: Vec<nn::conv::Conv2d<B>>,
-    activations: Vec<nn::Relu>,
     dropouts: Vec<nn::Dropout>,
     dense0: nn::Linear<B>,
     dense1: nn::Linear<B>,
     dense2: nn::Linear<B>,
 }
 
-impl<B> DNN<B> {
-    fn tensor_for(&self, state: &Game) -> Tensor<B, FEATS_LEN> {
-        //NOTE We could avoid this extra allocation if we could figure out how to use 64-bit weights in PyTorch
-        //     or 32-bit weights in `rsrl`
-        let features_f64 = state.deref_vec();
-        let mut features: Vec<f32> = Vec::with_capacity(features_f64.len());
-        for feat in features_f64 {
-            features.push(feat as f32);
-        }
-        Tensor::try_from(features)
-            .unwrap()
-            .to_device(self.vars.device())
-    }
-
-    fn forward(&self, xs: &Tensor<B, FEATS_LEN>, train: bool) -> Tensor<B, POSSIBLE_ACTIONS> {
+impl<B: Backend> DNN<B> {
+    fn forward(&self, xs: &Tensor<B, 1>, train: bool) -> Tensor<B, 1> {
         // Wide featuers that will pass through to the dense layers directly
-        let wide = xs.slice([0..WIDE_LEN]);
+        let wide = xs.slice([0..WIDE_LEN_USIZE]);
 
         // Input features to the 2d convolution
-        let mut deep =
-            xs.slice([WIDE_LEN, FEATS_LEN])
-                .reshape([1, BASE_CONV_FEATS, DEEP_WIDTH, DEEP_HEIGHT]);
+        let mut deep = xs.slice([WIDE_LEN_USIZE..FEATS_LEN_USIZE]).reshape([
+            1,
+            BASE_CONV_FEATS_USIZE,
+            DEEP_WIDTH_USIZE,
+            DEEP_HEIGHT_USIZE,
+        ]);
 
         // let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
@@ -155,16 +145,14 @@ impl<B> DNN<B> {
 
         for (i, conv) in self.convs.iter().enumerate() {
             deep = conv.forward(deep);
-            deep = self.activations[i].forward(deep);
+            deep = self.relu.forward(deep);
             deep = self.dropouts[i].forward(deep);
         }
 
         // Reshape back to vector
-        deep = deep.reshape([-1]);
+        let deep_flat: Tensor<B, 1> = deep.reshape([-1]);
 
-        let wide_and_deep = Tensor::cat(&[wide, &deep], 0);
-
-        debug_assert!(wide_and_deep.device().is_cuda());
+        let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 0);
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
 
@@ -179,15 +167,21 @@ impl<B> DNN<B> {
         //     .dropout_(0.5, train)
         //     .apply(&self.fc2)
 
-        wide_and_deep
-            .apply(&self.dense0)
-            .relu()
-            // .dropout_(0.2, train)
-            .apply(&self.dense1)
-            .relu()
-            // .dropout_(0.2, train)
-            .apply(&self.dense2)
-            .softplus()
+        let out0 = self.relu.forward(self.dense0.forward(wide_and_deep));
+        let out1 = self.relu.forward(self.dense1.forward(out0));
+        let out2 = softplus(self.dense2.forward(out1), 1f64);
+
+        // wide_and_deep
+        //     .apply(&self.dense0)
+        //     .relu()
+        //     // .dropout_(0.2, train)
+        //     .apply(&self.dense1)
+        //     .relu()
+        //     // .dropout_(0.2, train)
+        //     .apply(&self.dense2)
+        //     .softplus()
+
+        out2
     }
 
     // /// Two variables must be set:
@@ -336,7 +330,7 @@ impl<B> DNN<B> {
 //     }
 // }
 
-impl<B> Loadable for DNN<B> {
+impl<B: Backend> Loadable for DNN<B> {
     fn load<P: AsRef<Path>>(path: P) -> Result<Self, String> {
         let path = path.as_ref();
         if !path.exists() {
@@ -398,7 +392,7 @@ impl<B> Loadable for DNN<B> {
 //     }
 // }
 
-impl<B> Storable for DNN<B> {
+impl<B: Backend> Storable for DNN<B> {
     fn store(self, path: &Path) -> Result<(), String> {
         self.vars.save(path).map_err(|err| err.to_string())
         // let mut builder = SavedModelBuilder::new();
@@ -413,42 +407,5 @@ impl<B> Storable for DNN<B> {
 
         // saver.save(&self.session, &(*graph), path)
         //      .map_err(|err| format!("Error saving DNN: {}", err))
-    }
-}
-
-impl<B> StorableAsBytes for DNN<B> {
-    fn store_as_bytes(self) -> Result<Vec<u8>, String> {
-        let mut varstore_bytes: Vec<u8> = Vec::new();
-
-        self.vars
-            .save_to_stream(&mut varstore_bytes)
-            .map_err(|err| err.to_string())?;
-
-        let enc = DNNEncoding {
-            learning_rate: self.learning_rate,
-            possible_actions: self.possible_actions,
-            varstore_bytes,
-        };
-
-        let mut bytes: Vec<u8> = Vec::new();
-
-        bincode::serialize_into(&mut bytes, &enc).map_err(|e| e.to_string())?;
-
-        Ok(bytes)
-    }
-}
-
-impl<B> LoadableFromBytes for DNN<B> {
-    fn load_from_bytes<S: std::io::Read>(bytes: S) -> Result<Self, String> {
-        let device = Device::cuda_if_available();
-
-        let mut vars = nn::VarStore::new(device);
-
-        let enc: DNNEncoding = bincode::deserialize_from(bytes).map_err(|err| err.to_string())?;
-
-        vars.load_from_stream(Cursor::new(&enc.varstore_bytes[..]))
-            .map_err(|err| err.to_string())?;
-
-        Self::with_varstore(vars, enc.learning_rate, enc.possible_actions)
     }
 }

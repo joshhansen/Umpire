@@ -18,6 +18,7 @@ pub type fX = f64;
 
 //FIXME Someday compute this at compile time
 pub const POSSIBLE_ACTIONS: i64 = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
+pub const POSSIBLE_ACTIONS_USIZE: usize = POSSIBLE_ACTIONS as usize;
 
 pub const POSSIBLE_CITY_ACTIONS: i64 = UnitType::values().len() as i64; // all possible productions
 
@@ -29,20 +30,27 @@ pub const UNIT_TYPE_WRIT_LARGE_LEN: i64 = UnitType::values().len() as i64 + 1; /
 
 pub const WIDE_LEN: i64 =
     UNIT_TYPE_WRIT_LARGE_LEN + UnitType::values().len() as i64 + ADDED_WIDE_FEATURES;
+pub const WIDE_LEN_USIZE: usize = WIDE_LEN as usize;
 pub const DEEP_WIDTH: i64 = 11;
+pub const DEEP_WIDTH_USIZE: usize = DEEP_WIDTH as usize;
 pub const DEEP_HEIGHT: i64 = 11;
+pub const DEEP_HEIGHT_USIZE: usize = DEEP_HEIGHT as usize;
 pub const DEEP_TILES: i64 = DEEP_WIDTH * DEEP_HEIGHT;
 
 /// Number of "channels" in convolution output
 pub const BASE_CONV_FEATS: i64 = 16;
+pub const BASE_CONV_FEATS_USIZE: usize = BASE_CONV_FEATS as usize;
 
 pub const DEEP_LEN: i64 = DEEP_TILES * BASE_CONV_FEATS;
 
 /// Total length of convolution output after reducing to 3x3
 pub const DEEP_OUT_LEN: i64 = 9 * BASE_CONV_FEATS;
+pub const DEEP_OUT_LEN_USIZE: usize = DEEP_OUT_LEN as usize;
 
 /// Total length of the feature vectors that are input to the dnn
 pub const FEATS_LEN: i64 = WIDE_LEN + DEEP_LEN;
+
+pub const FEATS_LEN_USIZE: usize = FEATS_LEN as usize;
 
 /// We customize the feature vector depending on if we're training a model for city actions or unit actions
 /// This just lets us specify which.

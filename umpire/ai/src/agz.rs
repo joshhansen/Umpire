@@ -7,14 +7,15 @@ use std::{collections::HashSet, fs::OpenOptions};
 
 use async_trait::async_trait;
 
+use burn::prelude::*;
+
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
-use tch::{Device, Tensor};
 
 use common::{
     game::{
         action::{AiPlayerAction, NextCityAction, NextUnitAction},
-        ai::{fX, TrainingFocus, TrainingOutcome},
+        ai::{fX, TrainingFocus, TrainingOutcome, FEATS_LEN_USIZE},
         player::PlayerTurn,
         turn_async::ActionwiseTurnTaker2,
     },
@@ -23,8 +24,8 @@ use common::{
 
 use crate::{dnn::DNN, Loadable, LoadableFromBytes, Storable, StorableAsBytes};
 
-pub struct AgzDatum {
-    pub features: Tensor,
+pub struct AgzDatum<B: Backend> {
+    pub features: Tensor<B, FEATS_LEN_USIZE>,
     pub action: AiPlayerAction,
     pub outcome: TrainingOutcome,
 }
@@ -38,7 +39,7 @@ pub struct AgzActionModelEncoding {
     actions: Vec<u8>,
 }
 impl AgzActionModelEncoding {
-    pub fn decode(self, device: Device) -> Result<AgzActionModel, String> {
+    pub fn decode<B: Backend>(self, device: B::Device) -> Result<AgzActionModel<B>, String> {
         Ok(AgzActionModel {
             device,
 
@@ -47,22 +48,22 @@ impl AgzActionModelEncoding {
     }
 }
 
-pub struct AgzActionModel {
-    device: Device,
+pub struct AgzActionModel<B: Backend> {
+    device: B::Device,
 
     /// This models all actions at once, city actions first
-    actions: DNN,
+    actions: DNN<B>,
 }
 
-impl AgzActionModel {
-    pub fn new(device: Device, learning_rate: f64) -> Result<Self, String> {
+impl<B: Backend> AgzActionModel<B> {
+    pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
         Ok(Self {
             device,
             actions: DNN::new(device, learning_rate, TOTAL_ACTIONS as i64)?,
         })
     }
 
-    pub fn train(&mut self, data: &Vec<AgzDatum>, sample_prob: f64) {
+    pub fn train(&mut self, data: &Vec<AgzDatum<B>>, sample_prob: f64) {
         let mut rand = thread_rng();
         for datum in data {
             if rand.gen::<f64>() > sample_prob {
@@ -96,7 +97,7 @@ impl AgzActionModel {
         }
     }
 
-    pub fn error(&self, data: &Vec<AgzDatum>) -> f64 {
+    pub fn error(&self, data: &Vec<AgzDatum<B>>) -> f64 {
         let mut sse = 0.0f64;
         for datum in data {
             let features = &datum.features;
@@ -145,7 +146,7 @@ impl AgzActionModel {
 }
 
 #[async_trait]
-impl ActionwiseTurnTaker2 for AgzActionModel {
+impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
         let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
             .await
@@ -160,7 +161,7 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let feats = Self::features(turn, TrainingFocus::City).await;
 
-        let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
+        let feats = Tensor::try_from(feats).unwrap().to_device(&self.device);
 
         let probs = self.actions.evaluate_tensors(&feats);
 
@@ -199,7 +200,7 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
 
         let feats = Self::features(turn, TrainingFocus::Unit).await;
 
-        let feats = Tensor::try_from(feats).unwrap().to_device(self.device);
+        let feats = Tensor::try_from(feats).unwrap().to_device(&self.device);
 
         let unit_action_probs: Vec<(usize, fX)> = self
             .actions
@@ -225,7 +226,7 @@ impl ActionwiseTurnTaker2 for AgzActionModel {
     }
 }
 
-impl Storable for AgzActionModel {
+impl<B: Backend> Storable for AgzActionModel<B> {
     fn store(self, path: &std::path::Path) -> Result<(), String> {
         let w = OpenOptions::new()
             .create_new(true)
@@ -241,7 +242,7 @@ impl Storable for AgzActionModel {
     }
 }
 
-impl Loadable for AgzActionModel {
+impl<B: Backend> Loadable for AgzActionModel<B> {
     fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, String> {
         let r = OpenOptions::new()
             .read(true)
