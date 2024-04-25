@@ -269,6 +269,18 @@ impl<B: Backend> DNN<B> {
 
     //     result_tensor.double_value(&[*action as i64])
     // }
+
+    pub fn forward_classification(
+        &self,
+        xs: Tensor<B, 1>,
+        targets: Tensor<B, 1, Int>,
+    ) -> ClassificationOutput<B> {
+        let output = self.forward(&xs);
+        let loss =
+            CrossEntropyLoss::new(None, &output.device()).forward(output.clone(), targets.clone());
+
+        ClassificationOutput::new(loss, output, targets)
+    }
 }
 
 // impl StateActionFunction<Game, usize> for DNN {
