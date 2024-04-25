@@ -123,7 +123,7 @@ pub struct DNN<B: Backend> {
 }
 
 impl<B: Backend> DNN<B> {
-    fn forward(&self, xs: &Tensor<B, 1>, train: bool) -> Tensor<B, 1> {
+    fn forward(&self, xs: &Tensor<B, 1>) -> Tensor<B, 1> {
         // Wide featuers that will pass through to the dense layers directly
         let wide = xs.slice([0..WIDE_LEN_USIZE]);
 
