@@ -37,7 +37,6 @@ pub trait LoadableFromBytes: Sized {
 // Sub-modules
 pub mod agz;
 
-pub mod dnn;
 mod random;
 
 use agz::AgzActionModel;
