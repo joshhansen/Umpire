@@ -45,8 +45,8 @@ impl<'de> Visitor<'de> for BytesVisitor {
 
 #[derive(Config, Debug)]
 pub struct DNNConfig {
-    learning_rate: f64,
-    possible_actions: usize,
+    pub learning_rate: f64,
+    pub possible_actions: usize,
 }
 
 impl DNNConfig {

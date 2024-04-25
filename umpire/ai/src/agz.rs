@@ -22,7 +22,10 @@ use common::{
     util::weighted_sample_idx,
 };
 
-use crate::{dnn::DNN, Loadable, LoadableFromBytes, Storable, StorableAsBytes};
+use crate::{
+    dnn::{DNNConfig, DNN},
+    Loadable, LoadableFromBytes, Storable, StorableAsBytes,
+};
 
 pub struct AgzDatum<B: Backend> {
     pub features: Tensor<B, FEATS_LEN_USIZE>,
@@ -57,10 +60,12 @@ pub struct AgzActionModel<B: Backend> {
 
 impl<B: Backend> AgzActionModel<B> {
     pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
-        Ok(Self {
-            device,
-            actions: DNN::new(device, learning_rate, TOTAL_ACTIONS as i64)?,
-        })
+        let cfg = DNNConfig {
+            learning_rate,
+            possible_actions: TOTAL_ACTIONS,
+        };
+        let actions = cfg.init(&device);
+        Ok(Self { device, actions })
     }
 
     pub fn train(&mut self, data: &Vec<AgzDatum<B>>, sample_prob: f64) {
