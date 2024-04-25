@@ -8,6 +8,8 @@ use burn::{
     tensor::activation::softplus,
 };
 
+use num_traits::ToPrimitive;
+
 use serde::{
     de::{self, Visitor},
     Deserialize, Serialize,
@@ -16,7 +18,7 @@ use serde::{
 use common::game::{
     action::AiPlayerAction,
     ai::{
-        BASE_CONV_FEATS, BASE_CONV_FEATS_USIZE, DEEP_HEIGHT, DEEP_HEIGHT_USIZE, DEEP_LEN,
+        fX, BASE_CONV_FEATS, BASE_CONV_FEATS_USIZE, DEEP_HEIGHT, DEEP_HEIGHT_USIZE, DEEP_LEN,
         DEEP_OUT_LEN, DEEP_OUT_LEN_USIZE, DEEP_WIDTH, DEEP_WIDTH_USIZE, FEATS_LEN, FEATS_LEN_USIZE,
         POSSIBLE_ACTIONS, POSSIBLE_ACTIONS_USIZE, WIDE_LEN, WIDE_LEN_USIZE,
     },
@@ -254,21 +256,29 @@ impl<B: Backend> DNN<B> {
     //     self.optimizer.backward_step(&loss);
     // }
 
-    // pub fn evaluate_tensors(&self, features: &Tensor) -> Vec<f64> {
-    //     let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, false);
+    pub fn evaluate_tensors(&self, features: &Tensor<B, 1>) -> Vec<fX> {
+        let result_tensor = self.forward(features);
 
-    //     debug_assert!(result_tensor.device().is_cuda());
+        // debug_assert!(result_tensor.device().is_cuda());
 
-    //     result_tensor.try_into().unwrap()
-    // }
+        // result_tensor.try_into().unwrap()
+        result_tensor
+            .into_data()
+            .value
+            .into_iter()
+            .map(|x| x.to_f64().unwrap())
+            .collect()
+    }
 
-    // pub fn evaluate_tensor(&self, features: &Tensor, action: &usize) -> f64 {
-    //     let result_tensor = <Self as nn::ModuleT>::forward_t(self, &features, false);
+    pub fn evaluate_tensor(&self, features: &Tensor<B, 1>, action: &usize) -> fX {
+        let result_tensor = self.forward(features);
 
-    //     debug_assert!(result_tensor.device().is_cuda());
+        // debug_assert!(result_tensor.device().is_cuda());
 
-    //     result_tensor.double_value(&[*action as i64])
-    // }
+        let action_tensor = result_tensor.slice([*action..(*action + 1)]);
+
+        action_tensor.into_scalar().to_f64().unwrap()
+    }
 
     pub fn forward_classification(
         &self,

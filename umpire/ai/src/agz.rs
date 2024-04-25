@@ -166,7 +166,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
         let feats = Self::features(turn, TrainingFocus::City).await;
 
-        let feats = Tensor::try_from(feats).unwrap().to_device(&self.device);
+        let feats = Tensor::from_floats(feats.as_slice(), &self.device);
 
         let probs = self.actions.evaluate_tensors(&feats);
 
@@ -205,7 +205,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
         let feats = Self::features(turn, TrainingFocus::Unit).await;
 
-        let feats = Tensor::try_from(feats).unwrap().to_device(&self.device);
+        let feats = Tensor::from_floats(feats.as_slice(), &self.device);
 
         let unit_action_probs: Vec<(usize, fX)> = self
             .actions
@@ -257,7 +257,8 @@ impl<B: Backend> Loadable for AgzActionModel<B> {
         let enc: AgzActionModelEncoding = bincode::deserialize_from(r)
             .map_err(|e| format!("Error deserializing encoded agz action model: {}", e))?;
 
-        let device = Device::cuda_if_available();
+        let device = Default::default();
+        // let device = Device::cuda_if_available();
         enc.decode(device)
     }
 }

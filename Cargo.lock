@@ -3335,6 +3335,7 @@ dependencies = [
  "common",
  "crossterm",
  "futures",
+ "num-traits",
  "rand 0.7.3",
  "serde",
  "tarpc",
