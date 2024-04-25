@@ -14,7 +14,6 @@ delegate = { git = "https://github.com/kobzol/rust-delegate", branch = "unwrap" 
 flate2 = "1.0.13"
 futures = { workspace = true }
 rand = { workspace = true }
-rsrl = { workspace = true }
 serde = { workspace = true }
 tarpc = { workspace = true }
 thiserror = { workspace = true }
