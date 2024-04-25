@@ -4,7 +4,6 @@ use async_trait::async_trait;
 
 use burn::prelude::*;
 
-#[cfg(feature = "pytorch")]
 use futures::lock::Mutex as MutexAsync;
 
 use common::{
@@ -36,21 +35,17 @@ pub trait LoadableFromBytes: Sized {
 }
 
 // Sub-modules
-#[cfg(feature = "pytorch")]
 pub mod agz;
 
-#[cfg(feature = "pytorch")]
 pub mod dnn;
 mod random;
 
-#[cfg(feature = "pytorch")]
 use agz::AgzActionModel;
 
 pub enum AI<B: Backend> {
     Random(RandomAI),
 
     /// AlphaGo Zero style action model
-    #[cfg(feature = "pytorch")]
     AGZ(MutexAsync<AgzActionModel<B>>),
 }
 
@@ -67,7 +62,6 @@ impl<B: Backend> fmt::Debug for AI<B> {
             "{}",
             match self {
                 Self::Random(_) => "random",
-                #[cfg(feature = "pytorch")]
                 Self::AGZ(_) => "agz",
             }
         )
@@ -216,7 +210,6 @@ impl<B: Backend> Loadable for AI<B> {
             ));
         }
 
-        #[cfg(feature = "pytorch")]
         if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("agz")) {
             return AgzActionModel::load(path).map(|agz| Self::AGZ(MutexAsync::new(agz)));
         }
@@ -239,7 +232,6 @@ impl<B: Backend> Storable for AI<B> {
     fn store(self, path: &Path) -> Result<(), String> {
         match self {
             Self::Random(_) => Err(String::from("Cannot store random AI; load explicitly using the appropriate specification (r/rand/random)")),
-            #[cfg(feature = "pytorch")]
             Self::AGZ(agz) => agz.into_inner().store(path),
         }
     }
@@ -249,7 +241,6 @@ impl<B: Backend> AI<B> {
     fn best_action(&self, game: &Game) -> Result<usize, String> {
         match self {
             Self::Random(_ai) => Err(String::from("Call RandomAI::take_turn etc. directly")),
-            #[cfg(feature = "pytorch")]
             Self::AGZ(_agz) => Err(String::from("Call AgzActionModel::take_turn etc. directly")),
         }
     }
@@ -325,7 +316,6 @@ impl<B: Backend> TurnTakerAsync for AI<B> {
     async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
         match self {
             Self::Random(ai) => ai.take_turn(turn, datagen_prob).await,
-            #[cfg(feature = "pytorch")]
             Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob).await,
         }
     }

@@ -12,6 +12,8 @@ use std::{
     cell::RefCell, collections::HashMap, fs::File, io::stdout, path::Path, rc::Rc, sync::Arc,
 };
 
+use burn::prelude::*;
+
 use clap::{value_parser, Arg, ArgAction, Command};
 
 use crossterm::{
@@ -20,16 +22,10 @@ use crossterm::{
     terminal::{size, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-#[cfg(feature = "pytorch")]
-use tch::{no_grad_guard, Device, NoGradGuard, Tensor};
-
-#[cfg(feature = "pytorch")]
 use umpire_ai::agz::{AgzActionModel, AgzDatum};
 
-#[cfg(feature = "pytorch")]
 use common::util::densify;
 
-#[cfg(feature = "pytorch")]
 use rand::Rng;
 
 use tokio::sync::RwLock as RwLockTokio;
@@ -81,7 +77,6 @@ fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>, String> {
 }
 
 enum MaybeNoGradGuard {
-    #[cfg(feature = "pytorch")]
     NGG(NoGradGuard),
 
     None,
@@ -288,16 +283,6 @@ async fn main() -> Result<(), String> {
         // if dims.len() > 1 {
         //     return Err(String::from("Only one set of dimensions can be given for evaluation"));
         // }
-
-        // When pytorch is enabled, we store the no grad guard here to reduce memory usage
-        // Basically this omits all backprop functionality from residing in memory
-        // Okay since we don't train in the eval subcommand
-        let mut _ngg = MaybeNoGradGuard::None;
-
-        #[cfg(feature = "pytorch")]
-        {
-            _ngg = MaybeNoGradGuard::NGG(no_grad_guard());
-        }
 
         let ai_specs_s: Vec<String> = sub_matches
             .get_many::<String>("ai_models")
@@ -513,7 +498,6 @@ async fn main() -> Result<(), String> {
 
         println!("Learning rate: {}", learning_rate);
 
-        #[cfg(feature = "pytorch")]
         {
             let input_paths: Vec<String> = sub_matches
                 .get_many::<String>("input")
