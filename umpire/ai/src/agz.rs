@@ -199,20 +199,6 @@ impl<B: Backend> DNN<B> {
         out2
     }
 
-    // pub fn train(&mut self, features: &Tensor, action: &usize, value: f64) {
-    //     let actual_estimate: Tensor =
-    //         self.forward_t(features, true)
-    //             .slice(0, *action as i64, *action as i64 + 1, 1);
-
-    //     let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
-
-    //     let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::None);
-
-    //     debug_assert!(loss.device().is_cuda());
-
-    //     self.optimizer.backward_step(&loss);
-    // }
-
     pub fn evaluate_tensors(&self, features: &Tensor<B, 1>) -> Vec<fX> {
         let result_tensor = self.forward(features);
 
@@ -237,6 +223,20 @@ impl<B: Backend> DNN<B> {
         action_tensor.into_scalar().to_f64().unwrap()
     }
 
+    pub fn train(&mut self, features: &Tensor<B, 1>, action: &usize, value: f64) {
+        let actual_estimate: Tensor =
+            self.forward_t(features, true)
+                .slice(0, *action as i64, *action as i64 + 1, 1);
+
+        let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
+
+        let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::None);
+
+        debug_assert!(loss.device().is_cuda());
+
+        self.optimizer.backward_step(&loss);
+    }
+
     pub fn forward_classification(
         &self,
         xs: Tensor<B, 1>,
@@ -248,6 +248,94 @@ impl<B: Backend> DNN<B> {
 
         ClassificationOutput::new(loss, output, targets)
     }
+
+    // pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
+    //     let cfg = DNNConfig {
+    //         learning_rate,
+    //         possible_actions: TOTAL_ACTIONS,
+    //     };
+    //     let actions = cfg.init(&device);
+    //     Ok(Self { device, actions })
+    // }
+
+    pub fn train_macro(&mut self, data: &Vec<AgzDatum<B>>, sample_prob: f64) {
+        let mut rand = thread_rng();
+        for datum in data {
+            if rand.gen::<f64>() > sample_prob {
+                continue;
+            }
+
+            let target = datum.outcome.to_training_target();
+
+            if let Ok(city_action) = NextCityAction::try_from(datum.action) {
+                // City actions go first, so no offset is added
+                let city_action_idx: usize = city_action.into();
+
+                debug_assert!(city_action_idx < POSSIBLE_CITY_ACTIONS);
+                debug_assert!(city_action_idx < TOTAL_ACTIONS);
+
+                self.train(&datum.features, &city_action_idx, target);
+            } else {
+                let unit_action = NextUnitAction::try_from(datum.action).unwrap();
+
+                // We use the city action count as an offset since city actions go first
+                let raw_unit_action_idx: usize = unit_action.into();
+                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
+
+                debug_assert!(POSSIBLE_CITY_ACTIONS <= unit_action_idx);
+                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
+
+                self.train(&datum.features, &unit_action_idx, target);
+            }
+        }
+    }
+
+    pub fn error(&self, data: &Vec<AgzDatum<B>>) -> f64 {
+        let mut sse = 0.0f64;
+        for datum in data {
+            let features = &datum.features;
+
+            let predicted_outcome = if let Ok(city_action) =
+                <AiPlayerAction as TryInto<NextCityAction>>::try_into(datum.action)
+            {
+                // City actions go first, so no offset is added
+                let city_action_idx: usize = city_action.into();
+
+                self.evaluate_tensor(features, &city_action_idx)
+            } else {
+                let unit_action =
+                    <AiPlayerAction as TryInto<NextUnitAction>>::try_into(datum.action).unwrap();
+
+                // We use the city action count as an offset since city actions go first
+                let raw_unit_action_idx: usize = unit_action.into();
+                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
+
+                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
+
+                self.evaluate_tensor(features, &unit_action_idx)
+            };
+
+            let actual_outcome = datum.outcome.to_training_target();
+
+            sse += (predicted_outcome - actual_outcome).powf(2.0);
+        }
+
+        sse
+    }
+
+    async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
+        turn.player_features(focus)
+            .await
+            .iter()
+            .map(|x| *x as f32)
+            .collect()
+    }
+
+    // fn encode(self) -> AgzActionModelEncoding {
+    //     AgzActionModelEncoding {
+    //         actions: self.actions.store_as_bytes().unwrap(),
+    //     }
+    // }
 }
 
 impl<B: Backend> Loadable for DNN<B> {
@@ -285,131 +373,8 @@ impl<B: Backend> Storable for DNN<B> {
     }
 }
 
-pub struct AgzDatum<B: Backend> {
-    pub features: Tensor<B, 1>,
-    pub action: AiPlayerAction,
-    pub outcome: TrainingOutcome,
-}
-
-const POSSIBLE_CITY_ACTIONS: usize = NextCityAction::possible();
-const POSSIBLE_UNIT_ACTIONS: usize = NextUnitAction::possible();
-const TOTAL_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
-
-#[derive(Serialize, Deserialize)]
-pub struct AgzActionModelEncoding {
-    actions: Vec<u8>,
-}
-impl AgzActionModelEncoding {
-    pub fn decode<B: Backend>(self, device: B::Device) -> Result<AgzActionModel<B>, String> {
-        Ok(AgzActionModel {
-            device,
-
-            actions: DNN::load_from_bytes(&self.actions[..])?,
-        })
-    }
-}
-
-pub struct AgzActionModel<B: Backend> {
-    device: B::Device,
-
-    /// This models all actions at once, city actions first
-    actions: DNN<B>,
-}
-
-impl<B: Backend> AgzActionModel<B> {
-    pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
-        let cfg = DNNConfig {
-            learning_rate,
-            possible_actions: TOTAL_ACTIONS,
-        };
-        let actions = cfg.init(&device);
-        Ok(Self { device, actions })
-    }
-
-    pub fn train(&mut self, data: &Vec<AgzDatum<B>>, sample_prob: f64) {
-        let mut rand = thread_rng();
-        for datum in data {
-            if rand.gen::<f64>() > sample_prob {
-                continue;
-            }
-
-            let target = datum.outcome.to_training_target();
-
-            if let Ok(city_action) = NextCityAction::try_from(datum.action) {
-                // City actions go first, so no offset is added
-                let city_action_idx: usize = city_action.into();
-
-                debug_assert!(city_action_idx < POSSIBLE_CITY_ACTIONS);
-                debug_assert!(city_action_idx < TOTAL_ACTIONS);
-
-                self.actions
-                    .train(&datum.features, &city_action_idx, target);
-            } else {
-                let unit_action = NextUnitAction::try_from(datum.action).unwrap();
-
-                // We use the city action count as an offset since city actions go first
-                let raw_unit_action_idx: usize = unit_action.into();
-                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
-
-                debug_assert!(POSSIBLE_CITY_ACTIONS <= unit_action_idx);
-                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
-
-                self.actions
-                    .train(&datum.features, &unit_action_idx, target);
-            }
-        }
-    }
-
-    pub fn error(&self, data: &Vec<AgzDatum<B>>) -> f64 {
-        let mut sse = 0.0f64;
-        for datum in data {
-            let features = &datum.features;
-
-            let predicted_outcome = if let Ok(city_action) =
-                <AiPlayerAction as TryInto<NextCityAction>>::try_into(datum.action)
-            {
-                // City actions go first, so no offset is added
-                let city_action_idx: usize = city_action.into();
-
-                self.actions.evaluate_tensor(features, &city_action_idx)
-            } else {
-                let unit_action =
-                    <AiPlayerAction as TryInto<NextUnitAction>>::try_into(datum.action).unwrap();
-
-                // We use the city action count as an offset since city actions go first
-                let raw_unit_action_idx: usize = unit_action.into();
-                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
-
-                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
-
-                self.actions.evaluate_tensor(features, &unit_action_idx)
-            };
-
-            let actual_outcome = datum.outcome.to_training_target();
-
-            sse += (predicted_outcome - actual_outcome).powf(2.0);
-        }
-
-        sse
-    }
-
-    async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
-        turn.player_features(focus)
-            .await
-            .iter()
-            .map(|x| *x as f32)
-            .collect()
-    }
-
-    fn encode(self) -> AgzActionModelEncoding {
-        AgzActionModelEncoding {
-            actions: self.actions.store_as_bytes().unwrap(),
-        }
-    }
-}
-
 #[async_trait]
-impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
+impl<B: Backend> ActionwiseTurnTaker2 for DNN<B> {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
         let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
             .await
@@ -424,9 +389,11 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
         let feats = Self::features(turn, TrainingFocus::City).await;
 
-        let feats = Tensor::from_floats(feats.as_slice(), &self.device);
+        let device = Default::default();
 
-        let probs = self.actions.evaluate_tensors(&feats);
+        let feats = Tensor::from_floats(feats.as_slice(), &device);
+
+        let probs = self.evaluate_tensors(&feats);
 
         // No offset is subtracted because city actions go first
         let city_action_probs: Vec<(usize, fX)> = probs
@@ -463,10 +430,10 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
         let feats = Self::features(turn, TrainingFocus::Unit).await;
 
-        let feats = Tensor::from_floats(feats.as_slice(), &self.device);
+        let device = Default::default();
+        let feats = Tensor::from_floats(feats.as_slice(), &device);
 
         let unit_action_probs: Vec<(usize, fX)> = self
-            .actions
             .evaluate_tensors(&feats)
             .into_iter()
             .skip(POSSIBLE_CITY_ACTIONS) // ignore the city prefix
@@ -489,34 +456,148 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
     }
 }
 
-impl<B: Backend> Storable for AgzActionModel<B> {
-    fn store(self, path: &std::path::Path) -> Result<(), String> {
-        let w = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .append(false)
-            .open(path)
-            .map_err(|e| format!("Error opening {}: {}", path.display(), e))?;
-
-        let enc = self.encode();
-
-        bincode::serialize_into(w, &enc)
-            .map_err(|e| format!("Error serializing encoded agz action model: {}", e))
-    }
+pub struct AgzDatum<B: Backend> {
+    pub features: Tensor<B, 1>,
+    pub action: AiPlayerAction,
+    pub outcome: TrainingOutcome,
 }
 
-impl<B: Backend> Loadable for AgzActionModel<B> {
-    fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, String> {
-        let r = OpenOptions::new()
-            .read(true)
-            .open(path.as_ref())
-            .map_err(|e| format!("Error opening {}: {}", path.as_ref().display(), e))?;
+const POSSIBLE_CITY_ACTIONS: usize = NextCityAction::possible();
+const POSSIBLE_UNIT_ACTIONS: usize = NextUnitAction::possible();
+const TOTAL_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
-        let enc: AgzActionModelEncoding = bincode::deserialize_from(r)
-            .map_err(|e| format!("Error deserializing encoded agz action model: {}", e))?;
+// #[derive(Serialize, Deserialize)]
+// pub struct AgzActionModelEncoding {
+//     actions: Vec<u8>,
+// }
+// impl AgzActionModelEncoding {
+//     pub fn decode<B: Backend>(self, device: B::Device) -> Result<AgzActionModel<B>, String> {
+//         Ok(AgzActionModel {
+//             device,
 
-        let device = Default::default();
-        // let device = Device::cuda_if_available();
-        enc.decode(device)
-    }
-}
+//             actions: DNN::load_from_bytes(&self.actions[..])?,
+//         })
+//     }
+// }
+
+// pub struct AgzActionModel<B: Backend> {
+//     device: B::Device,
+
+//     /// This models all actions at once, city actions first
+//     actions: DNN<B>,
+// }
+
+// impl<B: Backend> AgzActionModel<B> {}
+
+// #[async_trait]
+// impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
+//     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
+//         let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
+//             .await
+//             .iter()
+//             .copied()
+//             .map(|a| a.into())
+//             .collect();
+
+//         if legal_action_indices.is_empty() {
+//             return None;
+//         }
+
+//         let feats = Self::features(turn, TrainingFocus::City).await;
+
+//         let feats = Tensor::from_floats(feats.as_slice(), &self.device);
+
+//         let probs = self.actions.evaluate_tensors(&feats);
+
+//         // No offset is subtracted because city actions go first
+//         let city_action_probs: Vec<(usize, fX)> = probs
+//             .into_iter()
+//             .enumerate() // enumerating yields city action indices because city actions go first
+//             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(i))
+//             .collect();
+
+//         let mut rng = thread_rng();
+
+//         let city_action_idx = weighted_sample_idx(&mut rng, &city_action_probs);
+
+//         debug_assert!(
+//             city_action_idx < POSSIBLE_CITY_ACTIONS,
+//             "city_action_idx {} not less than POSSIBLE_CITY_ACTIONS {}",
+//             city_action_idx,
+//             POSSIBLE_CITY_ACTIONS
+//         );
+
+//         Some(NextCityAction::try_from(city_action_idx).unwrap())
+//     }
+
+//     async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction> {
+//         let legal_action_indices: HashSet<usize> = NextUnitAction::legal(turn)
+//             .await
+//             .iter()
+//             .copied()
+//             .map(|a| a.into())
+//             .collect();
+
+//         if legal_action_indices.is_empty() {
+//             return None;
+//         }
+
+//         let feats = Self::features(turn, TrainingFocus::Unit).await;
+
+//         let feats = Tensor::from_floats(feats.as_slice(), &self.device);
+
+//         let unit_action_probs: Vec<(usize, fX)> = self
+//             .actions
+//             .evaluate_tensors(&feats)
+//             .into_iter()
+//             .skip(POSSIBLE_CITY_ACTIONS) // ignore the city prefix
+//             .enumerate() // enumerate now so we get unit action indices
+//             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(&i))
+//             .collect();
+
+//         let mut rng = thread_rng();
+
+//         let unit_action_idx = weighted_sample_idx(&mut rng, &unit_action_probs);
+
+//         debug_assert!(
+//             unit_action_idx < POSSIBLE_UNIT_ACTIONS,
+//             "unit_action_idx {} not less than POSSIBLE_UNIT_ACTIONS {}",
+//             unit_action_idx,
+//             POSSIBLE_UNIT_ACTIONS
+//         );
+
+//         Some(NextUnitAction::try_from(unit_action_idx).unwrap())
+//     }
+// }
+
+// impl<B: Backend> Storable for AgzActionModel<B> {
+//     fn store(self, path: &std::path::Path) -> Result<(), String> {
+//         let w = OpenOptions::new()
+//             .create_new(true)
+//             .write(true)
+//             .append(false)
+//             .open(path)
+//             .map_err(|e| format!("Error opening {}: {}", path.display(), e))?;
+
+//         let enc = self.encode();
+
+//         bincode::serialize_into(w, &enc)
+//             .map_err(|e| format!("Error serializing encoded agz action model: {}", e))
+//     }
+// }
+
+// impl<B: Backend> Loadable for AgzActionModel<B> {
+//     fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, String> {
+//         let r = OpenOptions::new()
+//             .read(true)
+//             .open(path.as_ref())
+//             .map_err(|e| format!("Error opening {}: {}", path.as_ref().display(), e))?;
+
+//         let enc: AgzActionModelEncoding = bincode::deserialize_from(r)
+//             .map_err(|e| format!("Error deserializing encoded agz action model: {}", e))?;
+
+//         let device = Default::default();
+//         // let device = Device::cuda_if_available();
+//         enc.decode(device)
+//     }
+// }
