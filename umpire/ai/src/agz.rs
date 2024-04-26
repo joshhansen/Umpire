@@ -8,6 +8,7 @@ use std::{fmt, fs::File, path::Path};
 
 use async_trait::async_trait;
 
+use burn::record::{BinFileRecorder, FullPrecisionSettings};
 use burn::{
     module::Module,
     nn::{conv::Conv2dConfig, DropoutConfig, LinearConfig, Relu},
@@ -259,27 +260,28 @@ impl<B: Backend> Loadable for DNN<B> {
             ));
         }
 
-        let r = File::open(path).map_err(|err| err.to_string())?;
+        let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
-        Self::load_from_bytes(r)
+        let config = DNNConfig {
+            learning_rate: 0.0,
+            possible_actions: 0,
+        };
+
+        let device = Default::default();
+
+        let model: DNN<B> = config.init(&device);
+
+        model
+            .load_file(path, &recorder, &device)
+            .map_err(|e| e.to_string())
     }
 }
 
 impl<B: Backend> Storable for DNN<B> {
     fn store(self, path: &Path) -> Result<(), String> {
-        self.vars.save(path).map_err(|err| err.to_string())
-        // let mut builder = SavedModelBuilder::new();
-        // builder.add_tag(TAG);
+        let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
-        // let saver = builder.inject(&mut self.scope)
-        //        .map_err(|status| {
-        //            format!("Error injecting scope into saved model builder, status {}", status)
-        //        })?;
-
-        // let graph = self.scope.graph();
-
-        // saver.save(&self.session, &(*graph), path)
-        //      .map_err(|err| format!("Error saving DNN: {}", err))
+        self.save_file(path, &recorder).map_err(|e| e.to_string())
     }
 }
 
