@@ -286,7 +286,7 @@ impl<B: Backend> Storable for DNN<B> {
 }
 
 pub struct AgzDatum<B: Backend> {
-    pub features: Tensor<B, FEATS_LEN_USIZE>,
+    pub features: Tensor<B, 1>,
     pub action: AiPlayerAction,
     pub outcome: TrainingOutcome,
 }
