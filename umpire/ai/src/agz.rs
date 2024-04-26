@@ -10,6 +10,7 @@ use async_trait::async_trait;
 
 use burn::nn::loss::{MseLoss, Reduction};
 use burn::record::{BinFileRecorder, FullPrecisionSettings};
+use burn::tensor::backend::AutodiffBackend;
 use burn::{
     module::Module,
     nn::{conv::Conv2dConfig, DropoutConfig, LinearConfig, Relu},
@@ -17,6 +18,7 @@ use burn::{
     prelude::*,
     tensor::activation::softplus,
 };
+use burn_train::RegressionOutput;
 
 use num_traits::ToPrimitive;
 
@@ -138,8 +140,8 @@ pub struct AgzActionModel<B: Backend> {
     dense2: nn::Linear<B>,
 }
 
-impl<B: Backend> AgzActionModel<B> {
-    fn forward(&self, xs: &Tensor<B, 1>) -> Tensor<B, 1> {
+impl<B: AutodiffBackend> AgzActionModel<B> {
+    fn forward(&self, xs: &Tensor<B, 2>) -> Tensor<B, 2> {
         // Wide featuers that will pass through to the dense layers directly
         let wide = xs.slice([0..WIDE_LEN_USIZE]);
 
@@ -224,29 +226,66 @@ impl<B: Backend> AgzActionModel<B> {
         action_tensor.into_scalar().to_f64().unwrap()
     }
 
-    pub fn train(&mut self, features: &Tensor<B, 1>, action: &usize, value: f64) {
-        let actual_estimate: Tensor =
-            self.forward_t(features, true)
-                .slice(0, *action as i64, *action as i64 + 1, 1);
+    pub fn train_action<O: Optimizer<Self, B>>(
+        &mut self,
+        features: &Tensor<B, 2>,
+        action: &usize,
+        value: f64,
+        optimizer: &O,
+    ) {
+        let estimates = self.forward(features);
+        let action_estimate = estimates.slice([*action..(*action + 1)]);
 
-        let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
+        let device = Default::default();
 
-        let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::Sum);
+        let value_tensor = Tensor::from_floats([value as f32], &device);
 
-        debug_assert!(loss.device().is_cuda());
+        // let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
 
-        self.optimizer.backward_step(&loss);
+        let f_loss: MseLoss<B> = MseLoss::new();
+
+        let loss = f_loss.forward(action_estimate, value_tensor, Reduction::Sum);
+
+        // let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::Sum);
+
+        // debug_assert!(loss.device().is_cuda());
+
+        // self.optimizer.backward_step(&loss);
+
+        optimizer.step(self.learning_rate, self)
     }
 
     pub fn forward_classification(
         &self,
         xs: Tensor<B, 1>,
-        targets: Tensor<B, 1, Int>,
-    ) -> ClassificationOutput<B> {
+        targets: Tensor<B, 1>,
+    ) -> RegressionOutput<B> {
         let output = self.forward(&xs);
         let loss = MseLoss::new().forward(output.clone(), targets.clone(), Reduction::Mean);
 
-        ClassificationOutput::new(loss, output, targets)
+        RegressionOutput::new(loss, output, targets)
+    }
+
+    pub fn forward_regression(
+        &self,
+        features: Tensor<B, 2>,
+        action: usize,
+        value: f64,
+    ) -> RegressionOutput<B> {
+        let estimates = self.forward(&features);
+        let action_estimate = estimates.slice([action..(action + 1)]);
+
+        let device = Default::default();
+
+        let value_tensor = Tensor::from_floats([value as f32], &device);
+
+        // let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
+
+        let f_loss: MseLoss<B> = MseLoss::new();
+
+        let loss = f_loss.forward(action_estimate, value_tensor, Reduction::Sum);
+
+        RegressionOutput::new(loss, action_estimate, value_tensor)
     }
 
     // pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
