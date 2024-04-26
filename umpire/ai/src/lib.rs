@@ -36,6 +36,7 @@ pub trait LoadableFromBytes: Sized {
 
 // Sub-modules
 pub mod agz;
+pub mod data;
 
 mod random;
 

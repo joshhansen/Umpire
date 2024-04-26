@@ -18,7 +18,7 @@ use burn::{
     prelude::*,
     tensor::activation::softplus,
 };
-use burn_train::RegressionOutput;
+use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
 use num_traits::ToPrimitive;
 
@@ -43,7 +43,7 @@ use common::game::{
 };
 use common::util::weighted_sample_idx;
 
-use crate::{Loadable, LoadableFromBytes, Storable, StorableAsBytes};
+use crate::{data::AgzBatch, Loadable, LoadableFromBytes, Storable, StorableAsBytes};
 
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
@@ -141,7 +141,7 @@ pub struct AgzActionModel<B: Backend> {
 }
 
 impl<B: AutodiffBackend> AgzActionModel<B> {
-    fn forward(&self, xs: &Tensor<B, 2>) -> Tensor<B, 2> {
+    fn forward(&self, xs: &Tensor<B, 2>) -> Tensor<B, 1> {
         // Wide featuers that will pass through to the dense layers directly
         let wide = xs.slice([0..WIDE_LEN_USIZE]);
 
@@ -257,7 +257,7 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
 
     pub fn forward_classification(
         &self,
-        xs: Tensor<B, 1>,
+        xs: Tensor<B, 2>,
         targets: Tensor<B, 1>,
     ) -> RegressionOutput<B> {
         let output = self.forward(&xs);
@@ -640,3 +640,17 @@ const TOTAL_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 //         enc.decode(device)
 //     }
 // }
+
+impl<B: AutodiffBackend> TrainStep<AgzBatch<B>, RegressionOutput<B>> for AgzActionModel<B> {
+    fn step(&self, batch: AgzBatch<B>) -> TrainOutput<RegressionOutput<B>> {
+        let item = self.forward_classification(batch.data, batch.targets);
+
+        TrainOutput::new(self, item.loss.backward(), item)
+    }
+}
+
+impl<B: Backend> ValidStep<AgzBatch<B>, RegressionOutput<B>> for AgzActionModel<B> {
+    fn step(&self, batch: AgzBatch<B>) -> RegressionOutput<B> {
+        self.forward_classification(batch.data, batch.targets)
+    }
+}
