@@ -20,6 +20,7 @@ use burn::{
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
+use common::game::ai::DEEP_LEN_USIZE;
 use num_traits::ToPrimitive;
 
 use rand::{thread_rng, Rng};
@@ -139,19 +140,32 @@ pub struct AgzActionModel<B: Backend> {
     dense1: nn::Linear<B>,
     dense2: nn::Linear<B>,
 }
+impl<B: Backend> AgzActionModel<B> {
+    async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
+        turn.player_features(focus)
+            .await
+            .iter()
+            .map(|x| *x as f32)
+            .collect()
+    }
 
-impl<B: AutodiffBackend> AgzActionModel<B> {
-    fn forward(&self, xs: &Tensor<B, 2>) -> Tensor<B, 1> {
-        // Wide featuers that will pass through to the dense layers directly
-        let wide = xs.slice([0..WIDE_LEN_USIZE]);
+    /// [batch,feat] -> [batch,victory_prob]
+    fn forward(&self, xs: &Tensor<B, 2>) -> Tensor<B, 2> {
+        // Wide features that will pass through to the dense layers directly
+        // [batch,wide_feat]
+        let wide = xs.clone().slice([0..WIDE_LEN_USIZE]);
 
         // Input features to the 2d convolution
-        let mut deep = xs.slice([WIDE_LEN_USIZE..FEATS_LEN_USIZE]).reshape([
-            1,
-            BASE_CONV_FEATS_USIZE,
-            DEEP_WIDTH_USIZE,
-            DEEP_HEIGHT_USIZE,
-        ]);
+        // [batch,conv_feat,x,y]
+        let mut deep = xs
+            .clone()
+            .slice([WIDE_LEN_USIZE..FEATS_LEN_USIZE])
+            .reshape([
+                -1_i32, // Preserve the batch count
+                BASE_CONV_FEATS_USIZE as i32,
+                DEEP_WIDTH_USIZE as i32,
+                DEEP_HEIGHT_USIZE as i32,
+            ]);
 
         // let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
@@ -168,8 +182,10 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
         }
 
         // Reshape back to vector
-        let deep_flat: Tensor<B, 1> = deep.reshape([-1]);
+        // [batch,deep_feat]
+        let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_LEN_USIZE as i32]);
 
+        // [batch,feat]
         let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 0);
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
@@ -201,8 +217,8 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
 
         out2
     }
-
-    pub fn evaluate_tensors(&self, features: &Tensor<B, 1>) -> Vec<fX> {
+    /// [batch,feat]
+    pub fn evaluate_tensors(&self, features: &Tensor<B, 2>) -> Vec<fX> {
         let result_tensor = self.forward(features);
 
         // debug_assert!(result_tensor.device().is_cuda());
@@ -216,7 +232,8 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
             .collect()
     }
 
-    pub fn evaluate_tensor(&self, features: &Tensor<B, 1>, action: &usize) -> fX {
+    /// [batch,feat]
+    pub fn evaluate_tensor(&self, features: &Tensor<B, 2>, action: &usize) -> fX {
         let result_tensor = self.forward(features);
 
         // debug_assert!(result_tensor.device().is_cuda());
@@ -226,54 +243,32 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
         action_tensor.into_scalar().to_f64().unwrap()
     }
 
-    pub fn train_action<O: Optimizer<Self, B>>(
-        &mut self,
-        features: &Tensor<B, 2>,
-        action: &usize,
-        value: f64,
-        optimizer: &O,
-    ) {
-        let estimates = self.forward(features);
-        let action_estimate = estimates.slice([*action..(*action + 1)]);
-
-        let device = Default::default();
-
-        let value_tensor = Tensor::from_floats([value as f32], &device);
-
-        // let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
-
-        let f_loss: MseLoss<B> = MseLoss::new();
-
-        let loss = f_loss.forward(action_estimate, value_tensor, Reduction::Sum);
-
-        // let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::Sum);
-
-        // debug_assert!(loss.device().is_cuda());
-
-        // self.optimizer.backward_step(&loss);
-
-        optimizer.step(self.learning_rate, self)
-    }
-
-    pub fn forward_classification(
+    /**
+     xs: [batch,feat]
+     targets: [batch,target] - we're forced into 2d by RegressionOutput, target will always be 0
+    */
+    pub fn forward_regression_bulk(
         &self,
         xs: Tensor<B, 2>,
         targets: Tensor<B, 1>,
     ) -> RegressionOutput<B> {
         let output = self.forward(&xs);
-        let loss = MseLoss::new().forward(output.clone(), targets.clone(), Reduction::Mean);
+        let targets_batched = targets.reshape([-1, 1]);
+        let loss = MseLoss::new().forward(output.clone(), targets_batched.clone(), Reduction::Mean);
 
-        RegressionOutput::new(loss, output, targets)
+        RegressionOutput::new(loss, output, targets_batched)
     }
 
     pub fn forward_regression(
         &self,
-        features: Tensor<B, 2>,
+        features: Tensor<B, 1>,
         action: usize,
         value: f64,
     ) -> RegressionOutput<B> {
-        let estimates = self.forward(&features);
-        let action_estimate = estimates.slice([action..(action + 1)]);
+        // [batch,feat]
+        let estimates = self.forward(&features.reshape([1, -1]));
+        // []
+        let action_estimate = estimates.slice([action..(action + 1)]).reshape([-1]);
 
         let device = Default::default();
 
@@ -283,9 +278,17 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
 
         let f_loss: MseLoss<B> = MseLoss::new();
 
-        let loss = f_loss.forward(action_estimate, value_tensor, Reduction::Sum);
+        let loss = f_loss.forward(
+            action_estimate.clone(),
+            value_tensor.clone(),
+            Reduction::Sum,
+        );
 
-        RegressionOutput::new(loss, action_estimate, value_tensor)
+        RegressionOutput::new(
+            loss,
+            action_estimate.reshape([1, -1]),
+            value_tensor.reshape([1, -1]),
+        )
     }
 
     // pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
@@ -297,82 +300,104 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
     //     Ok(Self { device, actions })
     // }
 
-    pub fn train_macro(&mut self, data: &Vec<AgzDatum<B>>, sample_prob: f64) {
-        let mut rand = thread_rng();
-        for datum in data {
-            if rand.gen::<f64>() > sample_prob {
-                continue;
-            }
+    // pub fn error(&self, data: &Vec<AgzDatum<B>>) -> f64 {
+    //     let mut sse = 0.0f64;
+    //     for datum in data {
+    //         let features = &datum.features;
 
-            let target = datum.outcome.to_training_target();
+    //         let predicted_outcome = if let Ok(city_action) =
+    //             <AiPlayerAction as TryInto<NextCityAction>>::try_into(datum.action)
+    //         {
+    //             // City actions go first, so no offset is added
+    //             let city_action_idx: usize = city_action.into();
 
-            if let Ok(city_action) = NextCityAction::try_from(datum.action) {
-                // City actions go first, so no offset is added
-                let city_action_idx: usize = city_action.into();
+    //             self.evaluate_tensor(features, &city_action_idx)
+    //         } else {
+    //             let unit_action =
+    //                 <AiPlayerAction as TryInto<NextUnitAction>>::try_into(datum.action).unwrap();
 
-                debug_assert!(city_action_idx < POSSIBLE_CITY_ACTIONS);
-                debug_assert!(city_action_idx < TOTAL_ACTIONS);
+    //             // We use the city action count as an offset since city actions go first
+    //             let raw_unit_action_idx: usize = unit_action.into();
+    //             let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
 
-                self.train(&datum.features, &city_action_idx, target);
-            } else {
-                let unit_action = NextUnitAction::try_from(datum.action).unwrap();
+    //             debug_assert!(unit_action_idx < TOTAL_ACTIONS);
 
-                // We use the city action count as an offset since city actions go first
-                let raw_unit_action_idx: usize = unit_action.into();
-                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
+    //             self.evaluate_tensor(features, &unit_action_idx)
+    //         };
 
-                debug_assert!(POSSIBLE_CITY_ACTIONS <= unit_action_idx);
-                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
+    //         let actual_outcome = datum.outcome.to_training_target();
 
-                self.train(&datum.features, &unit_action_idx, target);
-            }
-        }
-    }
+    //         sse += (predicted_outcome - actual_outcome).powf(2.0);
+    //     }
 
-    pub fn error(&self, data: &Vec<AgzDatum<B>>) -> f64 {
-        let mut sse = 0.0f64;
-        for datum in data {
-            let features = &datum.features;
-
-            let predicted_outcome = if let Ok(city_action) =
-                <AiPlayerAction as TryInto<NextCityAction>>::try_into(datum.action)
-            {
-                // City actions go first, so no offset is added
-                let city_action_idx: usize = city_action.into();
-
-                self.evaluate_tensor(features, &city_action_idx)
-            } else {
-                let unit_action =
-                    <AiPlayerAction as TryInto<NextUnitAction>>::try_into(datum.action).unwrap();
-
-                // We use the city action count as an offset since city actions go first
-                let raw_unit_action_idx: usize = unit_action.into();
-                let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
-
-                debug_assert!(unit_action_idx < TOTAL_ACTIONS);
-
-                self.evaluate_tensor(features, &unit_action_idx)
-            };
-
-            let actual_outcome = datum.outcome.to_training_target();
-
-            sse += (predicted_outcome - actual_outcome).powf(2.0);
-        }
-
-        sse
-    }
-
-    async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
-        turn.player_features(focus)
-            .await
-            .iter()
-            .map(|x| *x as f32)
-            .collect()
-    }
+    //     sse
+    // }
 
     // fn encode(self) -> AgzActionModelEncoding {
     //     AgzActionModelEncoding {
     //         actions: self.actions.store_as_bytes().unwrap(),
+    //     }
+    // }
+}
+
+impl<B: AutodiffBackend> AgzActionModel<B> {
+    // pub fn train_action<O: Optimizer<Self, B>>(
+    //     &mut self,
+    //     features: &Tensor<B, 2>,
+    //     action: &usize,
+    //     value: f64,
+    //     optimizer: &O,
+    // ) {
+    //     let estimates = self.forward(features);
+    //     let action_estimate = estimates.slice([*action..(*action + 1)]);
+
+    //     let device = Default::default();
+
+    //     let value_tensor = Tensor::from_floats([value as f32], &device);
+
+    //     // let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
+
+    //     let f_loss: MseLoss<B> = MseLoss::new();
+
+    //     let loss = f_loss.forward(action_estimate, value_tensor, Reduction::Sum);
+
+    //     // let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::Sum);
+
+    //     // debug_assert!(loss.device().is_cuda());
+
+    //     // self.optimizer.backward_step(&loss);
+
+    //     optimizer.step(self.learning_rate, self);
+    // }
+    // pub fn train_macro(&mut self, data: &Vec<AgzDatum<B>>, sample_prob: f64) {
+    //     let mut rand = thread_rng();
+    //     for datum in data {
+    //         if rand.gen::<f64>() > sample_prob {
+    //             continue;
+    //         }
+
+    //         let target = datum.outcome.to_training_target();
+
+    //         if let Ok(city_action) = NextCityAction::try_from(datum.action) {
+    //             // City actions go first, so no offset is added
+    //             let city_action_idx: usize = city_action.into();
+
+    //             debug_assert!(city_action_idx < POSSIBLE_CITY_ACTIONS);
+    //             debug_assert!(city_action_idx < TOTAL_ACTIONS);
+
+    //             self.train_action(&datum.features, &city_action_idx, target);
+    //         } else {
+    //             let unit_action = NextUnitAction::try_from(datum.action).unwrap();
+
+    //             // We use the city action count as an offset since city actions go first
+    //             let raw_unit_action_idx: usize = unit_action.into();
+    //             let unit_action_idx: usize = POSSIBLE_CITY_ACTIONS + raw_unit_action_idx;
+
+    //             debug_assert!(POSSIBLE_CITY_ACTIONS <= unit_action_idx);
+    //             debug_assert!(unit_action_idx < TOTAL_ACTIONS);
+
+    //             self.train_action(&datum.features, &unit_action_idx, target);
+    //         }
     //     }
     // }
 }
@@ -430,7 +455,8 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
         let device = Default::default();
 
-        let feats = Tensor::from_floats(feats.as_slice(), &device);
+        // [batch,feat] (a batch of one)
+        let feats = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
         let probs = self.evaluate_tensors(&feats);
 
@@ -470,7 +496,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
         let feats = Self::features(turn, TrainingFocus::Unit).await;
 
         let device = Default::default();
-        let feats = Tensor::from_floats(feats.as_slice(), &device);
+        let feats = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
         let unit_action_probs: Vec<(usize, fX)> = self
             .evaluate_tensors(&feats)
@@ -643,7 +669,7 @@ const TOTAL_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
 impl<B: AutodiffBackend> TrainStep<AgzBatch<B>, RegressionOutput<B>> for AgzActionModel<B> {
     fn step(&self, batch: AgzBatch<B>) -> TrainOutput<RegressionOutput<B>> {
-        let item = self.forward_classification(batch.data, batch.targets);
+        let item = self.forward_regression_bulk(batch.data, batch.targets);
 
         TrainOutput::new(self, item.loss.backward(), item)
     }
@@ -651,6 +677,6 @@ impl<B: AutodiffBackend> TrainStep<AgzBatch<B>, RegressionOutput<B>> for AgzActi
 
 impl<B: Backend> ValidStep<AgzBatch<B>, RegressionOutput<B>> for AgzActionModel<B> {
     fn step(&self, batch: AgzBatch<B>) -> RegressionOutput<B> {
-        self.forward_classification(batch.data, batch.targets)
+        self.forward_regression_bulk(batch.data, batch.targets)
     }
 }

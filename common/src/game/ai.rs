@@ -36,12 +36,14 @@ pub const DEEP_WIDTH_USIZE: usize = DEEP_WIDTH as usize;
 pub const DEEP_HEIGHT: i64 = 11;
 pub const DEEP_HEIGHT_USIZE: usize = DEEP_HEIGHT as usize;
 pub const DEEP_TILES: i64 = DEEP_WIDTH * DEEP_HEIGHT;
+pub const DEEP_TILES_USIZE: usize = DEEP_WIDTH_USIZE * DEEP_HEIGHT_USIZE;
 
 /// Number of "channels" in convolution output
 pub const BASE_CONV_FEATS: i64 = 16;
 pub const BASE_CONV_FEATS_USIZE: usize = BASE_CONV_FEATS as usize;
 
 pub const DEEP_LEN: i64 = DEEP_TILES * BASE_CONV_FEATS;
+pub const DEEP_LEN_USIZE: usize = DEEP_TILES_USIZE * BASE_CONV_FEATS_USIZE;
 
 /// Total length of convolution output after reducing to 3x3
 pub const DEEP_OUT_LEN: i64 = 9 * BASE_CONV_FEATS;

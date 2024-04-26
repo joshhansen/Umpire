@@ -28,7 +28,7 @@ impl<B: Backend> Batcher<AgzDatum<B>, AgzBatch<B>> for AgzBatcher<B> {
 
         let data = items
             .iter()
-            .map(|item| item.features.reshape([1, -1]))
+            .map(|item| item.features.clone().reshape([1, -1]))
             .collect();
 
         let data = Tensor::cat(data, 0).to_device(&device);
