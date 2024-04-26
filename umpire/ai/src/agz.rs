@@ -8,6 +8,7 @@ use std::{fmt, fs::File, path::Path};
 
 use async_trait::async_trait;
 
+use burn::nn::loss::{MseLoss, Reduction};
 use burn::record::{BinFileRecorder, FullPrecisionSettings};
 use burn::{
     module::Module,
@@ -59,13 +60,13 @@ impl<'de> Visitor<'de> for BytesVisitor {
 }
 
 #[derive(Config, Debug)]
-pub struct DNNConfig {
+pub struct AgzActionModelConfig {
     pub learning_rate: f64,
     pub possible_actions: usize,
 }
 
-impl DNNConfig {
-    pub fn init<B: Backend>(&self, device: &B::Device) -> DNN<B> {
+impl AgzActionModelConfig {
+    pub fn init<B: Backend>(&self, device: &B::Device) -> AgzActionModel<B> {
         let convs = vec![
             Conv2dConfig::new([BASE_CONV_FEATS_USIZE, BASE_CONV_FEATS_USIZE * 2], [3, 3])
                 .init(device), // -> 9x9
@@ -100,7 +101,7 @@ impl DNNConfig {
         //     .build(&vars, self.learning_rate)
         //     .map_err(|err| err.to_string())?;
 
-        DNN {
+        AgzActionModel {
             convs,
             dropouts,
             dense0,
@@ -128,7 +129,7 @@ impl DNNConfig {
 ///
 /// See `Obs::features` and `Game::player_features` for more information
 #[derive(Debug, Module)]
-pub struct DNN<B: Backend> {
+pub struct AgzActionModel<B: Backend> {
     relu: nn::Relu,
     convs: Vec<nn::conv::Conv2d<B>>,
     dropouts: Vec<nn::Dropout>,
@@ -137,7 +138,7 @@ pub struct DNN<B: Backend> {
     dense2: nn::Linear<B>,
 }
 
-impl<B: Backend> DNN<B> {
+impl<B: Backend> AgzActionModel<B> {
     fn forward(&self, xs: &Tensor<B, 1>) -> Tensor<B, 1> {
         // Wide featuers that will pass through to the dense layers directly
         let wide = xs.slice([0..WIDE_LEN_USIZE]);
@@ -230,7 +231,7 @@ impl<B: Backend> DNN<B> {
 
         let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
 
-        let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::None);
+        let loss: Tensor = actual_estimate.mse_loss(&value_tensor, Reduction::Sum);
 
         debug_assert!(loss.device().is_cuda());
 
@@ -243,14 +244,13 @@ impl<B: Backend> DNN<B> {
         targets: Tensor<B, 1, Int>,
     ) -> ClassificationOutput<B> {
         let output = self.forward(&xs);
-        let loss =
-            CrossEntropyLoss::new(None, &output.device()).forward(output.clone(), targets.clone());
+        let loss = MseLoss::new().forward(output.clone(), targets.clone(), Reduction::Mean);
 
         ClassificationOutput::new(loss, output, targets)
     }
 
     // pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
-    //     let cfg = DNNConfig {
+    //     let cfg = AgzActionModelConfig {
     //         learning_rate,
     //         possible_actions: TOTAL_ACTIONS,
     //     };
@@ -338,26 +338,26 @@ impl<B: Backend> DNN<B> {
     // }
 }
 
-impl<B: Backend> Loadable for DNN<B> {
+impl<B: Backend> Loadable for AgzActionModel<B> {
     fn load<P: AsRef<Path>>(path: P) -> Result<Self, String> {
         let path = path.as_ref();
         if !path.exists() {
             return Err(format!(
-                "Can't load DNN from path '{:?}' because it doesn't exist",
+                "Can't load AgzActionModel from path '{:?}' because it doesn't exist",
                 path
             ));
         }
 
         let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
-        let config = DNNConfig {
+        let config = AgzActionModelConfig {
             learning_rate: 0.0,
             possible_actions: 0,
         };
 
         let device = Default::default();
 
-        let model: DNN<B> = config.init(&device);
+        let model: AgzActionModel<B> = config.init(&device);
 
         model
             .load_file(path, &recorder, &device)
@@ -365,7 +365,7 @@ impl<B: Backend> Loadable for DNN<B> {
     }
 }
 
-impl<B: Backend> Storable for DNN<B> {
+impl<B: Backend> Storable for AgzActionModel<B> {
     fn store(self, path: &Path) -> Result<(), String> {
         let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
@@ -374,7 +374,7 @@ impl<B: Backend> Storable for DNN<B> {
 }
 
 #[async_trait]
-impl<B: Backend> ActionwiseTurnTaker2 for DNN<B> {
+impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
         let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
             .await
