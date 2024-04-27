@@ -857,6 +857,10 @@ impl UmpireRpc for UmpireServer {
     }
 }
 
+async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
+    tokio::spawn(fut);
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("umpire-server");
@@ -1054,7 +1058,7 @@ async fn main() -> anyhow::Result<()> {
                 player_types: player_types.clone(),
             };
 
-            channel.execute(server.serve())
+            channel.execute(server.serve()).for_each(spawn)
         })
         // Max channels.
         .buffer_unordered(num_humans)
