@@ -12,7 +12,17 @@ use std::{
     cell::RefCell, collections::HashMap, fs::File, io::stdout, path::Path, rc::Rc, sync::Arc,
 };
 
-use burn::prelude::*;
+use burn::{
+    backend::wgpu::WgpuDevice,
+    data::{dataloader::DataLoaderBuilder, dataset::Dataset},
+    optim::AdamConfig,
+    prelude::*,
+    record::CompactRecorder,
+    tensor::backend::AutodiffBackend,
+};
+use burn_autodiff::Autodiff;
+use burn_train::{metric::LossMetric, LearnerBuilder};
+use burn_wgpu::Wgpu;
 
 use clap::{value_parser, Arg, ArgAction, Command};
 
@@ -22,9 +32,12 @@ use crossterm::{
     terminal::{size, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use umpire_ai::agz::{AgzActionModel, AgzDatum};
+use umpire_ai::{
+    agz::{AgzActionModel, AgzActionModelConfig},
+    data::{AgzBatcher, AgzData, AgzDatum},
+};
 
-use common::util::densify;
+use common::{game::ai::POSSIBLE_ACTIONS_USIZE, util::densify};
 
 use rand::Rng;
 
@@ -58,28 +71,22 @@ fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
     Ok(ai_specs)
 }
 
-fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI>>>, String> {
-    let mut unique_ais: HashMap<AISpec, Rc<RefCell<AI>>> = HashMap::new();
+fn load_ais<B: Backend>(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI<B>>>>, String> {
+    let mut unique_ais: HashMap<AISpec, Rc<RefCell<AI<B>>>> = HashMap::new();
 
     for ai_type in ai_types {
         unique_ais.entry(ai_type.clone()).or_insert_with(|| {
-            let ai: AI = ai_type.clone().into();
+            let ai: AI<B> = ai_type.clone().into();
             Rc::new(RefCell::new(ai))
         });
     }
 
-    let mut ais: Vec<Rc<RefCell<AI>>> = Vec::with_capacity(ai_types.len());
+    let mut ais: Vec<Rc<RefCell<AI<B>>>> = Vec::with_capacity(ai_types.len());
     for ai_type in ai_types {
-        let ai: Rc<RefCell<AI>> = Rc::clone(&unique_ais[ai_type]);
+        let ai: Rc<RefCell<AI<B>>> = Rc::clone(&unique_ais[ai_type]);
         ais.push(ai);
     }
     Ok(ais)
-}
-
-enum MaybeNoGradGuard {
-    NGG(NoGradGuard),
-
-    None,
 }
 
 static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
@@ -290,7 +297,7 @@ async fn main() -> Result<(), String> {
             .cloned()
             .collect();
         let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
-        let mut ais: Vec<Rc<RefCell<AI>>> = load_ais(&ai_specs)?;
+        let mut ais: Vec<Rc<RefCell<AI<Wgpu>>>> = load_ais(&ai_specs)?;
 
         let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
@@ -507,17 +514,15 @@ async fn main() -> Result<(), String> {
 
             let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
 
-            let device = Device::cuda_if_available();
-
-            println!("PyTorch Device: {:?}", device);
+            let device = WgpuDevice::default();
 
             let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
 
             let mut rng = thread_rng();
 
             // FIXME Deserialize incrementally?
-            // Try to avoid allocating the whole Vec<TrainingInstance>
-            let input: Vec<AgzDatum> = input_paths
+            // Try to avoid allocating the whole Vec
+            let input: Vec<AgzDatum<Wgpu>> = input_paths
                 .into_iter()
                 .flat_map(|input_path| {
                     if verbosity > 0 {
@@ -549,7 +554,7 @@ async fn main() -> Result<(), String> {
 
                             let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
 
-                            let features = Tensor::try_from(features).unwrap().to_device(device);
+                            let features = Tensor::from_floats(features.as_slice(), &device);
 
                             AgzDatum {
                                 features,
@@ -562,7 +567,12 @@ async fn main() -> Result<(), String> {
 
             println!("Loaded {} instances", input.len());
 
-            let mut agz = AgzActionModel::new(device, learning_rate)?;
+            let model_config = AgzActionModelConfig {
+                learning_rate,
+                possible_actions: POSSIBLE_ACTIONS_USIZE,
+            };
+
+            let mut agz: AgzActionModel<Wgpu> = model_config.init(&device);
 
             let test_prob: f64 = sub_matches.get_one("testprob").cloned().unwrap();
 
@@ -572,35 +582,50 @@ async fn main() -> Result<(), String> {
 
             println!("Batch probability: {}", batch_prob);
 
-            let mut train: Vec<AgzDatum> = Vec::new();
+            let mut train_data: Vec<AgzDatum<Wgpu>> = Vec::new();
 
-            let mut test: Vec<AgzDatum> = Vec::new();
+            let mut test_data: Vec<AgzDatum<Wgpu>> = Vec::new();
 
             let mut rng = thread_rng();
 
             for datum in input.into_iter() {
                 if rng.gen::<f64>() <= test_prob {
-                    test.push(datum);
+                    test_data.push(datum);
                 } else {
-                    train.push(datum);
+                    train_data.push(datum);
                 }
             }
 
-            println!("Train size: {}", train.len());
-            println!("Test size: {}", test.len());
+            let train_data = AgzData::new(train_data);
+            let test_data = AgzData::new(test_data);
 
-            println!("Error: {}", agz.error(&test));
+            println!("Train size: {}", train_data.len());
+            println!("Test size: {}", test_data.len());
 
-            for i in 0..episodes {
-                println!("Iteration {}", i);
-                agz.train(&train, batch_prob);
+            // println!("Error: {}", agz.error(&test));
 
-                println!("Error: {}", agz.error(&test));
-            }
+            // for i in 0..episodes {
+            //     println!("Iteration {}", i);
+            //     agz.train_macro(&train, batch_prob);
 
-            let output_path = Path::new(output_path.as_str());
+            //     println!("Error: {}", agz.error(&test));
+            // }
 
-            agz.store(output_path)?;
+            // let output_path = Path::new(output_path.as_str());
+
+            // agz.store(output_path)?;
+
+            let adam_config = AdamConfig::new();
+
+            let train_config = TrainingConfig::new(model_config, adam_config);
+
+            train::<Wgpu, AgzData<Wgpu>, AgzData<Wgpu>>(
+                "ai/agz",
+                train_config,
+                device,
+                train_data,
+                test_data,
+            );
         }
     } else {
         return Err(String::from("A subcommand must be given"));
@@ -612,4 +637,81 @@ async fn main() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[derive(Config)]
+pub struct TrainingConfig {
+    pub model: AgzActionModelConfig,
+    pub optimizer: AdamConfig,
+    #[config(default = 10)]
+    pub num_epochs: usize,
+    #[config(default = 64)]
+    pub batch_size: usize,
+    #[config(default = 4)]
+    pub num_workers: usize,
+    #[config(default = 42)]
+    pub seed: u64,
+    #[config(default = 1.0e-4)]
+    pub learning_rate: f64,
+}
+
+fn create_artifact_dir(artifact_dir: &str) {
+    // Remove existing artifacts before to get an accurate learner summary
+    std::fs::remove_dir_all(artifact_dir).ok();
+    std::fs::create_dir_all(artifact_dir).ok();
+}
+
+pub fn train<
+    B: AutodiffBackend,
+    D1: Dataset<AgzDatum<B>>,
+    D2: Dataset<AgzDatum<B::InnerBackend>>,
+>(
+    artifact_dir: &str,
+    config: TrainingConfig,
+    device: B::Device,
+    train: D1,
+    test: D2,
+) {
+    create_artifact_dir(artifact_dir);
+    config
+        .save(format!("{artifact_dir}/config.json"))
+        .expect("Config should be saved successfully");
+
+    B::seed(config.seed);
+
+    let batcher_train = AgzBatcher::<B>::new(device.clone());
+    let batcher_valid = AgzBatcher::<B::InnerBackend>::new(device.clone());
+
+    let dataloader_train = DataLoaderBuilder::new(batcher_train)
+        .batch_size(config.batch_size)
+        .shuffle(config.seed)
+        .num_workers(config.num_workers)
+        .build(train);
+
+    let dataloader_test = DataLoaderBuilder::new(batcher_valid)
+        .batch_size(config.batch_size)
+        .shuffle(config.seed)
+        .num_workers(config.num_workers)
+        .build(test);
+
+    let learner = LearnerBuilder::new(artifact_dir)
+        // .metric_train_numeric(AccuracyMetric::new())
+        // .metric_valid_numeric(AccuracyMetric::new())
+        .metric_train_numeric(LossMetric::new())
+        .metric_valid_numeric(LossMetric::new())
+        .with_file_checkpointer(CompactRecorder::new())
+        .devices(vec![device.clone()])
+        .num_epochs(config.num_epochs)
+        .summary()
+        .build(
+            config.model.init::<B>(&device),
+            config.optimizer.init(),
+            config.learning_rate,
+        );
+
+    let model_trained = learner.fit(dataloader_train, dataloader_test);
+
+    model_trained
+        .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
+        .expect("Trained model should be saved successfully");
 }

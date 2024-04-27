@@ -30,6 +30,7 @@ use common::{
 };
 
 use anyhow::anyhow;
+use burn_wgpu::Wgpu;
 use clap::Arg;
 use futures::{future, prelude::*};
 use get_if_addrs::get_if_addrs;
@@ -69,7 +70,6 @@ struct UmpireServer {
     player_types: Vec<PlayerType>,
 }
 
-#[tarpc::server]
 impl UmpireRpc for UmpireServer {
     /// NOTE This is really aggressive!
     async fn wait_my_turn(self, _: Context) -> PlayerNum {
@@ -969,7 +969,8 @@ async fn main() -> anyhow::Result<()> {
                 .cloned()
                 .collect();
 
-            let mut ais: HashMap<PlayerType, AI> = HashMap::with_capacity(unique_ai_ptypes.len());
+            let mut ais: HashMap<PlayerType, AI<Wgpu>> =
+                HashMap::with_capacity(unique_ai_ptypes.len());
 
             let mut ai_ctrls: Vec<Option<PlayerControl>> = Vec::with_capacity(num_players);
 
@@ -991,7 +992,7 @@ async fn main() -> anyhow::Result<()> {
             }
 
             for ptype in unique_ai_ptypes.iter() {
-                let ai: AI = match ptype {
+                let ai: AI<Wgpu> = match ptype {
                     PlayerType::AI(aispec) => aispec.clone().into(),
                     _ => unreachable!(),
                 };

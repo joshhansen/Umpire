@@ -16,6 +16,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use burn_wgpu::Wgpu;
+
 use clap::{builder::BoolishValueParser, Arg, ArgAction};
 
 use tarpc::{client, context, tokio_serde::formats::Bincode};
@@ -288,12 +290,12 @@ async fn main() -> Result<(), String> {
 
         // AIs indexed by spec
         // let mut ais: HashMap<String,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
-        let mut ais: HashMap<AISpec, Rc<RefCell<AI>>> = HashMap::new();
+        let mut ais: HashMap<AISpec, Rc<RefCell<AI<Wgpu>>>> = HashMap::new();
 
         if local_server {
             for ptype in player_types.iter() {
                 if let PlayerType::AI(ai_type) = ptype {
-                    let ai: AI = ai_type.clone().into();
+                    let ai: AI<Wgpu> = ai_type.clone().into();
                     let ai = Rc::new(RefCell::new(ai));
                     // let player: Rc<RefCell<dyn TurnTaker>> = ai_type.clone().into();
                     ais.insert(ai_type.clone(), ai);

@@ -1,6 +1,37 @@
-use burn::{data::dataloader::batcher::Batcher, prelude::*};
+use burn::{
+    data::{dataloader::batcher::Batcher, dataset::Dataset},
+    prelude::*,
+};
+use common::game::{action::AiPlayerAction, ai::TrainingOutcome};
 
-use crate::agz::AgzDatum;
+#[derive(Clone, Debug)]
+pub struct AgzDatum<B: Backend> {
+    pub features: Tensor<B, 1>,
+    pub action: AiPlayerAction,
+    pub outcome: TrainingOutcome,
+}
+unsafe impl<B: Backend> Sync for AgzDatum<B> {
+    // Justified?
+}
+
+pub struct AgzData<B: Backend> {
+    data: Vec<AgzDatum<B>>,
+}
+
+impl<B: Backend> AgzData<B> {
+    pub fn new(data: Vec<AgzDatum<B>>) -> Self {
+        Self { data }
+    }
+}
+
+impl<B: Backend> Dataset<AgzDatum<B>> for AgzData<B> {
+    fn get(&self, index: usize) -> Option<AgzDatum<B>> {
+        self.data.get(index).cloned()
+    }
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+}
 
 #[derive(Clone)]
 pub struct AgzBatcher<B: Backend> {

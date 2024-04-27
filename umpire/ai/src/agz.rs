@@ -521,12 +521,6 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
     }
 }
 
-pub struct AgzDatum<B: Backend> {
-    pub features: Tensor<B, 1>,
-    pub action: AiPlayerAction,
-    pub outcome: TrainingOutcome,
-}
-
 const POSSIBLE_CITY_ACTIONS: usize = NextCityAction::possible();
 const POSSIBLE_UNIT_ACTIONS: usize = NextUnitAction::possible();
 const TOTAL_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
