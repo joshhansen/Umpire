@@ -33,7 +33,7 @@ use crossterm::{
 };
 
 use umpire_ai::{
-    agz::{AgzActionModel, AgzActionModelConfig},
+    agz::AgzActionModelConfig,
     data::{AgzBatcher, AgzData, AgzDatum},
 };
 
@@ -61,6 +61,9 @@ use rand::{prelude::SliceRandom, thread_rng};
 
 use umpire_ai::AI;
 use umpire_tui::{color::palette16, map::Map, Draw};
+
+type Datum = AgzDatum<Autodiff<Wgpu>>;
+type ValidDatum = AgzDatum<<Autodiff<Wgpu> as AutodiffBackend>::InnerBackend>;
 
 fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
     let mut ai_specs: Vec<AISpec> = Vec::new();
@@ -518,61 +521,12 @@ async fn main() -> Result<(), String> {
 
             let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
 
-            let mut rng = thread_rng();
-
-            // FIXME Deserialize incrementally?
-            // Try to avoid allocating the whole Vec
-            let input: Vec<AgzDatum<Wgpu>> = input_paths
-                .into_iter()
-                .flat_map(|input_path| {
-                    if verbosity > 0 {
-                        println!("Loading {}", input_path);
-                    }
-
-                    let data = {
-                        let mut r = File::open(input_path).unwrap();
-
-                        let mut data: Vec<TrainingInstance> = Vec::new();
-
-                        loop {
-                            let maybe_instance: bincode::Result<TrainingInstance> =
-                                bincode::deserialize_from(&mut r);
-
-                            if let Ok(instance) = maybe_instance {
-                                data.push(instance);
-                            } else {
-                                break;
-                            }
-                        }
-                        data
-                    };
-
-                    data.into_iter()
-                        .filter(move |_| rng.gen::<f64>() <= sample_prob)
-                        .map(|datum| {
-                            let features = densify(datum.num_features, &datum.features);
-
-                            let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
-
-                            let features = Tensor::from_floats(features.as_slice(), &device);
-
-                            AgzDatum {
-                                features,
-                                action: datum.action,
-                                outcome: datum.outcome.unwrap(),
-                            }
-                        })
-                })
-                .collect();
-
-            println!("Loaded {} instances", input.len());
-
             let model_config = AgzActionModelConfig {
                 learning_rate,
                 possible_actions: POSSIBLE_ACTIONS_USIZE,
             };
 
-            let mut agz: AgzActionModel<Wgpu> = model_config.init(&device);
+            // let mut agz: AgzActionModel<Wgpu> = model_config.init(&device);
 
             let test_prob: f64 = sub_matches.get_one("testprob").cloned().unwrap();
 
@@ -582,25 +536,67 @@ async fn main() -> Result<(), String> {
 
             println!("Batch probability: {}", batch_prob);
 
-            let mut train_data: Vec<AgzDatum<Wgpu>> = Vec::new();
+            let mut train_data: Vec<Datum> = Vec::new();
 
-            let mut test_data: Vec<AgzDatum<Wgpu>> = Vec::new();
+            let mut valid_data: Vec<ValidDatum> = Vec::new();
 
             let mut rng = thread_rng();
 
-            for datum in input.into_iter() {
-                if rng.gen::<f64>() <= test_prob {
-                    test_data.push(datum);
-                } else {
-                    train_data.push(datum);
+            for input_path in input_paths {
+                if verbosity > 0 {
+                    println!("Loading {}", input_path);
+                }
+
+                let data = {
+                    let mut r = File::open(input_path).unwrap();
+
+                    let mut data: Vec<TrainingInstance> = Vec::new();
+
+                    loop {
+                        let maybe_instance: bincode::Result<TrainingInstance> =
+                            bincode::deserialize_from(&mut r);
+
+                        if let Ok(instance) = maybe_instance {
+                            data.push(instance);
+                        } else {
+                            break;
+                        }
+                    }
+                    data
+                };
+
+                for datum in data
+                    .into_iter()
+                    .filter(move |_| rng.gen::<f64>() <= sample_prob)
+                {
+                    let features = densify(datum.num_features, &datum.features);
+
+                    let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
+
+                    if rng.gen::<f64>() <= test_prob {
+                        let features = Tensor::from_floats(features.as_slice(), &device);
+                        valid_data.push(AgzDatum {
+                            features,
+                            action: datum.action,
+                            outcome: datum.outcome.unwrap(),
+                        });
+                    } else {
+                        let features = Tensor::from_floats(features.as_slice(), &device);
+                        train_data.push(AgzDatum {
+                            features,
+                            action: datum.action,
+                            outcome: datum.outcome.unwrap(),
+                        });
+                    }
                 }
             }
 
-            let train_data = AgzData::new(train_data);
-            let test_data = AgzData::new(test_data);
+            let train_data: AgzData<Autodiff<Wgpu>> = AgzData::new(train_data);
+            let valid_data: AgzData<<Autodiff<Wgpu> as AutodiffBackend>::InnerBackend> =
+                AgzData::new(valid_data);
 
             println!("Train size: {}", train_data.len());
-            println!("Test size: {}", test_data.len());
+            println!("Valid size: {}", valid_data.len());
 
             // println!("Error: {}", agz.error(&test));
 
@@ -619,12 +615,12 @@ async fn main() -> Result<(), String> {
 
             let train_config = TrainingConfig::new(model_config, adam_config);
 
-            train::<Wgpu, AgzData<Wgpu>, AgzData<Wgpu>>(
-                "ai/agz",
+            train(
+                output_path.as_str(),
                 train_config,
                 device,
                 train_data,
-                test_data,
+                valid_data,
             );
         }
     } else {
@@ -663,14 +659,14 @@ fn create_artifact_dir(artifact_dir: &str) {
 
 pub fn train<
     B: AutodiffBackend,
-    D1: Dataset<AgzDatum<B>>,
-    D2: Dataset<AgzDatum<B::InnerBackend>>,
+    D1: Dataset<AgzDatum<B>> + 'static,
+    D2: Dataset<AgzDatum<B::InnerBackend>> + 'static,
 >(
     artifact_dir: &str,
     config: TrainingConfig,
     device: B::Device,
     train: D1,
-    test: D2,
+    valid: D2,
 ) {
     create_artifact_dir(artifact_dir);
     config
@@ -688,11 +684,11 @@ pub fn train<
         .num_workers(config.num_workers)
         .build(train);
 
-    let dataloader_test = DataLoaderBuilder::new(batcher_valid)
+    let dataloader_valid = DataLoaderBuilder::new(batcher_valid)
         .batch_size(config.batch_size)
         .shuffle(config.seed)
         .num_workers(config.num_workers)
-        .build(test);
+        .build(valid);
 
     let learner = LearnerBuilder::new(artifact_dir)
         // .metric_train_numeric(AccuracyMetric::new())
@@ -709,7 +705,7 @@ pub fn train<
             config.learning_rate,
         );
 
-    let model_trained = learner.fit(dataloader_train, dataloader_test);
+    let model_trained = learner.fit(dataloader_train, dataloader_valid);
 
     model_trained
         .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
