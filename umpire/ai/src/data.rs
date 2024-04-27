@@ -5,27 +5,24 @@ use burn::{
 use common::game::{action::AiPlayerAction, ai::TrainingOutcome};
 
 #[derive(Clone, Debug)]
-pub struct AgzDatum<B: Backend> {
-    pub features: Tensor<B, 1>,
+pub struct AgzDatum {
+    pub features: Vec<f32>,
     pub action: AiPlayerAction,
     pub outcome: TrainingOutcome,
 }
-unsafe impl<B: Backend> Sync for AgzDatum<B> {
-    // Justified?
+
+pub struct AgzData {
+    data: Vec<AgzDatum>,
 }
 
-pub struct AgzData<B: Backend> {
-    data: Vec<AgzDatum<B>>,
-}
-
-impl<B: Backend> AgzData<B> {
-    pub fn new(data: Vec<AgzDatum<B>>) -> Self {
+impl AgzData {
+    pub fn new(data: Vec<AgzDatum>) -> Self {
         Self { data }
     }
 }
 
-impl<B: Backend> Dataset<AgzDatum<B>> for AgzData<B> {
-    fn get(&self, index: usize) -> Option<AgzDatum<B>> {
+impl Dataset<AgzDatum> for AgzData {
+    fn get(&self, index: usize) -> Option<AgzDatum> {
         self.data.get(index).cloned()
     }
     fn len(&self) -> usize {
@@ -53,23 +50,26 @@ pub struct AgzBatch<B: Backend> {
     pub targets: Tensor<B, 1>,
 }
 
-impl<B: Backend> Batcher<AgzDatum<B>, AgzBatch<B>> for AgzBatcher<B> {
-    fn batch(&self, items: Vec<AgzDatum<B>>) -> AgzBatch<B> {
-        let device = Default::default();
-
+impl<B: Backend> Batcher<AgzDatum, AgzBatch<B>> for AgzBatcher<B> {
+    fn batch(&self, items: Vec<AgzDatum>) -> AgzBatch<B> {
         let data = items
             .iter()
-            .map(|item| item.features.clone().reshape([1, -1]))
+            .map(|item| {
+                let feats = Tensor::from_floats(item.features.as_slice(), &self.device);
+                feats.reshape([1, -1])
+            })
             .collect();
 
-        let data = Tensor::cat(data, 0).to_device(&device);
+        let data = Tensor::cat(data, 0).to_device(&self.device);
 
         let targets = items
             .into_iter()
-            .map(|item| Tensor::from_floats([item.outcome.to_training_target() as f32], &device))
+            .map(|item| {
+                Tensor::from_floats([item.outcome.to_training_target() as f32], &self.device)
+            })
             .collect();
 
-        let targets = Tensor::cat(targets, 0).to_device(&device);
+        let targets = Tensor::cat(targets, 0).to_device(&self.device);
 
         // let images = items
         //     .iter()

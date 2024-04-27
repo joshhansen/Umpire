@@ -62,9 +62,6 @@ use rand::{prelude::SliceRandom, thread_rng};
 use umpire_ai::AI;
 use umpire_tui::{color::palette16, map::Map, Draw};
 
-type Datum = AgzDatum<Autodiff<Wgpu>>;
-type ValidDatum = AgzDatum<<Autodiff<Wgpu> as AutodiffBackend>::InnerBackend>;
-
 fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
     let mut ai_specs: Vec<AISpec> = Vec::new();
     for ai_spec_s in specs {
@@ -536,9 +533,9 @@ async fn main() -> Result<(), String> {
 
             println!("Batch probability: {}", batch_prob);
 
-            let mut train_data: Vec<Datum> = Vec::new();
+            let mut train_data: Vec<AgzDatum> = Vec::new();
 
-            let mut valid_data: Vec<ValidDatum> = Vec::new();
+            let mut valid_data: Vec<AgzDatum> = Vec::new();
 
             let mut rng = thread_rng();
 
@@ -573,27 +570,22 @@ async fn main() -> Result<(), String> {
 
                     let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
 
+                    let datum = AgzDatum {
+                        features,
+                        action: datum.action,
+                        outcome: datum.outcome.unwrap(),
+                    };
+
                     if rng.gen::<f64>() <= test_prob {
-                        let features = Tensor::from_floats(features.as_slice(), &device);
-                        valid_data.push(AgzDatum {
-                            features,
-                            action: datum.action,
-                            outcome: datum.outcome.unwrap(),
-                        });
+                        valid_data.push(datum);
                     } else {
-                        let features = Tensor::from_floats(features.as_slice(), &device);
-                        train_data.push(AgzDatum {
-                            features,
-                            action: datum.action,
-                            outcome: datum.outcome.unwrap(),
-                        });
+                        train_data.push(datum);
                     }
                 }
             }
 
-            let train_data: AgzData<Autodiff<Wgpu>> = AgzData::new(train_data);
-            let valid_data: AgzData<<Autodiff<Wgpu> as AutodiffBackend>::InnerBackend> =
-                AgzData::new(valid_data);
+            let train_data: AgzData = AgzData::new(train_data);
+            let valid_data: AgzData = AgzData::new(valid_data);
 
             println!("Train size: {}", train_data.len());
             println!("Valid size: {}", valid_data.len());
@@ -615,7 +607,7 @@ async fn main() -> Result<(), String> {
 
             let train_config = TrainingConfig::new(model_config, adam_config);
 
-            train(
+            train::<Autodiff<Wgpu>>(
                 output_path.as_str(),
                 train_config,
                 device,
@@ -657,16 +649,12 @@ fn create_artifact_dir(artifact_dir: &str) {
     std::fs::create_dir_all(artifact_dir).ok();
 }
 
-pub fn train<
-    B: AutodiffBackend,
-    D1: Dataset<AgzDatum<B>> + 'static,
-    D2: Dataset<AgzDatum<B::InnerBackend>> + 'static,
->(
+pub fn train<B: AutodiffBackend>(
     artifact_dir: &str,
     config: TrainingConfig,
     device: B::Device,
-    train: D1,
-    valid: D2,
+    train: AgzData,
+    valid: AgzData,
 ) {
     create_artifact_dir(artifact_dir);
     config
