@@ -153,13 +153,14 @@ impl<B: Backend> AgzActionModel<B> {
     fn forward(&self, xs: &Tensor<B, 2>) -> Tensor<B, 2> {
         // Wide features that will pass through to the dense layers directly
         // [batch,wide_feat]
-        let wide = xs.clone().slice([0..WIDE_LEN_USIZE]);
+        let batches = xs.dims()[0];
+        let wide = xs.clone().slice([0..batches, 0..WIDE_LEN_USIZE]);
 
         // Input features to the 2d convolution
         // [batch,conv_feat,x,y]
         let mut deep = xs
             .clone()
-            .slice([WIDE_LEN_USIZE..FEATS_LEN_USIZE])
+            .slice([0..batches, WIDE_LEN_USIZE..FEATS_LEN_USIZE])
             .reshape([
                 -1_i32, // Preserve the batch count
                 BASE_CONV_FEATS_USIZE as i32,
@@ -234,11 +235,14 @@ impl<B: Backend> AgzActionModel<B> {
 
     /// [batch,feat]
     pub fn evaluate_tensor(&self, features: &Tensor<B, 2>, action: &usize) -> fX {
+        let batches = features.dims()[0];
+
+        // [batch,action_idx]
         let result_tensor = self.forward(features);
 
         // debug_assert!(result_tensor.device().is_cuda());
 
-        let action_tensor = result_tensor.slice([*action..(*action + 1)]);
+        let action_tensor = result_tensor.slice([0..batches, *action..(*action + 1)]);
 
         action_tensor.into_scalar().to_f64().unwrap()
     }
@@ -268,7 +272,7 @@ impl<B: Backend> AgzActionModel<B> {
         // [batch,feat]
         let estimates = self.forward(&features.reshape([1, -1]));
         // []
-        let action_estimate = estimates.slice([action..(action + 1)]).reshape([-1]);
+        let action_estimate = estimates.slice([0..1, action..(action + 1)]).reshape([-1]);
 
         let device = Default::default();
 
