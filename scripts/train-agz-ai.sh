@@ -1,4 +1,6 @@
 #!/bin/sh
+set -x
+
 BASE_ID=$(sh scripts/id.sh)
 
 WIDTH=10
