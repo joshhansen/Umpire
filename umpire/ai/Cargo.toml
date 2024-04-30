@@ -24,6 +24,6 @@ umpire-tui = { path = "../tui" }
 # AI/ML
 burn = { version = "0.13", default-features = false, features = ["wgpu", "std", "fusion", "autotune"] }
 burn-autodiff = "0.13"
-burn-train = "0.13"
+burn-train = { version = "0.13", default-features = false, features = ["metrics"] }
 burn-wgpu = { workspace = true }
 num-traits = "0.2.18"
