@@ -170,7 +170,7 @@ impl<B: Backend> AgzActionModel<B> {
 
         // let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
-        // // Wide featuers that will pass through to the dense layers directly
+        // // Wide features that will pass through to the dense layers directly
         // let wide = &split[0];
 
         // // Input features to the 2d convolution
