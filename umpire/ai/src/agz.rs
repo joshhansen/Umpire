@@ -184,10 +184,10 @@ impl<B: Backend> AgzActionModel<B> {
 
         // Reshape back to vector
         // [batch,deep_feat]
-        let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_LEN_USIZE as i32]);
+        let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_OUT_LEN_USIZE as i32]);
 
         // [batch,feat]
-        let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 0);
+        let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 1);
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
 
