@@ -26,7 +26,7 @@ default-members = ["client"]
 [workspace.dependencies]
 anyhow = "1.0"
 async-trait = "0.1.68"
-burn-wgpu = "0.13.0"
+burn-wgpu = "0.13"
 clap = "4.1.4"
 crossterm = "0.25.0"
 futures = "0.3.27"
