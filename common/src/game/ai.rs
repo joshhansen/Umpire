@@ -16,7 +16,6 @@ use super::{
 #[allow(non_camel_case_types)]
 pub type fX = f64;
 
-//FIXME Someday compute this at compile time
 pub const POSSIBLE_ACTIONS: i64 = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 pub const POSSIBLE_ACTIONS_USIZE: usize = POSSIBLE_ACTIONS as usize;
 
