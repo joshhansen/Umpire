@@ -9,7 +9,13 @@
 
 #![forbid(unsafe_code)]
 use std::{
-    cell::RefCell, collections::HashMap, fs::File, io::stdout, path::Path, rc::Rc, sync::Arc,
+    cell::RefCell,
+    collections::HashMap,
+    fs::File,
+    io::stdout,
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::Arc,
 };
 
 use burn::{
@@ -35,7 +41,7 @@ use crossterm::{
 use umpire_ai::{
     agz::AgzActionModelConfig,
     data::{AgzBatcher, AgzData, AgzDatum},
-    AiBackend,
+    AiBackend, Storable,
 };
 
 use common::{game::ai::POSSIBLE_ACTIONS_USIZE, util::densify};
@@ -515,6 +521,7 @@ async fn main() -> Result<(), String> {
                 .collect();
 
             let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
+            let output_path = Path::new(&output_path).to_owned();
 
             let device = WgpuDevice::default();
 
@@ -610,8 +617,8 @@ async fn main() -> Result<(), String> {
             let mut train_config = TrainingConfig::new(model_config, adam_config);
             train_config.num_epochs = episodes;
 
-            train::<Autodiff<Wgpu>>(
-                output_path.as_str(),
+            train::<Autodiff<Wgpu>, PathBuf>(
+                &output_path,
                 train_config,
                 device,
                 train_data,
@@ -652,22 +659,30 @@ pub struct TrainingConfig {
     pub learning_rate: f64,
 }
 
-fn create_artifact_dir(artifact_dir: &str) {
+fn create_artifact_dir<P: AsRef<Path>>(artifact_dir: &P) {
     // Remove existing artifacts before to get an accurate learner summary
     std::fs::remove_dir_all(artifact_dir).ok();
     std::fs::create_dir_all(artifact_dir).ok();
 }
 
-pub fn train<B: AutodiffBackend>(
-    artifact_dir: &str,
+pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
+    artifact_dir: &P,
     config: TrainingConfig,
     device: B::Device,
     train: AgzData,
     valid: AgzData,
 ) {
+    let artifact_dir_s: &str = artifact_dir.as_ref().to_str().unwrap();
     create_artifact_dir(artifact_dir);
+
+    let config_path = {
+        let mut p = artifact_dir.as_ref().to_path_buf();
+        p.push("config.json");
+        p.as_path().to_owned()
+    };
+
     config
-        .save(format!("{artifact_dir}/config.json"))
+        .save(config_path)
         .expect("Config should be saved successfully");
 
     B::seed(config.seed);
@@ -687,7 +702,7 @@ pub fn train<B: AutodiffBackend>(
         .num_workers(config.num_workers)
         .build(valid);
 
-    let learner = LearnerBuilder::new(artifact_dir)
+    let learner = LearnerBuilder::new(artifact_dir_s)
         // .metric_train_numeric(AccuracyMetric::new())
         // .metric_valid_numeric(AccuracyMetric::new())
         .metric_train_numeric(LossMetric::new())
@@ -702,9 +717,12 @@ pub fn train<B: AutodiffBackend>(
             config.learning_rate,
         );
 
-    let model_trained = learner.fit(dataloader_train, dataloader_valid);
+    let model_path = {
+        let mut p = artifact_dir.as_ref().to_path_buf();
+        p.push("model");
+        p.as_path().to_owned()
+    };
 
-    model_trained
-        .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
-        .expect("Trained model should be saved successfully");
+    let model_trained = learner.fit(dataloader_train, dataloader_valid);
+    model_trained.store(&model_path).unwrap();
 }
