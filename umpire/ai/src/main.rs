@@ -201,13 +201,6 @@ async fn main() -> Result<(), String> {
                 .default_value("1.0")
         )
         .arg(
-            Arg::new("batchprob")
-                .short('b')
-                .help("Probability of an instance being used in a given batch")
-                .value_parser(value_parser!(f64))
-                .default_value("0.05")
-        )
-        .arg(
             Arg::new("testprob")
                 .short('t')
                 .help("Probability of an instance being included in the test set")
@@ -534,10 +527,6 @@ async fn main() -> Result<(), String> {
             let test_prob: f64 = sub_matches.get_one("testprob").cloned().unwrap();
 
             println!("Test portion: {}", test_prob);
-
-            let batch_prob: f64 = sub_matches.get_one("batchprob").cloned().unwrap();
-
-            println!("Batch probability: {}", batch_prob);
 
             let mut train_data: Vec<AgzDatum> = Vec::new();
 
