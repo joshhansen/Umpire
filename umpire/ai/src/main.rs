@@ -607,7 +607,8 @@ async fn main() -> Result<(), String> {
 
             let adam_config = AdamConfig::new();
 
-            let train_config = TrainingConfig::new(model_config, adam_config);
+            let mut train_config = TrainingConfig::new(model_config, adam_config);
+            train_config.num_epochs = episodes;
 
             train::<Autodiff<Wgpu>>(
                 output_path.as_str(),
