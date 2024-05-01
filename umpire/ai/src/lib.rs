@@ -221,7 +221,7 @@ impl<B: Backend> Loadable<B> for AI<B> {
             ));
         }
 
-        if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("agz")) {
+        if path.as_ref().to_string_lossy().contains(".agz") {
             return AgzActionModel::load(path, device).map(|agz| Self::AGZ(MutexAsync::new(agz)));
         }
 
