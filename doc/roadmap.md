@@ -32,6 +32,7 @@
 * CLIENT: Allow a kind of examine mode while waiting for your turn?
 * ~~CHORE: Upgrade `pastel`~~
 * Finish transition to new observation system; animate new observations since last turn upon starting new turn
+* FIXME Multithreaded ai eval / datagen
 
 ## 0.6 Milestones
 * TODO Make game states uniquely identifiable and restorable?
