@@ -35,6 +35,7 @@ use crossterm::{
 use umpire_ai::{
     agz::AgzActionModelConfig,
     data::{AgzBatcher, AgzData, AgzDatum},
+    AiBackend,
 };
 
 use common::{game::ai::POSSIBLE_ACTIONS_USIZE, util::densify};
@@ -75,6 +76,7 @@ fn load_ais<B: Backend>(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI<B>>>
     let mut unique_ais: HashMap<AISpec, Rc<RefCell<AI<B>>>> = HashMap::new();
 
     for ai_type in ai_types {
+        println!("Loading AI type {}", ai_type);
         unique_ais.entry(ai_type.clone()).or_insert_with(|| {
             let ai: AI<B> = ai_type.clone().into();
             Rc::new(RefCell::new(ai))
@@ -297,7 +299,7 @@ async fn main() -> Result<(), String> {
             .cloned()
             .collect();
         let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
-        let mut ais: Vec<Rc<RefCell<AI<Wgpu>>>> = load_ais(&ai_specs)?;
+        let mut ais: Vec<Rc<RefCell<AI<AiBackend>>>> = load_ais(&ai_specs)?;
 
         let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
@@ -694,7 +696,7 @@ pub fn train<B: AutodiffBackend>(
         .num_epochs(config.num_epochs)
         .summary()
         .build(
-            config.model.init::<B>(&device),
+            config.model.init::<B>(device),
             config.optimizer.init(),
             config.learning_rate,
         );

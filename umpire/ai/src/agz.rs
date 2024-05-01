@@ -3,8 +3,8 @@
 //! Based on self-play game outcomes, learn P(victory|action; environment)
 //!
 //! Divided into two sub-models, one for city actions, one for unit actions
-use std::{collections::HashSet, fs::OpenOptions};
-use std::{fmt, fs::File, path::Path};
+use std::collections::HashSet;
+use std::{fmt, path::Path};
 
 use async_trait::async_trait;
 
@@ -14,37 +14,29 @@ use burn::tensor::backend::AutodiffBackend;
 use burn::{
     module::Module,
     nn::{conv::Conv2dConfig, DropoutConfig, LinearConfig, Relu},
-    optim::Optimizer,
     prelude::*,
     tensor::activation::softplus,
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
-use common::game::ai::DEEP_LEN_USIZE;
 use num_traits::ToPrimitive;
 
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 
-use serde::{
-    de::{self, Visitor},
-    Deserialize, Serialize,
-};
+use serde::de::{self, Visitor};
 
 use common::game::{
-    action::{AiPlayerAction, NextCityAction, NextUnitAction},
+    action::{NextCityAction, NextUnitAction},
     ai::{
-        fX, TrainingFocus, TrainingOutcome, BASE_CONV_FEATS, BASE_CONV_FEATS_USIZE, DEEP_HEIGHT,
-        DEEP_HEIGHT_USIZE, DEEP_LEN, DEEP_OUT_LEN, DEEP_OUT_LEN_USIZE, DEEP_WIDTH,
-        DEEP_WIDTH_USIZE, FEATS_LEN, FEATS_LEN_USIZE, POSSIBLE_ACTIONS, POSSIBLE_ACTIONS_USIZE,
-        WIDE_LEN, WIDE_LEN_USIZE,
+        fX, TrainingFocus, BASE_CONV_FEATS_USIZE, DEEP_HEIGHT_USIZE, DEEP_OUT_LEN_USIZE,
+        DEEP_WIDTH_USIZE, FEATS_LEN_USIZE, WIDE_LEN_USIZE,
     },
     player::PlayerTurn,
     turn_async::ActionwiseTurnTaker2,
-    Game,
 };
 use common::util::weighted_sample_idx;
 
-use crate::{data::AgzBatch, Loadable, LoadableFromBytes, Storable, StorableAsBytes};
+use crate::{data::AgzBatch, Loadable, Storable};
 
 struct BytesVisitor;
 impl<'de> Visitor<'de> for BytesVisitor {
@@ -69,22 +61,22 @@ pub struct AgzActionModelConfig {
 }
 
 impl AgzActionModelConfig {
-    pub fn init<B: Backend>(&self, device: &B::Device) -> AgzActionModel<B> {
+    pub fn init<B: Backend>(&self, device: B::Device) -> AgzActionModel<B> {
         let convs = vec![
             Conv2dConfig::new([BASE_CONV_FEATS_USIZE, BASE_CONV_FEATS_USIZE * 2], [3, 3])
-                .init(device), // -> 9x9
+                .init(&device), // -> 9x9
             Conv2dConfig::new(
                 [BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE * 2],
                 [3, 3],
             )
-            .init(device), // -> 7x7
+            .init(&device), // -> 7x7
             Conv2dConfig::new(
                 [BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE * 2],
                 [3, 3],
             )
-            .init(device), // -> 5x5
+            .init(&device), // -> 5x5
             Conv2dConfig::new([BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE], [3, 3])
-                .init(device), // -> 3x3
+                .init(&device), // -> 3x3
         ];
 
         let relu = Relu::new();
@@ -96,9 +88,9 @@ impl AgzActionModelConfig {
             DropoutConfig::new(0.4).init(),
         ];
 
-        let dense0 = LinearConfig::new(WIDE_LEN_USIZE + DEEP_OUT_LEN_USIZE, 64).init(device);
-        let dense1 = LinearConfig::new(64, 32).init(device);
-        let dense2 = LinearConfig::new(32, self.possible_actions).init(device);
+        let dense0 = LinearConfig::new(WIDE_LEN_USIZE + DEEP_OUT_LEN_USIZE, 64).init(&device);
+        let dense1 = LinearConfig::new(64, 32).init(&device);
+        let dense2 = LinearConfig::new(32, self.possible_actions).init(&device);
 
         // let optimizer = nn::Adam::default()
         //     .build(&vars, self.learning_rate)
@@ -265,6 +257,7 @@ impl<B: Backend> AgzActionModel<B> {
 
     pub fn forward_regression(
         &self,
+        device: &B::Device,
         features: Tensor<B, 1>,
         action: usize,
         value: f64,
@@ -274,9 +267,7 @@ impl<B: Backend> AgzActionModel<B> {
         // []
         let action_estimate = estimates.slice([0..1, action..(action + 1)]).reshape([-1]);
 
-        let device = Default::default();
-
-        let value_tensor = Tensor::from_floats([value as f32], &device);
+        let value_tensor = Tensor::from_floats([value as f32], device);
 
         // let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
 
@@ -344,7 +335,7 @@ impl<B: Backend> AgzActionModel<B> {
     // }
 }
 
-impl<B: AutodiffBackend> AgzActionModel<B> {
+impl<B: Backend> AgzActionModel<B> {
     // pub fn train_action<O: Optimizer<Self, B>>(
     //     &mut self,
     //     features: &Tensor<B, 2>,
@@ -406,8 +397,8 @@ impl<B: AutodiffBackend> AgzActionModel<B> {
     // }
 }
 
-impl<B: Backend> Loadable for AgzActionModel<B> {
-    fn load<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+impl<B: Backend> Loadable<B> for AgzActionModel<B> {
+    fn load<P: AsRef<Path>>(path: P, device: B::Device) -> Result<Self, String> {
         let path = path.as_ref();
         if !path.exists() {
             return Err(format!(
@@ -423,9 +414,7 @@ impl<B: Backend> Loadable for AgzActionModel<B> {
             possible_actions: 0,
         };
 
-        let device = Default::default();
-
-        let model: AgzActionModel<B> = config.init(&device);
+        let model: AgzActionModel<B> = config.init(device.clone());
 
         model
             .load_file(path, &recorder, &device)
@@ -457,10 +446,10 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
         let feats = Self::features(turn, TrainingFocus::City).await;
 
-        let device = Default::default();
+        let device: B::Device = Default::default();
 
         // [batch,feat] (a batch of one)
-        let feats = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
+        let feats: Tensor<B, 2> = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
         let probs = self.evaluate_tensors(&feats);
 
@@ -499,7 +488,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
         let feats = Self::features(turn, TrainingFocus::Unit).await;
 
-        let device = Default::default();
+        let device: B::Device = Default::default();
         let feats = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
         let unit_action_probs: Vec<(usize, fX)> = self
@@ -527,7 +516,6 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
 
 const POSSIBLE_CITY_ACTIONS: usize = NextCityAction::possible();
 const POSSIBLE_UNIT_ACTIONS: usize = NextUnitAction::possible();
-const TOTAL_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
 // #[derive(Serialize, Deserialize)]
 // pub struct AgzActionModelEncoding {

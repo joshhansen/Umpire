@@ -1,9 +1,11 @@
-use std::{fmt, fs::File, io::Write, path::Path};
+use std::{fmt, path::Path};
 
 use async_trait::async_trait;
 
-use burn::prelude::*;
+use burn::{prelude::*, tensor::ElementComparison};
 
+use burn_autodiff::Autodiff;
+use burn_wgpu::{Wgpu, WgpuDevice};
 use futures::lock::Mutex as MutexAsync;
 
 use common::{
@@ -18,8 +20,14 @@ use common::{
     util::sparsify,
 };
 
-pub trait Loadable: Sized {
-    fn load<P: AsRef<Path>>(path: P) -> Result<Self, String>;
+pub type AiBackend = Wgpu;
+pub type AiBackendTrain = Autodiff<AiBackend>;
+pub const fn default_device() -> <AiBackend as Backend>::Device {
+    WgpuDevice::BestAvailable
+}
+
+pub trait Loadable<B: Backend>: Sized {
+    fn load<P: AsRef<Path>>(path: P, device: B::Device) -> Result<Self, String>;
 }
 
 pub trait Storable {
@@ -164,7 +172,10 @@ impl<B: Backend> From<AISpec> for AI<B> {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
             AISpec::Random => Self::Random(RandomAI::new(0, false)), //NOTE Assuming 0 verbosity
-            AISpec::FromPath(path) => Self::load(Path::new(path.as_str())).unwrap(),
+            AISpec::FromPath(path) => {
+                let device: B::Device = Default::default();
+                Self::load(Path::new(path.as_str()), device).unwrap()
+            }
             AISpec::FromLevel(level) => {
                 // let lfa: LFA_ = match level {
                 //     1 => bincode::deserialize(include_bytes!(
@@ -192,7 +203,7 @@ impl<B: Backend> From<AISpec> for AI<B> {
     }
 }
 
-impl<B: Backend> Loadable for AI<B> {
+impl<B: Backend> Loadable<B> for AI<B> {
     /// Loads the actual AI instance from a file.
     ///
     /// With feature "pytorch" enabled, files ending with .agz will be deserialized as AlphaGo Zero
@@ -202,7 +213,7 @@ impl<B: Backend> Loadable for AI<B> {
     /// Q-learning model with DNN action model (`AI::DNN`).
     ///
     /// Everything else will be loaded as an `rsrl` Q-learning model with a linear action model (`AI::LFA`).
-    fn load<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+    fn load<P: AsRef<Path>>(path: P, device: B::Device) -> Result<Self, String> {
         if !path.as_ref().exists() {
             return Err(format!(
                 "Could not load AI from path '{:?}' because it doesn't exist",
@@ -211,7 +222,7 @@ impl<B: Backend> Loadable for AI<B> {
         }
 
         if path.as_ref().extension().map(|ext| ext.to_str()) == Some(Some("agz")) {
-            return AgzActionModel::load(path).map(|agz| Self::AGZ(MutexAsync::new(agz)));
+            return AgzActionModel::load(path, device).map(|agz| Self::AGZ(MutexAsync::new(agz)));
         }
 
         panic!("Could not load AI from path {}", path.as_ref().display());
