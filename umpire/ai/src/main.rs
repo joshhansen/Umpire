@@ -646,7 +646,7 @@ pub struct TrainingConfig {
     #[config(default = 10)]
     pub num_epochs: usize,
 
-    #[config(default = 64)]
+    #[config(default = 256)]
     pub batch_size: usize,
 
     #[config(default = 4)]
