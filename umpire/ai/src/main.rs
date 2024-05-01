@@ -527,9 +527,7 @@ async fn main() -> Result<(), String> {
 
             let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
 
-            let model_config = AgzActionModelConfig {
-                possible_actions: POSSIBLE_ACTIONS_USIZE,
-            };
+            let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS_USIZE);
 
             // let mut agz: AgzActionModel<Wgpu> = model_config.init(&device);
 

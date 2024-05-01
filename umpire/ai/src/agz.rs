@@ -19,6 +19,7 @@ use burn::{
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
+use common::game::ai::POSSIBLE_ACTIONS_USIZE;
 use num_traits::ToPrimitive;
 
 use rand::thread_rng;
@@ -408,9 +409,7 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
 
         let recorder: NamedMpkFileRecorder<FullPrecisionSettings> = NamedMpkFileRecorder::new();
 
-        let config = AgzActionModelConfig {
-            possible_actions: 0,
-        };
+        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS_USIZE);
 
         let model: AgzActionModel<B> = config.init(device.clone());
 
