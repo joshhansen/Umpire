@@ -107,7 +107,7 @@ static SUBCMD_EVAL: &'static str = "eval";
 async fn main() -> Result<(), String> {
     let matches = cli::app("Umpire AI Trainer", "fvwHW")
     .version(conf::APP_VERSION)
-    .author("Josh Hansen <hansen.joshuaa@gmail.com>")
+    .author("Josh Hansen <umpire@joshhansen.tech>")
     .subcommand_required(true)
     .arg(
         Arg::new("episodes")
