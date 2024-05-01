@@ -57,6 +57,9 @@ impl<'de> Visitor<'de> for BytesVisitor {
 
 #[derive(Config, Debug)]
 pub struct AgzActionModelConfig {
+    #[config(default = 0.1)]
+    pub dropout_prob: f64,
+
     pub possible_actions: usize,
 }
 
@@ -82,10 +85,10 @@ impl AgzActionModelConfig {
         let relu = Relu::new();
 
         let dropouts = vec![
-            DropoutConfig::new(0.4).init(),
-            DropoutConfig::new(0.4).init(),
-            DropoutConfig::new(0.4).init(),
-            DropoutConfig::new(0.4).init(),
+            DropoutConfig::new(self.dropout_prob).init(),
+            DropoutConfig::new(self.dropout_prob).init(),
+            DropoutConfig::new(self.dropout_prob).init(),
+            DropoutConfig::new(self.dropout_prob).init(),
         ];
 
         let dense0 = LinearConfig::new(WIDE_LEN_USIZE + DEEP_OUT_LEN_USIZE, 64).init(&device);
