@@ -8,7 +8,7 @@ HEIGHT=10
 
 ID="${WIDTH}x${HEIGHT}_${BASE_ID}"
 
-AI="cargo run --release -F pytorch -p umpire-ai --"
+AI="cargo run --release -p umpire-ai --"
 
 # Generate self-play data
 
