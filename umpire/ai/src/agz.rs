@@ -56,7 +56,6 @@ impl<'de> Visitor<'de> for BytesVisitor {
 
 #[derive(Config, Debug)]
 pub struct AgzActionModelConfig {
-    pub learning_rate: f64,
     pub possible_actions: usize,
 }
 
@@ -410,7 +409,6 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
         let recorder: NamedMpkFileRecorder<FullPrecisionSettings> = NamedMpkFileRecorder::new();
 
         let config = AgzActionModelConfig {
-            learning_rate: 0.0,
             possible_actions: 0,
         };
 

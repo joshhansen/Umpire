@@ -528,7 +528,6 @@ async fn main() -> Result<(), String> {
             let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
 
             let model_config = AgzActionModelConfig {
-                learning_rate,
                 possible_actions: POSSIBLE_ACTIONS_USIZE,
             };
 
@@ -615,6 +614,7 @@ async fn main() -> Result<(), String> {
             let adam_config = AdamConfig::new();
 
             let mut train_config = TrainingConfig::new(model_config, adam_config);
+            train_config.learning_rate = learning_rate;
             train_config.num_epochs = episodes;
 
             train::<Autodiff<Wgpu>, PathBuf>(
