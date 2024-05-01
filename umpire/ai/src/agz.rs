@@ -9,7 +9,7 @@ use std::{fmt, path::Path};
 use async_trait::async_trait;
 
 use burn::nn::loss::{MseLoss, Reduction};
-use burn::record::{BinFileRecorder, FullPrecisionSettings};
+use burn::record::{FullPrecisionSettings, NamedMpkFileRecorder};
 use burn::tensor::backend::AutodiffBackend;
 use burn::{
     module::Module,
@@ -407,7 +407,7 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
             ));
         }
 
-        let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
+        let recorder: NamedMpkFileRecorder<FullPrecisionSettings> = NamedMpkFileRecorder::new();
 
         let config = AgzActionModelConfig {
             learning_rate: 0.0,
@@ -424,7 +424,7 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
 
 impl<B: Backend> Storable for AgzActionModel<B> {
     fn store(self, path: &Path) -> Result<(), String> {
-        let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
+        let recorder: NamedMpkFileRecorder<FullPrecisionSettings> = NamedMpkFileRecorder::new();
 
         self.save_file(path, &recorder).map_err(|e| e.to_string())
     }
