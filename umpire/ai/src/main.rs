@@ -208,6 +208,14 @@ async fn main() -> Result<(), String> {
                 .default_value("0.05")
         )
         .arg(
+            Arg::new("batchsize")
+                .short('B')
+                .long("batchsize")
+                .help("Size of training batches")
+                .value_parser(value_parser!(usize))
+                .default_value("512")
+        )
+        .arg(
             Arg::new("input")
                 .help("Input files containing TrainingInstances")
                 .action(ArgAction::Append)
@@ -499,6 +507,7 @@ async fn main() -> Result<(), String> {
 
         print_results(&victory_counts);
     } else if subcommand == SUBCMD_AGZTRAIN {
+        let batch_size = sub_matches.get_one::<usize>("batchsize").cloned().unwrap();
         let learning_rate = sub_matches
             .get_one::<f64>("dnn_learning_rate")
             .unwrap()
@@ -601,6 +610,7 @@ async fn main() -> Result<(), String> {
             let adam_config = AdamConfig::new();
 
             let mut train_config = TrainingConfig::new(model_config, adam_config);
+            train_config.batch_size = batch_size;
             train_config.learning_rate = learning_rate;
             train_config.num_epochs = episodes;
 
