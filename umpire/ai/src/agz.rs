@@ -163,6 +163,11 @@ impl<B: Backend> AgzActionModel<B> {
                 DEEP_HEIGHT_USIZE as i32,
             ]);
 
+        let action = xs.clone().slice([
+            0..batches,
+            FEATS_LEN_USIZE..(FEATS_LEN_USIZE + POSSIBLE_ACTIONS_USIZE),
+        ]);
+
         // let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
         // // Wide features that will pass through to the dense layers directly
@@ -182,7 +187,7 @@ impl<B: Backend> AgzActionModel<B> {
         let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_OUT_LEN_USIZE as i32]);
 
         // [batch,feat]
-        let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 1);
+        let wide_and_deep = Tensor::cat(vec![wide, deep_flat, action], 1);
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
 
@@ -224,7 +229,7 @@ impl<B: Backend> AgzActionModel<B> {
             .into_data()
             .value
             .into_iter()
-            .map(|x| x.to_f64().unwrap())
+            .map(|x| x.to_f32().unwrap())
             .collect()
     }
 
@@ -239,7 +244,7 @@ impl<B: Backend> AgzActionModel<B> {
 
         let action_tensor = result_tensor.slice([0..batches, *action..(*action + 1)]);
 
-        action_tensor.into_scalar().to_f64().unwrap()
+        action_tensor.into_scalar().to_f32().unwrap()
     }
 
     /**

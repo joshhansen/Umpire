@@ -14,7 +14,7 @@ use super::{
 };
 
 #[allow(non_camel_case_types)]
-pub type fX = f64;
+pub type fX = f32;
 
 pub const POSSIBLE_ACTIONS: i64 = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 pub const POSSIBLE_ACTIONS_USIZE: usize = POSSIBLE_ACTIONS as usize;
@@ -87,7 +87,7 @@ impl TrainingOutcome {
 pub struct TrainingInstance {
     pub player: PlayerNum, // the player that took the action
     pub num_features: usize,
-    pub features: HashMap<usize, f64>,
+    pub features: HashMap<usize, fX>,
     pub pre_score: f64,         // the player's score prior to the action
     pub action: AiPlayerAction, // the action taken
     pub post_score: f64,        // the player's score after the action
@@ -98,7 +98,7 @@ impl TrainingInstance {
     pub fn undetermined(
         player: PlayerNum,
         num_features: usize,
-        features: HashMap<usize, f64>,
+        features: HashMap<usize, fX>,
         pre_score: f64,
         action: AiPlayerAction,
         post_score: f64,

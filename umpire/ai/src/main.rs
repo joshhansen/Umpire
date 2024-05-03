@@ -44,7 +44,10 @@ use umpire_ai::{
     AiBackend, Storable,
 };
 
-use common::{game::ai::POSSIBLE_ACTIONS_USIZE, util::densify};
+use common::{
+    game::ai::{fX, POSSIBLE_ACTIONS_USIZE},
+    util::{densify, one_hot_encode},
+};
 
 use rand::Rng;
 
@@ -572,13 +575,14 @@ async fn main() -> Result<(), String> {
                     .into_iter()
                     .filter(move |_| rng.gen::<f64>() <= sample_prob)
                 {
-                    let features = densify(datum.num_features, &datum.features);
-
-                    let features: Vec<f32> = features.iter().map(|x| *x as f32).collect();
+                    let mut features: Vec<fX> = densify(datum.num_features, &datum.features);
+                    features.extend(one_hot_encode::<POSSIBLE_ACTIONS_USIZE>(
+                        datum.action.to_idx(),
+                    ));
+                    let features = features;
 
                     let datum = AgzDatum {
-                        features,
-                        action: datum.action,
+                        features_including_action: features,
                         outcome: datum.outcome.unwrap(),
                     };
 
