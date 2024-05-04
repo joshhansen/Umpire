@@ -634,9 +634,9 @@ pub fn grapheme_len(s: &str) -> usize {
     UnicodeSegmentation::graphemes(s, true).count()
 }
 
-pub fn sparsify(v: Vec<f64>) -> (usize, HashMap<usize, f64>) {
+pub fn sparsify(v: Vec<fX>) -> (usize, HashMap<usize, fX>) {
     let num_features = v.len();
-    let features: HashMap<usize, f64> = v
+    let features: HashMap<usize, fX> = v
         .iter()
         .cloned()
         .enumerate()
@@ -645,10 +645,10 @@ pub fn sparsify(v: Vec<f64>) -> (usize, HashMap<usize, f64>) {
     (num_features, features)
 }
 
-pub fn densify(len: usize, features: &HashMap<usize, f64>) -> Vec<f64> {
+pub fn densify(len: usize, features: &HashMap<usize, fX>) -> Vec<fX> {
     let mut x = Vec::with_capacity(len);
     for i in 0..len {
-        x.push(*features.get(&i).unwrap_or(&0f64));
+        x.push(*features.get(&i).unwrap_or(&0f32));
     }
     x
 }
@@ -662,13 +662,22 @@ pub fn indicator(b: bool) -> fX {
     }
 }
 
-pub fn weighted_sample_idx<R: Rng>(rand: &mut R, weighted_indices: &Vec<(usize, f64)>) -> usize {
+/**
+ * One hot encode the given value into an array of dimensionality `D`
+ */
+pub const fn one_hot_encode<const D: usize>(value: usize) -> [fX; D] {
+    let mut arr = [0.0; D];
+    arr[value] = 1.0;
+    arr
+}
+
+pub fn weighted_sample_idx<R: Rng>(rand: &mut R, weighted_indices: &Vec<(usize, fX)>) -> usize {
     debug_assert!(weighted_indices.iter().all(|(_i, weight)| *weight >= 0.0));
 
     // println!("weighted sampling: {:?}", weighted_indices);
-    let total: f64 = weighted_indices.iter().map(|(_i, weight)| *weight).sum();
+    let total: fX = weighted_indices.iter().map(|(_i, weight)| *weight).sum();
 
-    let x: f64 = rand.gen::<f64>() * total;
+    let x: fX = rand.gen::<fX>() * total;
 
     let mut sum_so_far = 0.0;
 

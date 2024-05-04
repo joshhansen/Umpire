@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    ai::POSSIBLE_ACTIONS,
+    ai::POSSIBLE_ACTIONS_USIZE,
     city::CityID,
     move_::Move,
     player::PlayerTurn,
@@ -35,6 +35,7 @@ pub enum AiPlayerAction {
     MoveNextUnit { direction: Direction },
     DisbandNextUnit,
     SkipNextUnit,
+    //NOTE When adding new action types, make sure to add them to `possible_actions`
 }
 
 impl AiPlayerAction {
@@ -86,13 +87,14 @@ impl AiPlayerAction {
     // Direction::DownRight,  17
     // SkipNextTurn           18
     pub fn possible_actions() -> Vec<Self> {
-        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS as usize);
-        for unit_type in UnitType::values().iter().cloned() {
+        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS_USIZE);
+        for unit_type in UnitType::values() {
             a.push(AiPlayerAction::SetNextCityProduction { unit_type });
         }
-        for direction in Direction::values().iter().cloned() {
+        for direction in Direction::values() {
             a.push(AiPlayerAction::MoveNextUnit { direction });
         }
+        a.push(AiPlayerAction::DisbandNextUnit);
         a.push(AiPlayerAction::SkipNextUnit);
 
         a

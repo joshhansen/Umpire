@@ -2,12 +2,11 @@ use burn::{
     data::{dataloader::batcher::Batcher, dataset::Dataset},
     prelude::*,
 };
-use common::game::{action::AiPlayerAction, ai::TrainingOutcome};
+use common::game::ai::{fX, TrainingOutcome};
 
 #[derive(Clone, Debug)]
 pub struct AgzDatum {
-    pub features: Vec<f32>,
-    pub action: AiPlayerAction,
+    pub features_including_action: Vec<fX>,
     pub outcome: TrainingOutcome,
 }
 
@@ -41,6 +40,13 @@ impl<B: Backend> AgzBatcher<B> {
     }
 }
 
+/**
+ * A batch of AlphaGo Zero style state-action victory probabilities.
+ *
+ * The features here include at the end an "action feauture" - a way of encoding the action taken.
+ *
+ * This should be used in training to target the correct output of the model and update only based on that gradient.
+*/
 #[derive(Clone, Debug)]
 pub struct AgzBatch<B: Backend> {
     /// [batch_size, feature_idx]
@@ -55,7 +61,8 @@ impl<B: Backend> Batcher<AgzDatum, AgzBatch<B>> for AgzBatcher<B> {
         let data = items
             .iter()
             .map(|item| {
-                let feats = Tensor::from_floats(item.features.as_slice(), &self.device);
+                let feats =
+                    Tensor::from_floats(item.features_including_action.as_slice(), &self.device);
                 feats.reshape([1, -1])
             })
             .collect();
