@@ -100,11 +100,11 @@ fn load_ais<B: Backend>(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI<B>>>
     Ok(ais)
 }
 
-static AI_MODEL_SPECS_HELP: &'static str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
+static AI_MODEL_SPECS_HELP: &str = "AI model specifications, comma-separated. The models to be evaluated. 'r' or 'random' for the purely random AI, or a serialized AI model file path, or directory path for TensorFlow SavedModel format";
 
-static SUBCMD_AGZTRAIN: &'static str = "agztrain";
+static SUBCMD_AGZTRAIN: &str = "agztrain";
 
-static SUBCMD_EVAL: &'static str = "eval";
+static SUBCMD_EVAL: &str = "eval";
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
@@ -232,9 +232,9 @@ async fn main() -> Result<(), String> {
         size().map_err(|kind| format!("Could not get terminal size: {}", kind))?;
 
     // Arguments common across subcommands:
-    let episodes = matches.get_one::<usize>("episodes").unwrap().clone();
-    let fix_output_loc: bool = matches.get_one("fix_output_loc").cloned().unwrap();
-    let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
+    let episodes = *matches.get_one::<usize>("episodes").unwrap();
+    let fix_output_loc = *matches.get_one::<bool>("fix_output_loc").unwrap();
+    let fog_of_war = *matches.get_one::<bool>("fog").unwrap();
 
     let map_heights: Vec<u16> = matches
         .get_many::<u16>("map_height")
@@ -259,7 +259,7 @@ async fn main() -> Result<(), String> {
         .map(|(i, h)| Dims::new(map_widths[i], h))
         .collect();
 
-    let steps = matches.get_one::<u64>("steps").unwrap().clone();
+    let steps = *matches.get_one::<u64>("steps").unwrap();
     let verbosity = matches.get_count("verbose");
     let wrappings: Vec<Wrap2d> = matches
         .get_many::<Wrap2d>("wrapping")
@@ -348,8 +348,7 @@ async fn main() -> Result<(), String> {
         let palette = palette16(num_ais).unwrap();
 
         let print_results = |victory_counts: &HashMap<Option<PlayerNum>, usize>| {
-            for i in 0..num_ais {
-                let spec = ai_specs[i].spec();
+            for (i, spec) in ai_specs.iter().map(|s| s.spec()).enumerate() {
                 println!(
                     "{} wins: {}",
                     spec,
@@ -386,8 +385,8 @@ async fn main() -> Result<(), String> {
             let game = Arc::new(RwLockTokio::new(game)) as Arc<RwLockTokio<dyn IGame>>;
 
             let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(num_ais);
-            for player in 0..num_ais {
-                ctrls.push(PlayerControl::new(Arc::clone(&game), player, secrets[player]).await);
+            for (player, secret) in secrets.iter().cloned().enumerate() {
+                ctrls.push(PlayerControl::new(Arc::clone(&game), player, secret).await);
             }
 
             if fix_output_loc {
@@ -396,30 +395,11 @@ async fn main() -> Result<(), String> {
 
             println!("Evaluating: {:?} {:?} {}", ai_specs_s, wrapping, map_dims);
 
-            if verbosity > 1 {
-                if fix_output_loc {
-                    //FIXME Map output
-                    // let (ctrl, _turn_start) =
-                    //     game.player_turn_control_nonending(secrets[0]).unwrap();
-
-                    // map.as_mut()
-                    //     .unwrap()
-                    //     .draw(&ctrl, &mut stdout, &palette)
-                    //     .await
-                    //     .unwrap();
-                } else {
-                    // println!("{:?}", game.read().await);
-                    //FIXME debug output
-                }
-            }
-
             let mut player_partial_data: Option<HashMap<PlayerNum, Vec<TrainingInstance>>> =
                 datagenpath.map(|_| HashMap::new());
 
             'steps: for s in 0..steps {
-                for player in 0..num_ais {
-                    let ctrl = &mut ctrls[player];
-
+                for (player, ctrl) in ctrls.iter_mut().enumerate() {
                     if ctrl.victor().await.is_some() {
                         break 'steps;
                     }
@@ -512,10 +492,7 @@ async fn main() -> Result<(), String> {
         print_results(&victory_counts);
     } else if subcommand == SUBCMD_AGZTRAIN {
         let batch_size = sub_matches.get_one::<usize>("batchsize").cloned().unwrap();
-        let learning_rate = sub_matches
-            .get_one::<f64>("dnn_learning_rate")
-            .unwrap()
-            .clone();
+        let learning_rate = *sub_matches.get_one::<f64>("dnn_learning_rate").unwrap();
 
         println!("Learning rate: {}", learning_rate);
 
