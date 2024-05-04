@@ -141,11 +141,7 @@ pub struct AgzActionModel<B: Backend> {
 }
 impl<B: Backend> AgzActionModel<B> {
     async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
-        turn.player_features(focus)
-            .await
-            .iter()
-            .map(|x| *x as f32)
-            .collect()
+        turn.player_features(focus).await.to_vec()
     }
 
     /// [batch,feat] -> [batch,victory_prob]
@@ -208,7 +204,7 @@ impl<B: Backend> AgzActionModel<B> {
 
         let out0 = self.relu.forward(self.dense0.forward(wide_and_deep));
         let out1 = self.relu.forward(self.dense1.forward(out0));
-        let out2 = softplus(self.dense2.forward(out1), 1f64);
+        softplus(self.dense2.forward(out1), 1f64)
 
         // wide_and_deep
         //     .apply(&self.dense0)
@@ -219,8 +215,6 @@ impl<B: Backend> AgzActionModel<B> {
         //     // .dropout_(0.2, train)
         //     .apply(&self.dense2)
         //     .softplus()
-
-        out2
     }
     /// [batch,feat]
     pub fn evaluate_tensors(&self, features: &Tensor<B, 2>) -> Vec<fX> {
@@ -480,7 +474,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
             POSSIBLE_CITY_ACTIONS
         );
 
-        Some(NextCityAction::try_from(city_action_idx).unwrap())
+        Some(NextCityAction::from(city_action_idx))
     }
 
     async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction> {
@@ -505,7 +499,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
             .into_iter()
             .skip(POSSIBLE_CITY_ACTIONS) // ignore the city prefix
             .enumerate() // enumerate now so we get unit action indices
-            .filter(|(i, _p_victory_ish)| legal_action_indices.contains(&i))
+            .filter(|(i, _p_victory_ish)| legal_action_indices.contains(i))
             .collect();
 
         let mut rng = thread_rng();
@@ -519,7 +513,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
             POSSIBLE_UNIT_ACTIONS
         );
 
-        Some(NextUnitAction::try_from(unit_action_idx).unwrap())
+        Some(NextUnitAction::from(unit_action_idx))
     }
 }
 
