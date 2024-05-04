@@ -35,7 +35,7 @@ impl RandomAI {
 #[async_trait]
 impl ActionwiseTurnTaker for RandomAI {
     async fn next_action(&mut self, ctrl: &PlayerTurn) -> Option<AiPlayerAction> {
-        if let Some(city_loc) = ctrl.player_production_set_requests().await.iter().next() {
+        if let Some(city_loc) = ctrl.player_production_set_requests().await.first() {
             let valid_productions: Vec<UnitType> =
                 ctrl.valid_productions_conservative(*city_loc).await;
 
@@ -192,9 +192,7 @@ mod test {
                 Game::setup_with_map(map, players, true, None, Wrap2d::BOTH).await;
 
             for i in 0..300 {
-                for player in 0..=1 {
-                    let ctrl = &mut ctrls[player];
-
+                for ctrl in ctrls.iter_mut() {
                     {
                         let mut turn = ctrl.turn_ctrl(true).await;
 
@@ -208,9 +206,12 @@ mod test {
                     for rqst_unit_id in orders_requests.iter().cloned() {
                         // Assert that all orders requests correspond to units still present and that the IDs still
                         // match
-                        let unit = ctrl.player_unit_by_id(rqst_unit_id).await.expect(
-                            format!("Unit not found in iteration {}, round {}", i, r).as_str(),
-                        );
+                        let unit =
+                            ctrl.player_unit_by_id(rqst_unit_id)
+                                .await
+                                .unwrap_or_else(|| {
+                                    panic!("Unit not found in iteration {}, round {}", i, r)
+                                });
 
                         assert_eq!(unit.id, rqst_unit_id);
                     }

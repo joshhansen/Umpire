@@ -74,7 +74,7 @@ impl TurnStartMode {
         ui.draw(game).await?;
 
         if let Some(move_) = orders_outcome.move_() {
-            ui.animate_move(game, &move_).await?;
+            ui.animate_move(game, move_).await?;
         }
 
         Ok(())
@@ -83,10 +83,7 @@ impl TurnStartMode {
     async fn process_turn_start<U: UI>(&self, game: &mut PlayerTurn<'_>, ui: &mut U) {
         for orders_result in game.start().orders_results.iter() {
             match orders_result {
-                Ok(orders_outcome) => self
-                    .animate_orders(game, ui, &orders_outcome)
-                    .await
-                    .unwrap(),
+                Ok(orders_outcome) => self.animate_orders(game, ui, orders_outcome).await.unwrap(),
                 Err(e) => ui.log_message(Message {
                     text: format!("{:?}", e),
                     mark: None,

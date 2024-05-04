@@ -197,7 +197,7 @@ pub(in crate::ui) fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> anyhow:
                     dasp::slice::to_frame_slice_mut(buffer).unwrap();
 
                 dasp::slice::equilibrium(buffer);
-                synth.fill_slice(buffer, SAMPLE_HZ as f64);
+                synth.fill_slice(buffer, SAMPLE_HZ);
             }
             cpal::StreamData::Output {
                 buffer: cpal::UnknownTypeOutputBuffer::I16(ref mut buffer),
@@ -208,7 +208,7 @@ pub(in crate::ui) fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> anyhow:
                     dasp::slice::to_frame_slice_mut(buffer).unwrap();
 
                 dasp::slice::equilibrium(buffer);
-                synth.fill_slice(buffer, SAMPLE_HZ as f64);
+                synth.fill_slice(buffer, SAMPLE_HZ);
             }
             cpal::StreamData::Output {
                 buffer: cpal::UnknownTypeOutputBuffer::F32(ref mut buffer),
@@ -219,7 +219,7 @@ pub(in crate::ui) fn play_sounds(rx: Receiver<Sounds>, sound: Sounds) -> anyhow:
                     dasp::slice::to_frame_slice_mut(buffer).unwrap();
 
                 dasp::slice::equilibrium(buffer);
-                synth.fill_slice(buffer, SAMPLE_HZ as f64);
+                synth.fill_slice(buffer, SAMPLE_HZ);
             }
             _ => {
                 eprintln!("Unsupported output stream format");

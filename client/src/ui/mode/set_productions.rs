@@ -17,13 +17,7 @@ impl IMode for SetProductionsMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        if game
-            .player_production_set_requests()
-            .await
-            .iter()
-            .next()
-            .is_none()
-        {
+        if game.player_production_set_requests().await.is_empty() {
             ui.log_message("Productions set.".to_string());
             *mode = Mode::TurnResume;
             return ModeStatus::Continue;

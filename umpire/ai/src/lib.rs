@@ -2,22 +2,15 @@ use std::{fmt, path::Path};
 
 use async_trait::async_trait;
 
-use burn::{prelude::*, tensor::ElementComparison};
+use burn::prelude::*;
 
 use burn_autodiff::Autodiff;
 use burn_wgpu::{Wgpu, WgpuDevice};
 use futures::lock::Mutex as MutexAsync;
 
-use common::{
-    game::{
-        action::AiPlayerAction,
-        ai::{AISpec, TrainingFocus, TrainingInstance},
-        player::PlayerTurn,
-        turn::TurnOutcome,
-        turn_async::TurnTaker as TurnTakerAsync,
-        Game,
-    },
-    util::sparsify,
+use common::game::{
+    action::AiPlayerAction, ai::AISpec, player::PlayerTurn, turn::TurnOutcome,
+    turn_async::TurnTaker as TurnTakerAsync,
 };
 
 pub type AiBackend = Wgpu;

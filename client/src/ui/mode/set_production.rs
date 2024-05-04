@@ -22,7 +22,7 @@ pub(in crate::ui) struct SetProductionMode {
 impl SetProductionMode {
     fn char_and_name(key: char, sym: &'static str, name: &'static str) -> String {
         let mut char_and_name = format!(" [{}] {} - {}", key, sym, name);
-        while char_and_name.len() < COL_WIDTH as usize {
+        while char_and_name.len() < COL_WIDTH {
             char_and_name.push(' ');
         }
         char_and_name

@@ -45,7 +45,7 @@ impl LogArea {
         palette: &Palette,
         i: usize,
     ) -> IoResult<()> {
-        let message: &Message = self.messages.get(i as usize).unwrap_or(&self.empty_message);
+        let message: &Message = self.messages.get(i).unwrap_or(&self.empty_message);
 
         let mut text = grapheme_substr(&message.text, self.rect.width as usize);
         let num_spaces = self.rect.width as usize - grapheme_len(&text);

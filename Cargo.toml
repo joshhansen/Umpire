@@ -106,3 +106,10 @@ lto = true # Link-time optimization is also dropping binary size by about 1100K
 [profile.release-dbg]
 inherits = "release"
 debug = true
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+enum_variant_names = "allow"
+large_types_passed_by_value = "warn"

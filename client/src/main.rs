@@ -155,7 +155,7 @@ async fn main() -> Result<(), String> {
         .unwrap()
         .parse()
         .unwrap();
-    let fog_darkness = matches.get_one::<f64>("fog_darkness").unwrap().clone();
+    let fog_darkness = *matches.get_one::<f64>("fog_darkness").unwrap();
     let unicode = matches.contains_id("unicode");
     let quiet = matches.contains_id("quiet");
     let confirm_turn_end = matches.contains_id("confirm_turn_end");
@@ -166,11 +166,11 @@ async fn main() -> Result<(), String> {
         let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
 
         let num_players: PlayerNum = player_types.len();
-        let map_width = matches.get_one::<u16>("map_width").unwrap().clone();
-        let map_height = matches.get_one::<u16>("map_height").unwrap().clone();
+        let map_width = *matches.get_one::<u16>("map_width").unwrap();
+        let map_height = *matches.get_one::<u16>("map_height").unwrap();
 
-        let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone();
-        let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
+        let wrapping = *matches.get_one::<Wrap2d>("wrapping").unwrap();
+        let fog_of_war = *matches.get_one::<bool>("fog").unwrap();
 
         let map_dims: Dims = Dims::new(map_width, map_height);
         if (map_dims.area() as PlayerNum) < num_players {
@@ -246,10 +246,8 @@ async fn main() -> Result<(), String> {
 
     let palette = match color_depth {
         16 | 256 => match color_depth {
-            16 => palette16(num_players).expect(format!("Error loading 16-color palette").as_str()),
-            256 => {
-                palette256(num_players).expect(format!("Error loading 256-color palette").as_str())
-            }
+            16 => palette16(num_players).expect("Error loading 16-color palette"),
+            256 => palette256(num_players).expect("Error loading 256-color palette"),
             x => panic!("Unsupported color depth {}", x),
         },
         24 => {

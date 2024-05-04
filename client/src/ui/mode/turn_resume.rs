@@ -17,24 +17,12 @@ impl IMode for TurnResumeMode {
         mode: &mut Mode,
         _prev_mode: &Option<Mode>,
     ) -> ModeStatus {
-        if game
-            .player_production_set_requests()
-            .await
-            .iter()
-            .next()
-            .is_some()
-        {
+        if !game.player_production_set_requests().await.is_empty() {
             *mode = Mode::SetProductions;
             return ModeStatus::Continue;
         }
 
-        if game
-            .player_unit_orders_requests()
-            .await
-            .iter()
-            .next()
-            .is_some()
-        {
+        if !game.player_unit_orders_requests().await.is_empty() {
             *mode = Mode::GetOrders;
             return ModeStatus::Continue;
         }

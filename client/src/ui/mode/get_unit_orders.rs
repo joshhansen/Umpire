@@ -216,7 +216,7 @@ impl IMode for GetUnitOrdersMode {
                                 let proposed_orders_outcome = proposed_orders_result.outcome;
 
                                 if let Some(ref proposed_move) = proposed_orders_outcome.move_ {
-                                    ui.animate_move(game, &proposed_move).await.unwrap();
+                                    ui.animate_move(game, proposed_move).await.unwrap();
                                     // proposed_move.take(game);
                                 }
 
