@@ -493,6 +493,7 @@ async fn main() -> Result<(), String> {
                         .into_values()
                         .flat_map(|values| values.into_iter())
                     {
+                        debug_assert!(instance.outcome.is_some());
                         bincode::serialize_into(&mut w, &instance).unwrap();
                     }
                 }
