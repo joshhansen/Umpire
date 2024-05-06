@@ -76,9 +76,7 @@ impl Palette {
             Colors::Land => self.land.get(currently_observed),
             Colors::Ocean => self.ocean.get(currently_observed),
             Colors::Neutral => self.neutral.get(currently_observed),
-            Colors::Player(player_num) => {
-                self.players[usize::from(player_num)].get(currently_observed)
-            }
+            Colors::Player(player_num) => self.players[player_num].get(currently_observed),
             Colors::Notice => self.notice,
             Colors::Text => self.text,
             Colors::Cursor => self.cursor,
@@ -92,7 +90,7 @@ impl Palette {
             Colors::Land => self.land,
             Colors::Ocean => self.ocean,
             Colors::Neutral => self.neutral,
-            Colors::Player(player_num) => self.players[usize::from(player_num)],
+            Colors::Player(player_num) => self.players[player_num],
             _ => panic!("Color {:?} is not a paired color", color),
         }
     }
@@ -222,7 +220,7 @@ pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Palette {
     let mut callback = |_stats: &IterationStatistics| {};
 
     let distinct: Vec<PastelColor> = distinct_colors(
-        usize::from(num_players) + num_preexisting,
+        num_players + num_preexisting,
         // DistanceMetric::CIE76,
         DistanceMetric::CIEDE2000,
         preexisting,
