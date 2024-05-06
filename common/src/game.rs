@@ -899,10 +899,10 @@ impl Game {
     ) -> UmpireResult<HashSet<Location>> {
         let unit = self
             .player_unit_by_id(player_secret, unit_id)?
-            .ok_or_else(|| GameError::NoSuchUnit { id: unit_id })?;
+            .ok_or(GameError::NoSuchUnit { id: unit_id })?;
 
         Ok(
-            neighbors_unit_could_move_to_iter(&self.map, &unit, self.wrapping)
+            neighbors_unit_could_move_to_iter(&self.map, unit, self.wrapping)
                 .filter(|loc| *loc != unit.loc) // exclude the source location; needed because UnitMovementFilter inside of
                 .collect(), // neighbors_unit_could_move_to_iter would allow a carried unit to "move"
                             // onto the carrier unit over again if it additional carrying space, thus
@@ -925,11 +925,11 @@ impl Game {
     ) -> UmpireResult<impl Iterator<Item = Direction> + 'a> {
         let unit = self
             .player_unit_by_id(player_secret, unit_id)?
-            .ok_or_else(|| GameError::NoSuchUnit { id: unit_id })?;
+            .ok_or(GameError::NoSuchUnit { id: unit_id })?;
 
         let obs = self.player_observations(player_secret).unwrap();
 
-        Ok(directions_unit_could_move_iter(obs, &unit, self.wrapping))
+        Ok(directions_unit_could_move_iter(obs, unit, self.wrapping))
     }
 
     /// The current player's most recent observation of the tile at location `loc`, if any
@@ -1408,7 +1408,7 @@ impl Game {
         let dest = unit
             .loc
             .shift_wrapped(direction, self.dims(), self.wrapping())
-            .ok_or_else(|| GameError::MoveError(MoveError::DestinationOutOfBounds {}))?;
+            .ok_or(GameError::MoveError(MoveError::DestinationOutOfBounds))?;
 
         // self.move_unit_by_id(id, dest)
         self.move_unit_by_id_using_filter(player_secret, unit_id, dest, &filter)
@@ -1500,7 +1500,7 @@ impl Game {
         let player = self.validate_is_player_turn_main_phase(player_secret)?;
 
         if !self.dims().contain(dest) {
-            return Err(MoveError::DestinationOutOfBounds).map_err(GameError::MoveError);
+            return Err(GameError::MoveError(MoveError::DestinationOutOfBounds));
         }
 
         // Grab a copy of the unit to work with
@@ -1512,7 +1512,7 @@ impl Game {
             .clone();
 
         if unit.loc == dest {
-            return Err(MoveError::ZeroLengthMove).map_err(GameError::MoveError);
+            return Err(GameError::MoveError(MoveError::ZeroLengthMove));
         }
 
         // Keep a copy of the source location around
@@ -1557,11 +1557,10 @@ impl Game {
                 // }
 
                 if distance > unit.moves_remaining() {
-                    return Err(MoveError::RemainingMovesExceeded {
+                    return Err(GameError::MoveError(MoveError::RemainingMovesExceeded {
                         intended_distance: distance,
                         moves_remaining: unit.moves_remaining(),
-                    })
-                    .map_err(GameError::MoveError);
+                    }));
                 }
 
                 if let Fuel::Limited {
@@ -1570,7 +1569,7 @@ impl Game {
                 } = unit.fuel
                 {
                     if distance > remaining {
-                        return Err(MoveError::InsufficientFuel).map_err(GameError::MoveError);
+                        return Err(GameError::MoveError(MoveError::InsufficientFuel));
                     }
                 }
 
@@ -1590,7 +1589,7 @@ impl Game {
                 unit.loc = loc;
 
                 moves.push(MoveComponent::new(prev_loc, loc));
-                let mut move_ = moves.last_mut().unwrap();
+                let move_ = moves.last_mut().unwrap();
 
                 // If there is a unit at the destination:
                 //   If it is a friendly unit:
@@ -1845,12 +1844,11 @@ impl Game {
                     shortest_paths = None;
                 }
             } else {
-                return Err(MoveError::NoRoute {
+                return Err(GameError::MoveError(MoveError::NoRoute {
                     src,
                     dest,
                     id: unit_id,
-                })
-                .map_err(GameError::MoveError);
+                }));
             }
         } // while
 
@@ -2526,11 +2524,6 @@ impl Game {
         debug_assert_eq!(x.len(), FEATS_LEN as usize);
 
         Ok(x)
-    }
-
-    fn current_player_features(&self, focus: TrainingFocus) -> Vec<fX> {
-        let player_secret = self.player_secrets[self.current_player];
-        self.player_features(player_secret, focus).unwrap()
     }
 }
 
