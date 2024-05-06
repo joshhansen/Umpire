@@ -407,15 +407,15 @@ impl Map {
                     let mut tile = tile.clone(); //CLONE
 
                     if city_override.is_some() {
-                        tile.city = city.map(|city| city.clone()); //CLONE
+                        tile.city = city.cloned(); //CLONE
                     }
                     if unit_override.is_some() {
-                        tile.unit = unit.map(|unit| unit.clone()); //CLONE
+                        tile.unit = unit.cloned(); //CLONE
                     }
                     tile
                 };
 
-                let (sym, fg_color, bg_color) = if let Some(ref unit) = unit {
+                let (sym, fg_color, bg_color) = if let Some(unit) = unit {
                     if let Some(orders) = unit.orders {
                         if orders == Orders::Sentry {
                             stdout.queue(SetAttribute(Attribute::Italic)).unwrap();
@@ -423,7 +423,7 @@ impl Map {
                     }
 
                     (unit.sym(self.unicode), unit.color(), tile.terrain.color())
-                } else if let Some(ref city) = city {
+                } else if let Some(city) = city {
                     (
                         city.sym(self.unicode),
                         city.alignment.color(),
@@ -534,11 +534,7 @@ impl Draw for Map {
                 );
                 let new_map_loc: Option<Location> = self.viewport_to_map_coords(game, viewport_loc);
 
-                let new_obs = if let Some(new_map_loc) = new_map_loc {
-                    Some(game.obs(new_map_loc))
-                } else {
-                    None
-                };
+                let new_obs = new_map_loc.map(|new_map_loc| game.obs(new_map_loc));
 
                 let old_currentness = self.displayed_tile_currentness[viewport_loc];
                 // let new_currentness = if let Obs::Observed{current,..} = new_obs {
@@ -568,13 +564,15 @@ impl Draw for Map {
                     || (old_tile.is_some() && new_tile.is_some() && {
                         let old = old_tile.unwrap();
                         let new = new_tile.unwrap();
-                        let redraw_for_mismatch = !(old.terrain == new.terrain
+
+                        // redraw for mismatch
+                        !(old.terrain == new.terrain
                             && old.sym(self.unicode) == new.sym(self.unicode)
-                            && old.alignment_maybe() == new.alignment_maybe());
-                        redraw_for_mismatch
+                            && old.alignment_maybe() == new.alignment_maybe())
                     })
                     || {
-                        let redraw_for_border = if let Some(old_map_loc) = old_map_loc {
+                        // redraw for border
+                        if let Some(old_map_loc) = old_map_loc {
                             let dims = game.dims();
                             if let Some(new_map_loc) = new_map_loc {
                                 old_map_loc.y != new_map_loc.y
@@ -585,14 +583,7 @@ impl Draw for Map {
                             }
                         } else {
                             false
-                        };
-
-                        // let redraw_for_border =
-                        // old_map_loc.y != new_map_loc.y && (
-                        //     old_map_loc.y == game.dims().height - 1 ||
-                        //     new_map_loc.y == game.dims().height - 1
-                        // );
-                        redraw_for_border
+                        }
                     }
             };
 

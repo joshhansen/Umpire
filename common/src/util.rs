@@ -160,6 +160,15 @@ impl<T> Vec2d<T> {
     }
 }
 
+impl From<Location> for Vec2d<i32> {
+    fn from(val: Location) -> Self {
+        Self {
+            x: val.x as i32,
+            y: val.y as i32,
+        }
+    }
+}
+
 //TODO Someday when there's a `const` version of `Add`, implement it; could be useful for combining Vec2d's in const contexts
 impl<N: Add<Output = N>> Add for Vec2d<N> {
     type Output = Vec2d<N>;
@@ -579,15 +588,6 @@ impl Sub for Location {
         Vec2d {
             x: self.x as i32 - rhs.x as i32,
             y: self.y as i32 - rhs.y as i32,
-        }
-    }
-}
-
-impl Into<Vec2d<i32>> for Location {
-    fn into(self) -> Vec2d<i32> {
-        Vec2d {
-            x: self.x as i32,
-            y: self.y as i32,
         }
     }
 }
