@@ -267,7 +267,7 @@ impl NextUnitAction {
     pub async fn legal(turn: &PlayerTurn<'_>) -> Vec<Self> {
         if let Some(unit_id) = turn.player_unit_orders_requests().await.iter().next() {
             // disband, skip, then any move actions
-            vec![Self::Disband, Self::Skip]
+            [Self::Disband, Self::Skip]
                 .iter()
                 .copied()
                 .chain(

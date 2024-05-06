@@ -160,6 +160,21 @@ impl<T> Vec2d<T> {
     }
 }
 
+impl From<Direction> for Vec2d<i32> {
+    fn from(d: Direction) -> Self {
+        match d {
+            Direction::Up => Vec2d { x: 0, y: -1 },
+            Direction::Down => Vec2d { x: 0, y: 1 },
+            Direction::Left => Vec2d { x: -1, y: 0 },
+            Direction::Right => Vec2d { x: 1, y: 0 },
+            Direction::UpLeft => Vec2d { x: -1, y: -1 },
+            Direction::UpRight => Vec2d { x: 1, y: -1 },
+            Direction::DownLeft => Vec2d { x: -1, y: 1 },
+            Direction::DownRight => Vec2d { x: 1, y: 1 },
+        }
+    }
+}
+
 impl From<Location> for Vec2d<i32> {
     fn from(val: Location) -> Self {
         Self {
@@ -246,21 +261,6 @@ impl Direction {
             Self::UpRight => Self::DownLeft,
             Self::DownLeft => Self::UpRight,
             Self::DownRight => Self::UpLeft,
-        }
-    }
-}
-
-impl Into<Vec2d<i32>> for Direction {
-    fn into(self) -> Vec2d<i32> {
-        match self {
-            Direction::Up => Vec2d { x: 0, y: -1 },
-            Direction::Down => Vec2d { x: 0, y: 1 },
-            Direction::Left => Vec2d { x: -1, y: 0 },
-            Direction::Right => Vec2d { x: 1, y: 0 },
-            Direction::UpLeft => Vec2d { x: -1, y: -1 },
-            Direction::UpRight => Vec2d { x: 1, y: -1 },
-            Direction::DownLeft => Vec2d { x: -1, y: 1 },
-            Direction::DownRight => Vec2d { x: 1, y: 1 },
         }
     }
 }
@@ -575,8 +575,8 @@ impl Location {
     }
 
     pub fn manhattan_distance(&self, other: Location) -> u32 {
-        let x_dist = (self.x as i32 - other.x as i32).abs() as u32;
-        let y_dist = (self.y as i32 - other.y as i32).abs() as u32;
+        let x_dist = (self.x as i32 - other.x as i32).unsigned_abs();
+        let y_dist = (self.y as i32 - other.y as i32).unsigned_abs();
         x_dist + y_dist
     }
 }
