@@ -74,15 +74,6 @@ impl TryFrom<String> for PlayerType {
     }
 }
 
-impl Into<String> for PlayerType {
-    fn into(self) -> String {
-        match self {
-            Self::Human => "h".to_string(),
-            Self::AI(ai_type) => ai_type.into(),
-        }
-    }
-}
-
 /// A player-specific layer around IGame that tracks the player's observations (view of the game world.)
 ///
 /// Can only perform actions as the player whose secret is provided.
@@ -309,12 +300,11 @@ impl PlayerControl {
             PlayerActionOutcome::MoveUnit { move_, .. } => {
                 self.observations.track_many(move_.observations());
             }
-            PlayerActionOutcome::OrderUnit { orders_outcome, .. } => match orders_outcome.move_ {
-                Some(ref move_) => {
+            PlayerActionOutcome::OrderUnit { orders_outcome, .. } => {
+                if let Some(move_) = orders_outcome.move_.as_ref() {
                     self.observations.track_many(move_.observations());
                 }
-                None => {}
-            },
+            }
             PlayerActionOutcome::ProductionSet(ps) => {
                 self.observations.track_lite(ps.obs.clone());
             }
@@ -673,16 +663,17 @@ mod test {
 
         assert_eq!(game.current_player(), 0);
         assert_eq!(game.turn(), 0);
+        assert_eq!(secrets.len(), 2);
 
         let game = Arc::new(RwLockTokio::new(game));
 
         let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(2);
-        for player in 0..2 {
+        for (player, secret) in secrets.into_iter().enumerate() {
             ctrls.push(
                 PlayerControl::new(
                     Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
                     player,
-                    secrets[player],
+                    secret,
                 )
                 .await,
             );

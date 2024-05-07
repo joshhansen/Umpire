@@ -153,7 +153,7 @@ impl MapData {
     fn index_tile(&mut self, loc: Location) {
         let tile = LocationGridI::get(&self.tiles, loc).cloned().unwrap(); //CLONE
         if let Some(city) = tile.city.as_ref() {
-            self.index_city(&city);
+            self.index_city(city);
         }
         if let Some(unit) = tile.unit.as_ref() {
             self.index_toplevel_unit(unit);
@@ -196,7 +196,7 @@ impl MapData {
         *self
             .alignment_unit_type_counts
             .entry(carried_alignment)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .entry(carried_type)
             .or_insert(0) += 1;
     }
@@ -215,7 +215,7 @@ impl MapData {
         *self
             .alignment_unit_type_counts
             .entry(unit.alignment)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .entry(unit.type_)
             .or_insert(0) -= 1;
     }
@@ -237,12 +237,12 @@ impl MapData {
         *self
             .alignment_unit_type_counts
             .entry(unit.alignment)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .entry(unit.type_)
             .or_insert(0) += 1;
 
         for carried_unit in unit.carried_units() {
-            self.index_carried_unit(&carried_unit, &unit);
+            self.index_carried_unit(carried_unit, unit);
         }
     }
 
@@ -257,12 +257,12 @@ impl MapData {
         *self
             .alignment_unit_type_counts
             .entry(unit.alignment)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .entry(unit.type_)
             .or_insert(0) -= 1;
 
         for carried_unit in unit.carried_units() {
-            self.unindex_carried_unit(&carried_unit);
+            self.unindex_carried_unit(carried_unit);
         }
     }
 
@@ -755,7 +755,10 @@ impl MapData {
         let unit = self
             .player_unit_by_id_mut(player, unit_id)
             .ok_or(GameError::NoSuchUnit { id: unit_id })?;
-        Ok(unit.activate())
+
+        unit.activate();
+
+        Ok(())
     }
 
     pub fn new_city<S: Into<String>>(
@@ -1001,16 +1004,16 @@ impl MapData {
         self.tiles.iter_locs()
     }
 
-    pub fn clear_city_production_progress_by_loc(&mut self, loc: Location) -> Result<(), ()> {
+    pub fn clear_city_production_progress_by_loc(&mut self, loc: Location) -> UmpireResult<()> {
         self.city_by_loc_mut(loc)
             .map(|city| city.production_progress = 0)
-            .ok_or(())
+            .ok_or(GameError::NoCityAtLocation { loc })
     }
 
-    pub fn clear_city_production_progress_by_id(&mut self, city_id: CityID) -> Result<(), ()> {
-        self.city_by_id_mut(city_id)
+    pub fn clear_city_production_progress_by_id(&mut self, id: CityID) -> UmpireResult<()> {
+        self.city_by_id_mut(id)
             .map(|city| city.production_progress = 0)
-            .ok_or(())
+            .ok_or(GameError::NoSuchCity { id })
     }
 
     pub fn clear_city_production_by_loc(
@@ -1029,10 +1032,10 @@ impl MapData {
         &mut self,
         loc: Location,
         alignment: Alignment,
-    ) -> Result<(), ()> {
+    ) -> UmpireResult<()> {
         self.city_by_loc_mut(loc)
             .map(|city| city.alignment = alignment)
-            .ok_or(())
+            .ok_or(GameError::NoCityAtLocation { loc })
     }
 
     pub fn set_city_production_by_loc(
@@ -1329,15 +1332,12 @@ mod test {
             assert_eq!(result.unwrap(), Terrain::Land);
         }
 
-        for loc in vec![
+        for loc in [
             Location::new(0, 10),
             Location::new(10, 0),
             Location::new(10, 10),
             Location::new(593, 9000),
-        ]
-        .iter()
-        .cloned()
-        {
+        ] {
             assert_eq!(
                 map.set_terrain(loc, Terrain::Water),
                 Err(GameError::NoTileAtLocation { loc })
