@@ -71,17 +71,14 @@ impl AgzActionModelConfig {
             Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS * 2], [3, 3]).init(&device), // -> 5x5
             Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 3x3
         ];
+        let dense = vec![
+            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 128).init(&device),
+            LinearConfig::new(128, 64).init(&device),
+            LinearConfig::new(64, 32).init(&device),
+            LinearConfig::new(32, self.possible_actions).init(&device),
+        ];
 
-        let dense0 = LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 64).init(&device);
-        let dense1 = LinearConfig::new(64, 32).init(&device);
-        let dense2 = LinearConfig::new(32, self.possible_actions).init(&device);
-
-        AgzActionModel {
-            convs,
-            dense0,
-            dense1,
-            dense2,
-        }
+        AgzActionModel { convs, dense }
     }
 }
 
@@ -95,9 +92,7 @@ impl AgzActionModelConfig {
 #[derive(Debug, Module)]
 pub struct AgzActionModel<B: Backend> {
     convs: Vec<nn::conv::Conv2d<B>>,
-    dense0: nn::Linear<B>,
-    dense1: nn::Linear<B>,
-    dense2: nn::Linear<B>,
+    dense: Vec<nn::Linear<B>>,
 }
 impl<B: Backend> AgzActionModel<B> {
     async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
@@ -137,10 +132,13 @@ impl<B: Backend> AgzActionModel<B> {
 
         // [batch,feat]
         let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 1);
+        let mut out = wide_and_deep;
 
-        let out0 = relu(self.dense0.forward(wide_and_deep));
-        let out1 = relu(self.dense1.forward(out0));
-        sigmoid(self.dense2.forward(out1))
+        for dense in self.dense.iter().take(self.dense.len() - 1) {
+            out = relu(dense.forward(out));
+        }
+
+        sigmoid(self.dense.last().unwrap().forward(out))
     }
 
     fn forward_by_action(
