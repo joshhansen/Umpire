@@ -29,8 +29,8 @@ use serde::de::{self, Visitor};
 use common::game::{
     action::{NextCityAction, NextUnitAction},
     ai::{
-        fX, TrainingFocus, BASE_CONV_FEATS_USIZE, DEEP_HEIGHT_USIZE, DEEP_OUT_LEN_USIZE,
-        DEEP_WIDTH_USIZE, FEATS_LEN_USIZE, WIDE_LEN,
+        fX, TrainingFocus, BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_OUT_LEN, DEEP_WIDTH, FEATS_LEN,
+        WIDE_LEN,
     },
     player::PlayerTurn,
     turn_async::ActionwiseTurnTaker2,
@@ -66,20 +66,10 @@ pub struct AgzActionModelConfig {
 impl AgzActionModelConfig {
     pub fn init<B: Backend>(&self, device: B::Device) -> AgzActionModel<B> {
         let convs = vec![
-            Conv2dConfig::new([BASE_CONV_FEATS_USIZE, BASE_CONV_FEATS_USIZE * 2], [3, 3])
-                .init(&device), // -> 9x9
-            Conv2dConfig::new(
-                [BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE * 2],
-                [3, 3],
-            )
-            .init(&device), // -> 7x7
-            Conv2dConfig::new(
-                [BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE * 2],
-                [3, 3],
-            )
-            .init(&device), // -> 5x5
-            Conv2dConfig::new([BASE_CONV_FEATS_USIZE * 2, BASE_CONV_FEATS_USIZE], [3, 3])
-                .init(&device), // -> 3x3
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS * 2], [3, 3]).init(&device), // -> 9x9
+            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS * 2], [3, 3]).init(&device), // -> 7x7
+            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS * 2], [3, 3]).init(&device), // -> 5x5
+            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 3x3
         ];
 
         let relu = Relu::new();
@@ -92,7 +82,7 @@ impl AgzActionModelConfig {
         ];
 
         let dense0 =
-            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN_USIZE + POSSIBLE_ACTIONS, 64).init(&device);
+            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN + POSSIBLE_ACTIONS, 64).init(&device);
         let dense1 = LinearConfig::new(64, 32).init(&device);
         let dense2 = LinearConfig::new(32, self.possible_actions).init(&device);
 
@@ -152,18 +142,17 @@ impl<B: Backend> AgzActionModel<B> {
         // [batch,conv_feat,x,y]
         let mut deep = xs
             .clone()
-            .slice([0..batches, WIDE_LEN..FEATS_LEN_USIZE])
+            .slice([0..batches, WIDE_LEN..FEATS_LEN])
             .reshape([
                 -1_i32, // Preserve the batch count
-                BASE_CONV_FEATS_USIZE as i32,
-                DEEP_WIDTH_USIZE as i32,
-                DEEP_HEIGHT_USIZE as i32,
+                BASE_CONV_FEATS as i32,
+                DEEP_WIDTH as i32,
+                DEEP_HEIGHT as i32,
             ]);
 
-        let action = xs.clone().slice([
-            0..batches,
-            FEATS_LEN_USIZE..(FEATS_LEN_USIZE + POSSIBLE_ACTIONS),
-        ]);
+        let action = xs
+            .clone()
+            .slice([0..batches, FEATS_LEN..(FEATS_LEN + POSSIBLE_ACTIONS)]);
 
         // let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
@@ -181,7 +170,7 @@ impl<B: Backend> AgzActionModel<B> {
 
         // Reshape back to vector
         // [batch,deep_feat]
-        let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_OUT_LEN_USIZE as i32]);
+        let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_OUT_LEN as i32]);
 
         // [batch,feat]
         let wide_and_deep = Tensor::cat(vec![wide, deep_flat, action], 1);

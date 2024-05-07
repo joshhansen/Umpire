@@ -31,28 +31,20 @@ pub const UNIT_TYPE_WRIT_LARGE_LEN: usize = POSSIBLE_UNIT_TYPES + 1; // what sor
 /// Number of 1d (wide) features
 /// Includes `POSSIBLE_UNIT_TYPES` twice: once for the unit type one-hot-encoded, once for the overall unit counts, plus one for city
 pub const WIDE_LEN: usize = UNIT_TYPE_WRIT_LARGE_LEN + POSSIBLE_UNIT_TYPES + ADDED_WIDE_FEATURES;
-pub const DEEP_WIDTH: i64 = 11;
-pub const DEEP_WIDTH_USIZE: usize = DEEP_WIDTH as usize;
-pub const DEEP_HEIGHT: i64 = 11;
-pub const DEEP_HEIGHT_USIZE: usize = DEEP_HEIGHT as usize;
-pub const DEEP_TILES: i64 = DEEP_WIDTH * DEEP_HEIGHT;
-pub const DEEP_TILES_USIZE: usize = DEEP_WIDTH_USIZE * DEEP_HEIGHT_USIZE;
+pub const DEEP_WIDTH: usize = 11;
+pub const DEEP_HEIGHT: usize = 11;
+pub const DEEP_TILES: usize = DEEP_WIDTH * DEEP_HEIGHT;
 
 /// Number of "channels" in convolution output
-pub const BASE_CONV_FEATS: i64 = 16;
-pub const BASE_CONV_FEATS_USIZE: usize = BASE_CONV_FEATS as usize;
+pub const BASE_CONV_FEATS: usize = 16;
 
-pub const DEEP_LEN: i64 = DEEP_TILES * BASE_CONV_FEATS;
-pub const DEEP_LEN_USIZE: usize = DEEP_TILES_USIZE * BASE_CONV_FEATS_USIZE;
+pub const DEEP_LEN: usize = DEEP_TILES * BASE_CONV_FEATS;
 
 /// Total length of convolution output after reducing to 3x3
-pub const DEEP_OUT_LEN: i64 = 9 * BASE_CONV_FEATS;
-pub const DEEP_OUT_LEN_USIZE: usize = DEEP_OUT_LEN as usize;
+pub const DEEP_OUT_LEN: usize = 9 * BASE_CONV_FEATS;
 
 /// Total length of the feature vectors that are input to the dnn
-pub const FEATS_LEN: i64 = WIDE_LEN as i64 + DEEP_LEN;
-
-pub const FEATS_LEN_USIZE: usize = FEATS_LEN as usize;
+pub const FEATS_LEN: usize = WIDE_LEN + DEEP_LEN;
 
 /// We customize the feature vector depending on if we're training a model for city actions or unit actions
 /// This just lets us specify which.
@@ -187,7 +179,7 @@ pub async fn player_features_classic(
     };
 
     // We also add a context around the currently active unit (if any)
-    let mut x = Vec::with_capacity(FEATS_LEN as usize);
+    let mut x = Vec::with_capacity(FEATS_LEN);
 
     // General statistics
 
