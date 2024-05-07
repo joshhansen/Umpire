@@ -30,7 +30,7 @@ use common::game::{
     action::{NextCityAction, NextUnitAction},
     ai::{
         fX, TrainingFocus, BASE_CONV_FEATS_USIZE, DEEP_HEIGHT_USIZE, DEEP_OUT_LEN_USIZE,
-        DEEP_WIDTH_USIZE, FEATS_LEN_USIZE, WIDE_LEN_USIZE,
+        DEEP_WIDTH_USIZE, FEATS_LEN_USIZE, WIDE_LEN,
     },
     player::PlayerTurn,
     turn_async::ActionwiseTurnTaker2,
@@ -91,11 +91,8 @@ impl AgzActionModelConfig {
             DropoutConfig::new(self.dropout_prob).init(),
         ];
 
-        let dense0 = LinearConfig::new(
-            WIDE_LEN_USIZE + DEEP_OUT_LEN_USIZE + POSSIBLE_ACTIONS_USIZE,
-            64,
-        )
-        .init(&device);
+        let dense0 = LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN_USIZE + POSSIBLE_ACTIONS_USIZE, 64)
+            .init(&device);
         let dense1 = LinearConfig::new(64, 32).init(&device);
         let dense2 = LinearConfig::new(32, self.possible_actions).init(&device);
 
@@ -149,13 +146,13 @@ impl<B: Backend> AgzActionModel<B> {
         // Wide features that will pass through to the dense layers directly
         // [batch,wide_feat]
         let batches = xs.dims()[0];
-        let wide = xs.clone().slice([0..batches, 0..WIDE_LEN_USIZE]);
+        let wide = xs.clone().slice([0..batches, 0..WIDE_LEN]);
 
         // Input features to the 2d convolution
         // [batch,conv_feat,x,y]
         let mut deep = xs
             .clone()
-            .slice([0..batches, WIDE_LEN_USIZE..FEATS_LEN_USIZE])
+            .slice([0..batches, WIDE_LEN..FEATS_LEN_USIZE])
             .reshape([
                 -1_i32, // Preserve the batch count
                 BASE_CONV_FEATS_USIZE as i32,

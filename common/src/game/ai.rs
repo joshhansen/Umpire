@@ -9,8 +9,10 @@ use crate::{
 };
 
 use super::{
-    map::dijkstra::Source, obs::Obs, unit::UnitType, IGame, PlayerNum, PlayerSecret, PlayerType,
-    UmpireResult,
+    map::dijkstra::Source,
+    obs::Obs,
+    unit::{UnitType, POSSIBLE_UNIT_TYPES},
+    IGame, PlayerNum, PlayerSecret, PlayerType, UmpireResult,
 };
 
 #[allow(non_camel_case_types)]
@@ -19,17 +21,17 @@ pub type fX = f32;
 pub const POSSIBLE_ACTIONS: i64 = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 pub const POSSIBLE_ACTIONS_USIZE: usize = POSSIBLE_ACTIONS as usize;
 
-pub const POSSIBLE_CITY_ACTIONS: i64 = UnitType::values().len() as i64; // all possible productions
+pub const POSSIBLE_CITY_ACTIONS: i64 = POSSIBLE_UNIT_TYPES as i64; // all possible productions
 
 pub const POSSIBLE_UNIT_ACTIONS: i64 = Direction::values().len() as i64 + 2; // plus skip and disband
 
-pub const ADDED_WIDE_FEATURES: i64 = 4;
-pub const UNIT_TYPE_WRIT_LARGE_LEN: i64 = UnitType::values().len() as i64 + 1; // what sort of unit is being considered, including
-                                                                               // "city" as a unit type (thus the +1)
+pub const ADDED_WIDE_FEATURES: usize = 4;
+pub const UNIT_TYPE_WRIT_LARGE_LEN: usize = POSSIBLE_UNIT_TYPES + 1; // what sort of unit is being considered, including
+                                                                     // "city" as a unit type (thus the +1)
 
-pub const WIDE_LEN: i64 =
-    UNIT_TYPE_WRIT_LARGE_LEN + UnitType::values().len() as i64 + ADDED_WIDE_FEATURES;
-pub const WIDE_LEN_USIZE: usize = WIDE_LEN as usize;
+/// Number of 1d (wide) features
+/// Includes `POSSIBLE_UNIT_TYPES` twice: once for the unit type one-hot-encoded, once for the overall unit counts, plus one for city
+pub const WIDE_LEN: usize = UNIT_TYPE_WRIT_LARGE_LEN + POSSIBLE_UNIT_TYPES + ADDED_WIDE_FEATURES;
 pub const DEEP_WIDTH: i64 = 11;
 pub const DEEP_WIDTH_USIZE: usize = DEEP_WIDTH as usize;
 pub const DEEP_HEIGHT: i64 = 11;
@@ -49,7 +51,7 @@ pub const DEEP_OUT_LEN: i64 = 9 * BASE_CONV_FEATS;
 pub const DEEP_OUT_LEN_USIZE: usize = DEEP_OUT_LEN as usize;
 
 /// Total length of the feature vectors that are input to the dnn
-pub const FEATS_LEN: i64 = WIDE_LEN + DEEP_LEN;
+pub const FEATS_LEN: i64 = WIDE_LEN as i64 + DEEP_LEN;
 
 pub const FEATS_LEN_USIZE: usize = FEATS_LEN as usize;
 

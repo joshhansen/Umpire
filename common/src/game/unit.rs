@@ -150,6 +150,8 @@ impl CarryingSpace {
     }
 }
 
+pub const POSSIBLE_UNIT_TYPES: usize = 10;
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum UnitType {
     Infantry,
@@ -165,7 +167,7 @@ pub enum UnitType {
 }
 
 impl UnitType {
-    pub const fn values() -> [UnitType; 10] {
+    pub const fn values() -> [UnitType; POSSIBLE_UNIT_TYPES] {
         [
             UnitType::Infantry,
             UnitType::Armor,
