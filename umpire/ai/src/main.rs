@@ -21,7 +21,7 @@ use std::{
 use burn::{
     backend::wgpu::WgpuDevice,
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
-    optim::{AdamConfig, SgdConfig},
+    optim::SgdConfig,
     prelude::*,
     record::CompactRecorder,
     tensor::backend::AutodiffBackend,
