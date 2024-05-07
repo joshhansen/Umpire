@@ -109,7 +109,7 @@ pub fn parse_spec<S1: AsRef<str>, S2: AsRef<str>, T: Specified>(
     spec_name: S2,
 ) -> Result<Vec<T>, String> {
     let mut items: Vec<T> = Vec::new();
-    for spec2 in spec.as_ref().split(",") {
+    for spec2 in spec.as_ref().split(',') {
         match T::try_from(spec2.to_string()) {
             Ok(item) => items.push(item),
             Err(_) => {

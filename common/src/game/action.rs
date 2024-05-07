@@ -265,7 +265,7 @@ pub enum NextUnitAction {
 impl NextUnitAction {
     /// Currently possible actions
     pub async fn legal(turn: &PlayerTurn<'_>) -> Vec<Self> {
-        if let Some(unit_id) = turn.player_unit_orders_requests().await.iter().next() {
+        if let Some(unit_id) = turn.player_unit_orders_requests().await.first() {
             // disband, skip, then any move actions
             [Self::Disband, Self::Skip]
                 .iter()
