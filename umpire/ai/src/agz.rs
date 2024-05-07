@@ -81,8 +81,7 @@ impl AgzActionModelConfig {
             DropoutConfig::new(self.dropout_prob).init(),
         ];
 
-        let dense0 =
-            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN + POSSIBLE_ACTIONS, 64).init(&device);
+        let dense0 = LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 64).init(&device);
         let dense1 = LinearConfig::new(64, 32).init(&device);
         let dense2 = LinearConfig::new(32, self.possible_actions).init(&device);
 
