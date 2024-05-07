@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt};
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use super::{
     ai::BASE_CONV_FEATS, alignment::AlignedMaybe, map::dijkstra::Filter, ActionNum, PlayerNum,
@@ -56,7 +57,7 @@ impl Obs {
     /// - city/unit friendly - 1 bit
     /// - city/unit non-friendly - 1 bit (separate to allow unobserved to be neither friendly nor unfriendly)
     pub fn features(&self, player: PlayerNum) -> Vec<fX> {
-        let mut x = Vec::with_capacity(BASE_CONV_FEATS as usize);
+        let mut x = Vec::with_capacity(BASE_CONV_FEATS);
 
         // 0: known to be land (0 or 1)
         x.push(match self {
@@ -81,7 +82,7 @@ impl Obs {
             Self::Observed { ref tile, .. } => tile
                 .unit
                 .as_ref()
-                .map_or_else(|| UnitType::none_features(), |unit| unit.type_.features()),
+                .map_or(UnitType::none_features(), |unit| unit.type_.features()),
             Self::Unobserved => UnitType::none_features(),
         });
 
@@ -110,7 +111,7 @@ impl Obs {
             Self::Unobserved => 0.0,
         });
 
-        debug_assert_eq!(x.len(), BASE_CONV_FEATS as usize);
+        debug_assert_eq!(x.len(), BASE_CONV_FEATS);
 
         x
     }
@@ -350,6 +351,12 @@ impl fmt::Debug for ObsTracker {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ObsTrackerError {
+    #[error("No observation tracker present for player {0}")]
+    NoTrackerForPlayer(PlayerNum),
+}
+
 /// Convenience struct to track the observations of one or more players
 #[derive(Clone)]
 pub struct PlayerObsTracker {
@@ -373,8 +380,16 @@ impl PlayerObsTracker {
     /// Track an observation made by the given player at the specified location
     ///
     /// Returns Err(()) if no such player is recognized
-    pub fn track(&mut self, player: PlayerNum, loc: Location, obs: Obs) -> Result<Option<Obs>, ()> {
-        let observations = self.player_observations.get_mut(&player).ok_or(())?;
+    pub fn track(
+        &mut self,
+        player: PlayerNum,
+        loc: Location,
+        obs: Obs,
+    ) -> Result<Option<Obs>, ObsTrackerError> {
+        let observations = self
+            .player_observations
+            .get_mut(&player)
+            .ok_or(ObsTrackerError::NoTrackerForPlayer(player))?;
 
         Ok(observations._track(loc, obs))
     }
