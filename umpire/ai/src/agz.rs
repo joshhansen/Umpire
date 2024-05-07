@@ -10,12 +10,12 @@ use async_trait::async_trait;
 
 use burn::nn::loss::{MseLoss, Reduction};
 use burn::record::{FullPrecisionSettings, NamedMpkFileRecorder};
+use burn::tensor::activation::sigmoid;
 use burn::tensor::backend::AutodiffBackend;
 use burn::{
     module::Module,
     nn::{conv::Conv2dConfig, DropoutConfig, LinearConfig, Relu},
     prelude::*,
-    tensor::activation::softplus,
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
@@ -188,7 +188,7 @@ impl<B: Backend> AgzActionModel<B> {
 
         let out0 = self.relu.forward(self.dense0.forward(wide_and_deep));
         let out1 = self.relu.forward(self.dense1.forward(out0));
-        softplus(self.dense2.forward(out1), 1f64)
+        sigmoid(self.dense2.forward(out1))
     }
 
     fn forward_by_action(
