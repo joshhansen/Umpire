@@ -910,19 +910,19 @@ impl Game {
         )
     }
 
-    pub fn current_player_unit_legal_directions<'a>(
-        &'a self,
+    pub fn current_player_unit_legal_directions(
+        &self,
         unit_id: UnitID,
-    ) -> UmpireResult<impl Iterator<Item = Direction> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = Direction> + '_> {
         let player_secret = self.player_secrets[self.current_player];
         self.player_unit_legal_directions(player_secret, unit_id)
     }
 
-    pub fn player_unit_legal_directions<'a>(
-        &'a self,
+    pub fn player_unit_legal_directions(
+        &self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<impl Iterator<Item = Direction> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = Direction> + '_> {
         let unit = self
             .player_unit_by_id(player_secret, unit_id)?
             .ok_or(GameError::NoSuchUnit { id: unit_id })?;
@@ -1197,23 +1197,23 @@ impl Game {
             .and_then(|tile| tile.unit.as_ref())
     }
 
-    fn current_player_production_set_requests<'a>(&'a self) -> impl Iterator<Item = Location> + 'a {
+    fn current_player_production_set_requests(&self) -> impl Iterator<Item = Location> + '_ {
         let player_secret = self.player_secrets[self.current_player];
         self.player_production_set_requests(player_secret).unwrap()
     }
 
-    pub fn player_production_set_requests<'a>(
-        &'a self,
+    pub fn player_production_set_requests(
+        &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<impl Iterator<Item = Location> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = Location> + '_> {
         self.player_with_secret(player_secret)
             .and_then(|player| self.player_production_set_requests_by_idx(player))
     }
 
-    fn player_production_set_requests_by_idx<'a>(
-        &'a self,
+    fn player_production_set_requests_by_idx(
+        &self,
         player: PlayerNum,
-    ) -> UmpireResult<impl Iterator<Item = Location> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = Location> + '_> {
         self.validate_player_num(player)?;
         Ok(self
             .map
@@ -1224,23 +1224,23 @@ impl Game {
     /// Which if the current player's units need orders?
     ///
     /// In other words, which of the current player's units have no orders and have moves remaining?
-    pub fn current_player_unit_orders_requests<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+    pub fn current_player_unit_orders_requests(&self) -> impl Iterator<Item = UnitID> + '_ {
         let player_secret = self.player_secrets[self.current_player];
         self.player_unit_orders_requests(player_secret).unwrap()
     }
 
-    pub fn player_unit_orders_requests<'a>(
-        &'a self,
+    pub fn player_unit_orders_requests(
+        &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<impl Iterator<Item = UnitID> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = UnitID> + '_> {
         self.player_with_secret(player_secret)
             .map(|player| self.player_unit_orders_requests_by_idx(player))
     }
 
-    fn player_unit_orders_requests_by_idx<'a>(
-        &'a self,
+    fn player_unit_orders_requests_by_idx(
+        &self,
         player: PlayerNum,
-    ) -> impl Iterator<Item = UnitID> + 'a {
+    ) -> impl Iterator<Item = UnitID> + '_ {
         self.map
             .player_units(player)
             .filter(|unit| unit.orders.is_none() && unit.moves_remaining() > 0)
@@ -1250,10 +1250,10 @@ impl Game {
     /// Which if the specified player's units need orders?
     ///
     /// In other words, which of the specified player's units have no orders and have moves remaining?
-    pub fn player_units_with_orders_requests<'a>(
-        &'a self,
+    pub fn player_units_with_orders_requests(
+        &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<impl Iterator<Item = &Unit> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = &Unit> + '_> {
         self.player_with_secret(player_secret).map(|player| {
             self.map
                 .player_units(player)
@@ -1262,16 +1262,16 @@ impl Game {
     }
 
     #[cfg(test)]
-    fn current_player_units_with_pending_orders<'a>(&'a self) -> impl Iterator<Item = UnitID> + 'a {
+    fn current_player_units_with_pending_orders(&self) -> impl Iterator<Item = UnitID> + '_ {
         let player_secret = self.player_secrets[self.current_player];
         self.player_units_with_pending_orders(player_secret)
             .unwrap()
     }
 
-    pub fn player_units_with_pending_orders<'a>(
-        &'a self,
+    pub fn player_units_with_pending_orders(
+        &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<impl Iterator<Item = UnitID> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = UnitID> + '_> {
         self.player_units(player_secret).map(|units| {
             units
                 .filter(|unit| {
@@ -2001,11 +2001,11 @@ impl Game {
     }
 
     /// Clear the production on all cities belonging to the specified player
-    pub fn clear_productions<'a>(
-        &'a mut self,
+    pub fn clear_productions(
+        &mut self,
         player_secret: PlayerSecret,
         ignore_cleared_production: bool,
-    ) -> UmpireResult<impl Iterator<Item = ProductionCleared> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = ProductionCleared> + '_> {
         let player = self.validate_is_player_turn(player_secret)?;
 
         let city_locs: Vec<Location> = self
@@ -2050,12 +2050,12 @@ impl Game {
     /// ## Errors
     /// * `GameError::NoPlayerIdentifiedBySecret`: If no such player exists
     /// * `GameError::NoCityAtLocation`: If a city controlled by the player doesn't exist at `loc`
-    fn _valid_productions<'a>(
-        &'a self,
+    fn _valid_productions(
+        &self,
         player_secret: PlayerSecret,
         loc: Location,
         conservative: bool,
-    ) -> UmpireResult<impl Iterator<Item = UnitType> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = UnitType> + '_> {
         let player = self.player_with_secret(player_secret)?;
 
         // Make sure there's a city controlled by the player at the given location
@@ -2081,26 +2081,26 @@ impl Game {
         }))
     }
 
-    pub fn valid_productions<'a>(
-        &'a self,
+    pub fn valid_productions(
+        &self,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<impl Iterator<Item = UnitType> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = UnitType> + '_> {
         self._valid_productions(player_secret, loc, false)
     }
 
-    pub fn valid_productions_conservative<'a>(
-        &'a self,
+    pub fn valid_productions_conservative(
+        &self,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<impl Iterator<Item = UnitType> + 'a> {
+    ) -> UmpireResult<impl Iterator<Item = UnitType> + '_> {
         self._valid_productions(player_secret, loc, true)
     }
 
-    pub fn current_player_valid_productions_conservative<'a>(
-        &'a self,
+    pub fn current_player_valid_productions_conservative(
+        &self,
         loc: Location,
-    ) -> impl Iterator<Item = UnitType> + 'a {
+    ) -> impl Iterator<Item = UnitType> + '_ {
         let player_secret = self.player_secrets[self.current_player];
 
         self.valid_productions_conservative(player_secret, loc)
