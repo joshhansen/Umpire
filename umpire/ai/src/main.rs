@@ -553,7 +553,7 @@ async fn main() -> Result<(), String> {
                 {
                     let mut features: Vec<fX> = densify(datum.num_features, &datum.features);
                     features.extend(one_hot_encode::<POSSIBLE_ACTIONS_USIZE>(
-                        datum.action.to_idx(),
+                        datum.action.into(),
                     ));
                     let features = features;
 

@@ -99,37 +99,20 @@ impl AiPlayerAction {
 
         a
     }
+}
 
-    pub fn from_idx(mut idx: usize) -> Result<Self, ()> {
-        let unit_types = UnitType::values();
-        if unit_types.len() > idx {
-            return Ok(AiPlayerAction::SetNextCityProduction {
-                unit_type: unit_types[idx],
-            });
-        }
-
-        idx -= unit_types.len();
-
-        let dirs = Direction::values();
-        if dirs.len() > idx {
-            return Ok(AiPlayerAction::MoveNextUnit {
-                direction: dirs[idx],
-            });
-        }
-
-        idx -= dirs.len();
-
-        if idx == 0 {
-            return Ok(AiPlayerAction::SkipNextUnit);
-        }
-
-        Err(())
+impl From<usize> for AiPlayerAction {
+    fn from(idx: usize) -> Self {
+        let possible = Self::possible_actions();
+        possible[idx]
     }
+}
 
-    pub fn to_idx(self) -> usize {
-        Self::possible_actions()
+impl From<AiPlayerAction> for usize {
+    fn from(a: AiPlayerAction) -> Self {
+        AiPlayerAction::possible_actions()
             .into_iter()
-            .position(|a| self == a)
+            .position(|b| a == b)
             .unwrap()
     }
 }
