@@ -316,13 +316,13 @@ impl Game {
 
         let game = Arc::new(RwLockTokio::new(game));
 
-        let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(2);
-        for player in 0..2 {
+        let mut ctrls: Vec<PlayerControl> = Vec::with_capacity(num_players);
+        for (player, secret) in secrets.into_iter().enumerate() {
             ctrls.push(
                 PlayerControl::new(
                     Arc::clone(&game) as Arc<RwLockTokio<dyn IGame>>,
                     player,
-                    secrets[player],
+                    secret,
                 )
                 .await,
             );
