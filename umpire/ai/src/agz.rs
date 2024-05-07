@@ -19,7 +19,7 @@ use burn::{
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
-use common::game::ai::POSSIBLE_ACTIONS;
+use common::game::ai::{POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS};
 use num_traits::ToPrimitive;
 
 use rand::thread_rng;
@@ -301,9 +301,6 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
         Some(NextUnitAction::from(unit_action_idx))
     }
 }
-
-const POSSIBLE_CITY_ACTIONS: usize = NextCityAction::possible();
-const POSSIBLE_UNIT_ACTIONS: usize = NextUnitAction::possible();
 
 impl<B: AutodiffBackend> TrainStep<AgzBatch<B>, RegressionOutput<B>> for AgzActionModel<B> {
     fn step(&self, batch: AgzBatch<B>) -> TrainOutput<RegressionOutput<B>> {
