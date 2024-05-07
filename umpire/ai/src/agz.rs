@@ -118,7 +118,7 @@ impl<B: Backend> AgzActionModel<B> {
             .clone()
             .slice([0..batches, WIDE_LEN..FEATS_LEN])
             .reshape([
-                -1_i32, // Preserve the batch count
+                batches as i32,
                 BASE_CONV_FEATS as i32,
                 DEEP_WIDTH as i32,
                 DEEP_HEIGHT as i32,
@@ -130,7 +130,7 @@ impl<B: Backend> AgzActionModel<B> {
 
         // Reshape back to vector
         // [batch,deep_feat]
-        let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_OUT_LEN as i32]);
+        let deep_flat: Tensor<B, 2> = deep.reshape([batches as i32, DEEP_OUT_LEN as i32]);
 
         // [batch,feat]
         let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 1);
