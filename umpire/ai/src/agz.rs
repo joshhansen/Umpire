@@ -66,10 +66,13 @@ pub struct AgzActionModelConfig {
 impl AgzActionModelConfig {
     pub fn init<B: Backend>(&self, device: B::Device) -> AgzActionModel<B> {
         let convs = vec![
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS * 2], [3, 3]).init(&device), // -> 9x9
-            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS * 2], [3, 3]).init(&device), // -> 7x7
-            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS * 2], [3, 3]).init(&device), // -> 5x5
-            Conv2dConfig::new([BASE_CONV_FEATS * 2, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 3x3
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 15x15
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 13x13
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 11x11
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 9x9
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 7x7
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 5x5
+            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 3x3
         ];
         let dense = vec![
             LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 128).init(&device),
@@ -121,9 +124,8 @@ impl<B: Backend> AgzActionModel<B> {
                 DEEP_HEIGHT as i32,
             ]);
 
-        for (i, conv) in self.convs.iter().enumerate() {
+        for conv in &self.convs {
             deep = relu(conv.forward(deep));
-            // deep = self.dropouts[i].forward(deep);
         }
 
         // Reshape back to vector

@@ -31,8 +31,8 @@ pub const UNIT_TYPE_WRIT_LARGE_LEN: usize = POSSIBLE_UNIT_TYPES + 1; // what sor
 /// Number of 1d (wide) features
 /// Includes `POSSIBLE_UNIT_TYPES` twice: once for the unit type one-hot-encoded, once for the overall unit counts, plus one for city
 pub const WIDE_LEN: usize = UNIT_TYPE_WRIT_LARGE_LEN + POSSIBLE_UNIT_TYPES + ADDED_WIDE_FEATURES;
-pub const DEEP_WIDTH: usize = 11;
-pub const DEEP_HEIGHT: usize = 11;
+pub const DEEP_WIDTH: usize = 15;
+pub const DEEP_HEIGHT: usize = 15;
 pub const DEEP_TILES: usize = DEEP_WIDTH * DEEP_HEIGHT;
 
 pub const DEEP_WIDTH_REL_MIN: i32 = DEEP_WIDTH as i32 / -2;
