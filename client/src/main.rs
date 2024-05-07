@@ -262,9 +262,10 @@ async fn main() -> Result<(), String> {
 
     // Make PlayerControl's for all players we have secrets for
     let mut ctrls: Vec<Option<PlayerControl>> = Vec::with_capacity(num_players);
-    for player in 0..num_players {
-        ctrls.push(if let Some(secret) = secrets[player] {
-            Some(PlayerControl::new(Arc::clone(&game), player, secret).await)
+    debug_assert_eq!(num_players, secrets.len());
+    for (player, secret) in secrets.iter().enumerate() {
+        ctrls.push(if let Some(secret) = secret {
+            Some(PlayerControl::new(Arc::clone(&game), player, *secret).await)
         } else {
             None
         });
