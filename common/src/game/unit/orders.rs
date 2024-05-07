@@ -236,7 +236,7 @@ pub fn go_to(
 
         let moves_remaining = unit.moves_remaining;
 
-        let filter = PacifistXenophileUnitMovementFilter { unit: &unit };
+        let filter = PacifistXenophileUnitMovementFilter { unit };
 
         // Shortest paths emanating from the unit's location, allowing inclusion of unobserved tiles.
         let shortest_paths =
@@ -359,7 +359,7 @@ pub mod test_support {
                 .unwrap();
             assert_eq!(turn_start.orders_results.len(), 1);
 
-            let orders_result = turn_start.orders_results.get(0).unwrap();
+            let orders_result = turn_start.orders_results.first().unwrap();
             match orders_result {
                 Ok(orders_outcome) => {
                     assert!(!done);

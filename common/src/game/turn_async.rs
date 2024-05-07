@@ -66,14 +66,14 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
         let turn_num = turn.turn().await;
 
         loop {
-            let pre_score = if let Some(_) = datagen_prob {
+            let pre_score = if datagen_prob.is_some() {
                 Some(turn.player_score().await.unwrap())
             } else {
                 None
             };
 
             if let Some(action) = self.next_action(turn).await {
-                let (num_features, features) = if let Some(_) = datagen_prob {
+                let (num_features, features) = if datagen_prob.is_some() {
                     // Determine if the spatial features should focus on the next city or the next unit
                     let focus = if NextCityAction::try_from(action).is_ok() {
                         TrainingFocus::City
@@ -94,7 +94,7 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                     let post_score = turn.player_score().await.unwrap();
 
                     if rand::random::<f64>() <= datagen_prob {
-                        training_instances.as_mut().map(|v| {
+                        if let Some(v) = training_instances.as_mut() {
                             v.push(TrainingInstance::undetermined(
                                 player,
                                 num_features.unwrap(),
@@ -103,7 +103,7 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                                 action,
                                 post_score,
                             ));
-                        });
+                        }
                     }
                 }
             }
@@ -133,10 +133,10 @@ impl<T: ActionwiseTurnTaker2 + Send> ActionwiseTurnTaker for T {
     async fn next_action(&mut self, turn: &PlayerTurn) -> Option<AiPlayerAction> {
         if let Some(city_action) = self.next_city_action(turn).await {
             Some(city_action.into())
-        } else if let Some(unit_action) = self.next_unit_action(turn).await {
-            Some(unit_action.into())
         } else {
-            None
+            self.next_unit_action(turn)
+                .await
+                .map(|unit_action| unit_action.into())
         }
     }
 }
