@@ -19,7 +19,7 @@ use burn::{
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
-use common::game::ai::POSSIBLE_ACTIONS_USIZE;
+use common::game::ai::POSSIBLE_ACTIONS;
 use num_traits::ToPrimitive;
 
 use rand::thread_rng;
@@ -91,8 +91,8 @@ impl AgzActionModelConfig {
             DropoutConfig::new(self.dropout_prob).init(),
         ];
 
-        let dense0 = LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN_USIZE + POSSIBLE_ACTIONS_USIZE, 64)
-            .init(&device);
+        let dense0 =
+            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN_USIZE + POSSIBLE_ACTIONS, 64).init(&device);
         let dense1 = LinearConfig::new(64, 32).init(&device);
         let dense2 = LinearConfig::new(32, self.possible_actions).init(&device);
 
@@ -162,7 +162,7 @@ impl<B: Backend> AgzActionModel<B> {
 
         let action = xs.clone().slice([
             0..batches,
-            FEATS_LEN_USIZE..(FEATS_LEN_USIZE + POSSIBLE_ACTIONS_USIZE),
+            FEATS_LEN_USIZE..(FEATS_LEN_USIZE + POSSIBLE_ACTIONS),
         ]);
 
         // let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
@@ -412,7 +412,7 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
 
         let recorder: NamedMpkFileRecorder<FullPrecisionSettings> = NamedMpkFileRecorder::new();
 
-        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS_USIZE);
+        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
 
         let model: AgzActionModel<B> = config.init(device.clone());
 

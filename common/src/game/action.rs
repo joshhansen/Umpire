@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    ai::POSSIBLE_ACTIONS_USIZE,
+    ai::POSSIBLE_ACTIONS,
     city::CityID,
     move_::Move,
     player::PlayerTurn,
@@ -87,7 +87,7 @@ impl AiPlayerAction {
     // Direction::DownRight,  17
     // SkipNextTurn           18
     pub fn possible_actions() -> Vec<Self> {
-        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS_USIZE);
+        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS);
         for unit_type in UnitType::values() {
             a.push(AiPlayerAction::SetNextCityProduction { unit_type });
         }

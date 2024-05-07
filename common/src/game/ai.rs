@@ -18,8 +18,7 @@ use super::{
 #[allow(non_camel_case_types)]
 pub type fX = f32;
 
-pub const POSSIBLE_ACTIONS: i64 = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
-pub const POSSIBLE_ACTIONS_USIZE: usize = POSSIBLE_ACTIONS as usize;
+pub const POSSIBLE_ACTIONS: usize = POSSIBLE_CITY_ACTIONS as usize + POSSIBLE_UNIT_ACTIONS as usize;
 
 pub const POSSIBLE_CITY_ACTIONS: i64 = POSSIBLE_UNIT_TYPES as i64; // all possible productions
 

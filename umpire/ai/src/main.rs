@@ -45,7 +45,7 @@ use umpire_ai::{
 };
 
 use common::{
-    game::ai::{fX, POSSIBLE_ACTIONS_USIZE},
+    game::ai::{fX, POSSIBLE_ACTIONS},
     util::{densify, one_hot_encode},
 };
 
@@ -510,7 +510,7 @@ async fn main() -> Result<(), String> {
 
             let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
 
-            let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS_USIZE);
+            let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
 
             // let mut agz: AgzActionModel<Wgpu> = model_config.init(&device);
 
@@ -552,9 +552,7 @@ async fn main() -> Result<(), String> {
                     .filter(move |_| rng.gen::<f64>() <= sample_prob)
                 {
                     let mut features: Vec<fX> = densify(datum.num_features, &datum.features);
-                    features.extend(one_hot_encode::<POSSIBLE_ACTIONS_USIZE>(
-                        datum.action.into(),
-                    ));
+                    features.extend(one_hot_encode::<POSSIBLE_ACTIONS>(datum.action.into()));
                     let features = features;
 
                     let datum = AgzDatum {
