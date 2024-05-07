@@ -388,14 +388,18 @@ impl TryFrom<Option<&String>> for AISpec {
     }
 }
 
-impl Into<PlayerType> for AISpec {
-    fn into(self) -> PlayerType {
-        PlayerType::AI(self)
+impl TryFrom<PlayerType> for AISpec {
+    type Error = String;
+    fn try_from(t: PlayerType) -> Result<Self, Self::Error> {
+        match t {
+            PlayerType::Human => Err("Human is not an AI".to_owned()),
+            PlayerType::AI(s) => Ok(s),
+        }
     }
 }
 
-impl Into<String> for AISpec {
-    fn into(self) -> String {
-        String::from(self.spec())
+impl From<AISpec> for String {
+    fn from(s: AISpec) -> Self {
+        s.spec()
     }
 }
