@@ -21,7 +21,7 @@ use std::{
 use burn::{
     backend::wgpu::WgpuDevice,
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
-    optim::AdamConfig,
+    optim::{AdamConfig, SgdConfig},
     prelude::*,
     record::CompactRecorder,
     tensor::backend::AutodiffBackend,
@@ -595,9 +595,10 @@ async fn main() -> Result<(), String> {
 
             // agz.store(output_path)?;
 
-            let adam_config = AdamConfig::new();
+            // let adam_config = AdamConfig::new();
+            let opt_config = SgdConfig::new();
 
-            let mut train_config = TrainingConfig::new(model_config, adam_config);
+            let mut train_config = TrainingConfig::new(model_config, opt_config);
             train_config.batch_size = batch_size;
             train_config.learning_rate = learning_rate;
             train_config.num_epochs = episodes;
@@ -626,7 +627,7 @@ async fn main() -> Result<(), String> {
 pub struct TrainingConfig {
     pub model: AgzActionModelConfig,
 
-    pub optimizer: AdamConfig,
+    pub optimizer: SgdConfig,
 
     #[config(default = 10)]
     pub num_epochs: usize,
