@@ -68,7 +68,7 @@ impl TrainingOutcome {
     pub fn to_training_target(self) -> fX {
         match self {
             Self::Victory => 1.0,
-            Self::Inconclusive => 0.25, // punish draws, but now as harshly as defeats
+            Self::Inconclusive => 0.25, // punish draws, but not as harshly as defeats
             Self::Defeat => 0.0,
         }
     }
