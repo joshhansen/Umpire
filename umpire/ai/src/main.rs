@@ -219,6 +219,14 @@ async fn main() -> Result<(), String> {
                 .default_value("512")
         )
         .arg(
+            Arg::new("gpu")
+                .short('g')
+                .long("gpu")
+                .help("Index of the GPU to use; falls back to CPU if none exists")
+                .value_parser(value_parser!(usize))
+                .default_value("0")
+        )
+        .arg(
             Arg::new("input")
                 .help("Input files containing TrainingInstances")
                 .action(ArgAction::Append)
@@ -493,6 +501,7 @@ async fn main() -> Result<(), String> {
     } else if subcommand == SUBCMD_AGZTRAIN {
         let batch_size = sub_matches.get_one::<usize>("batchsize").cloned().unwrap();
         let learning_rate = *sub_matches.get_one::<f64>("dnn_learning_rate").unwrap();
+        let gpu = sub_matches.get_one::<usize>("gpu").cloned().unwrap();
 
         println!("Learning rate: {}", learning_rate);
 
@@ -506,7 +515,7 @@ async fn main() -> Result<(), String> {
             let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
             let output_path = Path::new(&output_path).to_owned();
 
-            let device = WgpuDevice::default();
+            let device = WgpuDevice::DiscreteGpu(gpu);
 
             let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
 
