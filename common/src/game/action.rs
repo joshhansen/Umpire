@@ -470,7 +470,7 @@ impl PlayerAction {
                 clear_after_unit_production,
             } => game
                 .begin_turn(player_secret, clear_after_unit_production)
-                .map(|turn_start| PlayerActionOutcome::TurnStarted(turn_start)),
+                .map(PlayerActionOutcome::TurnStarted),
             Self::EndTurn => game
                 .end_turn(player_secret)
                 .map(|_| PlayerActionOutcome::TurnEnded),
