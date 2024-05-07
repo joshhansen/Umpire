@@ -155,7 +155,7 @@ impl Actionable for AiPlayerAction {
                         .player_unit_legal_directions(secret, unit_id)?
                         .collect();
 
-                    legal.contains(&direction)
+                    legal.contains(direction)
                 });
 
                 PlayerAction::MoveUnitInDirection {
