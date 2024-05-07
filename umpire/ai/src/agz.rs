@@ -22,8 +22,6 @@ use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 use common::game::ai::{POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS};
 use num_traits::ToPrimitive;
 
-use rand::thread_rng;
-
 use serde::de::{self, Visitor};
 
 use common::game::{
@@ -35,7 +33,7 @@ use common::game::{
     player::PlayerTurn,
     turn_async::ActionwiseTurnTaker2,
 };
-use common::util::weighted_sample_idx;
+use common::util::max_sample_idx;
 
 use crate::{data::AgzBatch, Loadable, Storable};
 
@@ -248,9 +246,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(i))
             .collect();
 
-        let mut rng = thread_rng();
-
-        let city_action_idx = weighted_sample_idx(&mut rng, &city_action_probs);
+        let city_action_idx = max_sample_idx(&city_action_probs);
 
         debug_assert!(
             city_action_idx < POSSIBLE_CITY_ACTIONS,
@@ -287,9 +283,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
             .filter(|(i, _p_victory_ish)| legal_action_indices.contains(i))
             .collect();
 
-        let mut rng = thread_rng();
-
-        let unit_action_idx = weighted_sample_idx(&mut rng, &unit_action_probs);
+        let unit_action_idx = max_sample_idx(&unit_action_probs);
 
         debug_assert!(
             unit_action_idx < POSSIBLE_UNIT_ACTIONS,

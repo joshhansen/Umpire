@@ -697,6 +697,14 @@ pub fn weighted_sample_idx<R: Rng>(rand: &mut R, weighted_indices: &Vec<(usize, 
     );
 }
 
+pub fn max_sample_idx(weighted_indices: &[(usize, fX)]) -> usize {
+    weighted_indices
+        .iter()
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .unwrap()
+        .0
+}
+
 #[cfg(test)]
 mod test {
     use crate::game::map::dijkstra::RELATIVE_NEIGHBORS;
