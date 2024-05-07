@@ -32,6 +32,7 @@ use uuid::Uuid;
 
 use crate::{
     game::{
+        ai::{DEEP_HEIGHT_REL_MAX, DEEP_HEIGHT_REL_MIN, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN},
         city::{City, CityID},
         combat::CombatCapable,
         error::GameError,
@@ -2505,8 +2506,8 @@ impl Game {
         let player = self.player_with_secret(player_secret)?;
 
         // 2d features
-        for inc_x in -5..=5 {
-            for inc_y in -5..=5 {
+        for inc_x in DEEP_WIDTH_REL_MIN..=DEEP_WIDTH_REL_MAX {
+            for inc_y in DEEP_HEIGHT_REL_MIN..=DEEP_HEIGHT_REL_MAX {
                 let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
                 let obs = if let Some(origin) = loc {

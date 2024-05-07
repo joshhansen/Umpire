@@ -35,6 +35,11 @@ pub const DEEP_WIDTH: usize = 11;
 pub const DEEP_HEIGHT: usize = 11;
 pub const DEEP_TILES: usize = DEEP_WIDTH * DEEP_HEIGHT;
 
+pub const DEEP_WIDTH_REL_MIN: i32 = DEEP_WIDTH as i32 / -2;
+pub const DEEP_WIDTH_REL_MAX: i32 = DEEP_WIDTH as i32 / 2;
+pub const DEEP_HEIGHT_REL_MIN: i32 = DEEP_HEIGHT as i32 / -2;
+pub const DEEP_HEIGHT_REL_MAX: i32 = DEEP_HEIGHT as i32 / 2;
+
 /// Number of "channels" in convolution output
 pub const BASE_CONV_FEATS: usize = 16;
 
