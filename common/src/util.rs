@@ -211,6 +211,8 @@ impl<T: fmt::Display> fmt::Debug for Vec2d<T> {
     }
 }
 
+pub const POSSIBLE_DIRECTIONS: usize = 8;
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum Direction {
     Up,
@@ -224,7 +226,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub const fn values() -> [Self; 8] {
+    pub const fn values() -> [Self; POSSIBLE_DIRECTIONS] {
         [
             Self::Up,
             Self::Down,

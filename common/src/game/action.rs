@@ -66,7 +66,6 @@ impl AiPlayerAction {
     }
 
     /// All actions possible in general---not specific to any particular game state
-    /// TODO: Make this an array?
     // UnitType::Infantry,    0
     // UnitType::Armor,       1
     // UnitType::Fighter,     2
@@ -86,31 +85,75 @@ impl AiPlayerAction {
     // Direction::DownLeft,   16
     // Direction::DownRight,  17
     // SkipNextTurn           18
-    pub fn possible_actions() -> Vec<Self> {
-        let mut a = Vec::with_capacity(POSSIBLE_ACTIONS);
-        for unit_type in UnitType::values() {
-            a.push(AiPlayerAction::SetNextCityProduction { unit_type });
-        }
-        for direction in Direction::values() {
-            a.push(AiPlayerAction::MoveNextUnit { direction });
-        }
-        a.push(AiPlayerAction::DisbandNextUnit);
-        a.push(AiPlayerAction::SkipNextUnit);
-
-        a
-    }
+    pub const POSSIBLE: [Self; POSSIBLE_ACTIONS] = [
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Infantry,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Armor,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Fighter,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Bomber,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Transport,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Destroyer,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Submarine,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Cruiser,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Battleship,
+        },
+        AiPlayerAction::SetNextCityProduction {
+            unit_type: UnitType::Carrier,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::Up,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::Down,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::Left,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::Right,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::UpLeft,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::UpRight,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::DownLeft,
+        },
+        AiPlayerAction::MoveNextUnit {
+            direction: Direction::DownRight,
+        },
+        AiPlayerAction::DisbandNextUnit,
+        AiPlayerAction::SkipNextUnit,
+    ];
 }
 
 impl From<usize> for AiPlayerAction {
     fn from(idx: usize) -> Self {
-        let possible = Self::possible_actions();
-        possible[idx]
+        Self::POSSIBLE[idx]
     }
 }
 
 impl From<AiPlayerAction> for usize {
     fn from(a: AiPlayerAction) -> Self {
-        AiPlayerAction::possible_actions()
+        AiPlayerAction::POSSIBLE
             .into_iter()
             .position(|b| a == b)
             .unwrap()
