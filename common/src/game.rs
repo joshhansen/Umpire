@@ -2429,7 +2429,7 @@ impl Game {
         };
 
         // We also add a context around the currently active unit (if any)
-        let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN as usize);
+        let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN);
 
         // General statistics
 
@@ -2521,7 +2521,7 @@ impl Game {
             }
         }
 
-        debug_assert_eq!(x.len(), FEATS_LEN as usize);
+        debug_assert_eq!(x.len(), FEATS_LEN);
 
         Ok(x)
     }
