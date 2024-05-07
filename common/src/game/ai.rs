@@ -65,7 +65,7 @@ pub enum TrainingOutcome {
 }
 
 impl TrainingOutcome {
-    pub fn to_training_target(self) -> f64 {
+    pub fn to_training_target(self) -> fX {
         match self {
             Self::Victory => 1.0,
             Self::Inconclusive => 0.25, // punish draws, but now as harshly as defeats

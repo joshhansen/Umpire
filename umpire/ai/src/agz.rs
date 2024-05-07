@@ -131,16 +131,19 @@ impl<B: Backend> AgzActionModel<B> {
         turn.player_features(focus).await.to_vec()
     }
 
-    /// [batch,feat] -> [batch,victory_prob]
-    fn forward(&self, xs: &Tensor<B, 2>) -> Tensor<B, 2> {
+    /// features: [batch,feat]
+    /// actions: [batch]
+    ///
+    /// -> [batch,action_idx] (victory prob)
+    fn forward(&self, features: &Tensor<B, 2>) -> Tensor<B, 2> {
         // Wide features that will pass through to the dense layers directly
         // [batch,wide_feat]
-        let batches = xs.dims()[0];
-        let wide = xs.clone().slice([0..batches, 0..WIDE_LEN]);
+        let batches = features.dims()[0];
+        let wide = features.clone().slice([0..batches, 0..WIDE_LEN]);
 
         // Input features to the 2d convolution
         // [batch,conv_feat,x,y]
-        let mut deep = xs
+        let mut deep = features
             .clone()
             .slice([0..batches, WIDE_LEN..FEATS_LEN])
             .reshape([
@@ -149,10 +152,6 @@ impl<B: Backend> AgzActionModel<B> {
                 DEEP_WIDTH as i32,
                 DEEP_HEIGHT as i32,
             ]);
-
-        let action = xs
-            .clone()
-            .slice([0..batches, FEATS_LEN..(FEATS_LEN + POSSIBLE_ACTIONS)]);
 
         // let split: Vec<Tensor> = xs.split_with_sizes(&[WIDE_LEN, DEEP_LEN], 0);
 
@@ -173,7 +172,7 @@ impl<B: Backend> AgzActionModel<B> {
         let deep_flat: Tensor<B, 2> = deep.reshape([-1, DEEP_OUT_LEN as i32]);
 
         // [batch,feat]
-        let wide_and_deep = Tensor::cat(vec![wide, deep_flat, action], 1);
+        let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 1);
 
         // println!("Wide and deep shape: {:?}", wide_and_deep.size());
 
@@ -191,19 +190,22 @@ impl<B: Backend> AgzActionModel<B> {
         let out0 = self.relu.forward(self.dense0.forward(wide_and_deep));
         let out1 = self.relu.forward(self.dense1.forward(out0));
         softplus(self.dense2.forward(out1), 1f64)
-
-        // wide_and_deep
-        //     .apply(&self.dense0)
-        //     .relu()
-        //     // .dropout_(0.2, train)
-        //     .apply(&self.dense1)
-        //     .relu()
-        //     // .dropout_(0.2, train)
-        //     .apply(&self.dense2)
-        //     .softplus()
     }
+
+    fn forward_by_action(
+        &self,
+        features: &Tensor<B, 2>,
+        actions: Tensor<B, 1, Int>,
+    ) -> Tensor<B, 2> {
+        let batches = features.dims()[0];
+        let action_victory_probs = self.forward(features);
+
+        let actions_by_batch = actions.reshape([batches, 1]);
+        action_victory_probs.gather(1, actions_by_batch)
+    }
+
     /// [batch,feat]
-    pub fn evaluate_tensors(&self, features: &Tensor<B, 2>) -> Vec<fX> {
+    fn evaluate_tensors(&self, features: &Tensor<B, 2>) -> Vec<fX> {
         let result_tensor = self.forward(features);
 
         // debug_assert!(result_tensor.device().is_cuda());
@@ -217,66 +219,53 @@ impl<B: Backend> AgzActionModel<B> {
             .collect()
     }
 
-    /// [batch,feat]
-    pub fn evaluate_tensor(&self, features: &Tensor<B, 2>, action: &usize) -> fX {
-        let batches = features.dims()[0];
-
-        // [batch,action_idx]
-        let result_tensor = self.forward(features);
-
-        // debug_assert!(result_tensor.device().is_cuda());
-
-        let action_tensor = result_tensor.slice([0..batches, *action..(*action + 1)]);
-
-        action_tensor.into_scalar().to_f32().unwrap()
-    }
-
     /**
      xs: [batch,feat]
      targets: [batch,target] - we're forced into 2d by RegressionOutput, target will always be 0
     */
-    pub fn forward_regression_bulk(
+    fn forward_regression_bulk(
         &self,
-        xs: Tensor<B, 2>,
+        features: Tensor<B, 2>,
+        actions: Tensor<B, 1, Int>,
         targets: Tensor<B, 1>,
     ) -> RegressionOutput<B> {
-        let output = self.forward(&xs);
+        let output = self.forward_by_action(&features, actions);
         let targets_batched = targets.reshape([-1, 1]);
         let loss = MseLoss::new().forward(output.clone(), targets_batched.clone(), Reduction::Mean);
 
         RegressionOutput::new(loss, output, targets_batched)
     }
 
-    pub fn forward_regression(
-        &self,
-        device: &B::Device,
-        features: Tensor<B, 1>,
-        action: usize,
-        value: f64,
-    ) -> RegressionOutput<B> {
-        // [batch,feat]
-        let estimates = self.forward(&features.reshape([1, -1]));
-        // []
-        let action_estimate = estimates.slice([0..1, action..(action + 1)]).reshape([-1]);
+    // fn forward_regression(
+    //     &self,
+    //     device: &B::Device,
+    //     features: Tensor<B, 1>,
+    //     action: usize,
+    //     value: f64,
+    // ) -> RegressionOutput<B> {
+    //     // [batch,feat]
+    //     let estimates = self.forward(&features.reshape([1, -1]));
+    //     // []
+    //     let action_estimate = estimates.slice([0..1, action..(action + 1)]).reshape([-1]);
 
-        let value_tensor = Tensor::from_floats([value as f32], device);
+    //     let value_tensor = Tensor::from_floats([value as f32], device);
 
-        // let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
+    //     // let value_tensor = Tensor::from(value as f32).to_device(self.vars.device());
 
-        let f_loss: MseLoss<B> = MseLoss::new();
+    //     let f_loss: MseLoss<B> = MseLoss::new();
 
-        let loss = f_loss.forward(
-            action_estimate.clone(),
-            value_tensor.clone(),
-            Reduction::Sum,
-        );
+    //     let loss = f_loss.forward(
+    //         action_estimate.clone(),
+    //         value_tensor.clone(),
+    //         Reduction::Sum,
+    //     );
 
-        RegressionOutput::new(
-            loss,
-            action_estimate.reshape([1, -1]),
-            value_tensor.reshape([1, -1]),
-        )
-    }
+    //     RegressionOutput::new(
+    //         loss,
+    //         action_estimate.reshape([1, -1]),
+    //         value_tensor.reshape([1, -1]),
+    //     )
+    // }
 
     // pub fn new(device: B::Device, learning_rate: f64) -> Result<Self, String> {
     //     let cfg = AgzActionModelConfig {
@@ -644,7 +633,7 @@ const POSSIBLE_UNIT_ACTIONS: usize = NextUnitAction::possible();
 
 impl<B: AutodiffBackend> TrainStep<AgzBatch<B>, RegressionOutput<B>> for AgzActionModel<B> {
     fn step(&self, batch: AgzBatch<B>) -> TrainOutput<RegressionOutput<B>> {
-        let item = self.forward_regression_bulk(batch.data, batch.targets);
+        let item = self.forward_regression_bulk(batch.features, batch.actions, batch.targets);
 
         TrainOutput::new(self, item.loss.backward(), item)
     }
@@ -652,6 +641,6 @@ impl<B: AutodiffBackend> TrainStep<AgzBatch<B>, RegressionOutput<B>> for AgzActi
 
 impl<B: Backend> ValidStep<AgzBatch<B>, RegressionOutput<B>> for AgzActionModel<B> {
     fn step(&self, batch: AgzBatch<B>) -> RegressionOutput<B> {
-        self.forward_regression_bulk(batch.data, batch.targets)
+        self.forward_regression_bulk(batch.features, batch.actions, batch.targets)
     }
 }
