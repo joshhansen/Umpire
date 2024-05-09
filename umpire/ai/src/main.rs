@@ -67,8 +67,6 @@ use common::{
 };
 use rand::{prelude::SliceRandom, thread_rng};
 
-// use umpire_client::game::ai::{rl::trained_agent, Storable, AI};
-
 use umpire_ai::AI;
 use umpire_tui::{color::palette16, map::Map, Draw};
 
@@ -341,16 +339,6 @@ async fn main() -> Result<(), String> {
 
         let mut data_outfile = datagenpath.map(|datagenpath| File::create(datagenpath).unwrap());
 
-        // let data = bincode::serialize(&fa).unwrap();
-
-        // let display = path.display();
-
-        // let mut file = File::create(&path).map_err(|err| {
-        //     format!("couldn't create {}: {}", display, err)
-        // })?;
-
-        // file.write_all(&data).map_err(|err| format!("Couldn't write to {}: {}", display, err))
-
         let num_ais = ais.len();
 
         let palette = palette16(num_ais).unwrap();
@@ -429,18 +417,12 @@ async fn main() -> Result<(), String> {
 
                     if verbosity > 1 {
                         if fix_output_loc && draw {
-                            // let (ctrl, _turn_start) =
-                            //     game.player_turn_control_nonending(secrets[i]).unwrap();
-
                             map.as_mut()
                                 .unwrap()
                                 .draw(&turn, &mut stdout, &palette)
                                 .await
                                 .unwrap();
                             execute!(stdout, MoveTo(0, map_height + 2)).unwrap();
-                        } else {
-                            //FIXME Debug output
-                            // println!("{:?}", game);
                         }
                     }
 
@@ -521,8 +503,6 @@ async fn main() -> Result<(), String> {
 
             let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
 
-            // let mut agz: AgzActionModel<Wgpu> = model_config.init(&device);
-
             let test_prob: f64 = sub_matches.get_one("testprob").cloned().unwrap();
 
             println!("Test portion: {}", test_prob);
@@ -581,19 +561,6 @@ async fn main() -> Result<(), String> {
 
             println!("Train size: {}", train_data.len());
             println!("Valid size: {}", valid_data.len());
-
-            // println!("Error: {}", agz.error(&test));
-
-            // for i in 0..episodes {
-            //     println!("Iteration {}", i);
-            //     agz.train_macro(&train, batch_prob);
-
-            //     println!("Error: {}", agz.error(&test));
-            // }
-
-            // let output_path = Path::new(output_path.as_str());
-
-            // agz.store(output_path)?;
 
             // let adam_config = AdamConfig::new();
             let opt_config = SgdConfig::new();
@@ -689,8 +656,6 @@ pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
         .build(valid);
 
     let learner = LearnerBuilder::new(artifact_dir_s)
-        // .metric_train_numeric(AccuracyMetric::new())
-        // .metric_valid_numeric(AccuracyMetric::new())
         .metric_train_numeric(LossMetric::new())
         .metric_valid_numeric(LossMetric::new())
         .with_file_checkpointer(CompactRecorder::new())
