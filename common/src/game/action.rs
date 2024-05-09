@@ -209,15 +209,14 @@ pub enum NextCityAction {
 impl NextCityAction {
     /// Currently possible actions
     pub async fn legal(turn: &PlayerTurn<'_>) -> Vec<Self> {
-        if let Some(city_loc) = turn.player_production_set_requests().await.iter().next() {
+        if let Some(city_loc) = turn.player_production_set_requests().await.first() {
             turn.valid_productions_conservative(*city_loc)
                 .await
-                .iter()
-                .copied()
+                .into_iter()
                 .map(|unit_type| Self::SetProduction { unit_type })
                 .collect()
         } else {
-            Vec::new() // no legal actions because there's no next city
+            Vec::with_capacity(0) // no legal actions because there's no next city
         }
     }
 
@@ -294,14 +293,12 @@ impl NextUnitAction {
         if let Some(unit_id) = turn.player_unit_orders_requests().await.first() {
             // disband, skip, then any move actions
             [Self::Disband, Self::Skip]
-                .iter()
-                .copied()
+                .into_iter()
                 .chain(
                     turn.player_unit_legal_directions(*unit_id)
                         .await
                         .unwrap()
-                        .iter()
-                        .copied()
+                        .into_iter()
                         .map(|direction| Self::Move { direction }),
                 )
                 .collect()

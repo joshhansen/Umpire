@@ -218,8 +218,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
         let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
             .await
-            .iter()
-            .copied()
+            .into_iter()
             .map(|a| a.into())
             .collect();
 
