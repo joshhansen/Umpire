@@ -23,3 +23,26 @@ This will be longer in practice because the 100 work units of 10000 only run 40 
 We should do 40 cores of 25000 games each.
 
 We could also profile datagen again and look for optimizations.
+
+### 8 May 2024 - 9eabd8c
+Running on 40 cores
+
+10-40 dims
+
+In blocks of 25000 games
+
+Datagen rr00 15x15
+
+Over about 12 hours, generated about 3000 games, so 0.07 games / second
+
+Which is terrible!
+
+The profiling is dominated by kernel polls, which I think means RPC awaits.
+
+The RandomAI makes no such calls as it's making no predictions, just guesses.
+
+There was also a gratuitous `to_vec` copying the feature vec.
+
+Approach:
+* Test without `to_vec`
+* Consider keeping an up-to-date copy of player's own observations in the client, and generating feature vectors therefrom. Also better ensures no contamination.
