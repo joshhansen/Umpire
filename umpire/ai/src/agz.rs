@@ -104,7 +104,7 @@ impl<B: Backend> AgzActionModel<B> {
     /// actions: [batch]
     ///
     /// -> [batch,action_idx] (victory prob)
-    fn forward(&self, features: &Tensor<B, 2>) -> Tensor<B, 2> {
+    fn forward(&self, features: Tensor<B, 2>) -> Tensor<B, 2> {
         // Wide features that will pass through to the dense layers directly
         // [batch,wide_feat]
         let batches = features.dims()[0];
@@ -112,15 +112,12 @@ impl<B: Backend> AgzActionModel<B> {
 
         // Input features to the 2d convolution
         // [batch,conv_feat,x,y]
-        let mut deep = features
-            .clone()
-            .slice([0..batches, WIDE_LEN..FEATS_LEN])
-            .reshape([
-                batches as i32,
-                BASE_CONV_FEATS as i32,
-                DEEP_WIDTH as i32,
-                DEEP_HEIGHT as i32,
-            ]);
+        let mut deep = features.slice([0..batches, WIDE_LEN..FEATS_LEN]).reshape([
+            batches as i32,
+            BASE_CONV_FEATS as i32,
+            DEEP_WIDTH as i32,
+            DEEP_HEIGHT as i32,
+        ]);
 
         for conv in &self.convs {
             deep = relu(conv.forward(deep));
@@ -143,7 +140,7 @@ impl<B: Backend> AgzActionModel<B> {
 
     fn forward_by_action(
         &self,
-        features: &Tensor<B, 2>,
+        features: Tensor<B, 2>,
         actions: Tensor<B, 1, Int>,
     ) -> Tensor<B, 2> {
         let batches = features.dims()[0];
@@ -154,7 +151,7 @@ impl<B: Backend> AgzActionModel<B> {
     }
 
     /// [batch,feat]
-    fn evaluate_tensors(&self, features: &Tensor<B, 2>) -> Vec<fX> {
+    fn evaluate_tensors(&self, features: Tensor<B, 2>) -> Vec<fX> {
         let result_tensor = self.forward(features);
 
         // debug_assert!(result_tensor.device().is_cuda());
@@ -178,7 +175,7 @@ impl<B: Backend> AgzActionModel<B> {
         actions: Tensor<B, 1, Int>,
         targets: Tensor<B, 1>,
     ) -> RegressionOutput<B> {
-        let output = self.forward_by_action(&features, actions);
+        let output = self.forward_by_action(features, actions);
         let targets_batched = targets.reshape([-1, 1]);
         let loss = MseLoss::new().forward(output.clone(), targets_batched.clone(), Reduction::Mean);
 
@@ -237,7 +234,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
         // [batch,feat] (a batch of one)
         let feats: Tensor<B, 2> = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
-        let probs = self.evaluate_tensors(&feats);
+        let probs = self.evaluate_tensors(feats);
 
         // No offset is subtracted because city actions go first
         let city_action_probs: Vec<(usize, fX)> = probs
@@ -276,7 +273,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
         let feats = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
         let unit_action_probs: Vec<(usize, fX)> = self
-            .evaluate_tensors(&feats)
+            .evaluate_tensors(feats)
             .into_iter()
             .skip(POSSIBLE_CITY_ACTIONS) // ignore the city prefix
             .enumerate() // enumerate now so we get unit action indices
