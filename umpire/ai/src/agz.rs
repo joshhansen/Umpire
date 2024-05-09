@@ -96,8 +96,8 @@ pub struct AgzActionModel<B: Backend> {
     dense: Vec<nn::Linear<B>>,
 }
 impl<B: Backend> AgzActionModel<B> {
-    async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<f32> {
-        turn.player_features(focus).await.to_vec()
+    async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<fX> {
+        turn.player_features(focus).await
     }
 
     /// features: [batch,feat]
