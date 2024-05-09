@@ -1,0 +1,20 @@
+# started on Thu Apr 13 23:34:30 2023
+
+
+ Performance counter stats for 'target/debug/umpire-ai -e 10 agztrain -D 0.001 -o ./tmp/profiling.agz ./ai/data/10x10_rr_e100_s1000.clearing.0.data ./ai/data/10x10_r:agz_e100_s1000.clearing.1.data ./ai/data/10x10_rr_e100_s1000.0.data':
+
+      1,921,583.20 msec task-clock                #    0.993 CPUs utilized          
+           762,311      context-switches          #  396.710 /sec                   
+            26,832      cpu-migrations            #   13.963 /sec                   
+         1,095,350      page-faults               #  570.025 /sec                   
+ 8,049,889,631,681      cycles                    #    4.189 GHz                    
+ 5,900,651,471,115      instructions              #    0.73  insn per cycle         
+ 1,171,188,450,000      branches                  #  609.491 M/sec                  
+    23,182,785,090      branch-misses             #    1.98% of all branches        
+
+    1934.772182618 seconds time elapsed
+
+    1843.426146000 seconds user
+      77.644624000 seconds sys
+
+
