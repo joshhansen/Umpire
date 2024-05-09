@@ -1,4 +1,4 @@
 target/*
 .vscode/*
-profiling/*
+profiling/perf/record
 venv/
