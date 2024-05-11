@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use rand::{distributions::Distribution, Rng};
+use rand::{distributions::Distribution, rngs::StdRng, Rng, SeedableRng};
 
 use serde::{Deserialize, Serialize};
 
@@ -703,6 +703,16 @@ pub fn max_sample_idx(weighted_indices: &[(usize, fX)]) -> usize {
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
         .unwrap()
         .0
+}
+
+/// Initialize a standard random number generator; this should be done at the top level and passed to all code requiring
+/// randomness.
+pub fn init_rng(seed: Option<u64>) -> StdRng {
+    if let Some(seed) = seed {
+        StdRng::seed_from_u64(seed)
+    } else {
+        StdRng::from_entropy()
+    }
 }
 
 #[cfg(test)]

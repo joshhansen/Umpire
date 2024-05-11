@@ -26,7 +26,7 @@ use common::{
     },
     name::{city_namer, unit_namer},
     rpc::UmpireRpc,
-    util::{Dims, Direction, Location, Wrap2d},
+    util::{init_rng, Dims, Direction, Location, Wrap2d},
 };
 
 use anyhow::anyhow;
@@ -865,7 +865,7 @@ async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
 async fn main() -> anyhow::Result<()> {
     println!("umpire-server");
 
-    let matches = cli::app("umpired", "fwWH")
+    let matches = cli::app("umpired", "fwWHS")
         .arg(
             Arg::new("interface")
                 .short('i')
@@ -919,7 +919,12 @@ async fn main() -> anyhow::Result<()> {
     let city_namer = city_namer();
     let unit_namer = unit_namer();
 
+    let seed = matches.get_one::<u64>("random_seed").cloned();
+
+    let mut rng = init_rng(seed);
+
     let (game, secrets) = Game::new(
+        &mut rng,
         map_dims,
         city_namer,
         num_players,
@@ -1012,7 +1017,7 @@ async fn main() -> anyhow::Result<()> {
 
                 let ptype = &player_types[player];
 
-                if let Some(ai) = ais.get_mut(&ptype) {
+                if let Some(ai) = ais.get_mut(ptype) {
                     let ctrl = &mut ai_ctrls[player].as_mut().unwrap();
 
                     // Always clear on unit production for the robots

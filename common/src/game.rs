@@ -26,6 +26,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock as RwLockTokio;
 use uuid::Uuid;
@@ -241,7 +242,8 @@ impl Game {
     /// observed, with observations growing stale over time.
     ///
     /// Also returns the player secrets used for access control
-    pub fn new<N: Namer>(
+    pub fn new<N: Namer, R: RngCore>(
+        rng: &mut R,
         map_dims: Dims,
         mut city_namer: N,
         num_players: PlayerNum,
@@ -249,7 +251,7 @@ impl Game {
         unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
     ) -> (Self, Vec<PlayerSecret>) {
-        let map = generate_map(&mut city_namer, map_dims, num_players);
+        let map = generate_map(rng, &mut city_namer, map_dims, num_players);
         Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
     }
 

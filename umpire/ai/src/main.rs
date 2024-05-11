@@ -30,7 +30,7 @@ use burn_autodiff::Autodiff;
 use burn_train::{metric::LossMetric, LearnerBuilder};
 use burn_wgpu::Wgpu;
 
-use clap::{value_parser, Arg, ArgAction, Command};
+use clap::{value_parser, Arg, ArgAction};
 
 use crossterm::{
     cursor::{MoveTo, Show},
@@ -46,7 +46,7 @@ use umpire_ai::{
 
 use common::{
     game::ai::{fX, POSSIBLE_ACTIONS},
-    util::densify,
+    util::{densify, init_rng},
 };
 
 use rand::Rng;
@@ -147,7 +147,7 @@ async fn main() -> Result<(), String> {
     // )
 
     .subcommand(
-        Command::new(SUBCMD_EVAL)
+        cli::app(SUBCMD_EVAL, "S")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
             Arg::new("ai_models")
@@ -375,8 +375,12 @@ async fn main() -> Result<(), String> {
 
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
-            let (game, secrets) =
-                Game::new(map_dims, city_namer, num_ais, fog_of_war, None, wrapping);
+            let seed = matches.get_one::<u64>("random_seed").cloned();
+            let mut rng = init_rng(seed);
+
+            let (game, secrets) = Game::new(
+                &mut rng, map_dims, city_namer, num_ais, fog_of_war, None, wrapping,
+            );
 
             let game = Arc::new(RwLockTokio::new(game)) as Arc<RwLockTokio<dyn IGame>>;
 

@@ -2,7 +2,7 @@
 //! Map generation
 //!
 
-use rand::{distributions::Distribution, thread_rng, Rng};
+use rand::{distributions::Distribution, Rng, RngCore};
 
 use crate::{
     conf,
@@ -50,18 +50,17 @@ fn land_diagonal_neighbors<T: Source<Tile>>(tiles: &T, loc: Location) -> u16 {
 
 const INITIAL_TERRAIN: Terrain = Terrain::Water;
 
-pub fn generate_map<N: Namer>(
+pub fn generate_map<N: Namer, R: RngCore>(
+    rng: &mut R,
     city_namer: &mut N,
     map_dims: Dims,
     num_players: PlayerNum,
 ) -> MapData {
     let mut map = MapData::new(map_dims, |_loc| INITIAL_TERRAIN);
 
-    let mut rng = thread_rng();
-
     // Seed the continents/islands
     for _ in 0..conf::LANDMASSES {
-        let loc = map_dims.sample(&mut rng);
+        let loc = map_dims.sample(rng);
 
         // This might overwrite an already-set terrain but it doesn't matter
         map.set_terrain(loc, Terrain::Land).unwrap();
@@ -106,7 +105,7 @@ pub fn generate_map<N: Namer>(
     // Populate player cities
     let mut player_num = 0;
     while player_num < num_players {
-        let loc = map_dims.sample(&mut rng);
+        let loc = map_dims.sample(rng);
 
         if *map.terrain(loc).unwrap() == Terrain::Land && map.city_by_loc(loc).is_none() {
             map.new_city(

@@ -88,6 +88,12 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .value_parser(value_parser!(f64))
                 .default_value("10e-3"),
 
+            'S' => Arg::new("random_seed")
+                .short('S')
+                .long("seed")
+                .help("Seed by which to initialize all random number generation")
+                .value_parser(value_parser!(u64)),
+
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
         });
     }

@@ -39,7 +39,7 @@ use common::{
     log::LogTarget,
     name::{city_namer, unit_namer},
     rpc::{RpcGame, UmpireRpcClient},
-    util::{Dims, Wrap2d},
+    util::{init_rng, Dims, Wrap2d},
 };
 
 pub mod ui;
@@ -62,7 +62,7 @@ fn print_loading_screen() {
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    let matches = cli::app(conf::APP_NAME, "fwHW")
+    let matches = cli::app(conf::APP_NAME, "fwHWS")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -180,7 +180,12 @@ async fn main() -> Result<(), String> {
 
         let city_namer = city_namer();
         let unit_namer = unit_namer();
+
+        let seed = matches.get_one::<u64>("random_seed").cloned();
+        let mut rng = init_rng(seed);
+
         let (game, secrets) = Game::new(
+            &mut rng,
             map_dims,
             city_namer,
             player_types.len(),
