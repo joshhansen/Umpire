@@ -13,7 +13,7 @@ use rand::{
         Distribution,
     },
     prelude::SliceRandom,
-    thread_rng,
+    RngCore,
 };
 
 /// Something that generates names.
@@ -113,10 +113,9 @@ impl<N: Copy + Default + PartialOrd + SampleUniform + Send + Sync> Namer for Wei
     }
 }
 
-fn shuffle(names: Vec<String>) -> Vec<String> {
+fn shuffle<R: RngCore>(rng: &mut R, names: Vec<String>) -> Vec<String> {
     let mut names = names;
-    let mut rng = thread_rng();
-    names.shuffle(&mut rng);
+    names.shuffle(rng);
     names
 }
 
@@ -168,7 +167,7 @@ static CITY_NAME_COL: usize = 1;
 /// The default city namer.
 ///
 /// Loads city names from the geonames 1000 cities database and returns them randomly.
-pub fn city_namer() -> ListNamer {
+pub fn city_namer<R: RngCore>(rng: &mut R) -> ListNamer {
     let bytes_gz: &[u8] =
         include_bytes!("../../data/geonames_cities1000_2017-02-27_0201__pop-and-name.tsv.gz");
     let d = GzDecoder::new(bytes_gz);
@@ -184,7 +183,7 @@ pub fn city_namer() -> ListNamer {
         names.push(row[CITY_NAME_COL].into());
     }
 
-    ListNamer::new(shuffle(names))
+    ListNamer::new(shuffle(rng, names))
 }
 
 /// Generate names by deferring to two sub-namers and joining their output

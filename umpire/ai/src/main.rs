@@ -65,7 +65,7 @@ use common::{
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
-use rand::{prelude::SliceRandom, thread_rng};
+use rand::prelude::SliceRandom;
 
 use umpire_ai::AI;
 use umpire_tui::{color::palette16, map::Map, Draw};
@@ -354,11 +354,12 @@ async fn main() -> Result<(), String> {
             println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
         };
 
+        let seed = matches.get_one::<u64>("random_seed").cloned();
+        let mut rng = init_rng(seed);
+
         let mut victory_counts: HashMap<Option<PlayerNum>, usize> = HashMap::new();
         for _ in 0..episodes {
             let city_namer = IntNamer::new("city");
-
-            let mut rng = thread_rng();
 
             let map_dims = dims.choose(&mut rng).cloned().unwrap();
 
@@ -374,9 +375,6 @@ async fn main() -> Result<(), String> {
             };
 
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
-
-            let seed = matches.get_one::<u64>("random_seed").cloned();
-            let mut rng = init_rng(seed);
 
             let (game, secrets) = Game::new(
                 &mut rng, map_dims, city_namer, num_ais, fog_of_war, None, wrapping,
@@ -410,7 +408,10 @@ async fn main() -> Result<(), String> {
 
                     let mut turn = ctrl.turn_ctrl(true).await;
 
-                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, datagen_prob).await;
+                    let turn_outcome = ai
+                        .borrow_mut()
+                        .take_turn(&mut rng, &mut turn, datagen_prob)
+                        .await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
@@ -515,7 +516,8 @@ async fn main() -> Result<(), String> {
 
             let mut valid_data: Vec<AgzDatum> = Vec::new();
 
-            let mut rng = thread_rng();
+            let seed = sub_matches.get_one::<u64>("random_seed").cloned();
+            let mut rng = init_rng(seed);
 
             for input_path in input_paths {
                 if verbosity > 0 {
@@ -540,22 +542,21 @@ async fn main() -> Result<(), String> {
                     data
                 };
 
-                for datum in data
-                    .into_iter()
-                    .filter(move |_| rng.gen::<f64>() <= sample_prob)
-                {
-                    let features: Vec<fX> = densify(datum.num_features, &datum.features);
+                for datum in data {
+                    if rng.gen::<f64>() > sample_prob {
+                        let features: Vec<fX> = densify(datum.num_features, &datum.features);
 
-                    let datum = AgzDatum {
-                        features,
-                        action: datum.action.into(),
-                        outcome: datum.outcome.unwrap(),
-                    };
+                        let datum = AgzDatum {
+                            features,
+                            action: datum.action.into(),
+                            outcome: datum.outcome.unwrap(),
+                        };
 
-                    if rng.gen::<f64>() <= test_prob {
-                        valid_data.push(datum);
-                    } else {
-                        train_data.push(datum);
+                        if rng.gen::<f64>() <= test_prob {
+                            valid_data.push(datum);
+                        } else {
+                            train_data.push(datum);
+                        }
                     }
                 }
             }

@@ -73,6 +73,7 @@ pub trait CombatCapable {
         let mut attacker_hp = attacker_initial_hp;
         let mut defender_hp = defender_initial_hp;
 
+        //FIXME Use passed-in randomness
         let mut rng = thread_rng();
         while attacker_hp > 0 && defender_hp > 0 {
             let attacker_received_damage = rng.gen::<bool>();

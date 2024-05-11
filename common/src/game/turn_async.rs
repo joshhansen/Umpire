@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use rand::RngCore;
 use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
@@ -23,8 +24,9 @@ use crate::{game::Game, util::sparsify};
 /// Take a turn, with all the superpowers, do whatever you want
 #[async_trait]
 pub trait TurnTakerSuperuser {
-    async fn take_turn(
+    async fn take_turn<R: RngCore + Send>(
         &mut self,
+        rng: &mut R,
         game: Arc<RwLockTokio<Game>>,
         player: PlayerNum,
         secret: PlayerSecret,
@@ -36,8 +38,9 @@ pub trait TurnTakerSuperuser {
 /// Take a turn, but you have to begin and end the turn yourself
 #[async_trait]
 pub trait TurnTakerDIY {
-    async fn take_turn(
+    async fn take_turn<R: RngCore + Send>(
         &mut self,
+        rng: &mut R,
         player: &mut PlayerControl,
         clear_after_unit_production: bool,
         datagen_prob: Option<f64>,
@@ -48,18 +51,32 @@ pub trait TurnTakerDIY {
 /// for you.
 #[async_trait]
 pub trait TurnTaker {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome;
+    async fn take_turn<R: RngCore + Send>(
+        &mut self,
+        rng: &mut R,
+        turn: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+    ) -> TurnOutcome;
 }
 
 /// Implements TurnTaker by indicating the next action the player should take, if any
 #[async_trait]
 pub trait ActionwiseTurnTaker {
-    async fn next_action(&mut self, turn: &PlayerTurn) -> Option<AiPlayerAction>;
+    async fn next_action<R: RngCore + Send>(
+        &mut self,
+        rng: &mut R,
+        turn: &PlayerTurn,
+    ) -> Option<AiPlayerAction>;
 }
 
 #[async_trait]
 impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+    async fn take_turn<R: RngCore + Send>(
+        &mut self,
+        rng: &mut R,
+        turn: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+    ) -> TurnOutcome {
         let mut training_instances = datagen_prob.map(|_| Vec::new());
 
         let player = turn.current_player().await;
@@ -72,7 +89,7 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                 None
             };
 
-            if let Some(action) = self.next_action(turn).await {
+            if let Some(action) = self.next_action(rng, turn).await {
                 let (num_features, features) = if datagen_prob.is_some() {
                     // Determine if the spatial features should focus on the next city or the next unit
                     let focus = if NextCityAction::try_from(action).is_ok() {
@@ -123,18 +140,30 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
 /// Like ActionwiseTurnTaker, but determines city and unit actions separately
 #[async_trait]
 pub trait ActionwiseTurnTaker2 {
-    async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction>;
+    async fn next_city_action<R: RngCore + Send>(
+        &mut self,
+        rng: &mut R,
+        turn: &PlayerTurn,
+    ) -> Option<NextCityAction>;
 
-    async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction>;
+    async fn next_unit_action<R: RngCore + Send>(
+        &mut self,
+        rng: &mut R,
+        turn: &PlayerTurn,
+    ) -> Option<NextUnitAction>;
 }
 
 #[async_trait]
 impl<T: ActionwiseTurnTaker2 + Send> ActionwiseTurnTaker for T {
-    async fn next_action(&mut self, turn: &PlayerTurn) -> Option<AiPlayerAction> {
-        if let Some(city_action) = self.next_city_action(turn).await {
+    async fn next_action<R: RngCore + Send>(
+        &mut self,
+        rng: &mut R,
+        turn: &PlayerTurn,
+    ) -> Option<AiPlayerAction> {
+        if let Some(city_action) = self.next_city_action(rng, turn).await {
             Some(city_action.into())
         } else {
-            self.next_unit_action(turn)
+            self.next_unit_action(rng, turn)
                 .await
                 .map(|unit_action| unit_action.into())
         }
@@ -143,15 +172,16 @@ impl<T: ActionwiseTurnTaker2 + Send> ActionwiseTurnTaker for T {
 
 #[async_trait]
 impl<T: TurnTaker + Send> TurnTakerDIY for T {
-    async fn take_turn(
+    async fn take_turn<R: RngCore + Send>(
         &mut self,
+        rng: &mut R,
         player: &mut PlayerControl,
         clear_after_unit_production: bool,
         datagen_prob: Option<f64>,
     ) -> TurnOutcome {
         let mut turn = player.turn_ctrl(clear_after_unit_production).await;
 
-        let outcome = <Self as TurnTaker>::take_turn(self, &mut turn, datagen_prob).await;
+        let outcome = <Self as TurnTaker>::take_turn(self, rng, &mut turn, datagen_prob).await;
 
         turn.force_end_turn().await.unwrap();
 
@@ -161,8 +191,9 @@ impl<T: TurnTaker + Send> TurnTakerDIY for T {
 
 #[async_trait]
 impl<T: TurnTakerDIY + Send> TurnTakerSuperuser for T {
-    async fn take_turn(
+    async fn take_turn<R: RngCore + Send>(
         &mut self,
+        rng: &mut R,
         game: Arc<RwLockTokio<Game>>,
         player: PlayerNum,
         secret: PlayerSecret,
@@ -173,6 +204,7 @@ impl<T: TurnTakerDIY + Send> TurnTakerSuperuser for T {
 
         <Self as TurnTakerDIY>::take_turn(
             self,
+            rng,
             &mut ctrl,
             clear_after_unit_production,
             datagen_prob,

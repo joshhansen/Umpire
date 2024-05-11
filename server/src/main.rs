@@ -916,12 +916,11 @@ async fn main() -> anyhow::Result<()> {
     println!("\tMap dimensions: {}", map_dims);
     println!("\tWrapping: {:?}", wrapping);
 
-    let city_namer = city_namer();
-    let unit_namer = unit_namer();
-
     let seed = matches.get_one::<u64>("random_seed").cloned();
-
     let mut rng = init_rng(seed);
+
+    let city_namer = city_namer(&mut rng);
+    let unit_namer = unit_namer();
 
     let (game, secrets) = Game::new(
         &mut rng,
@@ -1023,7 +1022,7 @@ async fn main() -> anyhow::Result<()> {
                     // Always clear on unit production for the robots
                     let mut turn = ctrl.turn_ctrl(true).await;
 
-                    ai.take_turn(&mut turn, None).await;
+                    ai.take_turn(&mut rng, &mut turn, None).await;
 
                     turn.force_end_turn().await.unwrap();
                 }

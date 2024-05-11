@@ -162,6 +162,9 @@ async fn main() -> Result<(), String> {
 
     let local_server = matches.contains_id("players");
 
+    let seed = matches.get_one::<u64>("random_seed").cloned();
+    let mut rng = init_rng(seed);
+
     let (game, secrets, num_players, dims, player_types) = if local_server {
         let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
 
@@ -178,11 +181,8 @@ async fn main() -> Result<(), String> {
                 map_dims, map_dims.area(), num_players, num_players));
         }
 
-        let city_namer = city_namer();
+        let city_namer = city_namer(&mut rng);
         let unit_namer = unit_namer();
-
-        let seed = matches.get_one::<u64>("random_seed").cloned();
-        let mut rng = init_rng(seed);
 
         let (game, secrets) = Game::new(
             &mut rng,
@@ -331,7 +331,7 @@ async fn main() -> Result<(), String> {
 
                 match &player_types[player] {
                     PlayerType::Human => {
-                        let turn_outcome = ui.take_turn(&mut turn, None).await;
+                        let turn_outcome = ui.take_turn(&mut rng, &mut turn, None).await;
                         assert!(turn_outcome.training_instances.is_none());
 
                         if turn_outcome.quit {
@@ -344,7 +344,7 @@ async fn main() -> Result<(), String> {
                             .get_mut(ai_type)
                             .unwrap()
                             .borrow_mut()
-                            .take_turn(&mut turn, None)
+                            .take_turn(&mut rng, &mut turn, None)
                             .await;
                         assert!(turn_outcome.training_instances.is_none());
 

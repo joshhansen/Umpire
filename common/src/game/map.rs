@@ -1144,7 +1144,7 @@ mod test {
             Alignment, GameError,
         },
         name::IntNamer,
-        util::{Dimensioned, Dims, Location},
+        util::{init_rng, Dimensioned, Dims, Location},
     };
 
     #[test]
@@ -1202,14 +1202,14 @@ mod test {
 
     #[test]
     pub fn test_new_and_pop() {
-        let mut rand = thread_rng();
+        let mut rng = init_rng(None);
 
         for _ in 0..100 {
             let mut city_namer = IntNamer::new("city");
-            let mut map = generate_map(&mut city_namer, Dims::new(180, 90), 1);
+            let mut map = generate_map(&mut rng, &mut city_namer, Dims::new(180, 90), 1);
 
             for i in 0..100 {
-                let loc = map.dims().sample(&mut rand);
+                let loc = map.dims().sample(&mut rng);
 
                 let name = format!("Unit {}", i);
 

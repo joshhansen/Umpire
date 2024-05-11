@@ -45,6 +45,7 @@ use common::{
     util::{sleep_millis, Dims, Location, Rect, Vec2d},
 };
 
+use rand::RngCore;
 use umpire_tui::{
     color::Palette,
     map::Map,
@@ -1024,7 +1025,12 @@ impl UI for TermUI {
 
 #[async_trait]
 impl TurnTaker for TermUI {
-    async fn take_turn(&mut self, ctrl: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+    async fn take_turn<R: RngCore + Send>(
+        &mut self,
+        _rng: &mut R,
+        ctrl: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+    ) -> TurnOutcome {
         if datagen_prob.is_some() {
             eprintln!("TermUI doesn't generate training data but generate_data was true");
             //FIXME Code smell: refused bequest

@@ -243,13 +243,19 @@ impl<B: Backend> Storable for AI<B> {
 
 #[async_trait]
 impl<B: Backend> TurnTakerAsync for AI<B> {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+    async fn take_turn<R: RngCore + Send>(
+        &mut self,
+        rng: &mut R,
+        turn: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+    ) -> TurnOutcome {
         match self {
-            Self::Random(ai) => ai.take_turn(turn, datagen_prob).await,
-            Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob).await,
+            Self::Random(ai) => ai.take_turn(rng, turn, datagen_prob).await,
+            Self::AGZ(agz) => agz.lock().await.take_turn(rng, turn, datagen_prob).await,
         }
     }
 }
 
+use rand::RngCore;
 // Exports
 pub use random::RandomAI;
