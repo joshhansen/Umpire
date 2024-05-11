@@ -1133,7 +1133,7 @@ impl TryFrom<String> for MapData {
 
 #[cfg(test)]
 mod test {
-    use rand::{distributions::Distribution, thread_rng};
+    use rand::distributions::Distribution;
 
     use super::gen::generate_map;
     use super::MapData;
@@ -1245,45 +1245,6 @@ mod test {
         }
     }
 
-    // #[test]
-    // pub fn test_carry() {
-    //     let mut rand = thread_rng();
-
-    //     for _ in 0..100 {
-    //         let mut city_namer = IntNamer::new("city");
-    //         let mut map = generate_map(&mut city_namer, Dims::new(180, 90), 1);
-
-    //         for i in 0.. 100 {
-    //             let loc = map.dims().sample(&mut rand);
-
-    //             let name = format!("Unit {}", i);
-
-    //             // New
-
-    //             let unit_id = map.new_unit(loc, UnitType::Infantry,
-    //                                     Alignment::Belligerent{player:0}, name.clone()).unwrap();
-
-    //             assert!(map.player_units(0).any(|unit| unit.id == unit_id));
-
-    //             assert_eq!(map.unit_loc(unit_id), Some(loc));
-
-    //             let unit = map.unit_by_id(unit_id).unwrap().clone();
-
-    //             assert_eq!(map.tile(loc).unwrap().unit.as_ref(), Some(&unit));
-
-    //             // Pop
-
-    //             let popped_unit = map.pop_unit_by_id(unit_id).unwrap();
-
-    //             assert_eq!(unit, popped_unit);
-
-    //             assert!(!map.player_units(0).any(|unit| unit.id == unit_id));
-
-    //             assert_eq!(map.tile(loc).unwrap().unit, None);
-    //         }
-    //     }
-    // }
-
     #[test]
     pub fn test_relocate() {
         let mut map = MapData::new(Dims::new(10, 10), |_| Terrain::Land);
@@ -1310,10 +1271,10 @@ mod test {
 
         assert!(map.player_units(0).any(|unit| unit.id == unit_id));
 
-        let mut rand = thread_rng();
+        let mut rng = init_rng(None);
 
         for _ in 0..1000 {
-            let dest = map.dims().sample(&mut rand);
+            let dest = map.dims().sample(&mut rng);
             map.relocate_unit_by_id(unit_id, dest).unwrap();
 
             assert!(map.player_units(0).any(|unit| unit.id == unit_id));
