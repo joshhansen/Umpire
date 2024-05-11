@@ -403,7 +403,7 @@ pub mod test {
             map,
             1,
             false,
-            Some(Arc::new(RwLock::new(unit_namer()))),
+            Some(Arc::new(RwLock::new(unit_namer(None)))),
             Wrap2d::BOTH,
         );
 

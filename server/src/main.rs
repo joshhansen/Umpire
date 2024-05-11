@@ -920,7 +920,7 @@ async fn main() -> anyhow::Result<()> {
     let mut rng = init_rng(seed);
 
     let city_namer = city_namer(&mut rng);
-    let unit_namer = unit_namer();
+    let unit_namer = unit_namer(Some(init_rng(seed)));
 
     let (game, secrets) = Game::new(
         Some(init_rng(seed)), // instantiate another rng here to be owned by Game

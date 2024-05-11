@@ -85,7 +85,7 @@ pub fn game1() -> (Game, Vec<PlayerSecret>) {
     let fog_of_war = true;
 
     let map = map_two_cities(Dims::new(10, 10));
-    let unit_namer = unit_namer();
+    let unit_namer = unit_namer(None);
     Game::new_with_map(
         None,
         map,
@@ -101,7 +101,7 @@ pub fn game_two_cities_dims(dims: Dims) -> (Game, Vec<PlayerSecret>) {
     let fog_of_war = true;
 
     let map = map_two_cities(dims);
-    let unit_namer = unit_namer();
+    let unit_namer = unit_namer(None);
     let (mut game, secrets) = Game::new_with_map(
         None,
         map,
@@ -166,7 +166,7 @@ pub fn game_tunnel(dims: Dims) -> (Game, Vec<PlayerSecret>) {
     let players = 2;
     let fog_of_war = false;
     let map = map_tunnel(dims);
-    let unit_namer = unit_namer();
+    let unit_namer = unit_namer(None);
     Game::new_with_map(
         None,
         map,

@@ -182,7 +182,7 @@ async fn main() -> Result<(), String> {
         }
 
         let city_namer = city_namer(&mut rng);
-        let unit_namer = unit_namer();
+        let unit_namer = unit_namer(Some(init_rng(seed)));
 
         let (game, secrets) = Game::new(
             Some(rng),

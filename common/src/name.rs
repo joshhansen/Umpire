@@ -13,8 +13,11 @@ use rand::{
         Distribution,
     },
     prelude::SliceRandom,
+    rngs::StdRng,
     RngCore,
 };
+
+use crate::util::init_rng;
 
 /// Something that generates names.
 pub trait Namer: Send + Sync {
@@ -70,28 +73,14 @@ impl Namer for ListNamer {
 
 /// Generate names by sampling from a weighted distribution of names.
 pub struct WeightedNamer<N: Default + SampleUniform> {
+    rng: StdRng,
     cumulatively_weighted_names: Vec<CumWeight<String, N>>,
-    // sample_range: Uniform<N>,
-    // rng: ThreadRng
 }
 impl<N: Copy + Default + PartialOrd + SampleUniform> WeightedNamer<N> {
-    pub fn new(cumulatively_weighted_names: Vec<CumWeight<String, N>>) -> Self {
-        // let total_weight = weighted_names.iter().fold(0, |acc, &weighted| acc + weighted.weight);
-        // let zero: N = Default::default();
-        // let weight_range = Uniform::new_inclusive(zero, cumulatively_weighted_names[cumulatively_weighted_names.len()-1].cum_weight);
-
-        // let mut cumulatively_weighted_names
-        // WeightedNamer {
-        //     weighted_names: weighted_names,
-        //     total_weight: total_weight
-        // }
-        // let choice = WeightedChoice::new(weighted_names);
+    pub fn new(rng: StdRng, cumulatively_weighted_names: Vec<CumWeight<String, N>>) -> Self {
         WeightedNamer {
-            // weighted_names_dist: choice,
-            // weighted_names: weighted_names,
+            rng,
             cumulatively_weighted_names,
-            // sample_range: weight_range,
-            // rng: thread_rng()
         }
     }
 }
@@ -103,7 +92,7 @@ impl<N: Copy + Default + PartialOrd + SampleUniform + Send + Sync> Namer for Wei
             zero,
             self.cumulatively_weighted_names[self.cumulatively_weighted_names.len() - 1].cum_weight,
         );
-        let x = sample_range.sample(&mut rand::thread_rng());
+        let x = sample_range.sample(&mut self.rng);
         for cumulatively_weighted_name in &self.cumulatively_weighted_names {
             if cumulatively_weighted_name.cum_weight >= x {
                 return cumulatively_weighted_name.item.clone();
@@ -118,17 +107,6 @@ fn shuffle<R: RngCore>(rng: &mut R, names: Vec<String>) -> Vec<String> {
     names.shuffle(rng);
     names
 }
-
-// fn load_list(filename: &'static str) -> std::io::Result<Vec<String>> {
-//     let f = File::open(filename)?;
-//     let f = BufReader::new(f);
-//
-//     let mut items = Vec::new();
-//     for line in f.lines() {
-//         items.push(line.unwrap());
-//     }
-//     Ok(items)
-// }
 
 pub struct CumWeight<T, N> {
     item: T,
@@ -216,16 +194,20 @@ impl<N1: Namer, N2: Namer> Namer for CompoundNamer<N1, N2> {
 ///
 /// Loads given names and surnames from census data and combines them randomly in accordance with
 /// their prevalence in the American population.
-pub fn unit_namer() -> CompoundNamer<WeightedNamer<f64>, WeightedNamer<u32>> {
+pub fn unit_namer(rng: Option<StdRng>) -> CompoundNamer<WeightedNamer<f64>, WeightedNamer<u32>> {
     let givenname_bytes: &[u8] =
         include_bytes!("../../data/us-census/1990/givenname_rel_freqs.csv");
     let givennames = load_cumulative_weights(givenname_bytes);
 
     let surname_bytes: &[u8] = include_bytes!("../../data/us-census/2010/surname_freqs.csv");
     let surnames = load_cumulative_weights(surname_bytes);
+
+    let rng1 = rng.clone().unwrap_or_else(|| init_rng(None));
+    let rng2 = rng.unwrap_or_else(|| init_rng(None));
+
     CompoundNamer::new(
         " ",
-        WeightedNamer::new(givennames),
-        WeightedNamer::new(surnames),
+        WeightedNamer::new(rng1, givennames),
+        WeightedNamer::new(rng2, surnames),
     )
 }

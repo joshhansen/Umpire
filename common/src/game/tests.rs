@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 use crate::{
     game::{
@@ -66,12 +66,11 @@ fn test_move_unit_by_id_far() {
 
     game.begin_turn(secrets[0], false).unwrap();
 
-    let mut rand = thread_rng();
     for i in 0..10 {
         let mut delta = Vec2d::new(0, 0);
 
         while delta.x == 0 && delta.y == 0 {
-            delta = Vec2d::new(rand.gen_range(-5, 6), rand.gen_range(-5, 6));
+            delta = Vec2d::new(game.rng.gen_range(-5, 6), game.rng.gen_range(-5, 6));
         }
 
         let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
@@ -151,7 +150,7 @@ fn test_move_unit() {
         map,
         2,
         false,
-        Some(Arc::new(RwLock::new(unit_namer()))),
+        Some(Arc::new(RwLock::new(unit_namer(None)))),
         Wrap2d::BOTH,
     );
     assert_eq!(game.current_player(), 0);
@@ -748,8 +747,6 @@ pub fn test_one_step_routes() {
     let (mut game, secrets) = Game::new_with_map(None, map, 1, false, None, Wrap2d::BOTH);
 
     game.begin_turn(secrets[0], false).unwrap();
-
-    // let mut rand = thread_rng();
 
     for (i, src) in game.dims().iter_locs().enumerate() {
         // for _ in 0..1000 {
