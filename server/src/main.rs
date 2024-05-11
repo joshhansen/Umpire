@@ -879,7 +879,7 @@ async fn main() -> anyhow::Result<()> {
         .arg(players_arg().default_value("h123"))
         .get_matches();
 
-    let fog_of_war = matches.get_one::<bool>("fog").unwrap().clone();
+    let fog_of_war = matches.get_one::<bool>("fog").copied().unwrap();
 
     println!("\tFog of war: {}", fog_of_war);
 
@@ -903,9 +903,9 @@ async fn main() -> anyhow::Result<()> {
         .collect();
     let num_humans = human_player_indices.len();
 
-    let map_width = matches.get_one::<u16>("map_width").unwrap().clone();
-    let map_height = matches.get_one::<u16>("map_height").unwrap().clone();
-    let wrapping = matches.get_one::<Wrap2d>("wrapping").unwrap().clone();
+    let map_width = matches.get_one::<u16>("map_width").copied().unwrap();
+    let map_height = matches.get_one::<u16>("map_height").copied().unwrap();
+    let wrapping = matches.get_one::<Wrap2d>("wrapping").copied().unwrap();
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if (map_dims.area() as PlayerNum) < num_players {
