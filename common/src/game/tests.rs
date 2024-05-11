@@ -235,7 +235,7 @@ fn test_move_unit() {
 
         // Check the first move component
         assert_eq!(move_result.components.len(), 2);
-        let move1 = move_result.components.get(0).unwrap();
+        let move1 = move_result.components.first().unwrap();
         assert_eq!(
             move1.loc,
             Location {
@@ -582,7 +582,7 @@ pub fn test_current_player_unit_legal_one_step_destinations() {
 
                                     let inclusions: Vec<bool> = cs
                                         .iter()
-                                        .map(|c| traversable.get(&c).unwrap())
+                                        .map(|c| traversable.get(c).unwrap())
                                         .cloned()
                                         .collect();
 
@@ -610,14 +610,14 @@ pub fn test_current_player_unit_legal_one_step_destinations() {
                                                 dests.contains(&loc),
                                                 "Erroneously omitted {:?} on \"{}\"",
                                                 loc,
-                                                s.replace("\n", "\\n")
+                                                s.replace('\n', "\\n")
                                             );
                                         } else {
                                             assert!(
                                                 !dests.contains(&loc),
                                                 "Erroneously included {:?} on \"{}\"",
                                                 loc,
-                                                s.replace("\n", "\\n")
+                                                s.replace('\n', "\\n")
                                             );
                                         }
                                     }
