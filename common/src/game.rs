@@ -26,7 +26,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use rand::RngCore;
+use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock as RwLockTokio;
 use uuid::Uuid;
@@ -54,7 +54,7 @@ use crate::{
         },
     },
     name::{IntNamer, Namer},
-    util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
+    util::{init_rng, Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
 };
 
 pub use crate::game::alignment::Alignment;
@@ -183,6 +183,9 @@ pub enum TurnPhase {
 /// The core engine that enforces Umpire's game rules
 #[derive(Clone)]
 pub struct Game {
+    /// Random number generator instance
+    rng: StdRng,
+
     /// The underlying state of the game
     map: MapData,
 
@@ -242,8 +245,8 @@ impl Game {
     /// observed, with observations growing stale over time.
     ///
     /// Also returns the player secrets used for access control
-    pub fn new<N: Namer, R: RngCore>(
-        rng: &mut R,
+    pub fn new<N: Namer>(
+        rng: Option<StdRng>,
         map_dims: Dims,
         mut city_namer: N,
         num_players: PlayerNum,
@@ -251,14 +254,23 @@ impl Game {
         unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
     ) -> (Self, Vec<PlayerSecret>) {
-        let map = generate_map(rng, &mut city_namer, map_dims, num_players);
-        Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping)
+        let mut rng = rng.unwrap_or_else(|| init_rng(None));
+        let map = generate_map(&mut rng, &mut city_namer, map_dims, num_players);
+        Self::new_with_map(
+            Some(rng),
+            map,
+            num_players,
+            fog_of_war,
+            unit_namer,
+            wrapping,
+        )
     }
 
     /// Creates a new game instance from a pre-generated map
     ///
     /// Also returns the player secrets used for access control
     pub fn new_with_map(
+        rng: Option<StdRng>,
         map: MapData,
         num_players: PlayerNum,
         fog_of_war: bool,
@@ -268,7 +280,10 @@ impl Game {
         let player_observations = PlayerObsTracker::new(num_players, map.dims());
         let player_pending_observations = (0..num_players).map(|_| Vec::new()).collect();
 
+        let rng = rng.unwrap_or_else(|| init_rng(None));
+
         let mut game = Self {
+            rng,
             map,
             player_observations,
             player_pending_observations,
@@ -292,12 +307,16 @@ impl Game {
         (game, secrets)
     }
 
-    pub fn new_from_string(s: &'static str) -> Result<(Self, Vec<Uuid>), String> {
+    pub fn new_from_string(
+        rng: Option<StdRng>,
+        s: &'static str,
+    ) -> Result<(Self, Vec<Uuid>), String> {
         let map = MapData::try_from(s)?;
 
         let players = map.players();
 
         Ok(Self::new_with_map(
+            rng,
             map,
             players,
             false,
@@ -308,6 +327,7 @@ impl Game {
 
     /// Set up a sharable game instance and return it and controls for each player
     pub async fn setup_with_map(
+        rng: Option<StdRng>,
         map: MapData,
         num_players: PlayerNum,
         fog_of_war: bool,
@@ -315,7 +335,7 @@ impl Game {
         wrapping: Wrap2d,
     ) -> (Arc<RwLockTokio<Self>>, Vec<PlayerControl>) {
         let (game, secrets) =
-            Self::new_with_map(map, num_players, fog_of_war, unit_namer, wrapping);
+            Self::new_with_map(rng, map, num_players, fog_of_war, unit_namer, wrapping);
 
         let game = Arc::new(RwLockTokio::new(game));
 
@@ -1649,7 +1669,7 @@ impl Game {
                     } else {
                         // It is an enemy unit.
                         // Fight it.
-                        move_.unit_combat = Some(unit.fight(other_unit));
+                        move_.unit_combat = Some(unit.fight(&mut self.rng, other_unit));
                         if move_.unit_combat.as_ref().unwrap().victorious() {
                             // We were victorious over the unit
 
@@ -1667,7 +1687,7 @@ impl Game {
                                 // If this unit can occupy cities
                                 if unit.can_occupy_cities() {
                                     // Fight the enemy city
-                                    move_.city_combat = Some(unit.fight(city));
+                                    move_.city_combat = Some(unit.fight(&mut self.rng, city));
 
                                     // If victorious
                                     if move_.city_combat.as_ref().unwrap().victorious() {
@@ -1718,7 +1738,7 @@ impl Game {
                         // check the assumption
                         debug_assert!(unit.can_occupy_cities());
 
-                        move_.city_combat = Some(unit.fight(city));
+                        move_.city_combat = Some(unit.fight(&mut self.rng, city));
 
                         // If victorious
                         if move_.city_combat.as_ref().unwrap().victorious() {

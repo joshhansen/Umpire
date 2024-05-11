@@ -185,7 +185,7 @@ async fn main() -> Result<(), String> {
         let unit_namer = unit_namer();
 
         let (game, secrets) = Game::new(
-            &mut rng,
+            Some(rng),
             map_dims,
             city_namer,
             player_types.len(),
@@ -307,6 +307,8 @@ async fn main() -> Result<(), String> {
             }
         }
 
+        // Re-init rng because the Game took ownership of the first one
+        let mut rng = init_rng(seed);
         'outer: loop {
             if game.read().await.victor().await.is_some() {
                 break 'outer;

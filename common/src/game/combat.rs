@@ -1,4 +1,4 @@
-use rand::{thread_rng, Rng};
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -61,7 +61,11 @@ pub trait CombatCapable {
     fn hp(&self) -> u16;
     fn max_hp(&self) -> u16;
 
-    fn fight<D: CombatCapable + Clone>(&self, defender: &D) -> CombatOutcome<Self, D>
+    fn fight<D: CombatCapable + Clone, R: RngCore>(
+        &self,
+        rng: &mut R,
+        defender: &D,
+    ) -> CombatOutcome<Self, D>
     where
         Self: Clone + Sized,
     {
@@ -73,8 +77,6 @@ pub trait CombatCapable {
         let mut attacker_hp = attacker_initial_hp;
         let mut defender_hp = defender_initial_hp;
 
-        //FIXME Use passed-in randomness
-        let mut rng = thread_rng();
         while attacker_hp > 0 && defender_hp > 0 {
             let attacker_received_damage = rng.gen::<bool>();
             if attacker_received_damage {

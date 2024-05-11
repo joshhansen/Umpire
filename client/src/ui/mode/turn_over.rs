@@ -160,7 +160,7 @@ mod test {
         let players = 2;
 
         let (_game, mut ctrls) =
-            Game::setup_with_map(map, players, false, None, Wrap2d::BOTH).await;
+            Game::setup_with_map(None, map, players, false, None, Wrap2d::BOTH).await;
 
         {
             let ctrl = &mut ctrls[0];

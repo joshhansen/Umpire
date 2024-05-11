@@ -377,7 +377,13 @@ async fn main() -> Result<(), String> {
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
             let (game, secrets) = Game::new(
-                &mut rng, map_dims, city_namer, num_ais, fog_of_war, None, wrapping,
+                Some(init_rng(seed)), // instantiate another rng for Game to own
+                map_dims,
+                city_namer,
+                num_ais,
+                fog_of_war,
+                None,
+                wrapping,
             );
 
             let game = Arc::new(RwLockTokio::new(game)) as Arc<RwLockTokio<dyn IGame>>;
