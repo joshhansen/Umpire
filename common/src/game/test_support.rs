@@ -34,7 +34,7 @@ pub fn test_propose_move_unit_by_id() {
         .unwrap()
         .outcome;
 
-    let component = proposed_move.components.get(0).unwrap();
+    let component = proposed_move.components.first().unwrap();
 
     // Make sure the intended destination is now observed as containing this unit, and that no other observed tiles
     // are observed as containing it
