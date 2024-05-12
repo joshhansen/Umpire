@@ -426,15 +426,13 @@ async fn main() -> Result<(), String> {
                         partial_data.extend(turn_outcome.training_instances.unwrap().into_iter());
                     }
 
-                    if verbosity > 1 {
-                        if fix_output_loc && draw {
-                            map.as_mut()
-                                .unwrap()
-                                .draw(&turn, &mut stdout, &palette)
-                                .await
-                                .unwrap();
-                            execute!(stdout, MoveTo(0, map_height + 2)).unwrap();
-                        }
+                    if verbosity > 1 && fix_output_loc && draw {
+                        map.as_mut()
+                            .unwrap()
+                            .draw(&turn, &mut stdout, &palette)
+                            .await
+                            .unwrap();
+                        execute!(stdout, MoveTo(0, map_height + 2)).unwrap();
                     }
 
                     turn.force_end_turn().await.unwrap();
