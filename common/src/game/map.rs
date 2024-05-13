@@ -12,6 +12,7 @@ pub use self::grid::{LocationGrid, LocationGridI, SparseLocationGrid};
 pub use self::terrain::Terrain;
 pub use self::tile::Tile;
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::{
     collections::{HashMap, HashSet},
     fmt::{Debug, Formatter, Result as FmtResult},
@@ -68,7 +69,7 @@ pub struct MapData {
     ///
     /// This duplicates the values of `unit_loc_by_id` but those contain duplicates. we keep this to keep things
     /// deduplicated at all times so we can iterate once and only once over each unit's location.
-    unit_locs: HashSet<Location>,
+    unit_locs: BTreeSet<Location>,
 
     /// What is the location of the tile that directly contains a particular unit (if any)?
     ///
@@ -82,7 +83,7 @@ pub struct MapData {
     unit_carrier_by_id: HashMap<UnitID, UnitID>,
 
     /// What is the location of a city with the given ID?
-    city_loc_by_id: HashMap<CityID, Location>,
+    city_loc_by_id: BTreeMap<CityID, Location>,
 
     /// The next UnitID, to be used upon the next unit's creation.
     next_unit_id: UnitID,
@@ -126,10 +127,10 @@ impl MapData {
 
         let mut map_data = Self {
             tiles,
-            unit_locs: HashSet::new(),
+            unit_locs: BTreeSet::new(),
             unit_loc_by_id: HashMap::new(),
             unit_carrier_by_id: HashMap::new(),
-            city_loc_by_id: HashMap::new(),
+            city_loc_by_id: BTreeMap::new(),
             next_city_id,
             next_unit_id,
             alignment_city_counts: HashMap::new(),
