@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt, path::Path};
+use std::{cmp::Ordering, collections::BTreeMap, fmt, path::Path};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -141,6 +141,33 @@ pub enum AISpec {
 
     /// AI loaded from a preset AI level, beginning at 1
     FromLevel(usize),
+}
+
+impl PartialOrd for AISpec {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+// random > path > level
+impl Ord for AISpec {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            Self::Random { seed } => match other {
+                Self::Random { seed: other_seed } => seed.cmp(other_seed),
+                _ => Ordering::Greater,
+            },
+            Self::FromPath(path) => match other {
+                Self::Random { seed: _ } => Ordering::Less,
+                Self::FromPath(other_path) => path.cmp(other_path),
+                Self::FromLevel(_) => Ordering::Greater,
+            },
+            Self::FromLevel(level) => match other {
+                Self::FromLevel(other_level) => level.cmp(other_level),
+                _ => Ordering::Less,
+            },
+        }
+    }
 }
 
 impl fmt::Display for AISpec {

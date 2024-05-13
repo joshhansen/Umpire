@@ -8,7 +8,7 @@
 
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::BTreeMap,
     io::{stdout, BufRead, BufReader, Write},
     rc::Rc,
     sync::{Arc, RwLock},
@@ -293,8 +293,7 @@ async fn main() -> Result<(), String> {
         // let mut random_ai = RandomAI::new(0);
 
         // AIs indexed by spec
-        // let mut ais: HashMap<String,RL_AI<LFA<Basis,SGD,VectorFunction>>> = HashMap::new();
-        let mut ais: HashMap<AISpec, Rc<RefCell<AI<Wgpu>>>> = HashMap::new();
+        let mut ais: BTreeMap<AISpec, Rc<RefCell<AI<Wgpu>>>> = BTreeMap::new();
 
         if local_server {
             for ptype in player_types.iter() {

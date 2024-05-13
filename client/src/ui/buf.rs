@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::BTreeSet,
     io::{Result as IoResult, Stdout},
 };
 
@@ -23,7 +23,7 @@ use umpire_tui::{color::Palette, Component, Draw};
 pub(in crate::ui) struct RectBuffer {
     rect: Rect,
     rows: Vec<Option<String>>,
-    dirty_rows: HashSet<usize>,
+    dirty_rows: BTreeSet<usize>,
     blank_row: String,
 }
 impl RectBuffer {
@@ -32,7 +32,7 @@ impl RectBuffer {
         Self {
             rect,
             rows: (0..rect.height).map(|_| None).collect(),
-            dirty_rows: HashSet::new(),
+            dirty_rows: BTreeSet::new(),
             blank_row,
         }
     }

@@ -10,7 +10,7 @@
 #![forbid(unsafe_code)]
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::BTreeMap,
     fs::File,
     io::stdout,
     path::{Path, PathBuf},
@@ -82,7 +82,7 @@ fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
 }
 
 fn load_ais<B: Backend>(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI<B>>>>, String> {
-    let mut unique_ais: HashMap<AISpec, Rc<RefCell<AI<B>>>> = HashMap::new();
+    let mut unique_ais: BTreeMap<AISpec, Rc<RefCell<AI<B>>>> = BTreeMap::new();
 
     for ai_type in ai_types {
         println!("Loading AI type {}", ai_type);
@@ -279,7 +279,6 @@ async fn main() -> Result<(), String> {
 
     match subcommand {
         "eval" => println!("Evaluating {} AIs", conf::APP_NAME),
-        "qtrain" => println!("Training {} AI - Q-Learning", conf::APP_NAME),
         "agztrain" => println!("Training {} AI - a la AlphaGo Zero", conf::APP_NAME),
         c => unreachable!("Unrecognized subcommand {} should have been caught by the agument parser; there's a bug somehere", c)
     }
@@ -342,7 +341,7 @@ async fn main() -> Result<(), String> {
 
         let palette = palette16(num_ais).unwrap();
 
-        let print_results = |victory_counts: &HashMap<Option<PlayerNum>, usize>| {
+        let print_results = |victory_counts: &BTreeMap<Option<PlayerNum>, usize>| {
             for (i, spec) in ai_specs.iter().map(|s| s.spec()).enumerate() {
                 println!(
                     "{} wins: {}",
@@ -359,7 +358,7 @@ async fn main() -> Result<(), String> {
         }
         let mut rng = init_rng(seed);
 
-        let mut victory_counts: HashMap<Option<PlayerNum>, usize> = HashMap::new();
+        let mut victory_counts: BTreeMap<Option<PlayerNum>, usize> = BTreeMap::new();
         for _ in 0..episodes {
             let city_namer = IntNamer::new("city");
 
@@ -401,8 +400,8 @@ async fn main() -> Result<(), String> {
 
             println!("Evaluating: {:?} {:?} {}", ai_specs_s, wrapping, map_dims);
 
-            let mut player_partial_data: Option<HashMap<PlayerNum, Vec<TrainingInstance>>> =
-                datagenpath.map(|_| HashMap::new());
+            let mut player_partial_data: Option<BTreeMap<PlayerNum, Vec<TrainingInstance>>> =
+                datagenpath.map(|_| BTreeMap::new());
 
             'steps: for s in 0..steps {
                 for (player, ctrl) in ctrls.iter_mut().enumerate() {

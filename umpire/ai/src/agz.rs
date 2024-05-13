@@ -3,7 +3,7 @@
 //! Based on self-play game outcomes, learn P(victory|action; environment)
 //!
 //! Divided into two sub-models, one for city actions, one for unit actions
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::{fmt, path::Path};
 
 use async_trait::async_trait;
@@ -216,7 +216,7 @@ impl<B: Backend> Storable for AgzActionModel<B> {
 #[async_trait]
 impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
     async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
-        let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
+        let legal_action_indices: BTreeSet<usize> = NextCityAction::legal(turn)
             .await
             .into_iter()
             .map(|a| a.into())
@@ -255,7 +255,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
     }
 
     async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction> {
-        let legal_action_indices: HashSet<usize> = NextUnitAction::legal(turn)
+        let legal_action_indices: BTreeSet<usize> = NextUnitAction::legal(turn)
             .await
             .iter()
             .copied()
