@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use delegate::delegate;
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,28 @@ impl PlayerType {
             Self::AI(AISpec::FromLevel(3)),
             Self::AI(AISpec::FromLevel(4)),
         ]
+    }
+}
+
+impl PartialOrd for PlayerType {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PlayerType {
+    /// human > ai
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            Self::Human => match other {
+                Self::Human => Ordering::Equal,
+                Self::AI(_) => Ordering::Greater,
+            },
+            Self::AI(spec) => match other {
+                Self::Human => Ordering::Less,
+                Self::AI(other_spec) => spec.spec().cmp(&other_spec.spec()),
+            },
+        }
     }
 }
 

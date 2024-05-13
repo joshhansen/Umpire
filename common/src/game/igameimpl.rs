@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
 };
 
 use async_trait::async_trait;
@@ -100,7 +100,7 @@ impl IGame for Game {
         &self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<HashSet<Location>> {
+    ) -> UmpireResult<BTreeSet<Location>> {
         self.player_unit_legal_one_step_destinations(player_secret, unit_id)
     }
 

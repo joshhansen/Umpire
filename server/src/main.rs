@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     sync::{Arc, RwLock as RwLockStd},
 };
 
@@ -176,7 +176,7 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<HashSet<Location>> {
+    ) -> UmpireResult<BTreeSet<Location>> {
         self.game
             .read()
             .await
@@ -971,14 +971,13 @@ async fn main() -> anyhow::Result<()> {
         let game = Arc::clone(&game);
         let player_types = player_types.clone();
         tokio::spawn(async move {
-            let unique_ai_ptypes: HashSet<PlayerType> = player_types
+            let unique_ai_ptypes: BTreeSet<PlayerType> = player_types
                 .iter()
                 .filter(|ptype| **ptype != PlayerType::Human)
                 .cloned()
                 .collect();
 
-            let mut ais: HashMap<PlayerType, AI<Wgpu>> =
-                HashMap::with_capacity(unique_ai_ptypes.len());
+            let mut ais: BTreeMap<PlayerType, AI<Wgpu>> = BTreeMap::new();
 
             let mut ai_ctrls: Vec<Option<PlayerControl>> = Vec::with_capacity(num_players);
 

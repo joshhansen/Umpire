@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
 };
 
 use async_trait::async_trait;
@@ -75,7 +75,7 @@ pub trait UmpireRpc {
     async fn player_unit_legal_one_step_destinations(
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<HashSet<Location>>;
+    ) -> UmpireResult<BTreeSet<Location>>;
 
     async fn player_unit_legal_directions(
         player_secret: PlayerSecret,
@@ -456,7 +456,7 @@ impl IGame for RpcGame {
         &self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<HashSet<Location>> {
+    ) -> UmpireResult<BTreeSet<Location>> {
         self.game
             .player_unit_legal_one_step_destinations(context::current(), player_secret, unit_id)
             .await

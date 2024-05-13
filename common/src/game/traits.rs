@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
 };
 
 use async_trait::async_trait;
@@ -99,7 +99,7 @@ pub trait IGame: Send + Sync {
         &self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<HashSet<Location>>;
+    ) -> UmpireResult<BTreeSet<Location>>;
 
     async fn player_unit_legal_directions(
         &self,

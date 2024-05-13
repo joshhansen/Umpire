@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     sync::{Arc, RwLock},
 };
 
@@ -590,7 +590,7 @@ pub fn test_current_player_unit_legal_one_step_destinations() {
                                     assert_eq!(cs.len(), dirs.len());
 
                                     let src = Location::new(1, 1);
-                                    let dests: HashSet<Location> = game
+                                    let dests: BTreeSet<Location> = game
                                         .player_unit_legal_one_step_destinations(secrets[0], id)
                                         .unwrap();
 
@@ -667,7 +667,7 @@ fn test_current_player_unit_legal_one_step_destinations_wrapping() {
                 .unwrap();
             let (game, secrets) = Game::new_with_map(None, map, 1, false, None, wrapping);
 
-            let dests: HashSet<Location> = game
+            let dests: BTreeSet<Location> = game
                 .player_unit_legal_one_step_destinations(secrets[0], unit_id)
                 .unwrap();
             assert_eq!(
@@ -693,7 +693,7 @@ fn test_current_player_unit_legal_one_step_destinations_wrapping() {
                 .unwrap();
             let (game, secrets) = Game::new_with_map(None, map, 1, false, None, wrapping);
 
-            let dests: HashSet<Location> = game
+            let dests: BTreeSet<Location> = game
                 .player_unit_legal_one_step_destinations(secrets[0], unit_id)
                 .unwrap();
             assert_eq!(
@@ -716,7 +716,7 @@ fn test_current_player_unit_legal_one_step_destinations_wrapping() {
 
             let (game, secrets) = Game::new_with_map(None, map, 1, false, None, wrapping);
 
-            let dests: HashSet<Location> = game
+            let dests: BTreeSet<Location> = game
                 .player_unit_legal_one_step_destinations(secrets[0], inf_id)
                 .unwrap();
             assert_eq!(
@@ -1217,8 +1217,7 @@ fn test_disband_unit_by_id() {
 
         assert!(game
             .current_player_unit_orders_requests()
-            .find(|unit_id| *unit_id == id)
-            .is_some());
+            .any(|unit_id| unit_id == id));
 
         assert_eq!(
             game.disband_unit_by_id(secrets[0], id)
@@ -1233,10 +1232,9 @@ fn test_disband_unit_by_id() {
             Err(GameError::NoSuchUnit { id: id2 })
         );
 
-        assert!(game
+        assert!(!game
             .current_player_unit_orders_requests()
-            .find(|unit_id| *unit_id == id)
-            .is_none());
+            .any(|unit_id| unit_id == id));
     }
 
     {

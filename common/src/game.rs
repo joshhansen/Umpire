@@ -21,7 +21,7 @@ pub mod turn_async;
 pub mod unit;
 
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fmt,
     sync::{Arc, RwLock},
 };
@@ -521,7 +521,7 @@ impl Game {
         self.map.refresh_player_unit_moves_remaining(player);
 
         // Since their moves remaining changed, refresh observations of the units
-        let unit_locs: HashSet<Location> = self
+        let unit_locs: BTreeSet<Location> = self
             .player_units_by_idx(player)
             .map(|unit| unit.loc)
             .collect();
@@ -636,7 +636,7 @@ impl Game {
     ///
     /// Defeat is defined as having no cities and having no units that can capture cities
     pub fn victor(&self) -> Option<PlayerNum> {
-        let mut represented: HashSet<PlayerNum> = HashSet::new();
+        let mut represented: BTreeSet<PlayerNum> = BTreeSet::new();
 
         for city in self.map.cities() {
             if let Alignment::Belligerent { player } = city.alignment {
@@ -919,7 +919,7 @@ impl Game {
         &self,
         player_secret: PlayerSecret,
         unit_id: UnitID,
-    ) -> UmpireResult<HashSet<Location>> {
+    ) -> UmpireResult<BTreeSet<Location>> {
         let unit = self
             .player_unit_by_id(player_secret, unit_id)?
             .ok_or(GameError::NoSuchUnit { id: unit_id })?;
@@ -1101,7 +1101,7 @@ impl Game {
     fn player_carried_unit_ids(
         &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<HashSet<UnitID>> {
+    ) -> UmpireResult<BTreeSet<UnitID>> {
         let player = self.player_with_secret(player_secret)?;
         Ok(self
             .map
@@ -1113,7 +1113,7 @@ impl Game {
     fn player_toplevel_units_in_cities(
         &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<HashSet<UnitID>> {
+    ) -> UmpireResult<BTreeSet<UnitID>> {
         let player = self.player_with_secret(player_secret)?;
 
         let locs_and_ids: Vec<(Location, UnitID)> = self
