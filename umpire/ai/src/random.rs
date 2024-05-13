@@ -50,13 +50,7 @@ impl ActionwiseTurnTaker for RandomAI {
             });
         }
 
-        if let Some(unit_id) = ctrl
-            .player_unit_orders_requests()
-            .await
-            .iter()
-            .cloned()
-            .next()
-        {
+        if let Some(unit_id) = ctrl.player_unit_orders_requests().await.first().copied() {
             let unit = ctrl.player_unit_by_id(unit_id).await.unwrap();
             // let unit_id = unit.id;
 
