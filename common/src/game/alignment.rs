@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{cmp::Ordering, fmt};
 
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,29 @@ use super::PlayerNum;
 pub enum Alignment {
     Neutral,
     Belligerent { player: PlayerNum }, // active neutral, chaotic, etc.
+}
+
+impl PartialOrd for Alignment {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Alignment {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            Self::Neutral => match other {
+                Self::Neutral => Ordering::Equal,
+                Self::Belligerent { player: _ } => Ordering::Less,
+            },
+            Self::Belligerent { player } => match other {
+                Self::Neutral => Ordering::Greater,
+                Self::Belligerent {
+                    player: other_player,
+                } => player.cmp(other_player),
+            },
+        }
+    }
 }
 
 impl Alignment {

@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
 };
 
 use async_trait::async_trait;
@@ -148,7 +148,7 @@ pub trait IGame: Send + Sync {
     async fn player_unit_type_counts(
         &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<HashMap<UnitType, usize>>;
+    ) -> UmpireResult<BTreeMap<UnitType, usize>>;
 
     /// If the specified player controls a city at location `loc`, return it
     async fn player_city_by_loc(

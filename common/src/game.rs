@@ -21,7 +21,7 @@ pub mod turn_async;
 pub mod unit;
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     fmt,
     sync::{Arc, RwLock},
 };
@@ -1139,7 +1139,7 @@ impl Game {
     pub fn player_unit_type_counts(
         &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<&HashMap<UnitType, usize>> {
+    ) -> UmpireResult<&BTreeMap<UnitType, usize>> {
         let player = self.player_with_secret(player_secret)?;
         self.map.player_unit_type_counts(player)
     }
@@ -2490,7 +2490,7 @@ impl Game {
         x.push(if city_loc.is_some() { 1.0 } else { 0.0 });
 
         // - number of each type of unit controlled by player
-        let empty_map = HashMap::new();
+        let empty_map = BTreeMap::new();
         let type_counts = self
             .player_unit_type_counts(player_secret)
             .unwrap_or(&empty_map);

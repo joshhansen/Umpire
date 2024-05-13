@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::{Arc, RwLock as RwLockStd},
 };
 
@@ -295,7 +295,7 @@ impl UmpireRpc for UmpireServer {
         self,
         _: Context,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<HashMap<UnitType, usize>> {
+    ) -> UmpireResult<BTreeMap<UnitType, usize>> {
         self.game
             .read()
             .await

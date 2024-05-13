@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
 };
 
 use async_trait::async_trait;
@@ -104,7 +104,7 @@ pub trait UmpireRpc {
 
     async fn player_unit_type_counts(
         player_secret: PlayerSecret,
-    ) -> UmpireResult<HashMap<UnitType, usize>>;
+    ) -> UmpireResult<BTreeMap<UnitType, usize>>;
 
     async fn player_units(player_secret: PlayerSecret) -> UmpireResult<Vec<Unit>>;
 
@@ -544,7 +544,7 @@ impl IGame for RpcGame {
     async fn player_unit_type_counts(
         &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<HashMap<UnitType, usize>> {
+    ) -> UmpireResult<BTreeMap<UnitType, usize>> {
         self.game
             .player_unit_type_counts(context::current(), player_secret)
             .await

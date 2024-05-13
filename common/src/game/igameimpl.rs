@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
 };
 
 use async_trait::async_trait;
@@ -163,7 +163,7 @@ impl IGame for Game {
     async fn player_unit_type_counts(
         &self,
         player_secret: PlayerSecret,
-    ) -> UmpireResult<HashMap<UnitType, usize>> {
+    ) -> UmpireResult<BTreeMap<UnitType, usize>> {
         self.player_unit_type_counts(player_secret)
             .map(|counts| counts.clone())
     }

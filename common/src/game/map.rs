@@ -14,7 +14,7 @@ pub use self::tile::Tile;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::{Debug, Formatter, Result as FmtResult},
 };
 
@@ -92,10 +92,10 @@ pub struct MapData {
     next_city_id: CityID,
 
     /// The number of cities controlled by each alignment
-    alignment_city_counts: HashMap<Alignment, usize>,
+    alignment_city_counts: BTreeMap<Alignment, usize>,
 
     /// The number of each type of unit controlled by each alignment
-    alignment_unit_type_counts: HashMap<Alignment, HashMap<UnitType, usize>>,
+    alignment_unit_type_counts: BTreeMap<Alignment, BTreeMap<UnitType, usize>>,
 }
 
 impl MapData {
@@ -133,8 +133,8 @@ impl MapData {
             city_loc_by_id: BTreeMap::new(),
             next_city_id,
             next_unit_id,
-            alignment_city_counts: HashMap::new(),
-            alignment_unit_type_counts: HashMap::new(),
+            alignment_city_counts: BTreeMap::new(),
+            alignment_unit_type_counts: BTreeMap::new(),
         };
 
         map_data.index();
@@ -915,7 +915,7 @@ impl MapData {
     pub fn player_unit_type_counts(
         &self,
         player: PlayerNum,
-    ) -> Result<&HashMap<UnitType, usize>, GameError> {
+    ) -> Result<&BTreeMap<UnitType, usize>, GameError> {
         self.alignment_unit_type_counts
             .get(&Alignment::Belligerent { player })
             .ok_or(GameError::NoSuchPlayer { player })
