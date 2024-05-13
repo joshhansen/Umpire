@@ -1,6 +1,6 @@
 //! Reified player actions
 
-use std::{collections::HashSet, ops::Deref};
+use std::{collections::BTreeSet, ops::Deref};
 
 use serde::{Deserialize, Serialize};
 
@@ -39,8 +39,8 @@ pub enum AiPlayerAction {
 }
 
 impl AiPlayerAction {
-    pub fn legal_actions<G: Deref<Target = Game>>(game: G) -> HashSet<Self> {
-        let mut a = HashSet::new();
+    pub fn legal_actions<G: Deref<Target = Game>>(game: G) -> BTreeSet<Self> {
+        let mut a = BTreeSet::new();
 
         debug_assert!(!game.current_turn_is_done());
         debug_assert_eq!(game.turn_phase(), TurnPhase::Main);
@@ -177,7 +177,7 @@ impl Actionable for AiPlayerAction {
                 let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
 
                 debug_assert!({
-                    let legal: HashSet<Direction> = game
+                    let legal: BTreeSet<Direction> = game
                         .player_unit_legal_directions(secret, unit_id)?
                         .collect();
 
@@ -318,13 +318,13 @@ impl Actionable for NextUnitAction {
             Self::Move { direction } => {
                 let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
                 debug_assert!({
-                    let legal: HashSet<Direction> = game
+                    let legal: BTreeSet<Direction> = game
                         .player_unit_legal_directions(secret, unit_id)?
                         .collect();
 
                     // println!("legal moves: {}", legal.len());
 
-                    legal.contains(&direction)
+                    legal.contains(direction)
                 });
 
                 PlayerAction::MoveUnitInDirection {
