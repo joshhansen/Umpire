@@ -80,7 +80,7 @@ pub struct MapData {
     /// Which unit carries a particular unit (if any)?
     ///
     /// Maps from carried -> carrier
-    unit_carrier_by_id: HashMap<UnitID, UnitID>,
+    unit_carrier_by_id: BTreeMap<UnitID, UnitID>,
 
     /// What is the location of a city with the given ID?
     city_loc_by_id: BTreeMap<CityID, Location>,
@@ -129,7 +129,7 @@ impl MapData {
             tiles,
             unit_locs: BTreeSet::new(),
             unit_loc_by_id: BTreeMap::new(),
-            unit_carrier_by_id: HashMap::new(),
+            unit_carrier_by_id: BTreeMap::new(),
             city_loc_by_id: BTreeMap::new(),
             next_city_id,
             next_unit_id,
