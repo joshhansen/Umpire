@@ -2,7 +2,7 @@
 
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::BTreeMap,
     convert::TryFrom,
     fmt, mem,
     ops::{Add, Sub},
@@ -636,9 +636,9 @@ pub fn grapheme_len(s: &str) -> usize {
     UnicodeSegmentation::graphemes(s, true).count()
 }
 
-pub fn sparsify(v: Vec<fX>) -> (usize, HashMap<usize, fX>) {
+pub fn sparsify(v: Vec<fX>) -> (usize, BTreeMap<usize, fX>) {
     let num_features = v.len();
-    let features: HashMap<usize, fX> = v
+    let features: BTreeMap<usize, fX> = v
         .iter()
         .cloned()
         .enumerate()
@@ -647,7 +647,7 @@ pub fn sparsify(v: Vec<fX>) -> (usize, HashMap<usize, fX>) {
     (num_features, features)
 }
 
-pub fn densify(len: usize, features: &HashMap<usize, fX>) -> Vec<fX> {
+pub fn densify(len: usize, features: &BTreeMap<usize, fX>) -> Vec<fX> {
     let mut x = Vec::with_capacity(len);
     for i in 0..len {
         x.push(*features.get(&i).unwrap_or(&0f32));

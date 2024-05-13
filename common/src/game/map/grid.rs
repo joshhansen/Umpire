@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fmt::{self, Debug, Display},
     ops::{Index, IndexMut},
 };
@@ -143,7 +143,7 @@ impl<T: fmt::Display> fmt::Display for LocationGrid<T> {
 
             if let Some(y) = prev_y {
                 if loc.y != y {
-                    write!(f, "\n")?;
+                    writeln!(f)?;
                 }
             }
 
@@ -162,7 +162,7 @@ impl<T: fmt::Debug> fmt::Debug for LocationGrid<T> {
 
             if let Some(y) = prev_y {
                 if loc.y != y {
-                    write!(f, "\n")?;
+                    writeln!(f)?;
                 }
             }
 
@@ -216,7 +216,7 @@ impl TryFrom<String> for LocationGrid<Tile> {
 
         let height = lines.len() as u16;
 
-        let mut grid = LocationGrid::new(Dims::new(width as u16, height as u16), |loc| {
+        let mut grid = LocationGrid::new(Dims::new(width as u16, height), |loc| {
             let c = lines[loc.y as usize][loc.x as usize];
             Tile::new(
                 if c == ' ' {
@@ -354,14 +354,14 @@ impl TryFrom<&'static str> for LocationGrid<Obs> {
 
 #[derive(Clone)]
 pub struct SparseLocationGrid<T> {
-    grid: HashMap<Location, T>,
+    grid: BTreeMap<Location, T>,
     dims: Dims,
 }
 
 impl<T> SparseLocationGrid<T> {
     pub fn new(dims: Dims) -> Self {
         Self {
-            grid: HashMap::new(),
+            grid: BTreeMap::new(),
             dims,
         }
     }

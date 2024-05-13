@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, path::Path};
+use std::{collections::BTreeMap, fmt, path::Path};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ impl TrainingOutcome {
 pub struct TrainingInstance {
     pub player: PlayerNum, // the player that took the action
     pub num_features: usize,
-    pub features: HashMap<usize, fX>,
+    pub features: BTreeMap<usize, fX>,
     pub pre_score: f64,         // the player's score prior to the action
     pub action: AiPlayerAction, // the action taken
     pub post_score: f64,        // the player's score after the action
@@ -88,7 +88,7 @@ impl TrainingInstance {
     pub fn undetermined(
         player: PlayerNum,
         num_features: usize,
-        features: HashMap<usize, fX>,
+        features: BTreeMap<usize, fX>,
         pre_score: f64,
         action: AiPlayerAction,
         post_score: f64,
@@ -122,7 +122,8 @@ impl TrainingInstance {
 }
 
 lazy_static! {
-    static ref RANDOM_RGX: Regex = Regex::new(r"^r(?:and(?:om)?)?(?:[(](?P<seed>\d+)[)])?$").unwrap();
+    static ref RANDOM_RGX: Regex =
+        Regex::new(r"^r(?:and(?:om)?)?(?:[(](?P<seed>\d+)[)])?$").unwrap();
 }
 
 /// A user specification of an AI
@@ -180,11 +181,11 @@ impl Specified for AISpec {
             Self::Random { seed } => {
                 let mut s = String::from("random");
                 if let Some(seed) = seed {
-                    s.push_str("(");
+                    s.push('(');
                     s.push_str(seed.to_string().as_str());
-                    s.push_str(")");
+                    s.push(')');
                 }
-                return s;
+                s
             }
             Self::FromPath(path) => format!("AI from path {}", path),
             Self::FromLevel(level) => format!("level {} AI", level),
@@ -197,11 +198,11 @@ impl Specified for AISpec {
             Self::Random { seed } => {
                 let mut s = String::from("r");
                 if let Some(seed) = seed {
-                    s.push_str("(");
+                    s.push('(');
                     s.push_str(seed.to_string().as_str());
-                    s.push_str(")");
+                    s.push(')');
                 }
-                return s;
+                s
             }
             Self::FromPath(path) => path.clone(),
             Self::FromLevel(level) => format!("{}", level),

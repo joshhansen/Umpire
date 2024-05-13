@@ -2,7 +2,7 @@
 
 use std::{
     cmp::Ordering,
-    collections::{HashSet, VecDeque},
+    collections::{BTreeSet, VecDeque},
     fmt,
     marker::PhantomData,
     ops::{Index, IndexMut},
@@ -196,7 +196,7 @@ impl<'a> Filter<Obs> for PacifistXenophileUnitMovementFilter<'a> {
         if let Obs::Observed { tile, .. } = obs {
             if let Some(ref unit) = tile.unit {
                 if unit.is_friendly_to(self.unit) {
-                    return unit.can_carry_unit(&self.unit);
+                    return unit.can_carry_unit(self.unit);
                 }
 
                 return false;
@@ -508,13 +508,13 @@ pub fn neighbors<'a, T, F, N, S>(
     rel_neighbs: N,
     filter: &F,
     wrapping: Wrap2d,
-) -> HashSet<Location>
+) -> BTreeSet<Location>
 where
     F: Filter<T>,
     S: Source<T>,
     N: Iterator<Item = &'a Vec2d<i32>>,
 {
-    let mut neighbs = HashSet::new();
+    let mut neighbs = BTreeSet::new();
     for rel_neighb in rel_neighbs {
         if let Some(neighb_loc) = wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb) {
             if filter.include(tiles.get(neighb_loc)) {
@@ -626,7 +626,7 @@ pub fn neighbors_terrain_only<T: Source<Tile>>(
     loc: Location,
     unit_type: UnitType,
     wrapping: Wrap2d,
-) -> HashSet<Location> {
+) -> BTreeSet<Location> {
     neighbors(
         tiles,
         loc,
@@ -643,7 +643,7 @@ pub fn neighbors_unit_could_move_to<T: Source<Tile>>(
     tiles: &T,
     unit: &Unit,
     wrapping: Wrap2d,
-) -> HashSet<Location> {
+) -> BTreeSet<Location> {
     neighbors(
         tiles,
         unit.loc,
@@ -796,7 +796,7 @@ pub fn bfs<T, S: Source<T>, CandidateFilter: Filter<T>, TargetFilter: Filter<T>>
     q.push_back(src);
 
     // let mut visited: SparseLocationGrid<bool> = SparseLocationGrid::new(tiles.dims());
-    let mut visited: HashSet<Location> = HashSet::new();
+    let mut visited: BTreeSet<Location> = BTreeSet::new();
     visited.insert(src);
 
     while let Some(loc) = q.pop_front() {
@@ -818,7 +818,7 @@ pub fn bfs<T, S: Source<T>, CandidateFilter: Filter<T>, TargetFilter: Filter<T>>
 #[cfg(test)]
 mod test {
 
-    use std::collections::HashSet;
+    use std::collections::BTreeSet;
 
     use crate::{
         game::{
@@ -841,7 +841,7 @@ mod test {
         loc: Location,
         unit: &Unit,
         wrapping: Wrap2d,
-    ) -> HashSet<Location> {
+    ) -> BTreeSet<Location> {
         neighbors(
             tiles,
             loc,
@@ -954,9 +954,6 @@ mod test {
         assert!(!neighbs_neither.contains(&Location { x: 2, y: 2 }));
     }
 
-    // pub fn neighbors<'a, T, F, N, S>(tiles: &S, loc: Location, rel_neighbs: N,
-    //                                  filter: &F, wrapping: Wrap2d) -> HashSet<Location>
-    //     where F:Filter<T>, S:Source<T>, N:Iterator<Item=&'a Vec2d<i32>> {
     #[test]
     fn test_neighbors() {
         //TODO

@@ -4,44 +4,6 @@
 //! sophisticated that allows configuration to be set through a combination of defaults, command
 //! line arguments, and configuration files.
 
-// use std::collections::HashMap;
-// use std::convert::AsRef;
-// use std::env;
-// use std::ffi::OsStr;
-// use std::str::FromStr;
-//
-// mod keys {
-//     pub const APP_NAME: &'static str = "APP_NAME";
-// }
-//
-// pub struct Config {
-//     map: HashMap<&'static str, String>
-// }
-//
-// impl Config {
-//     fn new() -> Config {
-//         let mut conf = Config {
-//             map: HashMap::new()
-//         };
-//
-//
-//
-//
-//
-//         conf
-//     }
-// }
-//
-// pub fn get<K:AsRef<OsStr>,T:FromStr>(key: K) -> Result<T,()> {
-//     match env::var(key) {
-//         Ok(val) => match val.parse::<T>() {
-//             Ok(parsed_val) => Ok(parsed_val),
-//             Err(_) => Err(())
-//         },
-//         Err(_e) => Err(())
-//     }
-// }
-
 /// The name of this application
 pub const APP_NAME: &str = "umpire";
 

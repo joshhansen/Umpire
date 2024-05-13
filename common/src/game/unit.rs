@@ -673,7 +673,7 @@ impl fmt::Display for Unit {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
+    use std::collections::BTreeSet;
 
     use crate::{
         game::{
@@ -750,8 +750,8 @@ x   o    x";
                     Location { x: 5, y: 3 },
                     Location { x: 4, y: 4 },
                 ];
-                let observed_locs: HashSet<&Location> =
-                    HashSet::from_iter(observed_locs_arr.iter());
+                let observed_locs: BTreeSet<&Location> =
+                    BTreeSet::from_iter(observed_locs_arr.iter());
 
                 for loc in map.iter_locs() {
                     assert_eq!(
@@ -788,8 +788,8 @@ x   o    x";
                     Location { x: 6, y: 3 },
                     Location { x: 5, y: 4 },
                 ];
-                let observed_locs_2: HashSet<&Location> =
-                    HashSet::from_iter(observed_locs_arr_2.iter());
+                let observed_locs_2: BTreeSet<&Location> =
+                    BTreeSet::from_iter(observed_locs_arr_2.iter());
 
                 for loc in map.iter_locs() {
                     assert_eq!(

@@ -13,10 +13,7 @@ pub use self::terrain::Terrain;
 pub use self::tile::Tile;
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::{
-    collections::HashSet,
-    fmt::{Debug, Formatter, Result as FmtResult},
-};
+use std::fmt::{Debug, Formatter, Result as FmtResult};
 
 use thiserror::Error;
 
@@ -991,7 +988,7 @@ impl MapData {
 
     /// The number of non-neutral players having at least one city or unit
     pub fn players(&self) -> usize {
-        let mut alignments: HashSet<Alignment> = HashSet::new();
+        let mut alignments: BTreeSet<Alignment> = BTreeSet::new();
 
         alignments.extend(self.alignment_city_counts.keys());
         alignments.extend(self.alignment_unit_type_counts.keys());

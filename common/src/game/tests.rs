@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     sync::{Arc, RwLock},
 };
 
@@ -529,7 +529,7 @@ pub fn test_current_player_unit_legal_one_step_destinations() {
     ];
 
     let possible: Vec<char> = " 01iI".chars().collect();
-    let mut traversable: HashMap<char, bool> = HashMap::new();
+    let mut traversable: BTreeMap<char, bool> = BTreeMap::new();
     traversable.insert(' ', false); //water
     traversable.insert('0', true); //friendly city
     traversable.insert('1', true); //enemy city
@@ -1120,7 +1120,7 @@ fn test_valid_productions() {
         .next()
         .unwrap();
 
-    let prods: HashSet<UnitType> = game
+    let prods: BTreeSet<UnitType> = game
         .valid_productions(secrets[0], city_loc)
         .unwrap()
         .collect();
@@ -1155,7 +1155,7 @@ fn test_valid_productions_conservative() {
         .next()
         .unwrap();
 
-    let prods: HashSet<UnitType> = game
+    let prods: BTreeSet<UnitType> = game
         .valid_productions_conservative(secrets[0], city_loc)
         .unwrap()
         .collect();

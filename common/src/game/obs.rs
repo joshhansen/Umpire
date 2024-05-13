@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -361,12 +361,12 @@ pub enum ObsTrackerError {
 #[derive(Clone)]
 pub struct PlayerObsTracker {
     /// The information that each player has about the state of the game
-    player_observations: HashMap<PlayerNum, ObsTracker>,
+    player_observations: BTreeMap<PlayerNum, ObsTracker>,
 }
 
 impl PlayerObsTracker {
     pub fn new(players: PlayerNum, dims: Dims) -> Self {
-        let mut player_observations = HashMap::new();
+        let mut player_observations = BTreeMap::new();
 
         for p in 0..players {
             player_observations.insert(p, ObsTracker::new(dims));
