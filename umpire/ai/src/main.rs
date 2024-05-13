@@ -49,6 +49,7 @@ use common::{
     util::{densify, init_rng},
 };
 
+use rand::prelude::SliceRandom;
 use rand::Rng;
 
 use tokio::sync::RwLock as RwLockTokio;
@@ -65,7 +66,6 @@ use common::{
     name::IntNamer,
     util::{Dims, Rect, Vec2d, Wrap2d},
 };
-use rand::prelude::SliceRandom;
 
 use umpire_ai::AI;
 use umpire_tui::{color::palette16, map::Map, Draw};
