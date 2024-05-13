@@ -75,7 +75,7 @@ pub struct MapData {
     ///
     /// Carried units are not found here but rather in `unit_carrier_by_id`. The carrier unit's location can
     /// then be looked up to find the current location of a carried unit.
-    unit_loc_by_id: HashMap<UnitID, Location>,
+    unit_loc_by_id: BTreeMap<UnitID, Location>,
 
     /// Which unit carries a particular unit (if any)?
     ///
@@ -128,7 +128,7 @@ impl MapData {
         let mut map_data = Self {
             tiles,
             unit_locs: BTreeSet::new(),
-            unit_loc_by_id: HashMap::new(),
+            unit_loc_by_id: BTreeMap::new(),
             unit_carrier_by_id: HashMap::new(),
             city_loc_by_id: BTreeMap::new(),
             next_city_id,
