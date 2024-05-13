@@ -308,7 +308,6 @@ async fn main() -> Result<(), String> {
         }
 
         // Re-init rng because the Game took ownership of the first one
-        let mut rng = init_rng(seed);
         'outer: loop {
             if game.read().await.victor().await.is_some() {
                 break 'outer;
@@ -333,7 +332,7 @@ async fn main() -> Result<(), String> {
 
                 match &player_types[player] {
                     PlayerType::Human => {
-                        let turn_outcome = ui.take_turn(&mut rng, &mut turn, None).await;
+                        let turn_outcome = ui.take_turn(&mut turn, None).await;
                         assert!(turn_outcome.training_instances.is_none());
 
                         if turn_outcome.quit {
@@ -346,7 +345,7 @@ async fn main() -> Result<(), String> {
                             .get_mut(ai_type)
                             .unwrap()
                             .borrow_mut()
-                            .take_turn(&mut rng, &mut turn, None)
+                            .take_turn(&mut turn, None)
                             .await;
                         assert!(turn_outcome.training_instances.is_none());
 

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt, path::Path};
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::{cli::Specified, game::action::AiPlayerAction, util::POSSIBLE_DIRECTIONS};
@@ -120,13 +121,17 @@ impl TrainingInstance {
     }
 }
 
+lazy_static! {
+    static ref RANDOM_RGX: Regex = Regex::new(r"^r(?:and(?:om)?)?(?:[(](?P<seed>\d+)[)])?$").unwrap();
+}
+
 /// A user specification of an AI
 ///
 /// Used as a lightweight description of an AI to be passed around. Also to validate AIs given at the command line.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub enum AISpec {
     /// A horrible AI that makes decisions randomly
-    Random,
+    Random { seed: Option<u64> },
 
     /// AI loaded from a path.
     ///
@@ -147,8 +152,12 @@ impl TryFrom<String> for AISpec {
     type Error = String;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
+        if let Some(m) = RANDOM_RGX.captures(value.as_str()) {
+            let seed: Option<u64> = m.name("seed").map(|seed| seed.as_str().parse().unwrap());
+            return Ok(Self::Random { seed });
+        }
+
         match value.as_str() {
-            "r" | "rand" | "random" => Ok(Self::Random),
             "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => Ok(Self::FromLevel(
                 value.chars().next().unwrap().to_digit(10).unwrap() as usize,
             )),
@@ -168,7 +177,15 @@ impl Specified for AISpec {
     /// A description to show up in the command line help
     fn desc(&self) -> String {
         match self {
-            Self::Random => String::from("random"),
+            Self::Random { seed } => {
+                let mut s = String::from("random");
+                if let Some(seed) = seed {
+                    s.push_str("(");
+                    s.push_str(seed.to_string().as_str());
+                    s.push_str(")");
+                }
+                return s;
+            }
             Self::FromPath(path) => format!("AI from path {}", path),
             Self::FromLevel(level) => format!("level {} AI", level),
         }
@@ -177,7 +194,15 @@ impl Specified for AISpec {
     /// A canonicalized string representation of the item
     fn spec(&self) -> String {
         match self {
-            Self::Random => String::from("r"),
+            Self::Random { seed } => {
+                let mut s = String::from("r");
+                if let Some(seed) = seed {
+                    s.push_str("(");
+                    s.push_str(seed.to_string().as_str());
+                    s.push_str(")");
+                }
+                return s;
+            }
             Self::FromPath(path) => path.clone(),
             Self::FromLevel(level) => format!("{}", level),
         }
@@ -191,7 +216,7 @@ impl TryFrom<Option<&String>> for AISpec {
         if let Some(value) = value {
             AISpec::try_from(value.clone())
         } else {
-            Ok(Self::Random)
+            Ok(Self::Random { seed: None })
         }
     }
 }

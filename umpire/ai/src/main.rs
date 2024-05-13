@@ -70,6 +70,8 @@ use common::{
 use umpire_ai::AI;
 use umpire_tui::{color::palette16, map::Map, Draw};
 
+const SEED_INTERVAL: u64 = 924898;
+
 fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
     let mut ai_specs: Vec<AISpec> = Vec::new();
     for ai_spec_s in specs {
@@ -331,11 +333,8 @@ async fn main() -> Result<(), String> {
 
         let generate_data = datagenpath.is_some();
 
-        let datagen_prob = if generate_data {
-            Some(sub_matches.get_one::<f64>("datagenprob").cloned().unwrap())
-        } else {
-            None
-        };
+        let datagen_prob =
+            datagenpath.map(|_| sub_matches.get_one::<f64>("datagenprob").cloned().unwrap());
 
         let mut data_outfile = datagenpath.map(|datagenpath| File::create(datagenpath).unwrap());
 
@@ -354,7 +353,10 @@ async fn main() -> Result<(), String> {
             println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
         };
 
-        let seed = matches.get_one::<u64>("random_seed").cloned();
+        let mut seed = sub_matches.get_one::<u64>("random_seed").cloned();
+        if let Some(seed) = seed.as_ref() {
+            println!("Random seed: {:?}", seed);
+        }
         let mut rng = init_rng(seed);
 
         let mut victory_counts: HashMap<Option<PlayerNum>, usize> = HashMap::new();
@@ -414,10 +416,7 @@ async fn main() -> Result<(), String> {
 
                     let mut turn = ctrl.turn_ctrl(true).await;
 
-                    let turn_outcome = ai
-                        .borrow_mut()
-                        .take_turn(&mut rng, &mut turn, datagen_prob)
-                        .await;
+                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, datagen_prob).await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
@@ -484,6 +483,10 @@ async fn main() -> Result<(), String> {
 
             println!();
             print_results(&victory_counts);
+
+            if let Some(seed) = seed.as_mut() {
+                *seed += SEED_INTERVAL;
+            }
         }
 
         execute!(stdout, LeaveAlternateScreen).unwrap();
@@ -521,6 +524,9 @@ async fn main() -> Result<(), String> {
             let mut valid_data: Vec<AgzDatum> = Vec::new();
 
             let seed = sub_matches.get_one::<u64>("random_seed").cloned();
+            if let Some(seed) = seed.as_ref() {
+                println!("Random seed: {:?}", seed);
+            }
             let mut rng = init_rng(seed);
 
             for input_path in input_paths {

@@ -38,7 +38,7 @@ impl PlayerType {
     pub fn values() -> [Self; 6] {
         [
             Self::Human,
-            Self::AI(AISpec::Random),
+            Self::AI(AISpec::Random { seed: None }),
             Self::AI(AISpec::FromLevel(1)),
             Self::AI(AISpec::FromLevel(2)),
             Self::AI(AISpec::FromLevel(3)),

@@ -7,10 +7,14 @@ use burn::prelude::*;
 use burn_autodiff::Autodiff;
 use burn_wgpu::{Wgpu, WgpuDevice};
 use futures::lock::Mutex as MutexAsync;
+use rand::rngs::StdRng;
 
-use common::game::{
-    action::AiPlayerAction, ai::AISpec, player::PlayerTurn, turn::TurnOutcome,
-    turn_async::TurnTaker as TurnTakerAsync,
+use common::{
+    game::{
+        action::AiPlayerAction, ai::AISpec, player::PlayerTurn, turn::TurnOutcome,
+        turn_async::TurnTaker as TurnTakerAsync,
+    },
+    util::init_rng,
 };
 
 pub type AiBackend = Wgpu;
@@ -51,8 +55,8 @@ pub enum AI<B: Backend> {
 }
 
 impl<B: Backend> AI<B> {
-    pub fn random(verbosity: usize, fix_output_loc: bool) -> Self {
-        Self::Random(RandomAI::new(verbosity, fix_output_loc))
+    pub fn random(rng: StdRng, verbosity: usize, fix_output_loc: bool) -> Self {
+        Self::Random(RandomAI::new(rng, verbosity, fix_output_loc))
     }
 }
 
@@ -72,7 +76,7 @@ impl<B: Backend> fmt::Debug for AI<B> {
 impl<B: Backend> From<AISpec> for AI<B> {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
-            AISpec::Random => Self::Random(RandomAI::new(0, false)), //NOTE Assuming 0 verbosity
+            AISpec::Random { seed } => Self::Random(RandomAI::new(init_rng(seed), 0, false)), //NOTE Assuming 0 verbosity
             AISpec::FromPath(path) => {
                 let device: B::Device = Default::default();
                 Self::load(Path::new(path.as_str()), device).unwrap()
@@ -151,19 +155,13 @@ impl<B: Backend> Storable for AI<B> {
 
 #[async_trait]
 impl<B: Backend> TurnTakerAsync for AI<B> {
-    async fn take_turn<R: RngCore + Send>(
-        &mut self,
-        rng: &mut R,
-        turn: &mut PlayerTurn,
-        datagen_prob: Option<f64>,
-    ) -> TurnOutcome {
+    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
         match self {
-            Self::Random(ai) => ai.take_turn(rng, turn, datagen_prob).await,
-            Self::AGZ(agz) => agz.lock().await.take_turn(rng, turn, datagen_prob).await,
+            Self::Random(ai) => ai.take_turn(turn, datagen_prob).await,
+            Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob).await,
         }
     }
 }
 
-use rand::RngCore;
 // Exports
 pub use random::RandomAI;

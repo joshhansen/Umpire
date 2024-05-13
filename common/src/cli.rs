@@ -92,6 +92,7 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .short('S')
                 .long("seed")
                 .help("Seed by which to initialize all random number generation")
+                .action(ArgAction::Set)
                 .value_parser(value_parser!(u64)),
 
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
@@ -159,12 +160,18 @@ mod test {
     fn test_parse_ai_spec() {
         assert_eq!(
             parse_ai_spec("rr"),
-            Ok(vec![AISpec::Random, AISpec::Random])
+            Ok(vec![
+                AISpec::Random { seed: None },
+                AISpec::Random { seed: None }
+            ])
         );
 
         assert_eq!(
             parse_ai_spec("r,r"),
-            Ok(vec![AISpec::Random, AISpec::Random])
+            Ok(vec![
+                AISpec::Random { seed: None },
+                AISpec::Random { seed: None }
+            ])
         );
     }
 }

@@ -1022,7 +1022,7 @@ async fn main() -> anyhow::Result<()> {
                     // Always clear on unit production for the robots
                     let mut turn = ctrl.turn_ctrl(true).await;
 
-                    ai.take_turn(&mut rng, &mut turn, None).await;
+                    ai.take_turn(&mut turn, None).await;
 
                     turn.force_end_turn().await.unwrap();
                 }

@@ -3,6 +3,9 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::too_many_arguments)]
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod cli;
 pub mod colors;
 pub mod conf;

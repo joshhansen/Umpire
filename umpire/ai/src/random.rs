@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crossterm::{cursor::MoveTo, execute};
 
-use rand::{seq::SliceRandom, Rng, RngCore};
+use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 
 use common::{
     game::{player::PlayerTurn, turn_async::ActionwiseTurnTaker, unit::UnitType},
@@ -18,12 +18,14 @@ const P_SKIP: f64 = 0.1;
 const P_MOVE: f64 = 1f64 - P_DISBAND - P_SKIP;
 
 pub struct RandomAI {
+    rng: StdRng,
     verbosity: usize,
     fix_output_loc: bool,
 }
 impl RandomAI {
-    pub fn new(verbosity: usize, fix_output_loc: bool) -> Self {
+    pub fn new(rng: StdRng, verbosity: usize, fix_output_loc: bool) -> Self {
         Self {
+            rng,
             verbosity,
             fix_output_loc,
         }
@@ -32,16 +34,12 @@ impl RandomAI {
 
 #[async_trait]
 impl ActionwiseTurnTaker for RandomAI {
-    async fn next_action<R: RngCore + Send>(
-        &mut self,
-        rng: &mut R,
-        ctrl: &PlayerTurn,
-    ) -> Option<AiPlayerAction> {
+    async fn next_action(&mut self, ctrl: &PlayerTurn) -> Option<AiPlayerAction> {
         if let Some(city_loc) = ctrl.player_production_set_requests().await.first() {
             let valid_productions: Vec<UnitType> =
                 ctrl.valid_productions_conservative(*city_loc).await;
 
-            let unit_type = valid_productions.choose(rng).unwrap();
+            let unit_type = valid_productions.choose(&mut self.rng).unwrap();
 
             if self.verbosity > 2 {
                 println!("{:?} -> {:?}", city_loc, unit_type);
@@ -100,7 +98,7 @@ impl ActionwiseTurnTaker for RandomAI {
             let move_prob = if possible.is_empty() { 0f64 } else { P_MOVE } / z;
             let skip_prob = P_SKIP / z;
 
-            let x: f64 = rng.gen();
+            let x: f64 = self.rng.gen();
 
             if self.fix_output_loc {
                 let mut stdout = stdout();
@@ -108,7 +106,7 @@ impl ActionwiseTurnTaker for RandomAI {
             }
 
             if x <= move_prob {
-                let direction = possible.choose(rng).unwrap();
+                let direction = possible.choose(&mut self.rng).unwrap();
 
                 if self.verbosity > 1 {
                     println!("{:?} {} -> {:?}", unit_id, unit.loc, direction);
@@ -159,9 +157,8 @@ mod test {
 
     #[tokio::test]
     pub async fn test_random_ai() {
-        let mut rng = init_rng(None);
         {
-            let mut ai = RandomAI::new(0, false);
+            let mut ai = RandomAI::new(init_rng(None), 0, false);
 
             let mut map = MapData::new(Dims::new(100, 100), |_loc| Terrain::Land);
             // let unit_id = map.new_unit(Location::new(0,0), UnitType::Armor, Alignment::Belligerent{player:0}, "Forest Gump").unwrap();
@@ -180,12 +177,13 @@ mod test {
 
             for _ in 0..1000 {
                 let mut turn = ctrl.turn_ctrl(true).await;
-                ai.take_turn(&mut rng, &mut turn, None).await;
+                ai.take_turn(&mut turn, None).await;
                 turn.force_end_turn().await.unwrap();
             }
         }
 
-        let mut ai = RandomAI::new(2, false);
+        let mut rng = init_rng(None);
+        let mut ai = RandomAI::new(init_rng(None), 2, false);
 
         for r in 0..1000 {
             let players = 2;
@@ -199,7 +197,7 @@ mod test {
                     {
                         let mut turn = ctrl.turn_ctrl(true).await;
 
-                        ai.take_turn(&mut rng, &mut turn, None).await;
+                        ai.take_turn(&mut turn, None).await;
 
                         turn.force_end_turn().await.unwrap();
                     }
@@ -245,9 +243,9 @@ mod test {
         let (_game, mut ctrls) =
             Game::setup_with_map(None, map, players, true, None, Wrap2d::BOTH).await;
 
-        let mut rng = init_rng(None);
+        let rng = init_rng(None);
 
-        let mut ai = RandomAI::new(2, false);
+        let mut ai = RandomAI::new(rng, 2, false);
 
         for _turn in 0..1000 {
             {
@@ -262,7 +260,7 @@ mod test {
                 let ctrl = &mut ctrls[1];
                 let mut turn = ctrl.turn_ctrl(true).await;
 
-                ai.take_turn(&mut rng, &mut turn, None).await;
+                ai.take_turn(&mut turn, None).await;
 
                 turn.force_end_turn().await.unwrap();
             }

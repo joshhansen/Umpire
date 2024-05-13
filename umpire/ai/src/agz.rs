@@ -22,7 +22,6 @@ use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 use common::game::ai::{POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS};
 use num_traits::ToPrimitive;
 
-use rand::RngCore;
 use serde::de::{self, Visitor};
 
 use common::game::{
@@ -216,11 +215,7 @@ impl<B: Backend> Storable for AgzActionModel<B> {
 
 #[async_trait]
 impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
-    async fn next_city_action<R: RngCore + Send>(
-        &mut self,
-        _rng: &mut R,
-        turn: &PlayerTurn,
-    ) -> Option<NextCityAction> {
+    async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
         let legal_action_indices: HashSet<usize> = NextCityAction::legal(turn)
             .await
             .into_iter()
@@ -259,11 +254,7 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
         Some(NextCityAction::from(city_action_idx))
     }
 
-    async fn next_unit_action<R: RngCore + Send>(
-        &mut self,
-        _rng: &mut R,
-        turn: &PlayerTurn,
-    ) -> Option<NextUnitAction> {
+    async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction> {
         let legal_action_indices: HashSet<usize> = NextUnitAction::legal(turn)
             .await
             .iter()
