@@ -122,8 +122,7 @@ impl TrainingInstance {
 }
 
 lazy_static! {
-    static ref RANDOM_RGX: Regex =
-        Regex::new(r"^r(?:and(?:om)?)?(?:[(](?P<seed>\d+)[)])?$").unwrap();
+    static ref RANDOM_RGX: Regex = Regex::new(r"^r(?:and(?:om)?)?(?:(?P<seed>\d+))?$").unwrap();
 }
 
 /// A user specification of an AI
@@ -208,9 +207,7 @@ impl Specified for AISpec {
             Self::Random { seed } => {
                 let mut s = String::from("random");
                 if let Some(seed) = seed {
-                    s.push('(');
                     s.push_str(seed.to_string().as_str());
-                    s.push(')');
                 }
                 s
             }
@@ -225,9 +222,7 @@ impl Specified for AISpec {
             Self::Random { seed } => {
                 let mut s = String::from("r");
                 if let Some(seed) = seed {
-                    s.push('(');
                     s.push_str(seed.to_string().as_str());
-                    s.push(')');
                 }
                 s
             }
