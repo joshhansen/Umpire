@@ -26,7 +26,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use rand::rngs::StdRng;
+use rand::{rngs::StdRng, Rng};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock as RwLockTokio;
 use uuid::Uuid;
@@ -186,6 +186,11 @@ pub struct Game {
     /// Random number generator instance
     rng: StdRng,
 
+    /// Make player secrets generate from the provided rng rather than system entropy
+    /// Only recommended for benchmarking as it makes player secrets predictable when the
+    /// rng seed is set
+    deterministic_secrets: bool,
+
     /// The underlying state of the game
     map: MapData,
 
@@ -247,6 +252,7 @@ impl Game {
     /// Also returns the player secrets used for access control
     pub fn new<N: Namer>(
         rng: Option<StdRng>,
+        deterministic_secrets: bool,
         map_dims: Dims,
         mut city_namer: N,
         num_players: PlayerNum,
@@ -258,6 +264,7 @@ impl Game {
         let map = generate_map(&mut rng, &mut city_namer, map_dims, num_players);
         Self::new_with_map(
             Some(rng),
+            deterministic_secrets,
             map,
             num_players,
             fog_of_war,
@@ -271,6 +278,7 @@ impl Game {
     /// Also returns the player secrets used for access control
     pub fn new_with_map(
         rng: Option<StdRng>,
+        deterministic_secrets: bool,
         map: MapData,
         num_players: PlayerNum,
         fog_of_war: bool,
@@ -284,6 +292,7 @@ impl Game {
 
         let mut game = Self {
             rng,
+            deterministic_secrets,
             map,
             player_observations,
             player_pending_observations,
@@ -309,6 +318,7 @@ impl Game {
 
     pub fn new_from_string(
         rng: Option<StdRng>,
+        deterministic_secrets: bool,
         s: &'static str,
     ) -> Result<(Self, Vec<Uuid>), String> {
         let map = MapData::try_from(s)?;
@@ -317,6 +327,7 @@ impl Game {
 
         Ok(Self::new_with_map(
             rng,
+            deterministic_secrets,
             map,
             players,
             false,
@@ -328,14 +339,22 @@ impl Game {
     /// Set up a sharable game instance and return it and controls for each player
     pub async fn setup_with_map(
         rng: Option<StdRng>,
+        deterministic_secrets: bool,
         map: MapData,
         num_players: PlayerNum,
         fog_of_war: bool,
         unit_namer: Option<Arc<RwLock<dyn Namer>>>,
         wrapping: Wrap2d,
     ) -> (Arc<RwLockTokio<Self>>, Vec<PlayerControl>) {
-        let (game, secrets) =
-            Self::new_with_map(rng, map, num_players, fog_of_war, unit_namer, wrapping);
+        let (game, secrets) = Self::new_with_map(
+            rng,
+            deterministic_secrets,
+            map,
+            num_players,
+            fog_of_war,
+            unit_namer,
+            wrapping,
+        );
 
         let game = Arc::new(RwLockTokio::new(game));
 
@@ -367,7 +386,11 @@ impl Game {
         if self.player_secrets.len() == self.num_players {
             Err(GameError::NoPlayerSlotsAvailable)
         } else {
-            let secret = Uuid::new_v4();
+            let secret = if self.deterministic_secrets {
+                uuid::Builder::from_random_bytes(self.rng.gen()).into_uuid()
+            } else {
+                Uuid::new_v4()
+            };
             self.player_secrets.push(secret);
             Ok(secret)
         }

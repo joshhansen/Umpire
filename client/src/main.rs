@@ -189,6 +189,7 @@ async fn main() -> Result<(), String> {
 
         let (game, secrets) = Game::new(
             Some(rng),
+            false,
             map_dims,
             city_namer,
             player_types.len(),

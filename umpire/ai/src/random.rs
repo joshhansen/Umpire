@@ -163,7 +163,7 @@ mod test {
             )
             .unwrap();
 
-            let (game, secrets) = Game::new_with_map(None, map, 1, true, None, Wrap2d::BOTH);
+            let (game, secrets) = Game::new_with_map(None, false, map, 1, true, None, Wrap2d::BOTH);
 
             let game = Arc::new(RwLockTokio::new(game));
 
@@ -184,7 +184,7 @@ mod test {
             let mut city_namer = IntNamer::new("city");
             let map = generate_map(&mut rng, &mut city_namer, Dims::new(5, 5), players);
             let (game, mut ctrls) =
-                Game::setup_with_map(None, map, players, true, None, Wrap2d::BOTH).await;
+                Game::setup_with_map(None, false, map, players, true, None, Wrap2d::BOTH).await;
 
             for i in 0..300 {
                 for ctrl in ctrls.iter_mut() {
@@ -235,7 +235,7 @@ mod test {
         let players = 2;
 
         let (_game, mut ctrls) =
-            Game::setup_with_map(None, map, players, true, None, Wrap2d::BOTH).await;
+            Game::setup_with_map(None, false, map, players, true, None, Wrap2d::BOTH).await;
 
         let rng = init_rng(None);
 

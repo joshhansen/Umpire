@@ -924,6 +924,7 @@ async fn main() -> anyhow::Result<()> {
 
     let (game, secrets) = Game::new(
         Some(init_rng(seed)), // instantiate another rng here to be owned by Game
+        false,
         map_dims,
         city_namer,
         num_players,

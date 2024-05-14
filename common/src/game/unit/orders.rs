@@ -337,7 +337,8 @@ pub mod test_support {
             )
             .unwrap();
 
-        let (mut game, secrets) = Game::new_with_map(None, map, players, true, None, Wrap2d::BOTH);
+        let (mut game, secrets) =
+            Game::new_with_map(None, false, map, players, true, None, Wrap2d::BOTH);
 
         game.begin_turn(secrets[0], false).unwrap();
 
@@ -400,6 +401,7 @@ pub mod test {
         let map = MapData::try_from("i----------").unwrap();
         let (mut game, secrets) = Game::new_with_map(
             None,
+            false,
             map,
             1,
             false,
@@ -476,7 +478,8 @@ pub mod test {
     #[test]
     fn test_propose_exploration() {
         let map = MapData::try_from("i--------------------").unwrap();
-        let (mut game, secrets) = Game::new_with_map(None, map, 1, true, None, Wrap2d::NEITHER);
+        let (mut game, secrets) =
+            Game::new_with_map(None, false, map, 1, true, None, Wrap2d::NEITHER);
 
         game.begin_turn(secrets[0], false).unwrap();
 

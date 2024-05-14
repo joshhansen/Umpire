@@ -171,6 +171,12 @@ async fn main() -> Result<(), String> {
             .value_parser(value_parser!(f64))
             .default_value("1.0")
         )
+        .arg(
+            Arg::new("detsec")
+                .long("detsec")
+            .help("Generate secrets from the random seed if any; only use for benchmarking/profiling")
+            .action(ArgAction::SetTrue)
+        )
     )
 
     .subcommand(
@@ -357,6 +363,10 @@ async fn main() -> Result<(), String> {
             println!("Random seed: {:?}", seed);
         }
         let mut rng = init_rng(seed);
+        let deterministic_secrets = sub_matches.contains_id("detsec");
+        if deterministic_secrets {
+            println!("***WARNING*** Secret generation may be deterministic");
+        }
 
         let mut victory_counts: BTreeMap<Option<PlayerNum>, usize> = BTreeMap::new();
         for _ in 0..episodes {
@@ -379,6 +389,7 @@ async fn main() -> Result<(), String> {
 
             let (game, secrets) = Game::new(
                 Some(init_rng(seed)), // instantiate another rng for Game to own
+                deterministic_secrets,
                 map_dims,
                 city_namer,
                 num_ais,
