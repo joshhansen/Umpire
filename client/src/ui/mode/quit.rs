@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use common::game::player::PlayerTurn;
 
 use crate::ui::UI;
@@ -8,7 +6,6 @@ use super::{IMode, Mode, ModeStatus};
 
 pub(in crate::ui) struct QuitMode;
 
-#[async_trait]
 impl IMode for QuitMode {
     async fn run<U: UI + Send>(
         &self,

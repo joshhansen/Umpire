@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crossterm::event::KeyCode;
 
 use common::{
@@ -64,7 +62,6 @@ impl SetProductionMode {
     }
 }
 
-#[async_trait]
 impl IMode for SetProductionMode {
     async fn run<U: UI + Send + Sync>(
         &self,

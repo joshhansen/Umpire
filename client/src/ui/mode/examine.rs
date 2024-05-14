@@ -1,7 +1,5 @@
 use std::{borrow::Cow, io::Result as IoResult};
 
-use async_trait::async_trait;
-
 use crossterm::event::KeyCode;
 
 use common::{
@@ -82,7 +80,6 @@ impl ExamineMode {
     }
 }
 
-#[async_trait]
 impl IMode for ExamineMode {
     async fn run<U: UI + Send + Sync>(
         &self,
@@ -242,7 +239,7 @@ impl IMode for ExamineMode {
             Err(_err) => {
                 // RecvError comes from the input thread exiting before the UI itself.
                 // So, just quit the app, we're probably already trying to do so.
-                return ModeStatus::Quit;
+                ModeStatus::Quit
             }
         }
     }

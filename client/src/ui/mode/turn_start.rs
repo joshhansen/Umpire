@@ -1,7 +1,5 @@
 use std::io::Result as IoResult;
 
-use async_trait::async_trait;
-
 use common::{
     colors::Colors,
     game::{player::PlayerTurn, unit::orders::OrdersOutcome, UnitProductionOutcome},
@@ -12,8 +10,8 @@ use crate::ui::UI;
 
 use super::{IMode, Mode, ModeStatus};
 
-pub(in crate::ui) struct TurnStartMode {}
-#[async_trait]
+pub(in crate::ui) struct TurnStartMode;
+
 impl IMode for TurnStartMode {
     async fn run<U: UI + Send>(
         &self,

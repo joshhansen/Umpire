@@ -1,6 +1,5 @@
 use std::sync::mpsc::RecvError;
 
-use async_trait::async_trait;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use common::{
@@ -139,7 +138,6 @@ pub enum KeyStatus {
     Unhandled(KeyEvent),
 }
 
-#[async_trait]
 pub trait IMode {
     /// Return true if the UI should continue after this mode runs, false if it should quit
     async fn run<U: UI + Send + Sync>(

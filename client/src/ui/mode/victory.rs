@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use common::{
     colors::Colors,
     game::{player::PlayerTurn, PlayerNum},
@@ -14,7 +12,6 @@ pub(in crate::ui) struct VictoryMode {
     pub(in crate::ui) victor: PlayerNum,
 }
 
-#[async_trait]
 impl IMode for VictoryMode {
     async fn run<U: UI + Send + Sync>(
         &self,

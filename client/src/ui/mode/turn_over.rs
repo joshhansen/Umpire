@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use crossterm::event::KeyCode;
 
 use common::{
@@ -46,7 +45,6 @@ impl TurnOverMode {
     // }
 }
 
-#[async_trait]
 impl IMode for TurnOverMode {
     async fn run<U: UI + Send + Sync>(
         &self,
