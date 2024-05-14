@@ -162,8 +162,11 @@ async fn main() -> Result<(), String> {
 
     let local_server = matches.contains_id("players");
 
-    let seed = matches.get_one::<u64>("random_seed").cloned();
+    let mut seed = matches.get_one::<u64>("random_seed").cloned();
     let mut rng = init_rng(seed);
+    if let Some(seed) = seed.as_mut() {
+        *seed = seed.wrapping_add(4938439);
+    }
 
     let (game, secrets, num_players, dims, player_types) = if local_server {
         let player_types = matches.get_one::<Vec<PlayerType>>("players").unwrap();
@@ -256,7 +259,8 @@ async fn main() -> Result<(), String> {
             x => panic!("Unsupported color depth {}", x),
         },
         24 => {
-            palette24(num_players, fog_darkness)
+            let rng = init_rng(seed);
+            palette24(rng, num_players, fog_darkness)
             // match palette24(num_players, fog_darkness) {
             //     Ok(palette) => run_ui(game, use_alt_screen, palette, unicode, quiet, confirm_turn_end),
             //     Err(err) => eprintln!("Error loading truecolor palette: {}", err)

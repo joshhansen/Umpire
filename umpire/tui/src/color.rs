@@ -22,9 +22,14 @@ use common::{colors::Colors, game::PlayerNum};
 use crossterm::style::Color;
 
 use pastel::{
-    distinct::{distinct_colors, DistanceMetric, IterationStatistics},
+    distinct::{
+        DistanceMetric, DistanceResult, IterationStatistics, OptimizationMode, OptimizationTarget,
+        SimulatedAnnealing, SimulationParameters,
+    },
+    random::RandomizationStrategy,
     Color as PastelColor, RGBA,
 };
+use rand::{rngs::StdRng, Rng};
 
 pub trait PairColorized {
     fn color_pair(&self, palette: &Palette) -> Option<ColorPair>;
@@ -183,7 +188,53 @@ fn color_to_pastel_color(color: Color) -> PastelColor {
     }
 }
 
-pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Palette {
+/// Closely following `distinct_colors` from pastel, but allowing the rng to be specified.
+pub fn distinct_colors_from_rng<R: Rng>(
+    mut rng: R,
+    count: usize,
+    distance_metric: DistanceMetric,
+    fixed_colors: Vec<PastelColor>,
+    callback: &mut dyn FnMut(&IterationStatistics),
+) -> (Vec<PastelColor>, DistanceResult) {
+    assert!(count > 1);
+    assert!(fixed_colors.len() <= count);
+
+    let num_fixed_colors = fixed_colors.len();
+    let mut colors = fixed_colors;
+
+    for _ in num_fixed_colors..count {
+        let mut c = pastel::random::strategies::UniformRGB;
+        colors.push(c.generate_with(&mut rng));
+    }
+
+    let mut annealing = SimulatedAnnealing::with_rng(
+        &colors,
+        SimulationParameters {
+            initial_temperature: 3.0,
+            cooling_rate: 0.95,
+            num_iterations: 100_000,
+            opt_target: OptimizationTarget::Mean,
+            opt_mode: OptimizationMode::Global,
+            distance_metric,
+            num_fixed_colors,
+        },
+        rng,
+    );
+
+    annealing.run(callback);
+
+    annealing.parameters.initial_temperature = 0.5;
+    annealing.parameters.cooling_rate = 0.98;
+    annealing.parameters.num_iterations = 200_000;
+    annealing.parameters.opt_target = OptimizationTarget::Min;
+    annealing.parameters.opt_mode = OptimizationMode::Local;
+
+    let result = annealing.run(callback);
+
+    (annealing.get_colors(), result)
+}
+
+pub fn palette24(rng: StdRng, num_players: PlayerNum, darken_percent: f64) -> Palette {
     let land = color_to_rgb_pair(
         Color::Rgb {
             r: 24,
@@ -219,7 +270,8 @@ pub fn palette24(num_players: PlayerNum, darken_percent: f64) -> Palette {
 
     let mut callback = |_stats: &IterationStatistics| {};
 
-    let distinct: Vec<PastelColor> = distinct_colors(
+    let distinct: Vec<PastelColor> = distinct_colors_from_rng(
+        rng,
         num_players + num_preexisting,
         // DistanceMetric::CIE76,
         DistanceMetric::CIEDE2000,

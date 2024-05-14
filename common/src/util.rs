@@ -119,7 +119,7 @@ impl Dims {
 
 impl Distribution<Location> for Dims {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Location {
-        Location::new(rng.gen_range(0, self.width), rng.gen_range(0, self.height))
+        Location::new(rng.gen_range(0..self.width), rng.gen_range(0..self.height))
     }
 }
 

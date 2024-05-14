@@ -30,7 +30,7 @@ burn-wgpu = "0.13"
 clap = "4.1.4"
 crossterm = "0.25.0"
 futures = "0.3.27"
-rand = "~0.7.3"
+rand = "0.8.5"
 serde = { version = "1.0.106", features = ["derive"] }
 tarpc = { version = "0.34", features = ["full"] }
 thiserror = "1.0.40"

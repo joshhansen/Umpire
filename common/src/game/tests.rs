@@ -70,7 +70,7 @@ fn test_move_unit_by_id_far() {
         let mut delta = Vec2d::new(0, 0);
 
         while delta.x == 0 && delta.y == 0 {
-            delta = Vec2d::new(game.rng.gen_range(-5, 6), game.rng.gen_range(-5, 6));
+            delta = Vec2d::new(game.rng.gen_range(-5..6), game.rng.gen_range(-5..6));
         }
 
         let unit_loc = game.current_player_unit_by_id(unit_id).unwrap().loc;
