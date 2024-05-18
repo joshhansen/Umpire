@@ -15,10 +15,11 @@ use super::{
     dijkstra::{
         neighbors, Source, TerrainFilter, RELATIVE_NEIGHBORS_CARDINAL, RELATIVE_NEIGHBORS_DIAGONAL,
     },
-    MapData, Terrain, Tile,
+    terrain::Terrainous,
+    LocationGrid, MapData, Terrain,
 };
 
-fn land_cardinal_neighbors<T: Source<Tile>>(tiles: &T, loc: Location) -> u16 {
+fn land_cardinal_neighbors<T: Terrainous, S: Source<T>>(tiles: &S, loc: Location) -> u16 {
     neighbors(
         tiles,
         loc,
@@ -31,7 +32,7 @@ fn land_cardinal_neighbors<T: Source<Tile>>(tiles: &T, loc: Location) -> u16 {
     .len() as u16
 }
 
-fn land_diagonal_neighbors<T: Source<Tile>>(tiles: &T, loc: Location) -> u16 {
+fn land_diagonal_neighbors<T: Terrainous, S: Source<T>>(tiles: &S, loc: Location) -> u16 {
     neighbors(
         tiles,
         loc,
@@ -48,22 +49,15 @@ fn land_diagonal_neighbors<T: Source<Tile>>(tiles: &T, loc: Location) -> u16 {
 //     neighbors(tiles, loc, RELATIVE_NEIGHBORS.iter(), &TerrainFilter{terrain: Terrain::Land}, WRAP_NEITHER).len() as u16
 // }
 
-const INITIAL_TERRAIN: Terrain = Terrain::Water;
-
-pub fn generate_map<N: Namer, R: RngCore>(
-    rng: &mut R,
-    city_namer: &mut N,
-    map_dims: Dims,
-    num_players: PlayerNum,
-) -> MapData {
-    let mut map = MapData::new(map_dims, |_loc| INITIAL_TERRAIN);
+fn generate_continents<R: RngCore>(rng: &mut R, map_dims: Dims) -> LocationGrid<Terrain> {
+    let mut grid = LocationGrid::new(map_dims, |_| Terrain::Water);
 
     // Seed the continents/islands
     for _ in 0..conf::LANDMASSES {
         let loc = map_dims.sample(rng);
 
         // This might overwrite an already-set terrain but it doesn't matter
-        map.set_terrain(loc, Terrain::Land).unwrap();
+        grid[loc] = Terrain::Land;
     }
 
     //FIXME by keeping an index of land locations and counts of cardinal/diagonal land neighbors this could probably be
@@ -72,7 +66,7 @@ pub fn generate_map<N: Namer, R: RngCore>(
     // Grow landmasses
     for _iteration in 0..conf::GROWTH_ITERATIONS {
         for loc in map_dims.iter_locs() {
-            match map.terrain(loc).unwrap() {
+            match grid[loc] {
                 Terrain::Land => {
 
                     // for x2 in safe_minus_one(x)..(safe_plus_one(x, self.map_dims.width)+1) {
@@ -86,26 +80,63 @@ pub fn generate_map<N: Namer, R: RngCore>(
                     // }
                 }
                 Terrain::Water => {
-                    let cardinal_growth_prob = f32::from(land_cardinal_neighbors(&map, loc))
+                    let cardinal_growth_prob = f32::from(land_cardinal_neighbors(&grid, loc))
                         / (4_f32 + conf::GROWTH_CARDINAL_LAMBDA);
-                    let diagonal_growth_prob = f32::from(land_diagonal_neighbors(&map, loc))
+                    let diagonal_growth_prob = f32::from(land_diagonal_neighbors(&grid, loc))
                         / (4_f32 + conf::GROWTH_DIAGONAL_LAMBDA);
 
                     if rng.gen::<f32>() <= cardinal_growth_prob
                         || rng.gen::<f32>() <= diagonal_growth_prob
                     {
                         // Might overwrite something here
-                        map.set_terrain(loc, Terrain::Land).unwrap();
+                        grid[loc] = Terrain::Land;
                     }
                 }
             }
         }
     }
 
+    grid
+}
+
+fn generate_transport_required(
+    map_dims: Dims,
+    left_continent_rightmost: u16,
+    right_continent_leftmost: u16,
+) -> LocationGrid<Terrain> {
+    LocationGrid::new(map_dims, |loc| {
+        if loc.x <= left_continent_rightmost || loc.x >= right_continent_leftmost {
+            Terrain::Land
+        } else {
+            Terrain::Water
+        }
+    })
+}
+
+fn generate_random_terrain<R: RngCore>(
+    rng: &mut R,
+    map_dims: Dims,
+    land_prob: f64,
+) -> LocationGrid<Terrain> {
+    LocationGrid::new(map_dims, |_| {
+        if rng.gen_bool(land_prob) {
+            Terrain::Land
+        } else {
+            Terrain::Water
+        }
+    })
+}
+
+fn populate_player_cities<N: Namer, R: RngCore>(
+    rng: &mut R,
+    map: &mut MapData,
+    players: PlayerNum,
+    city_namer: &mut N,
+) {
     // Populate player cities
     let mut player_num = 0;
-    while player_num < num_players {
-        let loc = map_dims.sample(rng);
+    while player_num < players {
+        let loc = map.dims().sample(rng);
 
         if *map.terrain(loc).unwrap() == Terrain::Land && map.city_by_loc(loc).is_none() {
             map.new_city(
@@ -117,17 +148,152 @@ pub fn generate_map<N: Namer, R: RngCore>(
             player_num += 1;
         }
     }
+}
 
+/// * land_only: Only place the cities on land
+fn populate_neutral_cities<N: Namer, R: RngCore>(
+    rng: &mut R,
+    map: &mut MapData,
+    city_namer: &mut N,
+    land_only: bool,
+) {
     // Populate neutral cities
-    for loc in map_dims.iter_locs() {
-        if *map.terrain(loc).unwrap() == Terrain::Land
-            && map.city_by_loc(loc).is_none()
-            && rng.gen::<f32>() <= conf::NEUTRAL_CITY_DENSITY
-        {
+    for loc in map.dims().iter_locs() {
+        let land_ok = !land_only || map.terrain(loc).copied().unwrap() == Terrain::Land;
+        if land_ok && map.city_by_loc(loc).is_none() && rng.gen_bool(conf::NEUTRAL_CITY_DENSITY) {
             map.new_city(loc, Alignment::Neutral, city_namer.name())
                 .unwrap();
         }
     }
+}
 
-    map
+/// Populate the players' initial cities on the water on a transport-required type of map
+fn populate_transport_required_cities<N: Namer, R: RngCore>(
+    rng: &mut R,
+    map: &mut MapData,
+    players: PlayerNum,
+    city_namer: &mut N,
+    left_continent_rightmost: u16,
+    right_continent_leftmost: u16,
+) {
+    let height_inc = map.dims().height / players as u16;
+    for player in 0..players {
+        let x = if player % 2 == 0 {
+            left_continent_rightmost
+        } else {
+            right_continent_leftmost
+        };
+        let y = height_inc * player as u16;
+        let loc = Location::new(x, y);
+        map.new_city(loc, Alignment::Belligerent { player }, city_namer.name())
+            .unwrap();
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum MapType {
+    Continents,
+    TransportRequired {
+        /// Width as proportion of map width
+        left_continent_width: f64,
+
+        /// Width as proportion of map width
+        right_continent_width: f64,
+    },
+    RandomTerrain {
+        land_prob: f64,
+    },
+}
+impl MapType {
+    fn generate_terrain<R: RngCore>(self, rng: &mut R, map_dims: Dims) -> LocationGrid<Terrain> {
+        match self {
+            Self::Continents => generate_continents(rng, map_dims),
+            Self::TransportRequired {
+                left_continent_width,
+                right_continent_width,
+            } => {
+                let left_continent_rightmost =
+                    (map_dims.width as f64 * left_continent_width) as u16;
+
+                let right_continent_leftmost =
+                    (map_dims.width as f64 * (1.0 - right_continent_width)) as u16;
+
+                generate_transport_required(
+                    map_dims,
+                    left_continent_rightmost,
+                    right_continent_leftmost,
+                )
+            }
+            Self::RandomTerrain { land_prob } => generate_random_terrain(rng, map_dims, land_prob),
+        }
+    }
+
+    fn initialize_cities<N: Namer, R: RngCore>(
+        self,
+        rng: &mut R,
+        map: &mut MapData,
+        players: PlayerNum,
+        city_namer: &mut N,
+    ) {
+        match self {
+            Self::Continents => {
+                populate_player_cities(rng, map, players, city_namer);
+                populate_neutral_cities(rng, map, city_namer, true);
+            }
+            Self::TransportRequired {
+                left_continent_width,
+                right_continent_width,
+            } => {
+                let left_continent_rightmost =
+                    (map.dims().width as f64 * left_continent_width) as u16;
+                let right_continent_leftmost =
+                    (map.dims().width as f64 * (1.0 - right_continent_width)) as u16;
+                populate_transport_required_cities(
+                    rng,
+                    map,
+                    players,
+                    city_namer,
+                    left_continent_rightmost,
+                    right_continent_leftmost,
+                );
+                populate_neutral_cities(rng, map, city_namer, true);
+            }
+            Self::RandomTerrain { .. } => {
+                populate_player_cities(rng, map, players, city_namer);
+                populate_neutral_cities(rng, map, city_namer, false);
+            }
+        }
+    }
+
+    pub fn generate<N: Namer, R: RngCore>(
+        self,
+        rng: &mut R,
+        map_dims: Dims,
+        players: PlayerNum,
+        city_namer: &mut N,
+    ) -> MapData {
+        let terrain = self.generate_terrain(rng, map_dims);
+
+        let mut map = MapData::new(map_dims, |loc| terrain[loc]);
+
+        self.initialize_cities(rng, &mut map, players, city_namer);
+
+        map
+    }
+}
+
+impl TryFrom<&str> for MapType {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "c" => Ok(Self::Continents),
+            "t" => Ok(Self::TransportRequired {
+                left_continent_width: 0.3,
+                right_continent_width: 0.3,
+            }),
+            "r" => Ok(Self::RandomTerrain { land_prob: 0.4 }),
+            x => Err(format!("Unrecognized map type {}", x)),
+        }
+    }
 }

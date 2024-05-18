@@ -44,7 +44,6 @@ use crate::{
                 NoUnitsFilter, ShortestPaths, Source, UnitMovementFilter,
                 UnitMovementFilterXenophile,
             },
-            gen::generate_map,
             LocationGridI, MapData, NewUnitError, Tile,
         },
         obs::{Obs, ObsTracker, Observer, PlayerObsTracker},
@@ -65,6 +64,7 @@ use self::{
     action::{Actionable, PlayerAction, PlayerActionOutcome},
     ai::{fX, TrainingFocus, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
+    map::gen::MapType,
     move_::{Move, MoveComponent, MoveError},
     obs::{LocatedObs, LocatedObsLite},
     player::PlayerControl,
@@ -254,6 +254,7 @@ impl Game {
         rng: Option<StdRng>,
         deterministic_secrets: bool,
         map_dims: Dims,
+        map_type: MapType,
         mut city_namer: N,
         num_players: PlayerNum,
         fog_of_war: bool,
@@ -261,7 +262,7 @@ impl Game {
         wrapping: Wrap2d,
     ) -> (Self, Vec<PlayerSecret>) {
         let mut rng = rng.unwrap_or_else(|| init_rng(None));
-        let map = generate_map(&mut rng, &mut city_namer, map_dims, num_players);
+        let map = map_type.generate(&mut rng, map_dims, num_players, &mut city_namer);
         Self::new_with_map(
             Some(rng),
             deterministic_secrets,

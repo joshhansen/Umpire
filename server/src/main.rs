@@ -11,7 +11,7 @@ use common::{
         ai::{fX, TrainingFocus},
         city::{City, CityID},
         error::GameError,
-        map::Tile,
+        map::{gen::MapType, Tile},
         move_::Move,
         obs::{LocatedObs, LocatedObsLite, Obs, ObsTracker},
         player::PlayerControl,
@@ -865,7 +865,7 @@ async fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
 async fn main() -> anyhow::Result<()> {
     println!("umpire-server");
 
-    let matches = cli::app("umpired", "fwWHS")
+    let matches = cli::app("umpired", "fwWHMS")
         .arg(
             Arg::new("interface")
                 .short('i')
@@ -906,6 +906,7 @@ async fn main() -> anyhow::Result<()> {
     let map_width = matches.get_one::<u16>("map_width").copied().unwrap();
     let map_height = matches.get_one::<u16>("map_height").copied().unwrap();
     let wrapping = matches.get_one::<Wrap2d>("wrapping").copied().unwrap();
+    let map_type = matches.get_one::<MapType>("map_type").copied().unwrap();
 
     let map_dims: Dims = Dims::new(map_width, map_height);
     if (map_dims.area() as PlayerNum) < num_players {
@@ -926,6 +927,7 @@ async fn main() -> anyhow::Result<()> {
         Some(init_rng(seed)), // instantiate another rng here to be owned by Game
         false,
         map_dims,
+        map_type,
         city_namer,
         num_players,
         fog_of_war,

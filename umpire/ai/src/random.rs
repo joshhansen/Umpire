@@ -137,7 +137,7 @@ mod test {
     use common::{
         game::{
             alignment::Alignment,
-            map::{gen::generate_map, terrain::Terrain, MapData},
+            map::{gen::MapType, terrain::Terrain, MapData},
             player::PlayerControl,
             turn_async::TurnTaker,
             unit::UnitID,
@@ -182,7 +182,8 @@ mod test {
         for r in 0..1000 {
             let players = 2;
             let mut city_namer = IntNamer::new("city");
-            let map = generate_map(&mut rng, &mut city_namer, Dims::new(5, 5), players);
+            let map =
+                MapType::Continents.generate(&mut rng, Dims::new(5, 5), players, &mut city_namer);
             let (game, mut ctrls) =
                 Game::setup_with_map(None, false, map, players, true, None, Wrap2d::BOTH).await;
 

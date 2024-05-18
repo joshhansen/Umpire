@@ -33,8 +33,8 @@ use common::{
     cli::{self, players_arg},
     conf,
     game::{
-        ai::AISpec, player::PlayerControl, turn_async::TurnTaker, Game, IGame, PlayerNum,
-        PlayerSecret, PlayerType,
+        ai::AISpec, map::gen::MapType, player::PlayerControl, turn_async::TurnTaker, Game, IGame,
+        PlayerNum, PlayerSecret, PlayerType,
     },
     log::LogTarget,
     name::{city_namer, unit_namer},
@@ -62,7 +62,7 @@ fn print_loading_screen() {
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    let matches = cli::app(conf::APP_NAME, "fwHWS")
+    let matches = cli::app(conf::APP_NAME, "fwWHMS")
         .version(conf::APP_VERSION)
         .author("Josh Hansen <hansen.joshuaa@gmail.com>")
         .about(conf::APP_SUBTITLE)
@@ -174,8 +174,9 @@ async fn main() -> Result<(), String> {
         let num_players: PlayerNum = player_types.len();
         let map_width = *matches.get_one::<u16>("map_width").unwrap();
         let map_height = *matches.get_one::<u16>("map_height").unwrap();
-
         let wrapping = *matches.get_one::<Wrap2d>("wrapping").unwrap();
+        let map_type = matches.get_one::<MapType>("map_type").copied().unwrap();
+
         let fog_of_war = *matches.get_one::<bool>("fog").unwrap();
 
         let map_dims: Dims = Dims::new(map_width, map_height);
@@ -191,6 +192,7 @@ async fn main() -> Result<(), String> {
             Some(rng),
             false,
             map_dims,
+            map_type,
             city_namer,
             player_types.len(),
             fog_of_war,

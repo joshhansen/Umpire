@@ -45,7 +45,10 @@ use umpire_ai::{
 };
 
 use common::{
-    game::ai::{fX, POSSIBLE_ACTIONS},
+    game::{
+        ai::{fX, POSSIBLE_ACTIONS},
+        map::gen::MapType,
+    },
     util::{densify, init_rng},
 };
 
@@ -149,7 +152,7 @@ async fn main() -> Result<(), String> {
     // )
 
     .subcommand(
-        cli::app(SUBCMD_EVAL, "S")
+        cli::app(SUBCMD_EVAL, "MS")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
             Arg::new("ai_models")
@@ -173,7 +176,7 @@ async fn main() -> Result<(), String> {
         )
         .arg(
             Arg::new("detsec")
-                .long("detsec")
+            .long("detsec")
             .help("Generate secrets from the random seed if any; only use for benchmarking/profiling")
             .action(ArgAction::SetTrue)
         )
@@ -312,9 +315,11 @@ async fn main() -> Result<(), String> {
     println!("Verbosity: {}", verbosity);
 
     if subcommand == SUBCMD_EVAL {
-        // if dims.len() > 1 {
-        //     return Err(String::from("Only one set of dimensions can be given for evaluation"));
-        // }
+        let map_types: Vec<MapType> = matches
+            .get_many::<MapType>("map_type")
+            .unwrap()
+            .copied()
+            .collect();
 
         let ai_specs_s: Vec<String> = sub_matches
             .get_many::<String>("ai_models")
@@ -322,7 +327,9 @@ async fn main() -> Result<(), String> {
             .cloned()
             .collect();
         let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
+
         let mut ais: Vec<Rc<RefCell<AI<AiBackend>>>> = load_ais(&ai_specs)?;
+        let num_ais = ais.len();
 
         let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
@@ -343,8 +350,6 @@ async fn main() -> Result<(), String> {
 
         let mut data_outfile = datagenpath.map(|datagenpath| File::create(datagenpath).unwrap());
 
-        let num_ais = ais.len();
-
         let palette = palette16(num_ais).unwrap();
 
         let print_results = |victory_counts: &BTreeMap<Option<PlayerNum>, usize>| {
@@ -363,7 +368,7 @@ async fn main() -> Result<(), String> {
             println!("Random seed: {:?}", seed);
         }
         let mut rng = init_rng(seed);
-        let deterministic_secrets = sub_matches.contains_id("detsec");
+        let deterministic_secrets = sub_matches.get_one::<bool>("detsec").copied().unwrap();
         if deterministic_secrets {
             println!("***WARNING*** Secret generation may be deterministic");
         }
@@ -372,7 +377,8 @@ async fn main() -> Result<(), String> {
         for _ in 0..episodes {
             let city_namer = IntNamer::new("city");
 
-            let map_dims = dims.choose(&mut rng).cloned().unwrap();
+            let map_dims = dims.choose(&mut rng).copied().unwrap();
+            let map_type = map_types.choose(&mut rng).copied().unwrap();
 
             let map_width = map_dims.width;
             let map_height = map_dims.height;
@@ -387,10 +393,12 @@ async fn main() -> Result<(), String> {
 
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
+            let game_rng = init_rng(seed);
             let (game, secrets) = Game::new(
-                Some(init_rng(seed)), // instantiate another rng for Game to own
+                Some(game_rng),
                 deterministic_secrets,
                 map_dims,
+                map_type,
                 city_namer,
                 num_ais,
                 fog_of_war,

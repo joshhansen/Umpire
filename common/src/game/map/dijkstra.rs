@@ -19,6 +19,8 @@ use crate::{
     util::{Dimensioned, Dims, Direction, LocatedItem, Location, Vec2d, Wrap2d},
 };
 
+use super::terrain::Terrainous;
+
 impl Index<Location> for Vec<Vec<u16>> {
     type Output = u16;
     fn index(&self, location: Location) -> &Self::Output {
@@ -256,9 +258,9 @@ impl<'a> Filter<Obs> for ObservedReachableByPacifistUnit<'a> {
 pub struct TerrainFilter {
     pub terrain: Terrain,
 }
-impl Filter<Tile> for TerrainFilter {
-    fn include(&self, neighb_tile: &Tile) -> bool {
-        self.terrain == neighb_tile.terrain
+impl<T: Terrainous> Filter<T> for TerrainFilter {
+    fn include(&self, neighb: &T) -> bool {
+        self.terrain == neighb.terrain()
     }
 }
 

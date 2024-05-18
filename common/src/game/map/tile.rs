@@ -12,7 +12,7 @@ use crate::{
     util::Location,
 };
 
-use super::Terrain;
+use super::{terrain::Terrainous, Terrain};
 
 //FIXME Cleaner Debug impl
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -94,6 +94,12 @@ impl fmt::Display for Tile {
         } else {
             write!(f, "{}", self.terrain)
         }
+    }
+}
+
+impl Terrainous for Tile {
+    fn terrain(&self) -> Terrain {
+        self.terrain
     }
 }
 

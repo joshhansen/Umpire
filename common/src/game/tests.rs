@@ -18,7 +18,7 @@ use crate::{
         Alignment, Game, GameError, TurnNum,
     },
     name::{unit_namer, Named},
-    util::{Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
+    util::{Dims, Direction, Location, Vec2d, Wrap2d},
 };
 
 use super::ai::TrainingFocus;

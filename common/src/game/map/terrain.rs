@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::colors::{Colorized, Colors};
 
+/// Things that can provide terrain
+pub trait Terrainous {
+    fn terrain(&self) -> Terrain;
+}
+
 #[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
 pub enum Terrain {
     Water,
@@ -37,5 +42,11 @@ impl fmt::Display for Terrain {
 impl fmt::Debug for Terrain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self, f)
+    }
+}
+
+impl Terrainous for Terrain {
+    fn terrain(&self) -> Terrain {
+        *self
     }
 }

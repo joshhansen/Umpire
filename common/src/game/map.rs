@@ -105,6 +105,10 @@ impl MapData {
         }))
     }
 
+    pub fn dims(&self) -> Dims {
+        self.tiles.dims()
+    }
+
     pub fn new_from_grid(tiles: LocationGrid<Tile>) -> Self {
         let next_city_id: CityID = tiles
             .iter()
@@ -1133,8 +1137,7 @@ impl TryFrom<String> for MapData {
 mod test {
     use rand::distributions::Distribution;
 
-    use super::gen::generate_map;
-    use super::MapData;
+    use super::{gen::MapType, MapData};
     use crate::{
         game::{
             map::{terrain::Terrain, CityID, LocationGridI},
@@ -1142,7 +1145,7 @@ mod test {
             Alignment, GameError,
         },
         name::IntNamer,
-        util::{init_rng, Dimensioned, Dims, Location},
+        util::{init_rng, Dims, Location},
     };
 
     #[test]
@@ -1204,7 +1207,8 @@ mod test {
 
         for _ in 0..100 {
             let mut city_namer = IntNamer::new("city");
-            let mut map = generate_map(&mut rng, &mut city_namer, Dims::new(180, 90), 1);
+            let mut map =
+                MapType::Continents.generate(&mut rng, Dims::new(180, 90), 1, &mut city_namer);
 
             for i in 0..100 {
                 let loc = map.dims().sample(&mut rng);

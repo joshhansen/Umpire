@@ -2,7 +2,7 @@ use clap::{builder::Str, value_parser, Arg, ArgAction, Command};
 
 use crate::{
     conf::{FOG_OF_WAR, MAP_HEIGHT, MAP_WIDTH},
-    game::{ai::AISpec, player::PlayerType},
+    game::{ai::AISpec, map::gen::MapType, player::PlayerType},
     util::Wrap2d,
 };
 
@@ -81,6 +81,14 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .action(ArgAction::Append)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
                 .value_parser(value_parser!(u16)),
 
+            'M' => Arg::new("map_type")
+                .short('M')
+                .long("map-type")
+                .help("Type of map: c[ontinents], t[ransport req'd], r[andom]")
+                .default_value("c")
+                .action(ArgAction::Append)// Multiple so the AI trainer can specify multiple dimensions to train in sequence
+                .value_parser(|s:&str| MapType::try_from(s)),
+
             'D' => Arg::new("dnn_learning_rate")
                 .short('D')
                 .long("dnnlr")
@@ -94,6 +102,8 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .help("Seed by which to initialize all random number generation")
                 .action(ArgAction::Set)
                 .value_parser(value_parser!(u64)),
+
+
 
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
         });

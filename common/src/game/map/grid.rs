@@ -44,9 +44,9 @@ impl<T> LocationGrid<T> {
         Self { grid, dims }
     }
 
-    pub fn new<I>(dims: Dims, initializer: I) -> Self
+    pub fn new<I>(dims: Dims, mut initializer: I) -> Self
     where
-        I: Fn(Location) -> T,
+        I: FnMut(Location) -> T,
     {
         let mut grid = Vec::with_capacity(dims.area() as usize);
         for loc in dims.iter_locs_column_major() {
@@ -56,6 +56,10 @@ impl<T> LocationGrid<T> {
         debug_assert_eq!(grid.len(), dims.area() as usize);
 
         Self { grid, dims }
+    }
+
+    pub fn dims(&self) -> Dims {
+        self.dims
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
@@ -102,6 +106,11 @@ impl<T> Dimensioned for LocationGrid<T> {
     }
 }
 
+impl Source<Terrain> for LocationGrid<Terrain> {
+    fn get(&self, loc: Location) -> &Terrain {
+        &self[loc]
+    }
+}
 impl Source<Tile> for LocationGrid<Tile> {
     fn get(&self, loc: Location) -> &Tile {
         &self[loc]

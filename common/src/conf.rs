@@ -38,7 +38,7 @@ pub const GROWTH_CARDINAL_LAMBDA: f32 = 2_f32;
 /// The degree to which diagonal landmass growth should be discouraged
 pub const GROWTH_DIAGONAL_LAMBDA: f32 = 5_f32;
 
-pub const NEUTRAL_CITY_DENSITY: f32 = 0.05;
+pub const NEUTRAL_CITY_DENSITY: f64 = 0.05;
 
 /// The number of teams playing, including humans and AIs
 pub const NUM_PLAYERS: &str = "4";
