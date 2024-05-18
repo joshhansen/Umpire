@@ -149,7 +149,7 @@ async fn main() -> Result<(), String> {
         }
     }
 
-    let use_alt_screen = matches.get_one::<bool>("use_alt_screen").cloned().unwrap();
+    let use_alt_screen = matches.get_one::<bool>("use_alt_screen").copied().unwrap();
     let color_depth: u16 = matches
         .get_one::<String>("colors")
         .unwrap()
