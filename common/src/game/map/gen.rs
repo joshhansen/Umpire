@@ -101,10 +101,12 @@ fn generate_continents<R: RngCore>(rng: &mut R, map_dims: Dims) -> LocationGrid<
 
 fn generate_transport_required(
     map_dims: Dims,
-    left_continent_rightmost: u16,
-    right_continent_leftmost: u16,
+    left_continent_rightmosts: Vec<u16>,
+    right_continent_leftmosts: Vec<u16>,
 ) -> LocationGrid<Terrain> {
     LocationGrid::new(map_dims, |loc| {
+        let left_continent_rightmost = left_continent_rightmosts[loc.y as usize];
+        let right_continent_leftmost = right_continent_leftmosts[loc.y as usize];
         if loc.x <= left_continent_rightmost || loc.x >= right_continent_leftmost {
             Terrain::Land
         } else {
@@ -168,26 +170,65 @@ fn populate_neutral_cities<N: Namer, R: RngCore>(
 }
 
 /// Populate the players' initial cities on the water on a transport-required type of map
-fn populate_transport_required_cities<N: Namer, R: RngCore>(
-    rng: &mut R,
+fn populate_transport_required_cities<N: Namer>(
     map: &mut MapData,
     players: PlayerNum,
     city_namer: &mut N,
-    left_continent_rightmost: u16,
-    right_continent_leftmost: u16,
+    left_continent_rightmosts: Vec<u16>,
+    right_continent_leftmosts: Vec<u16>,
 ) {
     let height_inc = map.dims().height / players as u16;
     for player in 0..players {
-        let x = if player % 2 == 0 {
-            left_continent_rightmost
-        } else {
-            right_continent_leftmost
-        };
         let y = height_inc * player as u16;
+        let x = if player % 2 == 0 {
+            left_continent_rightmosts[y as usize]
+        } else {
+            right_continent_leftmosts[y as usize]
+        };
         let loc = Location::new(x, y);
         map.new_city(loc, Alignment::Belligerent { player }, city_namer.name())
             .unwrap();
     }
+}
+
+fn left_continent_rightmosts(left_continent_width: f64, map_dims: Dims) -> Vec<u16> {
+    let base_rightmost = (left_continent_width * map_dims.width as f64) as u16;
+    (0..map_dims.height)
+        .enumerate()
+        .map(|(i, _y)| {
+            base_rightmost
+                + match i % 7 {
+                    0 => 4,
+                    1 => 5,
+                    2 => 0,
+                    3 => 1,
+                    4 => 3,
+                    5 => 2,
+                    6 => 0,
+                    _ => panic!("Modular arithmetic failed us!"),
+                }
+        })
+        .collect()
+}
+
+fn right_continent_leftmosts(right_continent_width: f64, map_dims: Dims) -> Vec<u16> {
+    let base_leftmost = ((1f64 - right_continent_width) * map_dims.width as f64) as u16;
+    (0..map_dims.height)
+        .enumerate()
+        .map(|(i, _y)| {
+            base_leftmost
+                - match i % 7 {
+                    0 => 2,
+                    1 => 5,
+                    2 => 4,
+                    3 => 1,
+                    4 => 0,
+                    5 => 2,
+                    6 => 3,
+                    _ => panic!("Modular arithmetic failed us!"),
+                }
+        })
+        .collect()
 }
 
 #[derive(Copy, Clone)]
@@ -205,31 +246,23 @@ pub enum MapType {
     },
 }
 impl MapType {
-    fn generate_terrain<R: RngCore>(self, rng: &mut R, map_dims: Dims) -> LocationGrid<Terrain> {
+    fn generate_terrain<R: RngCore>(&self, rng: &mut R, map_dims: Dims) -> LocationGrid<Terrain> {
         match self {
             Self::Continents => generate_continents(rng, map_dims),
             Self::TransportRequired {
                 left_continent_width,
                 right_continent_width,
-            } => {
-                let left_continent_rightmost =
-                    (map_dims.width as f64 * left_continent_width) as u16;
-
-                let right_continent_leftmost =
-                    (map_dims.width as f64 * (1.0 - right_continent_width)) as u16;
-
-                generate_transport_required(
-                    map_dims,
-                    left_continent_rightmost,
-                    right_continent_leftmost,
-                )
-            }
-            Self::RandomTerrain { land_prob } => generate_random_terrain(rng, map_dims, land_prob),
+            } => generate_transport_required(
+                map_dims,
+                left_continent_rightmosts(*left_continent_width, map_dims),
+                right_continent_leftmosts(*right_continent_width, map_dims),
+            ),
+            Self::RandomTerrain { land_prob } => generate_random_terrain(rng, map_dims, *land_prob),
         }
     }
 
     fn initialize_cities<N: Namer, R: RngCore>(
-        self,
+        &self,
         rng: &mut R,
         map: &mut MapData,
         players: PlayerNum,
@@ -244,17 +277,12 @@ impl MapType {
                 left_continent_width,
                 right_continent_width,
             } => {
-                let left_continent_rightmost =
-                    (map.dims().width as f64 * left_continent_width) as u16;
-                let right_continent_leftmost =
-                    (map.dims().width as f64 * (1.0 - right_continent_width)) as u16;
                 populate_transport_required_cities(
-                    rng,
                     map,
                     players,
                     city_namer,
-                    left_continent_rightmost,
-                    right_continent_leftmost,
+                    left_continent_rightmosts(*left_continent_width, map.dims()),
+                    right_continent_leftmosts(*right_continent_width, map.dims()),
                 );
                 populate_neutral_cities(rng, map, city_namer, true);
             }
@@ -266,7 +294,7 @@ impl MapType {
     }
 
     pub fn generate<N: Namer, R: RngCore>(
-        self,
+        &self,
         rng: &mut R,
         map_dims: Dims,
         players: PlayerNum,
