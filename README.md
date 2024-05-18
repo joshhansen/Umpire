@@ -5,8 +5,8 @@
 Welcome to Umpire, a military strategy game with modern sensibilities as well as
 a proper respect for the past. It supports Linux and Windows; macOS may also work.
 
-Umpire's gameplay is inspired by the classic game _Empire_ and its text-based
-user interface is influenced by that of _Dungeon Crawl Stone Soup_.
+Umpire's gameplay is inspired by the classic game [Empire: Wargame of the Century](https://en.wikipedia.org/wiki/Empire:_Wargame_of_the_Century)
+and its text-based user interface is influenced by that of [Dungeon Crawl Stone Soup](http://crawl.develz.org/).
 Umpire is implemented using the Rust programming language, both as an exercise
 in learning Rust, and in order to gain the benefits of speed, safety, and
 ergonomics relative to comparable languages that Rust offers.
@@ -15,7 +15,7 @@ ergonomics relative to comparable languages that Rust offers.
 
 Umpire can be installed from `crates.io` or from this repository. A working
 installation of Rust is prerequisite to running Umpire. Please refer to
-[the official Rust installation guide](https://www.rust-lang.org/en-US/install.html)
+[the official Rust installation guide](https://www.rust-lang.org/tools/install)
 for guidance.
 
 For systems with Rust and the Cargo package manager installed, the easiest way to
