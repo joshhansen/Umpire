@@ -120,7 +120,11 @@ async fn main() -> Result<(), String> {
                 .help("Wait for explicit confirmation of turn end."),
         )
         .arg(players_arg().required_unless_present("server"))
-        .arg(Arg::new("server").required_unless_present("players"))
+        .arg(
+            Arg::new("server")
+                .help("Server to connect to; game runs locally if omitted")
+                .required_unless_present("players"),
+        )
         .get_matches();
 
     // let ai_model_path = matches.value_of("ai_model");
