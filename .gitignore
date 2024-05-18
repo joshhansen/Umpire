@@ -1,4 +1,6 @@
 target/*
 .vscode/*
+ai/agz/**/*.agz/**/Loss.log
+ai/data
 profiling/perf/record
 venv/
