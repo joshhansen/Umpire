@@ -111,7 +111,7 @@ static SUBCMD_EVAL: &str = "eval";
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    let matches = cli::app("Umpire AI Trainer", "fvwHW")
+    let matches = cli::app("Umpire AI Trainer", "v")
     .version(conf::APP_VERSION)
     .author("Josh Hansen <umpire@joshhansen.tech>")
     .subcommand_required(true)
@@ -152,7 +152,7 @@ async fn main() -> Result<(), String> {
     // )
 
     .subcommand(
-        cli::app(SUBCMD_EVAL, "MS")
+        cli::app(SUBCMD_EVAL, "MSwHWf")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
             Arg::new("ai_models")
@@ -251,39 +251,9 @@ async fn main() -> Result<(), String> {
     // Arguments common across subcommands:
     let episodes = *matches.get_one::<usize>("episodes").unwrap();
     let fix_output_loc = *matches.get_one::<bool>("fix_output_loc").unwrap();
-    let fog_of_war = *matches.get_one::<bool>("fog").unwrap();
-
-    let map_heights: Vec<u16> = matches
-        .get_many::<u16>("map_height")
-        .unwrap()
-        .cloned()
-        .collect();
-    let map_widths: Vec<u16> = matches
-        .get_many::<u16>("map_width")
-        .unwrap()
-        .cloned()
-        .collect();
-
-    if map_heights.len() != map_widths.len() {
-        return Err(String::from(
-            "The same number of widths and heights must be specified",
-        ));
-    }
-
-    let dims: Vec<Dims> = map_heights
-        .into_iter()
-        .enumerate()
-        .map(|(i, h)| Dims::new(map_widths[i], h))
-        .collect();
 
     let steps = *matches.get_one::<u64>("steps").unwrap();
     let verbosity = matches.get_count("verbose");
-    let wrappings: Vec<Wrap2d> = matches
-        .get_many::<Wrap2d>("wrapping")
-        .unwrap()
-        .cloned()
-        .collect();
-
     let (subcommand, sub_matches) = matches.subcommand().unwrap();
 
     match subcommand {
@@ -300,14 +270,6 @@ async fn main() -> Result<(), String> {
         execute!(stdout, MoveTo(0, term_height - 7)).unwrap();
     }
 
-    println!(
-        "Dimensions: {}",
-        dims.iter()
-            .map(|dims| format!("{}", dims))
-            .collect::<Vec<String>>()
-            .join(", ")
-    );
-
     println!("Episodes: {}", episodes);
 
     println!("Steps: {}", steps);
@@ -315,11 +277,28 @@ async fn main() -> Result<(), String> {
     println!("Verbosity: {}", verbosity);
 
     if subcommand == SUBCMD_EVAL {
-        let map_types: Vec<MapType> = matches
+        let map_heights: Vec<u16> = sub_matches
+            .get_many::<u16>("map_height")
+            .unwrap()
+            .cloned()
+            .collect();
+        let map_widths: Vec<u16> = sub_matches
+            .get_many::<u16>("map_width")
+            .unwrap()
+            .cloned()
+            .collect();
+
+        let map_types: Vec<MapType> = sub_matches
             .get_many::<MapType>("map_type")
             .unwrap()
             .copied()
             .collect();
+        let wrappings: Vec<Wrap2d> = sub_matches
+            .get_many::<Wrap2d>("wrapping")
+            .unwrap()
+            .cloned()
+            .collect();
+        let fog_of_war = sub_matches.get_one::<bool>("fog").copied().unwrap();
 
         let ai_specs_s: Vec<String> = sub_matches
             .get_many::<String>("ai_models")
@@ -377,11 +356,11 @@ async fn main() -> Result<(), String> {
         for _ in 0..episodes {
             let city_namer = IntNamer::new("city");
 
-            let map_dims = dims.choose(&mut rng).copied().unwrap();
+            let map_width = map_widths.choose(&mut rng).copied().unwrap();
+            let map_height = map_heights.choose(&mut rng).copied().unwrap();
+            let map_dims = Dims::new(map_width, map_height);
             let map_type = map_types.choose(&mut rng).copied().unwrap();
-
-            let map_width = map_dims.width;
-            let map_height = map_dims.height;
+            let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
             let mut map = if fix_output_loc {
                 let mut map = Map::new(Rect::new(0, 2, map_width, map_height), map_dims, false);
@@ -390,8 +369,6 @@ async fn main() -> Result<(), String> {
             } else {
                 None
             };
-
-            let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
             let game_rng = init_rng(seed);
             let (game, secrets) = Game::new(
@@ -569,6 +546,10 @@ async fn main() -> Result<(), String> {
                     }
                     data
                 };
+
+                if verbosity > 0 {
+                    println!("\tLoaded {}", data.len());
+                }
 
                 for datum in data {
                     if rng.gen::<f64>() > sample_prob {
