@@ -35,8 +35,8 @@ pub trait StorableAsBytes {
     fn store_as_bytes(self) -> Result<Vec<u8>, String>;
 }
 
-pub trait LoadableFromBytes: Sized {
-    fn load_from_bytes<S: std::io::Read>(bytes: S) -> Result<Self, String>;
+pub trait LoadableFromBytes<B: Backend>: Sized {
+    fn load_from_bytes<S: std::io::Read>(bytes: S, device: B::Device) -> Result<Self, String>;
 }
 
 // Sub-modules
@@ -82,27 +82,16 @@ impl<B: Backend> From<AISpec> for AI<B> {
                 Self::load(Path::new(path.as_str()), device).unwrap()
             }
             AISpec::FromLevel(level) => {
-                // let lfa: LFA_ = match level {
-                //     1 => bincode::deserialize(include_bytes!(
-                //         "../../../ai/lfa/10x10_e100_s100000_a__scorefix__turnpenalty.ai"
-                //     ))
-                //     .unwrap(),
-                //     2 => bincode::deserialize(include_bytes!(
-                //         "../../../ai/lfa/20x20_e100_s100000_a__scorefix__turnpenalty.ai"
-                //     ))
-                //     .unwrap(),
-                //     3 => bincode::deserialize(include_bytes!(
-                //         "../../../ai/lfa/10-30_e100_s100000_a__scorefix__turnpenalty.ai"
-                //     ))
-                //     .unwrap(),
-                //     4 => bincode::deserialize(include_bytes!(
-                //         "../../../ai/lfa/10-40+full_e100_s100000_a.ai"
-                //     ))
-                //     .unwrap(),
-                //     level => unreachable!("Unsupported AI level: {}", level),
-                // };
-                // Self::LFA(lfa)
-                panic!()
+                let device: B::Device = Default::default();
+                let agz = match level {
+                    0 => {
+                        let bytes = include_bytes!("../../../ai/agz/15x15/0.agz.mpk");
+                        AgzActionModel::<B>::load_from_bytes(bytes.as_slice(), device).unwrap()
+                    }
+                    level => unreachable!("Unsupported AI level: {}", level),
+                };
+
+                Self::AGZ(MutexAsync::new(agz))
             }
         }
     }

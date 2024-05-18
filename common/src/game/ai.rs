@@ -185,7 +185,7 @@ impl TryFrom<String> for AISpec {
         }
 
         match value.as_str() {
-            "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => Ok(Self::FromLevel(
+            "0" => Ok(Self::FromLevel(
                 value.chars().next().unwrap().to_digit(10).unwrap() as usize,
             )),
             s => {

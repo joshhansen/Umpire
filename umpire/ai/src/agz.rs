@@ -9,7 +9,9 @@ use std::{fmt, path::Path};
 use async_trait::async_trait;
 
 use burn::nn::loss::{MseLoss, Reduction};
-use burn::record::{FullPrecisionSettings, NamedMpkFileRecorder};
+use burn::record::{
+    BinBytesRecorder, BinFileRecorder, FullPrecisionSettings, NamedMpkFileRecorder, Recorder,
+};
 use burn::tensor::activation::{relu, sigmoid};
 use burn::tensor::backend::AutodiffBackend;
 use burn::{
@@ -35,6 +37,7 @@ use common::game::{
 };
 use common::util::max_sample_idx;
 
+use crate::LoadableFromBytes;
 use crate::{data::AgzBatch, Loadable, Storable};
 
 struct BytesVisitor;
@@ -205,9 +208,26 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
     }
 }
 
+impl<B: Backend> LoadableFromBytes<B> for AgzActionModel<B> {
+    fn load_from_bytes<S: std::io::Read>(mut bytes: S, device: B::Device) -> Result<Self, String> {
+        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
+
+        let model: AgzActionModel<B> = config.init(device.clone());
+
+        let mut buf = Vec::new();
+        bytes.read_to_end(&mut buf).unwrap();
+
+        let record = BinBytesRecorder::<FullPrecisionSettings>::default()
+            .load(buf, &device)
+            .unwrap();
+
+        Ok(model.load_record(record))
+    }
+}
+
 impl<B: Backend> Storable for AgzActionModel<B> {
     fn store(self, path: &Path) -> Result<(), String> {
-        let recorder: NamedMpkFileRecorder<FullPrecisionSettings> = NamedMpkFileRecorder::new();
+        let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
         self.save_file(path, &recorder).map_err(|e| e.to_string())
     }
