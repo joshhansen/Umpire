@@ -127,33 +127,12 @@ async fn main() -> Result<(), String> {
     )
 
     .arg(
-        Arg::new("steps")
-        .short('s')
-        .long("steps")
-        .default_value("100000")
-        .help("The number of steps to execute in each episode")
-        .value_parser(value_parser!(u64))
-    )
-
-    .arg(
         Arg::new("fix_output_loc")
         .short('F')
         .long("fix")
         .help("Fix the location of output. Makes the output seem animated.")
         .action(ArgAction::SetTrue)
     )
-
-    // .subcommand(
-    //     SubCommand::new("datagen")
-    //     .about("Generate data for direct modeling of state-action values")
-    //     .arg(
-    //         Arg::new("out")
-    //         .help("Output path for CSV formatted data")
-    //         .multiple(false)
-    //         .required(true)
-    //     )
-    // )
-
     .subcommand(
         cli::app(SUBCMD_EVAL, "MSwHWf")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
@@ -183,8 +162,15 @@ async fn main() -> Result<(), String> {
             .help("Generate secrets from the random seed if any; only use for benchmarking/profiling")
             .action(ArgAction::SetTrue)
         )
+        .arg(
+            Arg::new("steps")
+            .short('s')
+            .long("steps")
+            .default_value("100000")
+            .help("The number of steps to execute in each episode")
+            .value_parser(value_parser!(usize))
+        )
     )
-
     .subcommand(
         cli::app(SUBCMD_AGZTRAIN, "D")
         .about(format!("Train an AlphaGo Zero-inspired neural network AI for the game of {}", conf::APP_NAME))
@@ -228,7 +214,7 @@ async fn main() -> Result<(), String> {
                 .long("batchsize")
                 .help("Size of training batches")
                 .value_parser(value_parser!(usize))
-                .default_value("512")
+                .default_value("2048")
         )
         .arg(
             Arg::new("gpu")
@@ -255,7 +241,6 @@ async fn main() -> Result<(), String> {
     let episodes = *matches.get_one::<usize>("episodes").unwrap();
     let fix_output_loc = *matches.get_one::<bool>("fix_output_loc").unwrap();
 
-    let steps = *matches.get_one::<u64>("steps").unwrap();
     let verbosity = matches.get_count("verbose");
     let (subcommand, sub_matches) = matches.subcommand().unwrap();
 
@@ -275,11 +260,12 @@ async fn main() -> Result<(), String> {
 
     println!("Episodes: {}", episodes);
 
-    println!("Steps: {}", steps);
-
     println!("Verbosity: {}", verbosity);
 
     if subcommand == SUBCMD_EVAL {
+        let steps: usize = matches.get_one("steps").copied().unwrap();
+        println!("Steps: {}", steps);
+
         let map_heights: Vec<u16> = sub_matches
             .get_many::<u16>("map_height")
             .unwrap()
@@ -411,7 +397,7 @@ async fn main() -> Result<(), String> {
                         break 'steps;
                     }
 
-                    let draw = s % 200 / 100 == player as u64;
+                    let draw = s % 200 / 100 == player;
 
                     let ai = ais.get_mut(player).unwrap();
 
@@ -495,7 +481,7 @@ async fn main() -> Result<(), String> {
 
         print_results(&victory_counts);
     } else if subcommand == SUBCMD_AGZTRAIN {
-        let batch_size = sub_matches.get_one::<usize>("batchsize").copied().unwrap();
+        let batch_size: usize = sub_matches.get_one("batchsize").copied().unwrap();
         let learning_rate = sub_matches
             .get_one::<f64>("dnn_learning_rate")
             .copied()
@@ -587,7 +573,7 @@ async fn main() -> Result<(), String> {
         // let adam_config = AdamConfig::new();
         let opt_config = SgdConfig::new();
 
-        let mut train_config = TrainingConfig::new(model_config, opt_config);
+        let mut train_config = TrainingConfig::new(model_config, opt_config, batch_size);
         train_config.batch_size = batch_size;
         train_config.learning_rate = learning_rate;
         train_config.num_epochs = episodes;
@@ -620,7 +606,6 @@ pub struct TrainingConfig {
     #[config(default = 10)]
     pub num_epochs: usize,
 
-    #[config(default = 256)]
     pub batch_size: usize,
 
     #[config(default = 4)]
