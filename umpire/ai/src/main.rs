@@ -23,7 +23,7 @@ use burn::{
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
     optim::SgdConfig,
     prelude::*,
-    record::{BinFileRecorder, CompactRecorder, FullPrecisionSettings},
+    record::{BinFileRecorder, FullPrecisionSettings},
     tensor::backend::AutodiffBackend,
 };
 use burn_autodiff::Autodiff;
@@ -37,6 +37,8 @@ use crossterm::{
     execute,
     terminal::{size, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
+
+use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 
 use umpire_ai::{
     agz::AgzActionModelConfig,
@@ -463,7 +465,8 @@ async fn main() -> Result<(), String> {
 
                 if generate_data {
                     // Write the training instances
-                    let mut w = data_outfile.as_mut().unwrap();
+                    let w = data_outfile.as_mut().unwrap();
+                    let mut w = GzEncoder::new(w, Compression::default());
 
                     for instance in player_partial_data
                         .into_values()
@@ -533,7 +536,8 @@ async fn main() -> Result<(), String> {
                 }
 
                 let data = {
-                    let mut r = File::open(input_path).unwrap();
+                    let r = File::open(input_path).unwrap();
+                    let mut r = GzDecoder::new(r);
 
                     let mut data: Vec<TrainingInstance> = Vec::new();
 

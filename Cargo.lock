@@ -4339,6 +4339,7 @@ dependencies = [
  "clap 4.2.1",
  "common",
  "crossterm 0.25.0",
+ "flate2",
  "futures",
  "num-traits",
  "rand 0.8.5",

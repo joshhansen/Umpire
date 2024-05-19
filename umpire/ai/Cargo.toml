@@ -26,4 +26,5 @@ burn = { version = "0.13", default-features = false, features = ["wgpu", "std", 
 burn-autodiff = "0.13"
 burn-train = "0.13"
 burn-wgpu = { workspace = true }
+flate2 = { workspace = true }
 num-traits = "0.2.18"
