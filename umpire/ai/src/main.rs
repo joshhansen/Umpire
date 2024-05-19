@@ -394,7 +394,10 @@ async fn main() -> Result<(), String> {
                 execute!(stdout, MoveTo(0, 0)).unwrap();
             }
 
-            println!("Evaluating: {:?} {:?} {}", ai_specs_s, wrapping, map_dims);
+            println!(
+                "Evaluating: {:?} {:?} {} {:?}",
+                ai_specs_s, wrapping, map_dims, map_types
+            );
 
             let mut player_partial_data: Option<BTreeMap<PlayerNum, Vec<TrainingInstance>>> =
                 datagenpath.map(|_| BTreeMap::new());
