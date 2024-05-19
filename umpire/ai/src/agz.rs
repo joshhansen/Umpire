@@ -14,7 +14,7 @@ use burn::tensor::activation::{relu, sigmoid};
 use burn::tensor::backend::AutodiffBackend;
 use burn::{
     module::Module,
-    nn::{conv::Conv2dConfig, LinearConfig},
+    nn::{conv::Conv2dConfig, BatchNorm, BatchNormConfig, LinearConfig},
     prelude::*,
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
@@ -60,10 +60,13 @@ pub struct AgzActionModelConfig {
     pub dropout_prob: f64,
 
     pub possible_actions: usize,
+
+    pub bnconf: BatchNormConfig,
 }
 
 impl AgzActionModelConfig {
     pub fn init<B: Backend>(&self, device: B::Device) -> AgzActionModel<B> {
+        let bn = self.bnconf.init(&device);
         let convs = vec![
             Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 15x15
             Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 13x13
@@ -80,7 +83,7 @@ impl AgzActionModelConfig {
             LinearConfig::new(32, self.possible_actions).init(&device),
         ];
 
-        AgzActionModel { convs, dense }
+        AgzActionModel { bn, convs, dense }
     }
 }
 
@@ -93,6 +96,7 @@ impl AgzActionModelConfig {
 /// See `Obs::features` and `Game::player_features` for more information
 #[derive(Debug, Module)]
 pub struct AgzActionModel<B: Backend> {
+    bn: BatchNorm<B, 2>,
     convs: Vec<nn::conv::Conv2d<B>>,
     dense: Vec<nn::Linear<B>>,
 }
@@ -196,7 +200,8 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
 
         let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
-        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
+        let bnconf = BatchNormConfig::new(FEATS_LEN);
+        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, bnconf);
 
         let model: AgzActionModel<B> = config.init(device.clone());
 
@@ -208,7 +213,8 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
 
 impl<B: Backend> LoadableFromBytes<B> for AgzActionModel<B> {
     fn load_from_bytes<S: std::io::Read>(mut bytes: S, device: B::Device) -> Result<Self, String> {
-        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
+        let bnconf = BatchNormConfig::new(FEATS_LEN);
+        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, bnconf);
 
         let model: AgzActionModel<B> = config.init(device.clone());
 

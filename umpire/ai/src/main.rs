@@ -21,6 +21,7 @@ use std::{
 use burn::{
     backend::wgpu::WgpuDevice,
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
+    nn::BatchNormConfig,
     optim::SgdConfig,
     prelude::*,
     record::{BinFileRecorder, FullPrecisionSettings},
@@ -48,7 +49,7 @@ use umpire_ai::{
 
 use common::{
     game::{
-        ai::{fX, POSSIBLE_ACTIONS},
+        ai::{fX, FEATS_LEN, POSSIBLE_ACTIONS},
         map::gen::MapType,
     },
     util::{densify, init_rng},
@@ -494,111 +495,110 @@ async fn main() -> Result<(), String> {
 
         print_results(&victory_counts);
     } else if subcommand == SUBCMD_AGZTRAIN {
-        let batch_size = sub_matches.get_one::<usize>("batchsize").cloned().unwrap();
-        let learning_rate = *sub_matches.get_one::<f64>("dnn_learning_rate").unwrap();
-        let gpu = sub_matches.get_one::<usize>("gpu").cloned().unwrap();
+        let batch_size = sub_matches.get_one::<usize>("batchsize").copied().unwrap();
+        let learning_rate = sub_matches
+            .get_one::<f64>("dnn_learning_rate")
+            .copied()
+            .unwrap();
+        let gpu = sub_matches.get_one::<usize>("gpu").copied().unwrap();
 
+        println!("Batch size: {}", batch_size);
         println!("Learning rate: {}", learning_rate);
+        println!("GPU: {}", gpu);
 
-        {
-            let input_paths: Vec<String> = sub_matches
-                .get_many::<String>("input")
-                .unwrap()
-                .cloned()
-                .collect();
+        let input_paths: Vec<String> = sub_matches.get_many("input").unwrap().cloned().collect();
 
-            let output_path = sub_matches.get_one::<String>("out").unwrap().clone();
-            let output_path = Path::new(&output_path).to_owned();
+        let output_path: String = sub_matches.get_one("out").cloned().unwrap();
+        let output_path = Path::new(&output_path).to_owned();
 
-            let device = WgpuDevice::DiscreteGpu(gpu);
+        let device = WgpuDevice::DiscreteGpu(gpu);
 
-            let sample_prob: f64 = sub_matches.get_one("sampleprob").copied().unwrap();
+        let bnconf = BatchNormConfig::new(FEATS_LEN);
+        let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, bnconf);
 
-            let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
+        let sample_prob: f64 = sub_matches.get_one("sampleprob").copied().unwrap();
+        let test_prob: f64 = sub_matches.get_one("testprob").copied().unwrap();
 
-            let test_prob: f64 = sub_matches.get_one("testprob").cloned().unwrap();
+        println!("Sample prob: {}", sample_prob);
+        println!("Test prob: {}", test_prob);
 
-            println!("Test portion: {}", test_prob);
+        let mut train_data: Vec<AgzDatum> = Vec::new();
+        let mut valid_data: Vec<AgzDatum> = Vec::new();
 
-            let mut train_data: Vec<AgzDatum> = Vec::new();
-
-            let mut valid_data: Vec<AgzDatum> = Vec::new();
-
-            let seed = sub_matches.get_one::<u64>("random_seed").cloned();
-            if let Some(seed) = seed.as_ref() {
-                println!("Random seed: {:?}", seed);
-            }
-            let mut rng = init_rng(seed);
-
-            for input_path in input_paths {
-                if verbosity > 0 {
-                    println!("Loading {}", input_path);
-                }
-
-                let data = {
-                    let r = File::open(input_path).unwrap();
-                    let mut r = GzDecoder::new(r);
-
-                    let mut data: Vec<TrainingInstance> = Vec::new();
-
-                    loop {
-                        let maybe_instance: bincode::Result<TrainingInstance> =
-                            bincode::deserialize_from(&mut r);
-
-                        if let Ok(instance) = maybe_instance {
-                            data.push(instance);
-                        } else {
-                            break;
-                        }
-                    }
-                    data
-                };
-
-                if verbosity > 0 {
-                    println!("\tLoaded {}", data.len());
-                }
-
-                for datum in data {
-                    if rng.gen_bool(sample_prob) {
-                        let features: Vec<fX> = densify(datum.num_features, &datum.features);
-
-                        let datum = AgzDatum {
-                            features,
-                            action: datum.action.into(),
-                            outcome: datum.outcome.unwrap(),
-                        };
-
-                        if rng.gen_bool(test_prob) {
-                            valid_data.push(datum);
-                        } else {
-                            train_data.push(datum);
-                        }
-                    }
-                }
-            }
-
-            let train_data: AgzData = AgzData::new(train_data);
-            let valid_data: AgzData = AgzData::new(valid_data);
-
-            println!("Train size: {}", train_data.len());
-            println!("Valid size: {}", valid_data.len());
-
-            // let adam_config = AdamConfig::new();
-            let opt_config = SgdConfig::new();
-
-            let mut train_config = TrainingConfig::new(model_config, opt_config);
-            train_config.batch_size = batch_size;
-            train_config.learning_rate = learning_rate;
-            train_config.num_epochs = episodes;
-
-            train::<Autodiff<Wgpu>, PathBuf>(
-                &output_path,
-                train_config,
-                device,
-                train_data,
-                valid_data,
-            );
+        let seed = sub_matches.get_one::<u64>("random_seed").cloned();
+        if let Some(seed) = seed.as_ref() {
+            println!("Random seed: {:?}", seed);
         }
+        let mut rng = init_rng(seed);
+
+        for input_path in input_paths {
+            if verbosity > 0 {
+                println!("Loading {}", input_path);
+            }
+
+            let data = {
+                let r = File::open(input_path).unwrap();
+                let mut r = GzDecoder::new(r);
+
+                let mut data: Vec<TrainingInstance> = Vec::new();
+
+                loop {
+                    let maybe_instance: bincode::Result<TrainingInstance> =
+                        bincode::deserialize_from(&mut r);
+
+                    if let Ok(instance) = maybe_instance {
+                        data.push(instance);
+                    } else {
+                        break;
+                    }
+                }
+                data
+            };
+
+            if verbosity > 0 {
+                println!("\tLoaded {}", data.len());
+            }
+
+            for datum in data {
+                if rng.gen_bool(sample_prob) {
+                    let features: Vec<fX> = densify(datum.num_features, &datum.features);
+
+                    let datum = AgzDatum {
+                        features,
+                        action: datum.action.into(),
+                        outcome: datum.outcome.unwrap(),
+                    };
+
+                    if rng.gen_bool(test_prob) {
+                        valid_data.push(datum);
+                    } else {
+                        train_data.push(datum);
+                    }
+                }
+            }
+        }
+
+        let train_data: AgzData = AgzData::new(train_data);
+        let valid_data: AgzData = AgzData::new(valid_data);
+
+        println!("Train size: {}", train_data.len());
+        println!("Valid size: {}", valid_data.len());
+
+        // let adam_config = AdamConfig::new();
+        let opt_config = SgdConfig::new();
+
+        let mut train_config = TrainingConfig::new(model_config, opt_config);
+        train_config.batch_size = batch_size;
+        train_config.learning_rate = learning_rate;
+        train_config.num_epochs = episodes;
+
+        train::<Autodiff<Wgpu>, PathBuf>(
+            &output_path,
+            train_config,
+            device,
+            train_data,
+            valid_data,
+        );
     } else {
         return Err(String::from("A subcommand must be given"));
     }
