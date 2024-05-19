@@ -85,7 +85,7 @@ impl<B: Backend> From<AISpec> for AI<B> {
                 let device: B::Device = Default::default();
                 let agz = match level {
                     0 => {
-                        let bytes = include_bytes!("../../../ai/agz/15x15/0.agz.mpk");
+                        let bytes = include_bytes!("../../../ai/agz/15x15/0.agz.bin");
                         AgzActionModel::<B>::load_from_bytes(bytes.as_slice(), device).unwrap()
                     }
                     level => unreachable!("Unsupported AI level: {}", level),
