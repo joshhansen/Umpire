@@ -23,7 +23,7 @@ use burn::{
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
     optim::SgdConfig,
     prelude::*,
-    record::CompactRecorder,
+    record::{BinFileRecorder, CompactRecorder, FullPrecisionSettings},
     tensor::backend::AutodiffBackend,
 };
 use burn_autodiff::Autodiff;
@@ -672,7 +672,7 @@ pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
     let learner = LearnerBuilder::new(artifact_dir_s)
         .metric_train_numeric(LossMetric::new())
         .metric_valid_numeric(LossMetric::new())
-        .with_file_checkpointer(CompactRecorder::new())
+        .with_file_checkpointer(BinFileRecorder::<FullPrecisionSettings>::new())
         .devices(vec![device.clone()])
         .num_epochs(config.num_epochs)
         .summary()
