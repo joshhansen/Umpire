@@ -506,7 +506,7 @@ async fn main() -> Result<(), String> {
 
             let device = WgpuDevice::DiscreteGpu(gpu);
 
-            let sample_prob: f64 = sub_matches.get_one("sampleprob").cloned().unwrap();
+            let sample_prob: f64 = sub_matches.get_one("sampleprob").copied().unwrap();
 
             let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
 
