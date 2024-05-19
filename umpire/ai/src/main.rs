@@ -552,7 +552,7 @@ async fn main() -> Result<(), String> {
                 }
 
                 for datum in data {
-                    if rng.gen::<f64>() > sample_prob {
+                    if rng.gen_bool(sample_prob) {
                         let features: Vec<fX> = densify(datum.num_features, &datum.features);
 
                         let datum = AgzDatum {
@@ -561,7 +561,7 @@ async fn main() -> Result<(), String> {
                             outcome: datum.outcome.unwrap(),
                         };
 
-                        if rng.gen::<f64>() <= test_prob {
+                        if rng.gen_bool(test_prob) {
                             valid_data.push(datum);
                         } else {
                             train_data.push(datum);
