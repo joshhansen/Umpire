@@ -2,6 +2,8 @@
 //! Map generation
 //!
 
+use std::fmt;
+
 use rand::{distributions::Distribution, Rng, RngCore};
 
 use crate::{
@@ -307,6 +309,25 @@ impl MapType {
         self.initialize_cities(rng, &mut map, players, city_namer);
 
         map
+    }
+}
+
+impl fmt::Debug for MapType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        <Self as fmt::Display>::fmt(self, f)
+    }
+}
+
+impl fmt::Display for MapType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Continents => write!(f, "c"),
+            Self::TransportRequired {
+                left_continent_width,
+                right_continent_width,
+            } => write!(f, "t({},{})", left_continent_width, right_continent_width),
+            Self::RandomTerrain { land_prob } => write!(f, "r({})", land_prob),
+        }
     }
 }
 
