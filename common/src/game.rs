@@ -2467,13 +2467,11 @@ impl Game {
         let unit_id = self.player_unit_orders_requests(player_secret)?.next();
         let city_loc = self.player_production_set_requests(player_secret)?.next();
 
-        let unit_type = if let Some(unit_id) = unit_id {
+        let unit_type = unit_id.and_then(|unit_id| {
             self.player_unit_by_id(player_secret, unit_id)
                 .map(|maybe_unit| maybe_unit.map(|unit| unit.type_))
                 .unwrap()
-        } else {
-            None
-        };
+        });
 
         // We also add a context around the currently active unit (if any)
         let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN);
@@ -2491,7 +2489,7 @@ impl Game {
         let observations = self.player_observations(player_secret).unwrap();
 
         // - number of tiles observed
-        let num_observed: fX = observations.num_observed() as fX;
+        let num_observed = observations.num_observed() as fX;
         x.push(num_observed);
 
         // - percentage of tiles observed

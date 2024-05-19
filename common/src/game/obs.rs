@@ -56,64 +56,66 @@ impl Obs {
     /// - carried_units - count
     /// - city/unit friendly - 1 bit
     /// - city/unit non-friendly - 1 bit (separate to allow unobserved to be neither friendly nor unfriendly)
-    pub fn features(&self, player: PlayerNum) -> Vec<fX> {
-        let mut x = Vec::with_capacity(BASE_CONV_FEATS);
-
-        // 0: known to be land (0 or 1)
-        x.push(match self {
-            Self::Observed { ref tile, .. } => b(tile.terrain == Terrain::Land),
-            Self::Unobserved => 0.0,
-        });
-
-        // 1: known to be sea (0 or 1)
-        x.push(match self {
-            Self::Observed { ref tile, .. } => b(tile.terrain == Terrain::Water),
-            Self::Unobserved => 0.0,
-        });
-
-        // 2: known to have city (0 or 1)
-        x.push(match self {
-            Self::Observed { ref tile, .. } => b(tile.city.is_some()),
-            Self::Unobserved => 0.0,
-        });
-
-        // 3-12: known to have unit of type - 10 bits (one hot encoded)
-        x.extend(match self {
-            Self::Observed { ref tile, .. } => tile
+    pub fn features(&self, player: PlayerNum) -> [fX; BASE_CONV_FEATS] {
+        let none = UnitType::none_features();
+        let unit_type_feats = match self {
+            Self::Observed { tile, .. } => tile
                 .unit
                 .as_ref()
-                .map_or(UnitType::none_features(), |unit| unit.type_.features()),
-            Self::Unobserved => UnitType::none_features(),
-        });
+                .map_or(none, |unit| unit.type_.features()),
+            Self::Unobserved => none,
+        };
 
-        // 13:  carried_units - count
-        x.push(match self {
-            Self::Observed { ref tile, .. } => tile
-                .unit
-                .as_ref()
-                .map_or(0.0, |unit| unit.carried_units().count() as fX),
-            Self::Unobserved => 0.0,
-        });
-
-        // 14: city/unit friendly - 1 bit
-        x.push(match self {
-            Self::Observed { ref tile, .. } => tile
-                .alignment_maybe()
-                .map_or(0.0, |alignment| b(alignment.is_friendly_to_player(player))),
-            Self::Unobserved => 0.0,
-        });
-
-        // 15: city/unit non-friendly - 1 bit
-        x.push(match self {
-            Self::Observed { ref tile, .. } => tile
-                .alignment_maybe()
-                .map_or(0.0, |alignment| b(alignment.is_enemy_of_player(player))),
-            Self::Unobserved => 0.0,
-        });
-
-        debug_assert_eq!(x.len(), BASE_CONV_FEATS);
-
-        x
+        [
+            // 0: known to be land (0 or 1)
+            match self {
+                Self::Observed { ref tile, .. } => b(tile.terrain == Terrain::Land),
+                Self::Unobserved => 0.0,
+            },
+            // 1: known to be sea (0 or 1)
+            match self {
+                Self::Observed { ref tile, .. } => b(tile.terrain == Terrain::Water),
+                Self::Unobserved => 0.0,
+            },
+            // 2: known to have city (0 or 1)
+            match self {
+                Self::Observed { ref tile, .. } => b(tile.city.is_some()),
+                Self::Unobserved => 0.0,
+            },
+            // 3-12: known to have unit of type - 10 bits (one hot encoded)
+            unit_type_feats[0],
+            unit_type_feats[1],
+            unit_type_feats[2],
+            unit_type_feats[3],
+            unit_type_feats[4],
+            unit_type_feats[5],
+            unit_type_feats[6],
+            unit_type_feats[7],
+            unit_type_feats[8],
+            unit_type_feats[9],
+            // 13:  carried_units - count
+            match self {
+                Self::Observed { ref tile, .. } => tile
+                    .unit
+                    .as_ref()
+                    .map_or(0.0, |unit| unit.carried_units().count() as fX),
+                Self::Unobserved => 0.0,
+            },
+            // 14: city/unit friendly - 1 bit
+            match self {
+                Self::Observed { ref tile, .. } => tile
+                    .alignment_maybe()
+                    .map_or(0.0, |alignment| b(alignment.is_friendly_to_player(player))),
+                Self::Unobserved => 0.0,
+            },
+            // 15: city/unit non-friendly - 1 bit
+            match self {
+                Self::Observed { ref tile, .. } => tile
+                    .alignment_maybe()
+                    .map_or(0.0, |alignment| b(alignment.is_enemy_of_player(player))),
+                Self::Unobserved => 0.0,
+            },
+        ]
     }
 }
 

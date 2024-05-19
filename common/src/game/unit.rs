@@ -17,7 +17,7 @@ use crate::{
         GameError,
     },
     name::Named,
-    util::{indicator as b, Located, Location},
+    util::{Located, Location},
 };
 
 use self::orders::Orders;
@@ -343,13 +343,19 @@ impl UnitType {
     }
 
     /// One-hot feature encoding of this unit type
-    pub fn features(self) -> Vec<fX> {
-        UnitType::values().iter().map(|ut| b(self == *ut)).collect()
+    pub fn features(self) -> [fX; POSSIBLE_UNIT_TYPES] {
+        let mut feats = [0.0; POSSIBLE_UNIT_TYPES];
+        let idx = UnitType::values()
+            .into_iter()
+            .position(|ut| self == ut)
+            .unwrap();
+        feats[idx] = 1.0;
+        feats
     }
 
     /// Zeros of the same length as the output of `features`
-    pub fn none_features() -> Vec<fX> {
-        vec![0.0; UnitType::values().len()]
+    pub fn none_features() -> [fX; POSSIBLE_UNIT_TYPES] {
+        [0.0; POSSIBLE_UNIT_TYPES]
     }
 }
 
