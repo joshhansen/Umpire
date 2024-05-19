@@ -9,9 +9,7 @@ use std::{fmt, path::Path};
 use async_trait::async_trait;
 
 use burn::nn::loss::{MseLoss, Reduction};
-use burn::record::{
-    BinBytesRecorder, BinFileRecorder, FullPrecisionSettings, NamedMpkFileRecorder, Recorder,
-};
+use burn::record::{BinBytesRecorder, BinFileRecorder, FullPrecisionSettings, Recorder};
 use burn::tensor::activation::{relu, sigmoid};
 use burn::tensor::backend::AutodiffBackend;
 use burn::{
@@ -196,7 +194,7 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
             ));
         }
 
-        let recorder: NamedMpkFileRecorder<FullPrecisionSettings> = NamedMpkFileRecorder::new();
+        let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
         let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS);
 
