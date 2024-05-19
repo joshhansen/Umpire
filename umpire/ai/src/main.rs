@@ -620,7 +620,7 @@ pub struct TrainingConfig {
     pub batch_size: usize,
 
     #[config(default = 4)]
-    pub num_workers: usize,
+    pub dataload_threads: usize,
 
     #[config(default = 42)]
     pub seed: u64,
@@ -663,13 +663,13 @@ pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
     let dataloader_train = DataLoaderBuilder::new(batcher_train)
         .batch_size(config.batch_size)
         .shuffle(config.seed)
-        .num_workers(config.num_workers)
+        .num_workers(config.dataload_threads)
         .build(train);
 
     let dataloader_valid = DataLoaderBuilder::new(batcher_valid)
         .batch_size(config.batch_size)
         .shuffle(config.seed)
-        .num_workers(config.num_workers)
+        .num_workers(config.dataload_threads)
         .build(valid);
 
     let learner = LearnerBuilder::new(artifact_dir_s)
