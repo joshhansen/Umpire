@@ -37,8 +37,10 @@ pub const BASE_CONV_FEATS: usize = 16;
 
 pub const DEEP_LEN: usize = DEEP_TILES * BASE_CONV_FEATS;
 
-/// Total length of convolution output after reducing to 3x3
-pub const DEEP_OUT_LEN: usize = 9 * BASE_CONV_FEATS;
+pub const PER_ACTION_CHANNELS: usize = 8;
+
+/// Total length of convolution output after reducing to 1x1
+pub const DEEP_OUT_LEN: usize = POSSIBLE_ACTIONS * PER_ACTION_CHANNELS;
 
 /// Total length of the feature vectors that are input to the dnn
 pub const FEATS_LEN: usize = WIDE_LEN + DEEP_LEN;

@@ -19,7 +19,9 @@ use burn::{
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
-use common::game::ai::{POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS};
+use common::game::ai::{
+    PER_ACTION_CHANNELS, POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS,
+};
 use num_traits::ToPrimitive;
 
 use serde::de::{self, Visitor};
@@ -67,20 +69,23 @@ pub struct AgzActionModelConfig {
 impl AgzActionModelConfig {
     pub fn init<B: Backend>(&self, device: B::Device) -> AgzActionModel<B> {
         let bn = self.bnconf.init(&device);
+
+        let channels = self.possible_actions * PER_ACTION_CHANNELS;
+
         let convs = vec![
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 15x15
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 13x13
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 11x11
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 9x9
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 7x7
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 5x5
-            Conv2dConfig::new([BASE_CONV_FEATS, BASE_CONV_FEATS], [3, 3]).init(&device), // -> 3x3
+            Conv2dConfig::new([BASE_CONV_FEATS, channels], [3, 3]).init(&device), // -> 13x13
+            Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 11x11
+            Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 9x9
+            Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 7x7
+            Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 5x5
+            Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 3x3
+            Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 1x1
         ];
         let dense = vec![
-            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 128).init(&device),
-            LinearConfig::new(128, 64).init(&device),
-            LinearConfig::new(64, 32).init(&device),
-            LinearConfig::new(32, self.possible_actions).init(&device),
+            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, self.possible_actions * 8).init(&device),
+            LinearConfig::new(self.possible_actions * 8, self.possible_actions * 4).init(&device),
+            LinearConfig::new(self.possible_actions * 4, self.possible_actions * 2).init(&device),
+            LinearConfig::new(self.possible_actions * 2, self.possible_actions).init(&device),
         ];
 
         AgzActionModel { bn, convs, dense }
