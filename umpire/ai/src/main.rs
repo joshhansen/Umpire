@@ -172,7 +172,7 @@ async fn main() -> Result<(), String> {
         )
     )
     .subcommand(
-        cli::app(SUBCMD_AGZTRAIN, "D")
+        cli::app(SUBCMD_AGZTRAIN, "DS")
         .about(format!("Train an AlphaGo Zero-inspired neural network AI for the game of {}", conf::APP_NAME))
         .arg_required_else_help(true)
         // .arg(
