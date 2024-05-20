@@ -5,7 +5,9 @@ PROCS=$2
 DEST=$3
 shift; shift; shift;
 
-PROFILE="debug"
+echo "Passing args: $@"
+
+PROFILE="release"
 
 PERPROC=`expr $GAMES / $PROCS`
 
@@ -18,6 +20,8 @@ set -x
 
 mkdir -p $DEST
 
+cargo build --profile=$PROFILE -p umpire-ai
+
 # ./ai/agz/15x15/0.agz.mpk ./ai/agz/15x15/0.agz.mpk 
 # -W 10 -W 20 -W 30 -W 40 -H 10 -H 20 -H 30 -H 40
-seq $PROCS | parallel -j $PROCS --lb -n0 cargo run -p umpire-ai -- -v -e $PERPROC -s 4000 -W 90 -H 45 eval -p 0.0001 rr
+seq $PROCS | parallel -j $PROCS --lb ./target/$PROFILE/umpire-ai -v -e $PERPROC -s 1000 eval -w v -w h -w v -w n -M c -M t -M r -W 10 -W 20 -W 30 -W 40 -H 10 -H 20 -H 30 -H 40 -p 0.001 -P $DEST/{}.data $@ rr
