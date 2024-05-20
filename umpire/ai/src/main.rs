@@ -511,7 +511,7 @@ async fn main() -> Result<(), String> {
         let mut train_data: Vec<AgzDatum> = Vec::new();
         let mut valid_data: Vec<AgzDatum> = Vec::new();
 
-        let seed = sub_matches.get_one::<u64>("random_seed").cloned();
+        let seed = sub_matches.get_one::<u64>("random_seed").copied();
         if let Some(seed) = seed.as_ref() {
             println!("Random seed: {:?}", seed);
         }
