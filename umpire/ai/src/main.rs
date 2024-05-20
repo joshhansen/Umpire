@@ -263,7 +263,7 @@ async fn main() -> Result<(), String> {
     println!("Verbosity: {}", verbosity);
 
     if subcommand == SUBCMD_EVAL {
-        let steps: usize = matches.get_one("steps").copied().unwrap();
+        let steps: usize = sub_matches.get_one("steps").copied().unwrap();
         println!("Steps: {}", steps);
 
         let map_heights: Vec<u16> = sub_matches
