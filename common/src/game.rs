@@ -33,7 +33,10 @@ use uuid::Uuid;
 
 use crate::{
     game::{
-        ai::{DEEP_HEIGHT_REL_MAX, DEEP_HEIGHT_REL_MIN, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN},
+        ai::{
+            BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_HEIGHT_REL_MAX, DEEP_HEIGHT_REL_MIN, DEEP_IN_LEN,
+            DEEP_OUT_LEN, DEEP_WIDTH, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN, WIDE_LEN,
+        },
         city::{City, CityID},
         combat::CombatCapable,
         error::GameError,
@@ -2549,9 +2552,15 @@ impl Game {
 
         let player = self.player_with_secret(player_secret)?;
 
+        // Init 0's for deep features
+        let mut x2d = [0.0; DEEP_IN_LEN];
+
         // 2d features
         for inc_x in DEEP_WIDTH_REL_MIN..=DEEP_WIDTH_REL_MAX {
+            let x_idx = (inc_x - DEEP_WIDTH_REL_MIN) as usize;
             for inc_y in DEEP_HEIGHT_REL_MIN..=DEEP_HEIGHT_REL_MAX {
+                let y_idx = (inc_y - DEEP_HEIGHT_REL_MIN) as usize;
+
                 let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
                 let obs = if let Some(origin) = loc {
@@ -2562,9 +2571,33 @@ impl Game {
                     &Obs::Unobserved
                 };
 
-                x.extend(obs.features(player));
+                let channels = obs.features(player);
+
+                // Reorder channels to be the first dim, then height, then width.
+                // Burn's Conv2d expects this format.
+                //
+                //    x,y,c  -> c,y,x
+                //    W,H,C  -> C,H,W
+                //
+                //  0           0,0,0
+                //  1           0,0,1
+                //  2           0,0,2
+                //  3           0,1,0
+                //  4           0,1,1
+                //  5           0,1,2
+                //  6           1,0,0
+                //  7           1,0,1
+                //  8           1,0,2
+                //  9           1,1,0
+                // 10           1,1,1
+                // 11           1,1,2
+                for c in 0..BASE_CONV_FEATS {
+                    x2d[c * DEEP_HEIGHT * DEEP_WIDTH + y_idx * DEEP_HEIGHT + x_idx] = channels[c];
+                }
             }
         }
+
+        x.extend(x2d);
 
         debug_assert_eq!(x.len(), FEATS_LEN);
 
