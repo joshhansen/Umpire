@@ -35,7 +35,7 @@ use crate::{
     game::{
         ai::{
             BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_HEIGHT_REL_MAX, DEEP_HEIGHT_REL_MIN, DEEP_IN_LEN,
-            DEEP_OUT_LEN, DEEP_WIDTH, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN, WIDE_LEN,
+            DEEP_WIDTH, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN,
         },
         city::{City, CityID},
         combat::CombatCapable,
