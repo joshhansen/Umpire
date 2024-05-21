@@ -79,14 +79,17 @@ impl AgzActionModelConfig {
             Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 7x7
             Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 5x5
             Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 3x3
-            Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 1x1
         ];
-        let dense = vec![
-            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, self.possible_actions * 8).init(&device),
-            LinearConfig::new(self.possible_actions * 8, self.possible_actions * 4).init(&device),
-            LinearConfig::new(self.possible_actions * 4, self.possible_actions * 2).init(&device),
-            LinearConfig::new(self.possible_actions * 2, self.possible_actions).init(&device),
-        ];
+
+        let dense = (0..POSSIBLE_ACTIONS)
+            .map(|_| {
+                vec![
+                    LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 32).init(&device),
+                    LinearConfig::new(32, 16).init(&device),
+                    LinearConfig::new(16, 1).init(&device),
+                ]
+            })
+            .collect();
 
         AgzActionModel { bn, convs, dense }
     }
@@ -103,7 +106,7 @@ impl AgzActionModelConfig {
 pub struct AgzActionModel<B: Backend> {
     bn: BatchNorm<B, 2>,
     convs: Vec<nn::conv::Conv2d<B>>,
-    dense: Vec<nn::Linear<B>>,
+    dense: Vec<Vec<nn::Linear<B>>>,
 }
 impl<B: Backend> AgzActionModel<B> {
     async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<fX> {
@@ -125,9 +128,12 @@ impl<B: Backend> AgzActionModel<B> {
         let mut deep = features.slice([0..batches, WIDE_LEN..FEATS_LEN]).reshape([
             batches as i32,
             BASE_CONV_FEATS as i32,
-            DEEP_WIDTH as i32,
             DEEP_HEIGHT as i32,
+            DEEP_WIDTH as i32,
         ]);
+
+        // Batch norm
+        // deep = self.bn.forward(deep);
 
         for conv in &self.convs {
             deep = relu(conv.forward(deep));
@@ -139,13 +145,24 @@ impl<B: Backend> AgzActionModel<B> {
 
         // [batch,feat]
         let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 1);
-        let mut out = wide_and_deep;
 
-        for dense in self.dense.iter().take(self.dense.len() - 1) {
-            out = relu(dense.forward(out));
-        }
+        let out: Vec<Tensor<B, 2>> = (0..POSSIBLE_ACTIONS)
+            .map(|action_idx| {
+                let mut out = wide_and_deep.clone();
+                for (i, dense) in self.dense[action_idx].iter().enumerate() {
+                    out = dense.forward(out);
+                    // Only relu non-finally
+                    if i < self.dense[action_idx].len() - 1 {
+                        out = relu(out);
+                    }
+                }
+                out
+            })
+            .collect();
 
-        sigmoid(self.dense.last().unwrap().forward(out))
+        let action_probs = Tensor::cat(out, 1);
+
+        sigmoid(action_probs)
     }
 
     fn forward_by_action(

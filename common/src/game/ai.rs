@@ -27,6 +27,10 @@ pub const DEEP_WIDTH: usize = 15;
 pub const DEEP_HEIGHT: usize = 15;
 pub const DEEP_TILES: usize = DEEP_WIDTH * DEEP_HEIGHT;
 
+pub const DEEP_OUT_WIDTH: usize = 3;
+pub const DEEP_OUT_HEIGHT: usize = 3;
+pub const DEEP_OUT_TILES: usize = DEEP_OUT_WIDTH * DEEP_OUT_HEIGHT;
+
 pub const DEEP_WIDTH_REL_MIN: i32 = DEEP_WIDTH as i32 / -2;
 pub const DEEP_WIDTH_REL_MAX: i32 = DEEP_WIDTH as i32 / 2;
 pub const DEEP_HEIGHT_REL_MIN: i32 = DEEP_HEIGHT as i32 / -2;
@@ -35,15 +39,15 @@ pub const DEEP_HEIGHT_REL_MAX: i32 = DEEP_HEIGHT as i32 / 2;
 /// Number of "channels" in convolution output
 pub const BASE_CONV_FEATS: usize = 16;
 
-pub const DEEP_LEN: usize = DEEP_TILES * BASE_CONV_FEATS;
+pub const DEEP_IN_LEN: usize = DEEP_TILES * BASE_CONV_FEATS;
 
-pub const PER_ACTION_CHANNELS: usize = 8;
+pub const PER_ACTION_CHANNELS: usize = 1;
 
-/// Total length of convolution output after reducing to 1x1
-pub const DEEP_OUT_LEN: usize = POSSIBLE_ACTIONS * PER_ACTION_CHANNELS;
+/// Total length of convolution output after reducing
+pub const DEEP_OUT_LEN: usize = DEEP_OUT_TILES * POSSIBLE_ACTIONS * PER_ACTION_CHANNELS;
 
 /// Total length of the feature vectors that are input to the dnn
-pub const FEATS_LEN: usize = WIDE_LEN + DEEP_LEN;
+pub const FEATS_LEN: usize = WIDE_LEN + DEEP_IN_LEN;
 
 /// We customize the feature vector depending on if we're training a model for city actions or unit actions
 /// This just lets us specify which.
@@ -56,7 +60,7 @@ pub enum TrainingFocus {
     UnitIfExistsElseCity,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TrainingOutcome {
     Victory,
     Defeat,

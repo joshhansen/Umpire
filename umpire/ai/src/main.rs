@@ -49,7 +49,7 @@ use umpire_ai::{
 
 use common::{
     game::{
-        ai::{fX, FEATS_LEN, POSSIBLE_ACTIONS},
+        ai::{fX, TrainingOutcome, FEATS_LEN, POSSIBLE_ACTIONS},
         map::gen::MapType,
     },
     util::{densify, init_rng},
@@ -511,6 +511,8 @@ async fn main() -> Result<(), String> {
         let mut train_data: Vec<AgzDatum> = Vec::new();
         let mut valid_data: Vec<AgzDatum> = Vec::new();
 
+        let mut class_balance: BTreeMap<TrainingOutcome, usize> = BTreeMap::new();
+
         let seed = sub_matches.get_one::<u64>("random_seed").copied();
         if let Some(seed) = seed.as_ref() {
             println!("Random seed: {:?}", seed);
@@ -522,45 +524,45 @@ async fn main() -> Result<(), String> {
                 println!("Loading {}", input_path);
             }
 
-            let data = {
-                let r = File::open(input_path).unwrap();
-                let mut r = GzDecoder::new(r);
+            let r = File::open(input_path).unwrap();
+            let mut r = GzDecoder::new(r);
 
-                let mut data: Vec<TrainingInstance> = Vec::new();
+            let mut count = 0usize;
 
-                loop {
-                    let maybe_instance: bincode::Result<TrainingInstance> =
-                        bincode::deserialize_from(&mut r);
+            loop {
+                let maybe_instance: bincode::Result<TrainingInstance> =
+                    bincode::deserialize_from(&mut r);
 
-                    if let Ok(instance) = maybe_instance {
-                        data.push(instance);
-                    } else {
-                        break;
+                if let Ok(instance) = maybe_instance {
+                    let outcome = instance.outcome.unwrap();
+                    count += 1;
+                    class_balance
+                        .entry(outcome)
+                        .and_modify(|c| *c += 1)
+                        .or_insert(1);
+
+                    if rng.gen_bool(sample_prob) {
+                        let features: Vec<fX> = densify(instance.num_features, &instance.features);
+
+                        let datum = AgzDatum {
+                            features,
+                            action: instance.action.into(),
+                            outcome,
+                        };
+
+                        if rng.gen_bool(test_prob) {
+                            valid_data.push(datum);
+                        } else {
+                            train_data.push(datum);
+                        }
                     }
+                } else {
+                    break;
                 }
-                data
-            };
-
-            if verbosity > 0 {
-                println!("\tLoaded {}", data.len());
             }
 
-            for datum in data {
-                if rng.gen_bool(sample_prob) {
-                    let features: Vec<fX> = densify(datum.num_features, &datum.features);
-
-                    let datum = AgzDatum {
-                        features,
-                        action: datum.action.into(),
-                        outcome: datum.outcome.unwrap(),
-                    };
-
-                    if rng.gen_bool(test_prob) {
-                        valid_data.push(datum);
-                    } else {
-                        train_data.push(datum);
-                    }
-                }
+            if verbosity > 0 {
+                println!("\tLoaded {}", count);
             }
         }
 
@@ -569,6 +571,7 @@ async fn main() -> Result<(), String> {
 
         println!("Train size: {}", train_data.len());
         println!("Valid size: {}", valid_data.len());
+        println!("Class balance: {:?}", class_balance);
 
         // let adam_config = AdamConfig::new();
         let opt_config = SgdConfig::new();
