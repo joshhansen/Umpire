@@ -508,8 +508,8 @@ async fn main() -> Result<(), String> {
         println!("Sample prob: {}", sample_prob);
         println!("Test prob: {}", test_prob);
 
-        let mut train_data: Vec<AgzDatum> = Vec::new();
-        let mut valid_data: Vec<AgzDatum> = Vec::new();
+        let mut victory_data: Vec<AgzDatum> = Vec::new();
+        let mut non_victory_data: Vec<AgzDatum> = Vec::new();
 
         let mut class_balance: BTreeMap<TrainingOutcome, usize> = BTreeMap::new();
 
@@ -550,10 +550,9 @@ async fn main() -> Result<(), String> {
                             outcome,
                         };
 
-                        if rng.gen_bool(test_prob) {
-                            valid_data.push(datum);
-                        } else {
-                            train_data.push(datum);
+                        match datum.outcome {
+                            TrainingOutcome::Victory => victory_data.push(datum),
+                            _ => non_victory_data.push(datum),
                         }
                     }
                 } else {
@@ -566,12 +565,35 @@ async fn main() -> Result<(), String> {
             }
         }
 
+        println!("Class balance: {:?}", class_balance);
+
+        println!("Downsampling non-victory data to match victory data...");
+
+        non_victory_data.shuffle(&mut rng);
+
+        non_victory_data.truncate(victory_data.len());
+
+        let data = {
+            victory_data.extend(non_victory_data);
+            victory_data
+        };
+
+        let mut train_data: Vec<AgzDatum> = Vec::new();
+        let mut valid_data: Vec<AgzDatum> = Vec::new();
+
+        for datum in data {
+            if rng.gen_bool(test_prob) {
+                valid_data.push(datum);
+            } else {
+                train_data.push(datum);
+            }
+        }
+
         let train_data: AgzData = AgzData::new(train_data);
         let valid_data: AgzData = AgzData::new(valid_data);
 
         println!("Train size: {}", train_data.len());
         println!("Valid size: {}", valid_data.len());
-        println!("Class balance: {:?}", class_balance);
 
         // let adam_config = AdamConfig::new();
         let opt_config = SgdConfig::new();
