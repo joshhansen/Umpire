@@ -24,4 +24,4 @@ cargo build --profile=$PROFILE -p umpire-ai
 
 # ./ai/agz/15x15/0.agz.mpk ./ai/agz/15x15/0.agz.mpk 
 # -W 10 -W 20 -W 30 -W 40 -H 10 -H 20 -H 30 -H 40
-seq $PROCS | parallel -j $PROCS --lb ./target/$PROFILE/umpire-ai -v -e $PERPROC -s 1000 eval -w v -w h -w v -w n -M c -M t -M r -W 10 -W 20 -W 30 -W 40 -H 10 -H 20 -H 30 -H 40 -p 0.001 -P $DEST/{}.data $@ rr
+seq $PROCS | parallel -j $PROCS --lb ./target/$PROFILE/umpire-ai -v -e $PERPROC eval -s 500 -w v -w h -w v -w n -M c -M t -M r -W 10 -W 20 -W 30 -W 40 -H 10 -H 20 -H 30 -H 40 -p 0.0001 -P $DEST/{}.data $@ rr
