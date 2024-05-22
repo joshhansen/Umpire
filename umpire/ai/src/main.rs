@@ -74,7 +74,7 @@ use common::{
 };
 
 use umpire_ai::AI;
-use umpire_tui::{color::palette16, map::Map, Draw};
+use umpire_tui::{color::palette16, map::Map, Component, Draw};
 
 const SEED_INTERVAL: u64 = 924898;
 
@@ -234,7 +234,7 @@ async fn main() -> Result<(), String> {
 
     .get_matches();
 
-    let (_term_width, term_height) =
+    let (term_width, term_height) =
         size().map_err(|kind| format!("Could not get terminal size: {}", kind))?;
 
     // Arguments common across subcommands:
@@ -351,12 +351,26 @@ async fn main() -> Result<(), String> {
             let map_type = map_types.choose(&mut rng).copied().unwrap();
             let wrapping = wrappings.choose(&mut rng).cloned().unwrap();
 
-            let mut map = if fix_output_loc {
-                let mut map = Map::new(Rect::new(0, 2, map_width, map_height), map_dims, false);
-                map.set_viewport_offset(Vec2d::new(0, 0));
-                Some(map)
+            let mut maps: Vec<Map> = if fix_output_loc {
+                // If they fit, put one map per player, side-by-side
+                if map_width * num_ais as u16 <= term_width {
+                    (0..num_ais)
+                        .map(|player| {
+                            let rect =
+                                Rect::new(map_width * player as u16, 2, map_width, map_height);
+                            let mut map = Map::new(rect, map_dims, false);
+                            map.set_viewport_offset(Vec2d::new(0, 0));
+                            map
+                        })
+                        .collect()
+                } else {
+                    // Otherwise, just make one map which we'll multiplex
+                    let mut map = Map::new(Rect::new(0, 2, map_width, map_height), map_dims, false);
+                    map.set_viewport_offset(Vec2d::new(0, 0));
+                    vec![map]
+                }
             } else {
-                None
+                Vec::new()
             };
 
             let game_rng = init_rng(seed);
@@ -397,8 +411,6 @@ async fn main() -> Result<(), String> {
                         break 'steps;
                     }
 
-                    let draw = s % 200 / 100 == player;
-
                     let ai = ais.get_mut(player).unwrap();
 
                     let mut turn = ctrl.turn_ctrl(true).await;
@@ -412,13 +424,27 @@ async fn main() -> Result<(), String> {
                         partial_data.extend(turn_outcome.training_instances.unwrap().into_iter());
                     }
 
-                    if verbosity > 1 && fix_output_loc && draw {
-                        map.as_mut()
-                            .unwrap()
-                            .draw(&turn, &mut stdout, &palette)
-                            .await
-                            .unwrap();
-                        execute!(stdout, MoveTo(0, map_height + 2)).unwrap();
+                    if verbosity > 1 && fix_output_loc {
+                        if maps.len() == 1 {
+                            // Only one map would fit, so we take turns using it
+                            let draw = s % 200 / 100 == player;
+                            if draw {
+                                maps.get_mut(0)
+                                    .unwrap()
+                                    .draw(&turn, &mut stdout, &palette)
+                                    .await
+                                    .unwrap();
+                            }
+                        } else {
+                            debug_assert!(maps.len() > 1);
+                            maps.get_mut(player)
+                                .unwrap()
+                                .draw(&turn, &mut stdout, &palette)
+                                .await
+                                .unwrap();
+                        }
+
+                        execute!(stdout, MoveTo(0, term_height - 10 - num_ais as u16)).unwrap();
                     }
 
                     turn.force_end_turn().await.unwrap();
@@ -475,7 +501,13 @@ async fn main() -> Result<(), String> {
             if let Some(seed) = seed.as_mut() {
                 *seed += SEED_INTERVAL;
             }
-        }
+
+            if fix_output_loc {
+                for map in maps.iter_mut() {
+                    map.clear(&mut stdout);
+                }
+            }
+        } // end for each episode
 
         execute!(stdout, LeaveAlternateScreen).unwrap();
 
