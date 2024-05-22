@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{cli::Specified, game::action::AiPlayerAction, util::POSSIBLE_DIRECTIONS};
 
-use super::{unit::POSSIBLE_UNIT_TYPES, PlayerNum, PlayerType};
+use super::{unit::POSSIBLE_UNIT_TYPES, PlayerNum, PlayerType, TurnNum};
 
 #[allow(non_camel_case_types)]
 pub type fX = f32;
@@ -64,17 +64,21 @@ pub enum TrainingFocus {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TrainingOutcome {
-    Victory,
-    Defeat,
-    Inconclusive,
+    Victory { turn: TurnNum },
+    Defeat { turn: TurnNum },
+    Inconclusive { turn: TurnNum },
 }
 
 impl TrainingOutcome {
+    /// Ranges from 0 to 1; exactly 0 for defeat on the first turn, exactly 1 for victory on the first turn
+    /// closer to 0.5 for later defeats and victories (rewarding survival; punishing delay)
+    ///
+    /// Draws are punished like a defeat on turn 990
     pub fn to_training_target(self) -> fX {
         match self {
-            Self::Victory => 1.0,
-            Self::Inconclusive => 0.25, // punish draws, but not as harshly as defeats
-            Self::Defeat => 0.0,
+            Self::Victory { turn } => 0.5 + 0.5 / (10.0 as fX + turn as fX).log10(),
+            Self::Inconclusive { .. } => 0.33333334,
+            Self::Defeat { turn } => 0.5 - 0.5 / (10.0 as fX + turn as fX).log10(),
         }
     }
 }
@@ -86,6 +90,7 @@ pub struct TrainingInstance {
     pub player: PlayerNum, // the player that took the action
     pub num_features: usize,
     pub features: BTreeMap<usize, fX>,
+    pub turn: TurnNum,
     pub pre_score: f64,         // the player's score prior to the action
     pub action: AiPlayerAction, // the action taken
     pub post_score: f64,        // the player's score after the action
@@ -97,6 +102,7 @@ impl TrainingInstance {
         player: PlayerNum,
         num_features: usize,
         features: BTreeMap<usize, fX>,
+        turn: TurnNum,
         pre_score: f64,
         action: AiPlayerAction,
         post_score: f64,
@@ -105,6 +111,7 @@ impl TrainingInstance {
             player,
             num_features,
             features,
+            turn,
             pre_score,
             action,
             post_score,
@@ -117,15 +124,15 @@ impl TrainingInstance {
     }
 
     pub fn victory(&mut self) {
-        self.determine(TrainingOutcome::Victory);
+        self.determine(TrainingOutcome::Victory { turn: self.turn });
     }
 
     pub fn defeat(&mut self) {
-        self.determine(TrainingOutcome::Defeat);
+        self.determine(TrainingOutcome::Defeat { turn: self.turn });
     }
 
     pub fn inconclusive(&mut self) {
-        self.determine(TrainingOutcome::Inconclusive);
+        self.determine(TrainingOutcome::Inconclusive { turn: self.turn });
     }
 }
 

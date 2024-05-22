@@ -99,6 +99,7 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                                 player,
                                 num_features.unwrap(),
                                 features.unwrap(),
+                                turn_num,
                                 pre_score.unwrap(),
                                 action,
                                 post_score,

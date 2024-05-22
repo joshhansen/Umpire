@@ -583,7 +583,7 @@ async fn main() -> Result<(), String> {
                         };
 
                         match datum.outcome {
-                            TrainingOutcome::Victory => victory_data.push(datum),
+                            TrainingOutcome::Victory { .. } => victory_data.push(datum),
                             _ => non_victory_data.push(datum),
                         }
                     }
