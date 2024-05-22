@@ -21,7 +21,7 @@ use std::{
 use burn::{
     backend::wgpu::WgpuDevice,
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
-    nn::BatchNormConfig,
+    nn::DropoutConfig,
     optim::SgdConfig,
     prelude::*,
     record::{BinFileRecorder, FullPrecisionSettings},
@@ -49,7 +49,7 @@ use umpire_ai::{
 
 use common::{
     game::{
-        ai::{fX, TrainingOutcome, FEATS_LEN, POSSIBLE_ACTIONS},
+        ai::{fX, TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
         map::gen::MapType,
     },
     util::{densify, init_rng},
@@ -499,8 +499,8 @@ async fn main() -> Result<(), String> {
 
         let device = WgpuDevice::DiscreteGpu(gpu);
 
-        let bnconf = BatchNormConfig::new(FEATS_LEN);
-        let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, bnconf);
+        let dropout_config = DropoutConfig::new(P_DROPOUT);
+        let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, dropout_config);
 
         let sample_prob: f64 = sub_matches.get_one("sampleprob").copied().unwrap();
         let test_prob: f64 = sub_matches.get_one("testprob").copied().unwrap();

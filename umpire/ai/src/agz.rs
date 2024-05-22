@@ -9,18 +9,19 @@ use std::{fmt, path::Path};
 use async_trait::async_trait;
 
 use burn::nn::loss::{MseLoss, Reduction};
+use burn::nn::{Dropout, DropoutConfig};
 use burn::record::{BinBytesRecorder, BinFileRecorder, FullPrecisionSettings, Recorder};
 use burn::tensor::activation::{relu, sigmoid};
 use burn::tensor::backend::AutodiffBackend;
 use burn::{
     module::Module,
-    nn::{conv::Conv2dConfig, BatchNorm, BatchNormConfig, LinearConfig},
+    nn::{conv::Conv2dConfig, LinearConfig},
     prelude::*,
 };
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
 use common::game::ai::{
-    PER_ACTION_CHANNELS, POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS,
+    PER_ACTION_CHANNELS, POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS, P_DROPOUT,
 };
 use num_traits::ToPrimitive;
 
@@ -58,17 +59,14 @@ impl<'de> Visitor<'de> for BytesVisitor {
 
 #[derive(Config, Debug)]
 pub struct AgzActionModelConfig {
-    #[config(default = 0.1)]
-    pub dropout_prob: f64,
-
     pub possible_actions: usize,
 
-    pub bnconf: BatchNormConfig,
+    pub dropout_config: DropoutConfig,
 }
 
 impl AgzActionModelConfig {
     pub fn init<B: Backend>(&self, device: B::Device) -> AgzActionModel<B> {
-        let bn = self.bnconf.init(&device);
+        let dropout = self.dropout_config.init();
 
         let channels = self.possible_actions * PER_ACTION_CHANNELS;
 
@@ -81,17 +79,27 @@ impl AgzActionModelConfig {
             Conv2dConfig::new([channels, channels], [3, 3]).init(&device),        // -> 3x3
         ];
 
-        let dense = (0..POSSIBLE_ACTIONS)
+        let dense_common = vec![
+            LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 64).init(&device),
+            LinearConfig::new(64, 32).init(&device),
+        ];
+
+        let dense_per_action = (0..POSSIBLE_ACTIONS)
             .map(|_| {
                 vec![
-                    LinearConfig::new(WIDE_LEN + DEEP_OUT_LEN, 32).init(&device),
                     LinearConfig::new(32, 16).init(&device),
-                    LinearConfig::new(16, 1).init(&device),
+                    LinearConfig::new(16, 8).init(&device),
+                    LinearConfig::new(8, 1).init(&device),
                 ]
             })
             .collect();
 
-        AgzActionModel { bn, convs, dense }
+        AgzActionModel {
+            dropout,
+            convs,
+            dense_common,
+            dense_per_action,
+        }
     }
 }
 
@@ -104,9 +112,10 @@ impl AgzActionModelConfig {
 /// See `Obs::features` and `Game::player_features` for more information
 #[derive(Debug, Module)]
 pub struct AgzActionModel<B: Backend> {
-    bn: BatchNorm<B, 2>,
+    dropout: Dropout,
     convs: Vec<nn::conv::Conv2d<B>>,
-    dense: Vec<Vec<nn::Linear<B>>>,
+    dense_common: Vec<nn::Linear<B>>,
+    dense_per_action: Vec<Vec<nn::Linear<B>>>,
 }
 impl<B: Backend> AgzActionModel<B> {
     async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<fX> {
@@ -135,8 +144,11 @@ impl<B: Backend> AgzActionModel<B> {
         // Batch norm
         // deep = self.bn.forward(deep);
 
-        for conv in &self.convs {
+        for (i, conv) in self.convs.iter().enumerate() {
             deep = relu(conv.forward(deep));
+            if i < 3 {
+                deep = self.dropout.forward(deep);
+            }
         }
 
         // Reshape back to vector
@@ -146,13 +158,18 @@ impl<B: Backend> AgzActionModel<B> {
         // [batch,feat]
         let wide_and_deep = Tensor::cat(vec![wide, deep_flat], 1);
 
+        let mut out_common = wide_and_deep;
+        for d in &self.dense_common {
+            out_common = d.forward(out_common);
+        }
+
         let out: Vec<Tensor<B, 2>> = (0..POSSIBLE_ACTIONS)
             .map(|action_idx| {
-                let mut out = wide_and_deep.clone();
-                for (i, dense) in self.dense[action_idx].iter().enumerate() {
+                let mut out = out_common.clone();
+                for (i, dense) in self.dense_per_action[action_idx].iter().enumerate() {
                     out = dense.forward(out);
                     // Only relu non-finally
-                    if i < self.dense[action_idx].len() - 1 {
+                    if i < self.dense_per_action[action_idx].len() - 1 {
                         out = relu(out);
                     }
                 }
@@ -161,6 +178,10 @@ impl<B: Backend> AgzActionModel<B> {
             .collect();
 
         let action_probs = Tensor::cat(out, 1);
+
+        debug_assert_eq!(action_probs.dims().len(), 2);
+        debug_assert_eq!(action_probs.dims()[0], batches);
+        debug_assert_eq!(action_probs.dims()[1], POSSIBLE_ACTIONS);
 
         sigmoid(action_probs)
     }
@@ -222,8 +243,8 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
 
         let recorder: BinFileRecorder<FullPrecisionSettings> = BinFileRecorder::new();
 
-        let bnconf = BatchNormConfig::new(FEATS_LEN);
-        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, bnconf);
+        let dropout_config = DropoutConfig::new(P_DROPOUT);
+        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, dropout_config);
 
         let model: AgzActionModel<B> = config.init(device.clone());
 
@@ -235,8 +256,8 @@ impl<B: Backend> Loadable<B> for AgzActionModel<B> {
 
 impl<B: Backend> LoadableFromBytes<B> for AgzActionModel<B> {
     fn load_from_bytes<S: std::io::Read>(mut bytes: S, device: B::Device) -> Result<Self, String> {
-        let bnconf = BatchNormConfig::new(FEATS_LEN);
-        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, bnconf);
+        let dropout_config = DropoutConfig::new(P_DROPOUT);
+        let config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, dropout_config);
 
         let model: AgzActionModel<B> = config.init(device.clone());
 

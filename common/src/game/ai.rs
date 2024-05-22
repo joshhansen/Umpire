@@ -10,6 +10,8 @@ use super::{unit::POSSIBLE_UNIT_TYPES, PlayerNum, PlayerType};
 #[allow(non_camel_case_types)]
 pub type fX = f32;
 
+pub const P_DROPOUT: f64 = 0.4;
+
 pub const POSSIBLE_CITY_ACTIONS: usize = POSSIBLE_UNIT_TYPES; // all possible productions
 
 pub const POSSIBLE_UNIT_ACTIONS: usize = POSSIBLE_DIRECTIONS + 2; // plus skip and disband
