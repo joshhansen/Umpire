@@ -311,12 +311,17 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        let generate_data = datagenpath.is_some();
-
         let datagen_prob =
-            datagenpath.map(|_| sub_matches.get_one::<f64>("datagenprob").cloned().unwrap());
+            datagenpath.map(|_| sub_matches.get_one::<f64>("datagenprob").copied().unwrap());
 
-        let mut data_outfile = datagenpath.map(|datagenpath| File::create(datagenpath).unwrap());
+        if let Some(datagen_prob) = datagen_prob {
+            println!("Datagen prob: {}", datagen_prob);
+        }
+
+        let mut data_outfile = datagenpath.map(|datagenpath| {
+            let w = File::create(datagenpath).unwrap();
+            GzEncoder::new(w, Compression::default())
+        });
 
         let palette = palette16(num_ais).unwrap();
 
@@ -340,6 +345,8 @@ async fn main() -> Result<(), String> {
         if deterministic_secrets {
             println!("***WARNING*** Secret generation may be deterministic");
         }
+
+        let mut total_training_instances_written = 0usize;
 
         let mut victory_counts: BTreeMap<Option<PlayerNum>, usize> = BTreeMap::new();
         for _ in 0..episodes {
@@ -476,19 +483,30 @@ async fn main() -> Result<(), String> {
                     }
                 }
 
-                if generate_data {
-                    // Write the training instances
-                    let w = data_outfile.as_mut().unwrap();
-                    let mut w = GzEncoder::new(w, Compression::default());
+                debug_assert!(datagenpath.is_some());
 
-                    for instance in player_partial_data
-                        .into_values()
-                        .flat_map(|values| values.into_iter())
-                    {
-                        debug_assert!(instance.outcome.is_some());
-                        bincode::serialize_into(&mut w, &instance).unwrap();
-                    }
+                // Write the training instances
+                let mut w = data_outfile.as_mut().unwrap();
+                let mut training_instances_written = 0usize;
+
+                for instance in player_partial_data
+                    .into_values()
+                    .flat_map(|values| values.into_iter())
+                {
+                    debug_assert!(instance.outcome.is_some());
+                    bincode::serialize_into(&mut w, &instance).unwrap();
+
+                    training_instances_written += 1;
+                    total_training_instances_written += 1;
                 }
+
+                if fix_output_loc {
+                    execute!(stdout, MoveTo(0, term_height - 1),).unwrap();
+                }
+                println!(
+                    "Wrote {} ({} total)",
+                    training_instances_written, total_training_instances_written
+                );
             }
 
             *victory_counts
@@ -512,6 +530,11 @@ async fn main() -> Result<(), String> {
         execute!(stdout, LeaveAlternateScreen).unwrap();
 
         print_results(&victory_counts);
+
+        println!(
+            "Total training instances written: {}",
+            total_training_instances_written,
+        );
     } else if subcommand == SUBCMD_AGZTRAIN {
         let batch_size: usize = sub_matches.get_one("batchsize").copied().unwrap();
         let learning_rate = sub_matches
@@ -584,7 +607,7 @@ async fn main() -> Result<(), String> {
                         };
 
                         match datum.outcome {
-                            TrainingOutcome::Victory { .. } => victory_data.push(datum),
+                            TrainingOutcome::Victory => victory_data.push(datum),
                             _ => non_victory_data.push(datum),
                         }
                     }

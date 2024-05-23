@@ -94,8 +94,10 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                     let post_score = turn.player_score().await.unwrap();
 
                     if rand::random::<f64>() <= datagen_prob {
-                        if let Some(v) = training_instances.as_mut() {
-                            v.push(TrainingInstance::undetermined(
+                        training_instances
+                            .as_mut()
+                            .unwrap()
+                            .push(TrainingInstance::undetermined(
                                 player,
                                 num_features.unwrap(),
                                 features.unwrap(),
@@ -104,7 +106,6 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                                 action,
                                 post_score,
                             ));
-                        }
                     }
                 }
             }
