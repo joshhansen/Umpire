@@ -578,6 +578,7 @@ async fn main() -> Result<(), String> {
 
                         let datum = AgzDatum {
                             features,
+                            turn: instance.turn,
                             action: instance.action.into(),
                             outcome,
                         };

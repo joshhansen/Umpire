@@ -64,9 +64,9 @@ pub enum TrainingFocus {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TrainingOutcome {
-    Victory { turn: TurnNum },
-    Defeat { turn: TurnNum },
-    Inconclusive { turn: TurnNum },
+    Victory,
+    Defeat,
+    Inconclusive,
 }
 
 impl TrainingOutcome {
@@ -74,11 +74,11 @@ impl TrainingOutcome {
     /// closer to 0.5 for later defeats and victories (rewarding survival; punishing delay)
     ///
     /// Draws are punished like a defeat on turn 990
-    pub fn to_training_target(self) -> fX {
+    pub fn to_training_target(self, turn: TurnNum) -> fX {
         match self {
-            Self::Victory { turn } => 0.5 + 0.5 / (10.0 as fX + turn as fX).log10(),
-            Self::Inconclusive { .. } => 0.33333334,
-            Self::Defeat { turn } => 0.5 - 0.5 / (10.0 as fX + turn as fX).log10(),
+            Self::Victory => 0.5 + 0.5 / (10.0 as fX + turn as fX).log10(),
+            Self::Inconclusive => 0.33333334,
+            Self::Defeat => 0.5 - 0.5 / (10.0 as fX + turn as fX).log10(),
         }
     }
 }
@@ -124,15 +124,15 @@ impl TrainingInstance {
     }
 
     pub fn victory(&mut self) {
-        self.determine(TrainingOutcome::Victory { turn: self.turn });
+        self.determine(TrainingOutcome::Victory);
     }
 
     pub fn defeat(&mut self) {
-        self.determine(TrainingOutcome::Defeat { turn: self.turn });
+        self.determine(TrainingOutcome::Defeat);
     }
 
     pub fn inconclusive(&mut self) {
-        self.determine(TrainingOutcome::Inconclusive { turn: self.turn });
+        self.determine(TrainingOutcome::Inconclusive);
     }
 }
 
