@@ -563,10 +563,10 @@ async fn main() -> Result<(), String> {
         println!("Sample prob: {}", sample_prob);
         println!("Test prob: {}", test_prob);
 
-        let mut victory_data: Vec<AgzDatum> = Vec::new();
-        let mut non_victory_data: Vec<AgzDatum> = Vec::new();
-
-        let mut class_balance: BTreeMap<TrainingOutcome, usize> = BTreeMap::new();
+        let mut by_class: BTreeMap<TrainingOutcome, Vec<AgzDatum>> = BTreeMap::new();
+        by_class.insert(TrainingOutcome::Victory, Vec::new());
+        by_class.insert(TrainingOutcome::Defeat, Vec::new());
+        by_class.insert(TrainingOutcome::Inconclusive, Vec::new());
 
         let seed = sub_matches.get_one::<u64>("random_seed").copied();
         if let Some(seed) = seed.as_ref() {
@@ -591,10 +591,6 @@ async fn main() -> Result<(), String> {
                 if let Ok(instance) = maybe_instance {
                     let outcome = instance.outcome.unwrap();
                     count += 1;
-                    class_balance
-                        .entry(outcome)
-                        .and_modify(|c| *c += 1)
-                        .or_insert(1);
 
                     if rng.gen_bool(sample_prob) {
                         let features: Vec<fX> = densify(instance.num_features, &instance.features);
@@ -606,10 +602,7 @@ async fn main() -> Result<(), String> {
                             outcome,
                         };
 
-                        match datum.outcome {
-                            TrainingOutcome::Victory => victory_data.push(datum),
-                            _ => non_victory_data.push(datum),
-                        }
+                        by_class.get_mut(&datum.outcome).unwrap().push(datum);
                     }
                 } else {
                     break;
@@ -621,23 +614,35 @@ async fn main() -> Result<(), String> {
             }
         }
 
+        let mut class_balance: BTreeMap<TrainingOutcome, usize> = BTreeMap::new();
+        for (outcome, data) in &by_class {
+            class_balance.insert(*outcome, data.len());
+        }
+
         println!("Class balance: {:?}", class_balance);
 
-        println!("Downsampling non-victory data to match victory data...");
+        println!("Downsampling draws...");
 
-        non_victory_data.shuffle(&mut rng);
+        // Keep all victories
+        let mut data = by_class.remove(&TrainingOutcome::Victory).unwrap();
 
-        non_victory_data.truncate(victory_data.len());
+        // Keep all defeats
+        data.extend(by_class.remove(&TrainingOutcome::Defeat).unwrap());
 
-        let data = {
-            victory_data.extend(non_victory_data);
-            victory_data
-        };
+        // Randomly fill in draws such that victories = defeats + draws
+        let mut draws = by_class.remove(&TrainingOutcome::Inconclusive).unwrap();
+        draws.shuffle(&mut rng);
+
+        let draws_wanted =
+            class_balance[&TrainingOutcome::Victory] - class_balance[&TrainingOutcome::Defeat];
+        draws.truncate(draws_wanted);
+
+        data.extend(draws);
 
         let mut train_data: Vec<AgzDatum> = Vec::new();
         let mut valid_data: Vec<AgzDatum> = Vec::new();
 
-        for datum in data {
+        for datum in data.into_iter() {
             if rng.gen_bool(test_prob) {
                 valid_data.push(datum);
             } else {
