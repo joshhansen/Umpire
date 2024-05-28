@@ -82,6 +82,37 @@ impl TrainingOutcome {
         }
     }
 }
+impl Specified for TrainingOutcome {
+    /// A description to show up in the command line help
+    fn desc(&self) -> String {
+        match self {
+            Self::Victory => "victory".to_string(),
+            Self::Defeat => "defeat".to_string(),
+            Self::Inconclusive => "inconclusive".to_string(),
+        }
+    }
+
+    /// A canonicalized string representation of the item
+    fn spec(&self) -> String {
+        match self {
+            Self::Victory => "v".to_string(),
+            Self::Defeat => "d".to_string(),
+            Self::Inconclusive => "i".to_string(),
+        }
+    }
+}
+impl TryFrom<String> for TrainingOutcome {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "v" => Ok(Self::Victory),
+            "d" => Ok(Self::Defeat),
+            "i" => Ok(Self::Inconclusive),
+            x => Err(format!("Unrecognized training outcome '{}'", x)),
+        }
+    }
+}
 
 /// An instance in which an action was taken in a game state and a reward was achieved; annotated with whether the
 /// player later went on to victory, defeat, or an inconclusive outcome

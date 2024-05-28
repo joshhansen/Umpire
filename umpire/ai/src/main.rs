@@ -10,7 +10,7 @@
 #![forbid(unsafe_code)]
 use std::{
     cell::RefCell,
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::File,
     io::stdout,
     path::{Path, PathBuf},
@@ -170,6 +170,13 @@ async fn main() -> Result<(), String> {
             .help("The number of steps to execute in each episode")
             .value_parser(value_parser!(usize))
         )
+        .arg(
+            Arg::new("ignored_outcomes")
+            .short('i')
+            .long("ignore")
+            .help("Outcomes to ignore")
+            .action(ArgAction::Append)
+        )
     )
     .subcommand(
         cli::app(SUBCMD_AGZTRAIN, "DS")
@@ -298,6 +305,13 @@ async fn main() -> Result<(), String> {
 
         let mut ais: Vec<Rc<RefCell<AI<AiBackend>>>> = load_ais(&ai_specs)?;
         let num_ais = ais.len();
+
+        let ignored_outcomes: BTreeSet<TrainingOutcome> = sub_matches
+            .get_many::<String>("ignored_outcomes")
+            .unwrap_or_default()
+            .cloned()
+            .filter_map(|s| TrainingOutcome::try_from(s).ok())
+            .collect();
 
         let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
@@ -492,6 +506,7 @@ async fn main() -> Result<(), String> {
                 for instance in player_partial_data
                     .into_values()
                     .flat_map(|values| values.into_iter())
+                    .filter(|ti| !ignored_outcomes.contains(&ti.outcome.unwrap()))
                 {
                     debug_assert!(instance.outcome.is_some());
                     bincode::serialize_into(&mut w, &instance).unwrap();
