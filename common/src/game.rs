@@ -56,7 +56,9 @@ use crate::{
         },
     },
     name::{IntNamer, Namer},
-    util::{init_rng, Dimensioned, Dims, Direction, Location, Vec2d, Wrap2d},
+    util::{
+        indicator as i_, init_rng, Dimensioned, Dims, Direction, Location, Vec2d, Wrap, Wrap2d,
+    },
 };
 
 pub use crate::game::alignment::Alignment;
@@ -2444,11 +2446,19 @@ impl Game {
     ///
     /// Map of the output vector:
     ///
-    /// # 25: 1d features
+    /// # 33: 1d features
     /// * 1: current turn
     /// * 1: player city count
     /// * 1: number of tiles observed by player
     /// * 1: percentage of tiles observed by player
+    /// * 1: map width
+    /// * 1: map height
+    /// * 1: horizontal wrapping?
+    /// * 1: vertical wrapping?
+    /// * 1: loc.x
+    /// * 1: loc.y
+    /// * 1: loc.x / map_width
+    /// * 1: loc.y / map_height
     /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
     /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
     ///                                                     submarines, cruisers, battleships, carriers)
@@ -2476,56 +2486,6 @@ impl Game {
                 .unwrap()
         });
 
-        // We also add a context around the currently active unit (if any)
-        let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN);
-
-        // General statistics
-
-        // NOTE Update WIDE_LEN to reflect the number of generic features added here
-
-        // - current turn
-        x.push(self.turn as fX);
-
-        // - number of cities player controls
-        x.push(self.player_city_count(player_secret).unwrap() as fX);
-
-        let observations = self.player_observations(player_secret).unwrap();
-
-        // - number of tiles observed
-        let num_observed = observations.num_observed() as fX;
-        x.push(num_observed);
-
-        // - percentage of tiles observed
-        let dims = self.dims();
-        x.push(num_observed / dims.area() as fX);
-
-        // - unit type writ large
-        for unit_type_ in &UnitType::values() {
-            x.push(if let Some(unit_type) = unit_type {
-                if unit_type == *unit_type_ {
-                    1.0
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            });
-        }
-        // Also includes whether it's a city or not
-        x.push(if city_loc.is_some() { 1.0 } else { 0.0 });
-
-        // - number of each type of unit controlled by player
-        let empty_map = BTreeMap::new();
-        let type_counts = self
-            .player_unit_type_counts(player_secret)
-            .unwrap_or(&empty_map);
-        let counts_vec: Vec<fX> = UnitType::values()
-            .iter()
-            .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
-            .collect();
-
-        x.extend(counts_vec);
-
         // Relatively positioned around city or unit, depending on the training focus
         let loc =
             match focus {
@@ -2549,6 +2509,75 @@ impl Game {
                     }
                 }
             };
+
+        let loc_x = loc.map_or(0, |loc| loc.x) as fX;
+        let loc_y = loc.map_or(0, |loc| loc.y) as fX;
+
+        // We also add a context around the currently active unit (if any)
+        let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN);
+
+        // General statistics
+
+        // NOTE Update WIDE_LEN to reflect the number of generic features added here
+
+        // - current turn
+        x.push(self.turn as fX);
+
+        // - number of cities player controls
+        x.push(self.player_city_count(player_secret).unwrap() as fX);
+
+        let observations = self.player_observations(player_secret).unwrap();
+
+        // - number of tiles observed
+        let num_observed = observations.num_observed() as fX;
+        x.push(num_observed);
+
+        // - percentage of tiles observed
+        let dims = self.dims();
+        x.push(num_observed / dims.area() as fX);
+
+        // - map width
+        x.push(dims.width as fX);
+
+        // - map height
+        x.push(dims.height as fX);
+
+        // - horizontal wrapping?
+        x.push(i_(self.wrapping.horiz == Wrap::Wrapping));
+
+        // - vertical wrapping?
+        x.push(i_(self.wrapping.vert == Wrap::Wrapping));
+
+        // - loc.x
+        x.push(loc_x);
+
+        // - loc.y
+        x.push(loc_y);
+
+        // - loc.x / map_width
+        x.push(loc_x / dims.width as fX);
+
+        // - loc.y / map_height
+        x.push(loc_y / dims.height as fX);
+
+        // - unit type writ large
+        for unit_type_ in &UnitType::values() {
+            x.push(unit_type.map_or(0.0, |unit_type| i_(unit_type == *unit_type_)))
+        }
+        // Also includes whether it's a city or not
+        x.push(i_(city_loc.is_some()));
+
+        // - number of each type of unit controlled by player
+        let empty_map = BTreeMap::new();
+        let type_counts = self
+            .player_unit_type_counts(player_secret)
+            .unwrap_or(&empty_map);
+        let counts_vec: Vec<fX> = UnitType::values()
+            .iter()
+            .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
+            .collect();
+
+        x.extend(counts_vec);
 
         let player = self.player_with_secret(player_secret)?;
 

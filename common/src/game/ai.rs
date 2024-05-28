@@ -18,7 +18,7 @@ pub const POSSIBLE_UNIT_ACTIONS: usize = POSSIBLE_DIRECTIONS + 2; // plus skip a
 
 pub const POSSIBLE_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
-pub const ADDED_WIDE_FEATURES: usize = 4;
+pub const ADDED_WIDE_FEATURES: usize = 12;
 pub const UNIT_TYPE_WRIT_LARGE_LEN: usize = POSSIBLE_UNIT_TYPES + 1; // what sort of unit is being considered, including
                                                                      // "city" as a unit type (thus the +1)
 

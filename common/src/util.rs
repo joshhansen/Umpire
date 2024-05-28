@@ -331,7 +331,7 @@ enum WrapError {
     },
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum Wrap {
     Wrapping,
     NonWrapping,
