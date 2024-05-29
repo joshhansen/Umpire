@@ -18,7 +18,7 @@ pub const POSSIBLE_UNIT_ACTIONS: usize = POSSIBLE_DIRECTIONS + 2; // plus skip a
 
 pub const POSSIBLE_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
-pub const ADDED_WIDE_FEATURES: usize = 12;
+pub const ADDED_WIDE_FEATURES: usize = 13;
 pub const UNIT_TYPE_WRIT_LARGE_LEN: usize = POSSIBLE_UNIT_TYPES + 1; // what sort of unit is being considered, including
                                                                      // "city" as a unit type (thus the +1)
 
@@ -39,7 +39,7 @@ pub const DEEP_HEIGHT_REL_MIN: i32 = DEEP_HEIGHT as i32 / -2;
 pub const DEEP_HEIGHT_REL_MAX: i32 = DEEP_HEIGHT as i32 / 2;
 
 /// Number of "channels" in convolution output
-pub const BASE_CONV_FEATS: usize = 16;
+pub const BASE_CONV_FEATS: usize = 19;
 
 pub const DEEP_IN_LEN: usize = DEEP_TILES * BASE_CONV_FEATS;
 

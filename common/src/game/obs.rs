@@ -56,6 +56,9 @@ impl Obs {
     /// - carried_units - count
     /// - city/unit friendly - 1 bit
     /// - city/unit non-friendly - 1 bit (separate to allow unobserved to be neither friendly nor unfriendly)
+    /// - city production progress - 1 fX
+    /// - city production cost - 1 fX
+    /// - city production as % of cost - 1 fX
     pub fn features(&self, player: PlayerNum) -> [fX; BASE_CONV_FEATS] {
         let none = UnitType::none_features();
         let unit_type_feats = match self {
@@ -64,6 +67,14 @@ impl Obs {
                 .as_ref()
                 .map_or(none, |unit| unit.type_.features()),
             Self::Unobserved => none,
+        };
+
+        let production_progress = match self {
+            Self::Observed { tile, .. } => tile
+                .city
+                .as_ref()
+                .map_or(0.0 as fX, |city| city.production_progress as fX),
+            _ => 0.0 as fX,
         };
 
         [
@@ -115,7 +126,34 @@ impl Obs {
                     .map_or(0.0, |alignment| b(alignment.is_enemy_of_player(player))),
                 Self::Unobserved => 0.0,
             },
+            // 16: city production progress
+            production_progress,
+            // 17: city production cost
+            match self {
+                Self::Observed { tile, .. } => tile.city.as_ref().map_or(0.0 as fX, |city| {
+                    city.production().map_or(0.0 as fX, |ut| ut.cost() as fX)
+                }),
+                _ => 0.0 as fX,
+            },
+            // 18: city production as % of cost
+            match self {
+                Self::Observed { tile, .. } => tile.city.as_ref().map_or(0.0 as fX, |city| {
+                    city.production()
+                        .map_or(0.0 as fX, |ut| production_progress / ut.cost() as fX)
+                }),
+                _ => 0.0 as fX,
+            },
+            // 19?: loc.x
+            // 20?: loc.x / map_width
+            // 21?: loc.y
+            // 22?: loc.y / map_height
         ]
+    }
+}
+
+impl Default for Obs {
+    fn default() -> Self {
+        Self::Unobserved
     }
 }
 
