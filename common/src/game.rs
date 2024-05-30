@@ -2487,26 +2487,31 @@ impl Game {
         });
 
         // Relatively positioned around city or unit, depending on the training focus
-        let loc = match focus {
-            TrainingFocus::City => city_loc
-                .expect("There should be a next city if we're generating a city feature vector"),
-            TrainingFocus::Unit => self
-                .player_unit_loc(
-                    player_secret,
-                    unit_id.expect(
-                        "There should be a next unit if we're generating a unit feature vector",
-                    ),
-                )?
-                .unwrap(),
-
-            TrainingFocus::UnitIfExistsElseCity => {
-                if let Some(unit_id) = unit_id {
-                    self.player_unit_loc(player_secret, unit_id)?.unwrap()
-                } else {
-                    city_loc.unwrap()
+        let loc =
+            match focus {
+                TrainingFocus::City => Some(city_loc.expect(
+                    "There should be a next city if we're generating a city feature vector",
+                )),
+                TrainingFocus::Unit => Some(
+                    self.player_unit_loc(
+                        player_secret,
+                        unit_id.expect(
+                            "There should be a next unit if we're generating a unit feature vector",
+                        ),
+                    )?
+                    .unwrap(),
+                ),
+                TrainingFocus::UnitIfExistsElseCity => {
+                    if let Some(unit_id) = unit_id {
+                        self.player_unit_loc(player_secret, unit_id)?
+                    } else {
+                        city_loc
+                    }
                 }
-            }
-        };
+            };
+
+        let loc_x = loc.map_or(0, |loc| loc.x) as fX;
+        let loc_y = loc.map_or(0, |loc| loc.y) as fX;
 
         // We also add a context around the currently active unit (if any)
         let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN);
@@ -2517,6 +2522,9 @@ impl Game {
 
         // - current turn
         x.push(self.turn as fX);
+
+        // - number of cities player controls
+        x.push(self.player_city_count(player_secret).unwrap() as fX);
 
         let observations = self.player_observations(player_secret).unwrap();
 
@@ -2541,16 +2549,16 @@ impl Game {
         x.push(i_(self.wrapping.vert == Wrap::Wrapping));
 
         // - loc.x
-        x.push(loc.x as fX);
+        x.push(loc_x);
 
         // - loc.y
-        x.push(loc.y as fX);
+        x.push(loc_y);
 
         // - loc.x / map_width
-        x.push(loc.x as fX / dims.width as fX);
+        x.push(loc_x / dims.width as fX);
 
         // - loc.y / map_height
-        x.push(loc.y as fX / dims.height as fX);
+        x.push(loc_y / dims.height as fX);
 
         // - unit type writ large
         for unit_type_ in &UnitType::values() {
@@ -2569,12 +2577,12 @@ impl Game {
             .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
             .collect();
 
+        x.extend(counts_vec);
+
         let player = self.player_with_secret(player_secret)?;
 
         // Init 0's for deep features
         let mut x2d = [0.0; DEEP_IN_LEN];
-
-        let mut cities_observed = 0usize;
 
         // 2d features
         for inc_x in DEEP_WIDTH_REL_MIN..=DEEP_WIDTH_REL_MAX {
@@ -2584,17 +2592,13 @@ impl Game {
 
                 let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
-                let obs_loc = self.wrapping.wrapped_add(dims, loc, inc);
-
-                let obs = obs_loc
-                    .map(|obs_loc| observations.get(obs_loc))
-                    .unwrap_or(&Obs::Unobserved);
-
-                if let Obs::Observed { tile, .. } = obs {
-                    if tile.city.is_some() {
-                        cities_observed += 1;
-                    }
-                }
+                let obs = if let Some(origin) = loc {
+                    self.wrapping
+                        .wrapped_add(dims, origin, inc)
+                        .map_or(&Obs::Unobserved, |loc| observations.get(loc))
+                } else {
+                    &Obs::Unobserved
+                };
 
                 let channels = obs.features(player);
 
@@ -2622,19 +2626,6 @@ impl Game {
             }
         }
 
-        // NOTE Update WIDE_LEN to reflect the number of generic features added here
-        // These features are added after iterating the map tiles because we wanted to
-        // efficiently count the number of cities observed
-
-        // - number of cities player controls
-        let cities_controlled = self.player_city_count(player_secret).unwrap() as fX;
-        x.push(cities_controlled);
-
-        // - percentage of observed cities that player controls
-        x.push(cities_controlled as fX / cities_observed as fX);
-
-        // Now add the counts vec and 2d features
-        x.extend(counts_vec);
         x.extend(x2d);
 
         debug_assert_eq!(x.len(), FEATS_LEN);
