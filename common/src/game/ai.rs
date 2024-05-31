@@ -72,6 +72,9 @@ pub enum TrainingOutcome {
 }
 
 impl TrainingOutcome {
+    pub const fn values() -> [Self; 3] {
+        [Self::Victory, Self::Defeat, Self::Inconclusive]
+    }
     /// Ranges from 0 to 1; exactly 0 for defeat on the first turn, exactly 1 for victory on the first turn
     /// closer to 0.5 for later defeats and victories (rewarding survival; punishing delay)
     ///

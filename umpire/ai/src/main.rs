@@ -149,12 +149,12 @@ async fn main() -> Result<(), String> {
             .help("Generate state-action value function training data based on the eval output, serializing to this path")
         )
         .arg(
-            Arg::new("datagenprob")
-            .short('p')
-            .long("datagenprob")
-            .help("The probability that a training instance will be included in the serialized output. Since training instances in the same episode are highly correlated it can be helpful to use only a sample.")
-            .value_parser(value_parser!(f64))
-            .default_value("1.0")
+            Arg::new("datagenqty")
+            .short('Q')
+            .long("datagenqty")
+            .help("The # of samples taken per class; really min(n,q) where n is samples available and q is qty desired")
+            .value_parser(value_parser!(usize))
+            .default_value("10")
         )
         .arg(
             Arg::new("detsec")
@@ -325,11 +325,11 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        let datagen_prob =
-            datagenpath.map(|_| sub_matches.get_one::<f64>("datagenprob").copied().unwrap());
+        let datagen_qty: Option<usize> =
+            datagenpath.map(|_| sub_matches.get_one("datagenqty").copied().unwrap());
 
-        if let Some(datagen_prob) = datagen_prob {
-            println!("Datagen prob: {}", datagen_prob);
+        if let Some(datagen_qty) = datagen_qty {
+            println!("Datagen qty: {}", datagen_qty);
         }
 
         let mut data_outfile = datagenpath.map(|datagenpath| {
@@ -436,7 +436,7 @@ async fn main() -> Result<(), String> {
 
                     let mut turn = ctrl.turn_ctrl(true).await;
 
-                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, datagen_prob).await;
+                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, Some(1.0)).await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
@@ -472,41 +472,61 @@ async fn main() -> Result<(), String> {
                 }
             }
 
-            if let Some(mut player_partial_data) = player_partial_data {
+            let mut data_by_outcome: BTreeMap<TrainingOutcome, Vec<TrainingInstance>> =
+                BTreeMap::new();
+            for t in TrainingOutcome::values() {
+                data_by_outcome.insert(t, Vec::new());
+            }
+            if let Some(player_partial_data) = player_partial_data {
                 // Mark the training instances (if we've been tracking them) with the game's outcome
 
-                let players: Vec<usize> = player_partial_data.keys().cloned().collect();
                 if let Some(victor) = game.read().await.victor().await {
-                    for player in players {
-                        let data = player_partial_data.get_mut(&player).unwrap();
-
-                        for instance in data {
+                    for (player, partial_data) in player_partial_data.into_iter() {
+                        for mut instance in partial_data {
                             if player == victor {
-                                instance.victory();
-                            } else {
+                                if !ignored_outcomes.contains(&TrainingOutcome::Victory) {
+                                    instance.victory();
+                                    data_by_outcome
+                                        .get_mut(&TrainingOutcome::Victory)
+                                        .unwrap()
+                                        .push(instance);
+                                }
+                            } else if !ignored_outcomes.contains(&TrainingOutcome::Defeat) {
                                 instance.defeat();
+                                data_by_outcome
+                                    .get_mut(&TrainingOutcome::Defeat)
+                                    .unwrap()
+                                    .push(instance);
                             }
                         }
                     }
-                } else {
-                    for player in players {
-                        let data = player_partial_data.get_mut(&player).unwrap();
-                        for instance in data {
+                } else if !ignored_outcomes.contains(&TrainingOutcome::Inconclusive) {
+                    for partial_data in player_partial_data.into_values() {
+                        for mut instance in partial_data {
                             instance.inconclusive();
+                            data_by_outcome
+                                .get_mut(&TrainingOutcome::Inconclusive)
+                                .unwrap()
+                                .push(instance);
                         }
                     }
                 }
 
                 debug_assert!(datagenpath.is_some());
 
+                // Shuffle and truncate per-class
+                for data in data_by_outcome.values_mut() {
+                    data.shuffle(&mut rng);
+                    data.truncate(datagen_qty.unwrap());
+                }
+
                 // Write the training instances
                 let mut w = data_outfile.as_mut().unwrap();
                 let mut training_instances_written = 0usize;
 
-                for instance in player_partial_data
+                for instance in data_by_outcome
                     .into_values()
                     .flat_map(|values| values.into_iter())
-                    .filter(|ti| !ignored_outcomes.contains(&ti.outcome.unwrap()))
                 {
                     debug_assert!(instance.outcome.is_some());
                     bincode::serialize_into(&mut w, &instance).unwrap();
