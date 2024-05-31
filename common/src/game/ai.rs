@@ -21,7 +21,7 @@ pub const POSSIBLE_UNIT_ACTIONS: usize = POSSIBLE_DIRECTIONS + 2; // plus skip a
 
 pub const POSSIBLE_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
-pub const ADDED_WIDE_FEATURES: usize = 12;
+pub const ADDED_WIDE_FEATURES: usize = 13;
 
 /// Number of 1d (wide) features
 /// Includes `POSSIBLE_UNIT_TYPES` twice: once for the unit type one-hot-encoded, once for the overall unit counts, plus one for city

@@ -2446,7 +2446,7 @@ impl Game {
     ///
     /// Map of the output vector:
     ///
-    /// # 33: 1d features
+    /// # 34: 1d features
     /// * 1: current turn
     /// * 1: player city count
     /// * 1: number of tiles observed by player
@@ -2459,6 +2459,7 @@ impl Game {
     /// * 1: loc.y
     /// * 1: loc.x / map_width
     /// * 1: loc.y / map_height
+    /// * 1: % of observed cities controlled by player
     /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
     /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
     ///                                                     submarines, cruisers, battleships, carriers)
@@ -2522,33 +2523,6 @@ impl Game {
 
         let dims = self.dims();
         let observations = self.player_observations(player_secret).unwrap();
-        let num_observed = observations.num_observed() as fX;
-        let x_1d_extra: [fX; ADDED_WIDE_FEATURES] = [
-            // - current turn
-            self.turn as fX,
-            // - number of cities player controls
-            self.player_city_count(player_secret).unwrap() as fX,
-            // - number of tiles observed
-            num_observed,
-            // - percentage of tiles observed
-            num_observed / dims.area() as fX,
-            // - map width
-            dims.width as fX,
-            // - map height
-            dims.height as fX,
-            // - horizontal wrapping?
-            i_(self.wrapping.horiz == Wrap::Wrapping),
-            // - vertical wrapping?
-            i_(self.wrapping.vert == Wrap::Wrapping),
-            // - loc.x
-            loc_x,
-            // - loc.y
-            loc_y,
-            // - loc.x / map_width
-            loc_x / dims.width as fX,
-            // - loc.y / map_height
-            loc_y / dims.height as fX,
-        ];
 
         // - unit type writ large (also indicates if city)
         let x_unit_type = unit_type.map_or_else(
@@ -2571,6 +2545,8 @@ impl Game {
         // Init 0's for deep features
         let mut x2d = [0.0; DEEP_IN_LEN];
 
+        let mut observed_cities = 0usize;
+
         // 2d features
         for inc_x in DEEP_WIDTH_REL_MIN..=DEEP_WIDTH_REL_MAX {
             let x_idx = (inc_x - DEEP_WIDTH_REL_MIN) as usize;
@@ -2586,6 +2562,12 @@ impl Game {
                 } else {
                     &Obs::Unobserved
                 };
+
+                if let Obs::Observed { tile, .. } = obs {
+                    if tile.city.is_some() {
+                        observed_cities += 1;
+                    }
+                }
 
                 let channels = obs.features(player);
 
@@ -2612,6 +2594,41 @@ impl Game {
                 }
             }
         }
+
+        let num_observed = observations.num_observed() as fX;
+        let player_city_count = self.player_city_count(player_secret).unwrap() as fX;
+        let x_1d_extra: [fX; ADDED_WIDE_FEATURES] = [
+            // - current turn
+            self.turn as fX,
+            // - number of cities player controls
+            player_city_count,
+            // - number of tiles observed
+            num_observed,
+            // - percentage of tiles observed
+            num_observed / dims.area() as fX,
+            // - map width
+            dims.width as fX,
+            // - map height
+            dims.height as fX,
+            // - horizontal wrapping?
+            i_(self.wrapping.horiz == Wrap::Wrapping),
+            // - vertical wrapping?
+            i_(self.wrapping.vert == Wrap::Wrapping),
+            // - loc.x
+            loc_x,
+            // - loc.y
+            loc_y,
+            // - loc.x / map_width
+            loc_x / dims.width as fX,
+            // - loc.y / map_height
+            loc_y / dims.height as fX,
+            // - percentage of observed cities controlled by player
+            if observed_cities != 0 {
+                player_city_count / observed_cities as fX
+            } else {
+                0.0 as fX
+            },
+        ];
 
         x.extend(x_1d_extra);
         x.extend(x_unit_type);
