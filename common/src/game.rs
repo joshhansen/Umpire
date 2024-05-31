@@ -34,8 +34,8 @@ use uuid::Uuid;
 use crate::{
     game::{
         ai::{
-            BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_HEIGHT_REL_MAX, DEEP_HEIGHT_REL_MIN, DEEP_IN_LEN,
-            DEEP_WIDTH, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN,
+            ADDED_WIDE_FEATURES, BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_HEIGHT_REL_MAX,
+            DEEP_HEIGHT_REL_MIN, DEEP_IN_LEN, DEEP_WIDTH, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN,
         },
         city::{City, CityID},
         combat::CombatCapable,
@@ -2520,45 +2520,36 @@ impl Game {
 
         // NOTE Update WIDE_LEN to reflect the number of generic features added here
 
-        // - current turn
-        x.push(self.turn as fX);
-
-        // - number of cities player controls
-        x.push(self.player_city_count(player_secret).unwrap() as fX);
-
-        let observations = self.player_observations(player_secret).unwrap();
-
-        // - number of tiles observed
-        let num_observed = observations.num_observed() as fX;
-        x.push(num_observed);
-
-        // - percentage of tiles observed
         let dims = self.dims();
-        x.push(num_observed / dims.area() as fX);
-
-        // - map width
-        x.push(dims.width as fX);
-
-        // - map height
-        x.push(dims.height as fX);
-
-        // - horizontal wrapping?
-        x.push(i_(self.wrapping.horiz == Wrap::Wrapping));
-
-        // - vertical wrapping?
-        x.push(i_(self.wrapping.vert == Wrap::Wrapping));
-
-        // - loc.x
-        x.push(loc_x);
-
-        // - loc.y
-        x.push(loc_y);
-
-        // - loc.x / map_width
-        x.push(loc_x / dims.width as fX);
-
-        // - loc.y / map_height
-        x.push(loc_y / dims.height as fX);
+        let observations = self.player_observations(player_secret).unwrap();
+        let num_observed = observations.num_observed() as fX;
+        let x_1d_extra: [fX; ADDED_WIDE_FEATURES] = [
+            // - current turn
+            self.turn as fX,
+            // - number of cities player controls
+            self.player_city_count(player_secret).unwrap() as fX,
+            // - number of tiles observed
+            num_observed,
+            // - percentage of tiles observed
+            num_observed / dims.area() as fX,
+            // - map width
+            dims.width as fX,
+            // - map height
+            dims.height as fX,
+            // - horizontal wrapping?
+            i_(self.wrapping.horiz == Wrap::Wrapping),
+            // - vertical wrapping?
+            i_(self.wrapping.vert == Wrap::Wrapping),
+            // - loc.x
+            loc_x,
+            // - loc.y
+            loc_y,
+            // - loc.x / map_width
+            loc_x / dims.width as fX,
+            // - loc.y / map_height
+            loc_y / dims.height as fX,
+        ];
+        x.extend(x_1d_extra);
 
         // - unit type writ large
         let x_unit_type =
