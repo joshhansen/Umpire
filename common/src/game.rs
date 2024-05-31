@@ -2549,14 +2549,12 @@ impl Game {
             // - loc.y / map_height
             loc_y / dims.height as fX,
         ];
-        x.extend(x_1d_extra);
 
         // - unit type writ large (also indicates if city)
         let x_unit_type = unit_type.map_or_else(
             || UnitType::none_features_writ_large(city_loc.is_some()),
             |unit_type| unit_type.features_writ_large(),
         );
-        x.extend(x_unit_type);
 
         // - number of each type of unit controlled by player
         let empty_map = BTreeMap::new();
@@ -2567,8 +2565,6 @@ impl Game {
             .iter()
             .map(|type_| *type_counts.get(type_).unwrap_or(&0) as fX)
             .collect();
-
-        x.extend(counts_vec);
 
         let player = self.player_with_secret(player_secret)?;
 
@@ -2617,6 +2613,9 @@ impl Game {
             }
         }
 
+        x.extend(x_1d_extra);
+        x.extend(x_unit_type);
+        x.extend(counts_vec);
         x.extend(x2d);
 
         debug_assert_eq!(x.len(), FEATS_LEN);
