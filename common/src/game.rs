@@ -2561,9 +2561,10 @@ impl Game {
         x.push(loc_y / dims.height as fX);
 
         // - unit type writ large
-        for unit_type_ in &UnitType::values() {
-            x.push(unit_type.map_or(0.0, |unit_type| i_(unit_type == *unit_type_)))
-        }
+        let x_unit_type =
+            unit_type.map_or_else(UnitType::none_features, |unit_type| unit_type.features());
+        x.extend(x_unit_type);
+
         // Also includes whether it's a city or not
         x.push(i_(city_loc.is_some()));
 
