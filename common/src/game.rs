@@ -2463,7 +2463,7 @@ impl Game {
     /// * 11: the type of unit being represented, where "city" is also a type of unit (one hot encoded)
     /// * 10: number of units controlled by current player (infantry, armor, fighters, bombers, transports, destroyers
     ///                                                     submarines, cruisers, battleships, carriers)
-    /// # 3600: 2d features, 15x15, 16 channels
+    /// # 4275: 2d features, 15x15, 19 channels
     pub fn player_features(
         &self,
         player_secret: PlayerSecret,
