@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{cli::Specified, game::action::AiPlayerAction, util::POSSIBLE_DIRECTIONS};
 
-use super::{unit::POSSIBLE_UNIT_TYPES, PlayerNum, PlayerType, TurnNum};
+use super::{
+    unit::{POSSIBLE_UNIT_TYPES, POSSIBLE_UNIT_TYPES_WRIT_LARGE},
+    PlayerNum, PlayerType, TurnNum,
+};
 
 #[allow(non_camel_case_types)]
 pub type fX = f32;
@@ -19,12 +22,11 @@ pub const POSSIBLE_UNIT_ACTIONS: usize = POSSIBLE_DIRECTIONS + 2; // plus skip a
 pub const POSSIBLE_ACTIONS: usize = POSSIBLE_CITY_ACTIONS + POSSIBLE_UNIT_ACTIONS;
 
 pub const ADDED_WIDE_FEATURES: usize = 12;
-pub const UNIT_TYPE_WRIT_LARGE_LEN: usize = POSSIBLE_UNIT_TYPES + 1; // what sort of unit is being considered, including
-                                                                     // "city" as a unit type (thus the +1)
 
 /// Number of 1d (wide) features
 /// Includes `POSSIBLE_UNIT_TYPES` twice: once for the unit type one-hot-encoded, once for the overall unit counts, plus one for city
-pub const WIDE_LEN: usize = UNIT_TYPE_WRIT_LARGE_LEN + POSSIBLE_UNIT_TYPES + ADDED_WIDE_FEATURES;
+pub const WIDE_LEN: usize =
+    POSSIBLE_UNIT_TYPES_WRIT_LARGE + POSSIBLE_UNIT_TYPES + ADDED_WIDE_FEATURES;
 pub const DEEP_WIDTH: usize = 15;
 pub const DEEP_HEIGHT: usize = 15;
 pub const DEEP_TILES: usize = DEEP_WIDTH * DEEP_HEIGHT;

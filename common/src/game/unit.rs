@@ -152,6 +152,9 @@ impl CarryingSpace {
 
 pub const POSSIBLE_UNIT_TYPES: usize = 10;
 
+/// How many unit types there are, counting city as a unit type
+pub const POSSIBLE_UNIT_TYPES_WRIT_LARGE: usize = POSSIBLE_UNIT_TYPES + 1;
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum UnitType {
     Infantry,
@@ -353,9 +356,30 @@ impl UnitType {
         feats
     }
 
+    /// One-hot feature encoding of this unit type
+    ///
+    /// Includes assertion of non-city-ness
+    pub fn features_writ_large(self) -> [fX; POSSIBLE_UNIT_TYPES_WRIT_LARGE] {
+        let mut feats = [0.0; POSSIBLE_UNIT_TYPES_WRIT_LARGE];
+        let idx = UnitType::values()
+            .into_iter()
+            .position(|ut| self == ut)
+            .unwrap();
+        feats[idx] = 1.0;
+        feats
+    }
+
     /// Zeros of the same length as the output of `features`
     pub fn none_features() -> [fX; POSSIBLE_UNIT_TYPES] {
         [0.0; POSSIBLE_UNIT_TYPES]
+    }
+
+    pub fn none_features_writ_large(is_city: bool) -> [fX; POSSIBLE_UNIT_TYPES_WRIT_LARGE] {
+        if is_city {
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+        } else {
+            [0.0; POSSIBLE_UNIT_TYPES_WRIT_LARGE]
+        }
     }
 }
 

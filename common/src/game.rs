@@ -2551,13 +2551,12 @@ impl Game {
         ];
         x.extend(x_1d_extra);
 
-        // - unit type writ large
-        let x_unit_type =
-            unit_type.map_or_else(UnitType::none_features, |unit_type| unit_type.features());
+        // - unit type writ large (also indicates if city)
+        let x_unit_type = unit_type.map_or_else(
+            || UnitType::none_features_writ_large(city_loc.is_some()),
+            |unit_type| unit_type.features_writ_large(),
+        );
         x.extend(x_unit_type);
-
-        // Also includes whether it's a city or not
-        x.push(i_(city_loc.is_some()));
 
         // - number of each type of unit controlled by player
         let empty_map = BTreeMap::new();
