@@ -94,7 +94,7 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .long("dnnlr")
                 .help("The learning rate of the neural network (if any)")
                 .value_parser(value_parser!(f64))
-                .default_value("10e-3"),
+                .default_value("1e-3"),
 
             'S' => Arg::new("random_seed")
                 .short('S')
