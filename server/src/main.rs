@@ -214,12 +214,12 @@ impl UmpireRpc for UmpireServer {
         _: Context,
         player_secret: PlayerSecret,
         loc: Location,
-    ) -> UmpireResult<Obs> {
+    ) -> UmpireResult<Option<Obs>> {
         self.game
             .read()
             .await
             .player_obs(player_secret, loc)
-            .map(|obs| obs.clone())
+            .map(|obs| obs.cloned())
     }
 
     async fn player_observations(

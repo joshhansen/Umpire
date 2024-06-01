@@ -84,7 +84,7 @@ pub trait UmpireRpc {
 
     async fn player_tile(player_secret: PlayerSecret, loc: Location) -> UmpireResult<Option<Tile>>;
 
-    async fn player_obs(player_secret: PlayerSecret, loc: Location) -> UmpireResult<Obs>;
+    async fn player_obs(player_secret: PlayerSecret, loc: Location) -> UmpireResult<Option<Obs>>;
 
     async fn player_observations(player_secret: PlayerSecret) -> UmpireResult<ObsTracker>;
 
@@ -486,7 +486,11 @@ impl IGame for RpcGame {
             .map(|tile| tile.map(Cow::Owned))
     }
 
-    async fn player_obs(&self, player_secret: PlayerSecret, loc: Location) -> UmpireResult<Obs> {
+    async fn player_obs(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Obs>> {
         self.game
             .player_obs(context::current(), player_secret, loc)
             .await

@@ -757,7 +757,7 @@ x   o    x";
                 let mut obs_tracker = ObsTracker::new(map.dims());
 
                 for loc in map.iter_locs() {
-                    assert_eq!(*obs_tracker.get(loc), Obs::Unobserved);
+                    assert_eq!(obs_tracker.get(loc).cloned(), Some(Obs::Unobserved));
                 }
 
                 let turn = 0;
@@ -785,16 +785,16 @@ x   o    x";
 
                 for loc in map.iter_locs() {
                     assert_eq!(
-                        *obs_tracker.get(loc),
+                        obs_tracker.get(loc).cloned(),
                         if observed_locs.contains(&loc) {
-                            Obs::Observed {
+                            Some(Obs::Observed {
                                 tile: map[loc].clone(),
                                 turn,
                                 action_count,
                                 current: true,
-                            }
+                            })
                         } else {
-                            Obs::Unobserved
+                            Some(Obs::Unobserved)
                         }
                     );
                 }
@@ -823,16 +823,16 @@ x   o    x";
 
                 for loc in map.iter_locs() {
                     assert_eq!(
-                        *obs_tracker.get(loc),
+                        obs_tracker.get(loc).cloned(),
                         if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
-                            Obs::Observed {
+                            Some(Obs::Observed {
                                 tile: map[loc].clone(),
                                 turn,
                                 action_count,
                                 current: true,
-                            }
+                            })
                         } else {
-                            Obs::Unobserved
+                            Some(Obs::Unobserved)
                         }
                     );
                 }
@@ -841,16 +841,16 @@ x   o    x";
 
                 for loc in map.iter_locs() {
                     assert_eq!(
-                        *obs_tracker.get(loc),
+                        obs_tracker.get(loc).cloned(),
                         if observed_locs.contains(&loc) || observed_locs_2.contains(&loc) {
-                            Obs::Observed {
+                            Some(Obs::Observed {
                                 tile: map[loc].clone(),
                                 turn,
                                 action_count,
                                 current: false,
-                            }
+                            })
                         } else {
-                            Obs::Unobserved
+                            Some(Obs::Unobserved)
                         }
                     );
                 }

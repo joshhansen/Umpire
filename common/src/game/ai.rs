@@ -41,7 +41,7 @@ pub const DEEP_HEIGHT_REL_MIN: i32 = DEEP_HEIGHT as i32 / -2;
 pub const DEEP_HEIGHT_REL_MAX: i32 = DEEP_HEIGHT as i32 / 2;
 
 /// Number of "channels" in convolution output
-pub const BASE_CONV_FEATS: usize = 19;
+pub const BASE_CONV_FEATS: usize = 20;
 
 pub const DEEP_IN_LEN: usize = DEEP_TILES * BASE_CONV_FEATS;
 

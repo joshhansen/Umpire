@@ -478,8 +478,8 @@ impl PlayerControl {
     }
 
     /// The player's most recent observation at the given location
-    pub fn obs(&self, loc: Location) -> Obs {
-        self.observations.get(loc).clone()
+    pub fn obs(&self, loc: Location) -> Option<Obs> {
+        self.observations.get(loc).cloned()
     }
 
     pub fn observations(&self) -> &ObsTracker {
@@ -489,8 +489,8 @@ impl PlayerControl {
     /// The tile at the given location, as present in the player's observations (or not)
     pub fn tile(&self, loc: Location) -> Option<Cow<Tile>> {
         match self.observations.get(loc) {
-            Obs::Observed { tile, .. } => Some(Cow::Borrowed(tile)),
-            Obs::Unobserved => None,
+            Some(Obs::Observed { tile, .. }) => Some(Cow::Borrowed(tile)),
+            _ => None,
         }
     }
 
@@ -619,7 +619,7 @@ impl<'a> PlayerTurn<'a> {
                 dest: Location,
             ) -> ProposedOrdersResult;
 
-            pub fn obs(&self, loc: Location) -> Obs;
+            pub fn obs(&self, loc: Location) -> Option<Obs>;
 
             pub async fn player_cities_producing_or_not_ignored(&self) -> usize;
 

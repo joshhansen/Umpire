@@ -107,23 +107,27 @@ impl<T> Dimensioned for LocationGrid<T> {
 }
 
 impl Source<Terrain> for LocationGrid<Terrain> {
-    fn get(&self, loc: Location) -> &Terrain {
-        &self[loc]
+    fn get(&self, loc: Location) -> Option<&Terrain> {
+        if self.dims.contain(loc) {
+            Some(&self[loc])
+        } else {
+            None
+        }
     }
 }
 impl Source<Tile> for LocationGrid<Tile> {
-    fn get(&self, loc: Location) -> &Tile {
-        &self[loc]
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        if self.dims.contain(loc) {
+            Some(&self[loc])
+        } else {
+            None
+        }
     }
 }
 
 impl Source<Obs> for LocationGrid<Obs> {
-    fn get(&self, loc: Location) -> &Obs {
-        if let Some(obs) = LocationGridI::get(self, loc) {
-            obs
-        } else {
-            &Obs::Unobserved
-        }
+    fn get(&self, loc: Location) -> Option<&Obs> {
+        LocationGridI::get(self, loc)
     }
 }
 

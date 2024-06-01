@@ -115,7 +115,11 @@ pub trait IGame: Send + Sync {
     ) -> UmpireResult<Option<Cow<Tile>>>;
 
     /// The current player's observation at location `loc`
-    async fn player_obs(&self, player_secret: PlayerSecret, loc: Location) -> UmpireResult<Obs>;
+    async fn player_obs(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Obs>>;
 
     async fn player_observations(&self, player_secret: PlayerSecret) -> UmpireResult<ObsTracker>;
 

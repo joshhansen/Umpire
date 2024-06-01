@@ -915,7 +915,7 @@ impl Game {
                     .tracker(self.current_player)
                     .unwrap()
                     .get(loc),
-                &obs,
+                Some(&obs),
                 "The observation didn't make it into the current player's observations"
             );
         }
@@ -999,20 +999,24 @@ impl Game {
     }
 
     fn player_tile_by_idx(&self, player: PlayerNum, loc: Location) -> Option<&Tile> {
-        if let Obs::Observed { tile, .. } = self.player_obs_by_idx(player, loc) {
+        if let Some(Obs::Observed { tile, .. }) = self.player_obs_by_idx(player, loc) {
             Some(tile)
         } else {
             None
         }
     }
 
-    /// The current player's observation at location `loc`
-    pub fn player_obs(&self, player_secret: PlayerSecret, loc: Location) -> UmpireResult<&Obs> {
+    /// The current player's observation at location `loc`; or None if out of bounds
+    pub fn player_obs(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<&Obs>> {
         self.player_with_secret(player_secret)
             .map(|player| self.player_obs_by_idx(player, loc))
     }
 
-    fn player_obs_by_idx(&self, player: PlayerNum, loc: Location) -> &Obs {
+    fn player_obs_by_idx(&self, player: PlayerNum, loc: Location) -> Option<&Obs> {
         self.player_observations_by_idx(player).get(loc)
     }
 
@@ -1021,7 +1025,7 @@ impl Game {
         self.player_observations(secret).unwrap()
     }
 
-    fn current_player_obs(&self, loc: Location) -> &Obs {
+    fn current_player_obs(&self, loc: Location) -> Option<&Obs> {
         self.player_observations
             .tracker(self.current_player)
             .unwrap()
@@ -1843,11 +1847,11 @@ impl Game {
 
                 // Make sure the new observations stuck for the current player
                 debug_assert_eq!(
-                    &move_.observations_after_move[0].obs,
+                    Some(&move_.observations_after_move[0].obs),
                     self.player_obs(player_secret, prev_loc).unwrap()
                 );
                 debug_assert_eq!(
-                    &move_.observations_after_move[1].obs,
+                    Some(&move_.observations_after_move[1].obs),
                     self.player_obs(player_secret, loc).unwrap()
                 );
 
@@ -2488,31 +2492,25 @@ impl Game {
         });
 
         // Relatively positioned around city or unit, depending on the training focus
-        let loc =
-            match focus {
-                TrainingFocus::City => Some(city_loc.expect(
-                    "There should be a next city if we're generating a city feature vector",
-                )),
-                TrainingFocus::Unit => Some(
-                    self.player_unit_loc(
-                        player_secret,
-                        unit_id.expect(
-                            "There should be a next unit if we're generating a unit feature vector",
-                        ),
-                    )?
-                    .unwrap(),
-                ),
-                TrainingFocus::UnitIfExistsElseCity => {
-                    if let Some(unit_id) = unit_id {
-                        self.player_unit_loc(player_secret, unit_id)?
-                    } else {
-                        city_loc
-                    }
+        let loc = match focus {
+            TrainingFocus::City => city_loc
+                .expect("There should be a next city if we're generating a city feature vector"),
+            TrainingFocus::Unit => self
+                .player_unit_loc(
+                    player_secret,
+                    unit_id.expect(
+                        "There should be a next unit if we're generating a unit feature vector",
+                    ),
+                )?
+                .unwrap(),
+            TrainingFocus::UnitIfExistsElseCity => {
+                if let Some(unit_id) = unit_id {
+                    self.player_unit_loc(player_secret, unit_id)?.unwrap()
+                } else {
+                    city_loc.unwrap()
                 }
-            };
-
-        let loc_x = loc.map_or(0, |loc| loc.x) as fX;
-        let loc_y = loc.map_or(0, |loc| loc.y) as fX;
+            }
+        };
 
         // We also add a context around the currently active unit (if any)
         let mut x: Vec<fX> = Vec::with_capacity(FEATS_LEN);
@@ -2555,21 +2553,19 @@ impl Game {
 
                 let inc: Vec2d<i32> = Vec2d::new(inc_x, inc_y);
 
-                let obs = if let Some(origin) = loc {
-                    self.wrapping
-                        .wrapped_add(dims, origin, inc)
-                        .map_or(&Obs::Unobserved, |loc| observations.get(loc))
-                } else {
-                    &Obs::Unobserved
-                };
+                let maybe_obs = self
+                    .wrapping
+                    .wrapped_add(dims, loc, inc)
+                    .map(|loc| observations.get(loc).unwrap());
 
-                if let Obs::Observed { tile, .. } = obs {
+                if let Some(Obs::Observed { tile, .. }) = maybe_obs {
                     if tile.city.is_some() {
                         observed_cities += 1;
                     }
                 }
 
-                let channels = obs.features(player);
+                let channels =
+                    maybe_obs.map_or_else(|| [0.0; BASE_CONV_FEATS], |obs| obs.features(player));
 
                 // Reorder channels to be the first dim, then height, then width.
                 // Burn's Conv2d expects this format.
@@ -2615,13 +2611,13 @@ impl Game {
             // - vertical wrapping?
             i_(self.wrapping.vert == Wrap::Wrapping),
             // - loc.x
-            loc_x,
+            loc.x as fX,
             // - loc.y
-            loc_y,
+            loc.y as fX,
             // - loc.x / map_width
-            loc_x / dims.width as fX,
+            loc.x as fX / dims.width as fX,
             // - loc.y / map_height
-            loc_y / dims.height as fX,
+            loc.y as fX / dims.height as fX,
             // - percentage of observed cities controlled by player
             if observed_cities != 0 {
                 player_city_count / observed_cities as fX
@@ -2649,14 +2645,14 @@ impl Dimensioned for Game {
 
 /// FIXME Unimplement this so we don't leak information? Or audit usage.
 impl Source<Tile> for Game {
-    fn get(&self, loc: Location) -> &Tile {
-        self.current_player_tile(loc).unwrap()
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        self.current_player_tile(loc)
     }
 }
 
 /// FIXME Unimplement this so we don't leak information? Or audit usage.
 impl Source<Obs> for Game {
-    fn get(&self, loc: Location) -> &Obs {
+    fn get(&self, loc: Location) -> Option<&Obs> {
         self.current_player_obs(loc)
     }
 }

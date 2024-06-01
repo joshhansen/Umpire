@@ -1301,10 +1301,10 @@ fn test_disband_unit_by_id() {
         );
 
         match game2.current_player_obs(infantry_loc) {
-            Obs::Observed { action_count, .. } => {
+            Some(Obs::Observed { action_count, .. }) => {
                 assert_eq!(*action_count, prior_action_count + 1)
             }
-            Obs::Unobserved => panic!(
+            _ => panic!(
                 "The infantry's location prior to disbanding should be observed post-disband"
             ),
         }
@@ -1371,13 +1371,13 @@ fn test_disband_unit_by_id() {
         game.begin_turn(secrets[0], false).unwrap();
 
         match game.player_obs(secrets[0], loc).unwrap() {
-            Obs::Observed {
+            Some(Obs::Observed {
                 turn, action_count, ..
-            } => {
+            }) => {
                 assert_eq!(*turn, 0);
                 assert_eq!(*action_count, 0);
             }
-            Obs::Unobserved => panic!("Tile should be observed after turn start"),
+            _ => panic!("Tile should be observed after turn start"),
         }
 
         assert_eq!(game.action_count, 0);
@@ -1405,14 +1405,14 @@ fn test_disband_unit_by_id() {
         let obs = game.player_obs(secrets[0], loc).unwrap();
 
         match obs {
-            Obs::Observed {
+            Some(Obs::Observed {
                 turn, action_count, ..
-            } => {
+            }) => {
                 assert_eq!(*turn, 0);
                 assert_eq!(*action_count, 1);
             }
-            Obs::Unobserved => {
-                panic!("Tile should not be unobserved after disbanding a unit there")
+            _ => {
+                panic!("Tile should be observed after disbanding a unit there")
             }
         }
     }

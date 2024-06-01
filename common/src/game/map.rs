@@ -1081,8 +1081,8 @@ impl Dimensioned for MapData {
 }
 
 impl Source<Tile> for MapData {
-    fn get(&self, loc: Location) -> &Tile {
-        self.tile(loc).unwrap()
+    fn get(&self, loc: Location) -> Option<&Tile> {
+        self.tile(loc)
     }
 }
 

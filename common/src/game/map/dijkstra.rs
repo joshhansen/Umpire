@@ -270,7 +270,7 @@ impl<T: Terrainous> Filter<T> for TerrainFilter {
 // }
 
 pub trait Source<T>: Dimensioned {
-    fn get(&self, loc: Location) -> &T;
+    fn get(&self, loc: Location) -> Option<&T>;
 }
 pub trait SourceMut<T>: Source<T> {
     fn put(&mut self, loc: Location, item: &T) -> LocatedItem<T>;
@@ -328,12 +328,8 @@ impl<'a, T, S: Source<T>> Dimensioned for OverlaySource<'a, T, S> {
 // }
 
 impl<'a, T, S: Source<T>> Source<T> for OverlaySource<'a, T, S> {
-    fn get(&self, loc: Location) -> &T {
-        if let Some(overlay_item) = self.overlay[loc].as_ref() {
-            overlay_item
-        } else {
-            self.inner.get(loc)
-        }
+    fn get(&self, loc: Location) -> Option<&T> {
+        self.overlay[loc].as_ref().or_else(|| self.inner.get(loc))
     }
 }
 
@@ -501,7 +497,7 @@ where
     RELATIVE_NEIGHBORS
         .iter()
         .filter_map(move |rel_neighb| wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb))
-        .map(move |neighb| (neighb, tiles.get(neighb)))
+        .map(move |neighb| (neighb, tiles.get(neighb).unwrap()))
 }
 
 pub fn neighbors<'a, T, F, N, S>(
@@ -519,7 +515,7 @@ where
     let mut neighbs = BTreeSet::new();
     for rel_neighb in rel_neighbs {
         if let Some(neighb_loc) = wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb) {
-            if filter.include(tiles.get(neighb_loc)) {
+            if filter.include(tiles.get(neighb_loc).unwrap()) {
                 neighbs.insert(neighb_loc);
             }
             // if let Some(tile) = tiles.get(neighb_loc) {
@@ -547,7 +543,7 @@ where
 {
     for rel_neighb in rel_neighbs {
         if let Some(neighb_loc) = wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb) {
-            if filter.include(tiles.get(neighb_loc)) {
+            if filter.include(tiles.get(neighb_loc).unwrap()) {
                 return true;
             }
         }
@@ -570,7 +566,7 @@ where
 {
     rel_neighbs
         .filter_map(move |rel_neighb| wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb))
-        .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
+        .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc).unwrap()))
 }
 
 pub fn neighbors_iter_owned_filter<'a, T, F, N, S>(
@@ -587,7 +583,7 @@ where
 {
     rel_neighbs
         .filter_map(move |rel_neighb| wrapping.wrapped_add(tiles.dims(), loc, *rel_neighb))
-        .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc)))
+        .filter(move |neighb_loc| filter.include(tiles.get(*neighb_loc).unwrap()))
 }
 
 pub fn directions_iter_owned_filter<'a, T, F, D, S>(
@@ -608,7 +604,7 @@ where
                 .wrapped_add(tiles.dims(), loc, (*direction).into())
                 .map(|loc| (direction, loc))
         })
-        .filter(move |(_direction, neighb_loc)| filter.include(tiles.get(*neighb_loc)))
+        .filter(move |(_direction, neighb_loc)| filter.include(tiles.get(*neighb_loc).unwrap()))
         .map(|(direction, _neighb_loc)| *direction)
 }
 

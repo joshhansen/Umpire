@@ -122,8 +122,12 @@ impl IGame for Game {
             .map(|tile| tile.map(|tile| Cow::Borrowed(tile)))
     }
 
-    async fn player_obs(&self, player_secret: PlayerSecret, loc: Location) -> UmpireResult<Obs> {
-        self.player_obs(player_secret, loc).map(|obs| obs.clone())
+    async fn player_obs(
+        &self,
+        player_secret: PlayerSecret,
+        loc: Location,
+    ) -> UmpireResult<Option<Obs>> {
+        self.player_obs(player_secret, loc).map(|obs| obs.cloned())
     }
 
     async fn player_observations(&self, player_secret: PlayerSecret) -> UmpireResult<ObsTracker> {

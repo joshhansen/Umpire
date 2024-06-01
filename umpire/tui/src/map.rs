@@ -375,12 +375,12 @@ impl Map {
             }
 
             let obs = if let Some(obs_override) = obs_override {
-                obs_override.clone()
+                Some(obs_override.clone())
             } else {
                 game.obs(tile_loc)
             };
 
-            if let Obs::Observed { tile, current, .. } = obs {
+            if let Some(Obs::Observed { tile, current, .. }) = obs {
                 if highlight {
                     stdout.queue(SetAttribute(Attribute::Reverse)).unwrap();
                 }
@@ -534,7 +534,7 @@ impl Draw for Map {
                 );
                 let new_map_loc: Option<Location> = self.viewport_to_map_coords(game, viewport_loc);
 
-                let new_obs = new_map_loc.map(|new_map_loc| game.obs(new_map_loc));
+                let new_obs = new_map_loc.and_then(|new_map_loc| game.obs(new_map_loc));
 
                 let old_currentness = self.displayed_tile_currentness[viewport_loc];
                 // let new_currentness = if let Obs::Observed{current,..} = new_obs {

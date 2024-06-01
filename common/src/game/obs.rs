@@ -59,6 +59,8 @@ impl Obs {
     /// - city production progress - 1 fX
     /// - city production cost - 1 fX
     /// - city production as % of cost - 1 fX
+    /// - is observation in bounds - 1 fX. All Obs are, but Location wrapped_add can yield Option<&Obs> of None
+    //    that represent out-of-bounds.
     pub fn features(&self, player: PlayerNum) -> [fX; BASE_CONV_FEATS] {
         let none = UnitType::none_features();
         let unit_type_feats = match self {
@@ -142,10 +144,8 @@ impl Obs {
                 }),
                 _ => 0.0 as fX,
             },
-            // 19?: loc.x
-            // 20?: loc.x / map_width
-            // 21?: loc.y
-            // 22?: loc.y / map_height
+            // 19: is in bounds; all Obs are
+            1.0 as fX,
         ]
     }
 }
@@ -249,16 +249,19 @@ impl<'a, S: Source<Tile>> Dimensioned for UnifiedObsTracker<'a, S> {
 }
 
 impl<'a, S: Source<Tile>> Source<Obs> for UnifiedObsTracker<'a, S> {
-    fn get(&self, loc: Location) -> &Obs {
+    fn get(&self, loc: Location) -> Option<&Obs> {
         self.observations.get(loc)
     }
 }
 
 impl<'a, S: Source<Tile>> Source<Tile> for UnifiedObsTracker<'a, S> {
-    fn get(&self, loc: Location) -> &Tile {
+    fn get(&self, loc: Location) -> Option<&Tile> {
         match <Self as Source<Obs>>::get(self, loc) {
-            Obs::Observed { ref tile, .. } => tile,
-            Obs::Unobserved => panic!("Tried to get tile from unobserved tile {:?}", loc),
+            Some(Obs::Observed { tile, .. }) => Some(tile),
+            _ => panic!(
+                "Tried to get tile from unobserved or out of bounds tile {:?}",
+                loc
+            ),
         }
     }
 }
@@ -363,12 +366,8 @@ impl Dimensioned for ObsTracker {
 }
 
 impl Source<Obs> for ObsTracker {
-    fn get(&self, loc: Location) -> &Obs {
-        if let Some(in_bounds) = LocationGridI::get(&self.observations, loc) {
-            in_bounds
-        } else {
-            &Obs::Unobserved
-        }
+    fn get(&self, loc: Location) -> Option<&Obs> {
+        LocationGridI::get(&self.observations, loc)
     }
 }
 
@@ -459,7 +458,7 @@ pub trait Observer: Located {
     ) -> Vec<LocatedObs> {
         visible_coords_iter(self.sight_distance())
             .filter_map(|inc| wrapping.wrapped_add(tiles.dims(), self.loc(), inc))
-            .map(|loc| obs_tracker.track_observation(loc, tiles.get(loc), turn, action))
+            .map(|loc| obs_tracker.track_observation(loc, tiles.get(loc).unwrap(), turn, action))
             .collect()
         // for inc in visible_coords_iter(self.sight_distance()) {
         //     if let Some(loc) = wrapping.wrapped_add(tiles.dims(), self.loc(), inc) {
@@ -494,8 +493,8 @@ mod test {
             LocationGrid::new(dims, |loc| -> Tile { Tile::new(Terrain::Land, loc) });
         let mut tracker = ObsTracker::new(dims);
         let loc = Location { x: 5, y: 10 };
-        assert_eq!(*tracker.get(loc), Obs::Unobserved);
-        assert_eq!(*tracker.get(Location { x: 1000, y: 2000 }), Obs::Unobserved);
+        assert_eq!(tracker.get(loc).cloned(), Some(Obs::Unobserved));
+        assert_eq!(tracker.get(Location { x: 1000, y: 2000 }), None);
 
         let tile = Tile::new(Terrain::Land, loc);
 
@@ -505,13 +504,13 @@ mod test {
         tracker.track_observation(loc, &tile, turn, action_count);
 
         assert_eq!(
-            *tracker.get(loc),
-            Obs::Observed {
+            tracker.get(loc).cloned(),
+            Some(Obs::Observed {
                 tile,
                 turn,
                 action_count,
                 current: true
-            }
+            })
         );
 
         let infantry = Unit::new(
