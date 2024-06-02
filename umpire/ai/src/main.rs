@@ -598,10 +598,7 @@ async fn main() -> Result<(), String> {
         println!("Sample prob: {}", sample_prob);
         println!("Test prob: {}", test_prob);
 
-        let mut by_class: BTreeMap<TrainingOutcome, Vec<AgzDatum>> = BTreeMap::new();
-        by_class.insert(TrainingOutcome::Victory, Vec::new());
-        by_class.insert(TrainingOutcome::Defeat, Vec::new());
-        by_class.insert(TrainingOutcome::Inconclusive, Vec::new());
+        let mut data: Vec<AgzDatum> = Vec::new();
 
         let seed = sub_matches.get_one::<u64>("random_seed").copied();
         if let Some(seed) = seed.as_ref() {
@@ -637,7 +634,7 @@ async fn main() -> Result<(), String> {
                             outcome,
                         };
 
-                        by_class.get_mut(&datum.outcome).unwrap().push(datum);
+                        data.push(datum);
                     }
                 } else {
                     break;
@@ -650,29 +647,13 @@ async fn main() -> Result<(), String> {
         }
 
         let mut class_balance: BTreeMap<TrainingOutcome, usize> = BTreeMap::new();
-        for (outcome, data) in &by_class {
-            class_balance.insert(*outcome, data.len());
+        for datum in &data {
+            *class_balance.entry(datum.outcome).or_default() += 1;
         }
 
         println!("Class balance: {:?}", class_balance);
 
         println!("Downsampling draws...");
-
-        // Keep all victories
-        let mut data = by_class.remove(&TrainingOutcome::Victory).unwrap();
-
-        // Keep all defeats
-        data.extend(by_class.remove(&TrainingOutcome::Defeat).unwrap());
-
-        // Randomly fill in draws such that victories = defeats + draws
-        let mut draws = by_class.remove(&TrainingOutcome::Inconclusive).unwrap();
-        draws.shuffle(&mut rng);
-
-        let draws_wanted =
-            class_balance[&TrainingOutcome::Victory] - class_balance[&TrainingOutcome::Defeat];
-        draws.truncate(draws_wanted);
-
-        data.extend(draws);
 
         let mut train_data: Vec<AgzDatum> = Vec::new();
         let mut valid_data: Vec<AgzDatum> = Vec::new();
