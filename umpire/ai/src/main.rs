@@ -363,7 +363,7 @@ async fn main() -> Result<(), String> {
         let mut total_training_instances_written = 0usize;
 
         let mut victory_counts: BTreeMap<Option<PlayerNum>, usize> = BTreeMap::new();
-        for _ in 0..episodes {
+        for e in 0..episodes {
             let city_namer = IntNamer::new("city");
 
             let map_width = map_widths.choose(&mut rng).copied().unwrap();
@@ -466,6 +466,8 @@ async fn main() -> Result<(), String> {
                         }
 
                         execute!(stdout, MoveTo(0, term_height - 10 - num_ais as u16)).unwrap();
+                        println!("Game {} / {}", e, episodes);
+                        println!("Step {} / {}", s, steps);
                     }
 
                     turn.force_end_turn().await.unwrap();
