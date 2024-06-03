@@ -49,10 +49,10 @@ use umpire_ai::{
 
 use common::{
     game::{
-        ai::{fX, TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
+        ai::{TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
         map::gen::MapType,
     },
-    util::{densify, init_rng},
+    util::init_rng,
 };
 
 use rand::prelude::SliceRandom;
@@ -627,10 +627,9 @@ async fn main() -> Result<(), String> {
                     count += 1;
 
                     if rng.gen_bool(sample_prob) {
-                        let features: Vec<fX> = densify(instance.num_features, &instance.features);
-
                         let datum = AgzDatum {
-                            features,
+                            num_features: instance.num_features,
+                            features: instance.features,
                             turn: instance.turn,
                             action: instance.action.into(),
                             outcome,
