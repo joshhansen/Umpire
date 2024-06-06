@@ -53,10 +53,6 @@ impl<B: Backend> AgzBatcher<B> {
 
 /**
  * A batch of AlphaGo Zero style state-action victory probabilities.
- *
- * The features here include at the end an "action feature" - a way of encoding the action taken.
- *
- * This should be used in training to target the correct output of the model and update only based on that gradient.
 */
 #[derive(Clone, Debug)]
 pub struct AgzBatch<B: Backend> {
