@@ -209,8 +209,8 @@ async fn main() -> Result<(), String> {
                 .default_value("1.0")
         )
         .arg(
-            Arg::new("testprob")
-                .short('t')
+            Arg::new("validprob")
+                .short('V')
                 .help("Probability of an instance being included in the test set")
                 .value_parser(value_parser!(f64))
                 .default_value("0.05")
@@ -230,6 +230,21 @@ async fn main() -> Result<(), String> {
                 .help("Index of the GPU to use; falls back to CPU if none exists")
                 .value_parser(value_parser!(usize))
                 .default_value("0")
+        )
+        .arg(
+            Arg::new("resume_epoch")
+                .short('R')
+                .long("resume")
+                .help("Epoch of checkpoint to resume from")
+                .value_parser(value_parser!(usize))
+        )
+        .arg(
+            Arg::new("dataload_threads")
+                .short('J')
+                .long("dataload_threads")
+                .help("Number of threads for the dataload process")
+                .value_parser(value_parser!(usize))
+                .default_value("8")
         )
         .arg(
             Arg::new("input")
@@ -584,6 +599,9 @@ async fn main() -> Result<(), String> {
         println!("Learning rate: {}", learning_rate);
         println!("GPU: {}", gpu);
 
+        let dataload_threads: usize = sub_matches.get_one("dataload_threads").copied().unwrap();
+        println!("Dataload threads: {}", dataload_threads);
+
         let input_paths: Vec<String> = sub_matches.get_many("input").unwrap().cloned().collect();
 
         let output_path: String = sub_matches.get_one("out").cloned().unwrap();
@@ -595,10 +613,12 @@ async fn main() -> Result<(), String> {
         let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, dropout_config);
 
         let sample_prob: f64 = sub_matches.get_one("sampleprob").copied().unwrap();
-        let test_prob: f64 = sub_matches.get_one("testprob").copied().unwrap();
+        let valid_prob: f64 = sub_matches.get_one("validprob").copied().unwrap();
 
         println!("Sample prob: {}", sample_prob);
-        println!("Test prob: {}", test_prob);
+        println!("Validation prob: {}", valid_prob);
+
+        let resume_epoch: Option<usize> = sub_matches.get_one("resume_epoch").copied();
 
         let mut data: Vec<AgzDatum> = Vec::new();
 
@@ -627,15 +647,13 @@ async fn main() -> Result<(), String> {
                     count += 1;
 
                     if rng.gen_bool(sample_prob) {
-                        let datum = AgzDatum {
+                        data.push(AgzDatum {
                             num_features: instance.num_features,
                             features: instance.features,
                             turn: instance.turn,
                             action: instance.action.into(),
                             outcome,
-                        };
-
-                        data.push(datum);
+                        });
                     }
                 } else {
                     break;
@@ -654,13 +672,11 @@ async fn main() -> Result<(), String> {
 
         println!("Class balance: {:?}", class_balance);
 
-        println!("Downsampling draws...");
-
         let mut train_data: Vec<AgzDatum> = Vec::new();
         let mut valid_data: Vec<AgzDatum> = Vec::new();
 
         for datum in data.into_iter() {
-            if rng.gen_bool(test_prob) {
+            if rng.gen_bool(valid_prob) {
                 valid_data.push(datum);
             } else {
                 train_data.push(datum);
@@ -676,7 +692,8 @@ async fn main() -> Result<(), String> {
         // let adam_config = AdamConfig::new();
         let opt_config = SgdConfig::new();
 
-        let mut train_config = TrainingConfig::new(model_config, opt_config, batch_size);
+        let mut train_config =
+            TrainingConfig::new(model_config, opt_config, batch_size, dataload_threads);
         train_config.batch_size = batch_size;
         train_config.learning_rate = learning_rate;
         train_config.num_epochs = episodes;
@@ -687,6 +704,7 @@ async fn main() -> Result<(), String> {
             device,
             train_data,
             valid_data,
+            resume_epoch,
         );
     } else {
         return Err(String::from("A subcommand must be given"));
@@ -711,7 +729,6 @@ pub struct TrainingConfig {
 
     pub batch_size: usize,
 
-    #[config(default = 4)]
     pub dataload_threads: usize,
 
     #[config(default = 42)]
@@ -733,6 +750,7 @@ pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
     device: B::Device,
     train: AgzData,
     valid: AgzData,
+    resume_epoch: Option<usize>,
 ) {
     let artifact_dir_s: &str = artifact_dir.as_ref().to_str().unwrap();
     create_artifact_dir(artifact_dir);
@@ -764,18 +782,23 @@ pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
         .num_workers(config.dataload_threads)
         .build(valid);
 
-    let learner = LearnerBuilder::new(artifact_dir_s)
+    let mut learner_builder = LearnerBuilder::new(artifact_dir_s)
         .metric_train_numeric(LossMetric::new())
         .metric_valid_numeric(LossMetric::new())
         .with_file_checkpointer(BinFileRecorder::<FullPrecisionSettings>::new())
         .devices(vec![device.clone()])
         .num_epochs(config.num_epochs)
-        .summary()
-        .build(
-            config.model.init::<B>(device),
-            config.optimizer.init(),
-            config.learning_rate,
-        );
+        .summary();
+
+    if let Some(resume_epoch) = resume_epoch {
+        learner_builder = learner_builder.checkpoint(resume_epoch);
+    }
+
+    let learner = learner_builder.build(
+        config.model.init::<B>(device),
+        config.optimizer.init(),
+        config.learning_rate,
+    );
 
     let model_path = {
         let mut p = artifact_dir.as_ref().to_path_buf();
