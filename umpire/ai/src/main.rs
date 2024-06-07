@@ -51,8 +51,9 @@ use common::{
     game::{
         ai::{TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
         map::gen::MapType,
+        TurnNum,
     },
-    util::init_rng,
+    util::{densify, init_rng},
 };
 
 use rand::prelude::SliceRandom;
@@ -441,7 +442,9 @@ async fn main() -> Result<(), String> {
             let mut player_partial_data: Option<BTreeMap<PlayerNum, Vec<TrainingInstance>>> =
                 datagenpath.map(|_| BTreeMap::new());
 
+            let mut last_turn: TurnNum = 0;
             'steps: for s in 0..steps {
+                last_turn = s as TurnNum;
                 for (player, ctrl) in ctrls.iter_mut().enumerate() {
                     if ctrl.victor().await.is_some() {
                         break 'steps;
@@ -502,14 +505,14 @@ async fn main() -> Result<(), String> {
                         for mut instance in partial_data {
                             if player == victor {
                                 if !ignored_outcomes.contains(&TrainingOutcome::Victory) {
-                                    instance.victory();
+                                    instance.victory(last_turn);
                                     data_by_outcome
                                         .get_mut(&TrainingOutcome::Victory)
                                         .unwrap()
                                         .push(instance);
                                 }
                             } else if !ignored_outcomes.contains(&TrainingOutcome::Defeat) {
-                                instance.defeat();
+                                instance.defeat(last_turn);
                                 data_by_outcome
                                     .get_mut(&TrainingOutcome::Defeat)
                                     .unwrap()
@@ -520,7 +523,7 @@ async fn main() -> Result<(), String> {
                 } else if !ignored_outcomes.contains(&TrainingOutcome::Inconclusive) {
                     for partial_data in player_partial_data.into_values() {
                         for mut instance in partial_data {
-                            instance.inconclusive();
+                            instance.inconclusive(last_turn);
                             data_by_outcome
                                 .get_mut(&TrainingOutcome::Inconclusive)
                                 .unwrap()
@@ -648,9 +651,8 @@ async fn main() -> Result<(), String> {
 
                     if rng.gen_bool(sample_prob) {
                         data.push(AgzDatum {
-                            num_features: instance.num_features,
-                            features: instance.features,
-                            turn: instance.turn,
+                            features: densify(instance.num_features, &instance.features),
+                            turns_until_outcome: instance.last_turn.unwrap() - instance.turn,
                             action: instance.action.into(),
                             outcome,
                         });

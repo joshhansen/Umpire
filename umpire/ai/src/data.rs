@@ -1,23 +1,17 @@
-use std::collections::BTreeMap;
-
 use burn::{
     data::{dataloader::batcher::Batcher, dataset::Dataset},
     prelude::*,
 };
-use common::{
-    game::{
-        ai::{fX, TrainingOutcome},
-        TurnNum,
-    },
-    util::densify,
+use common::game::{
+    ai::{fX, TrainingOutcome},
+    TurnNum,
 };
 
 #[derive(Clone, Debug)]
 pub struct AgzDatum {
-    pub features: BTreeMap<usize, fX>,
-    pub num_features: usize,
+    pub features: Vec<fX>,
     pub action: usize,
-    pub turn: TurnNum,
+    pub turns_until_outcome: TurnNum,
     pub outcome: TrainingOutcome,
 }
 
@@ -71,8 +65,7 @@ impl<B: Backend> Batcher<AgzDatum, AgzBatch<B>> for AgzBatcher<B> {
         let features = items
             .iter()
             .map(|item| {
-                let dense_features = densify(item.num_features, &item.features);
-                let feats = Tensor::from_floats(dense_features.as_slice(), &self.device);
+                let feats = Tensor::from_floats(item.features.as_slice(), &self.device);
                 feats.reshape([1, -1])
             })
             .collect();
@@ -84,7 +77,7 @@ impl<B: Backend> Batcher<AgzDatum, AgzBatch<B>> for AgzBatcher<B> {
 
         let targets: Vec<fX> = items
             .iter()
-            .map(|item| item.outcome.to_training_target(item.turn))
+            .map(|item| item.outcome.to_training_target(item.turns_until_outcome))
             .collect();
         let targets: Tensor<B, 1> = Tensor::from_floats(targets.as_slice(), &self.device);
 

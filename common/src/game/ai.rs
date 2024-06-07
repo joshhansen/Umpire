@@ -75,15 +75,15 @@ impl TrainingOutcome {
     pub const fn values() -> [Self; 3] {
         [Self::Victory, Self::Defeat, Self::Inconclusive]
     }
-    /// Ranges from 0 to 1; exactly 0 for defeat on the first turn, exactly 1 for victory on the first turn
+    /// Ranges from 0 to 1; exactly 0 for immediate defeat, exactly 1 for immediate victory
     /// closer to 0.5 for later defeats and victories (rewarding survival; punishing delay)
     ///
-    /// Draws are punished like a defeat on turn 990
-    pub fn to_training_target(self, turn: TurnNum) -> fX {
+    /// Draws are punished like a defeat in 990 turns
+    pub fn to_training_target(self, turns_until_outcome: TurnNum) -> fX {
         match self {
-            Self::Victory => 0.5 + 0.5 / (10.0 as fX + turn as fX).log10(),
+            Self::Victory => 0.5 + 0.5 / (10.0 as fX + turns_until_outcome as fX).log10(),
             Self::Inconclusive => 0.33333334,
-            Self::Defeat => 0.5 - 0.5 / (10.0 as fX + turn as fX).log10(),
+            Self::Defeat => 0.5 - 0.5 / (10.0 as fX + turns_until_outcome as fX).log10(),
         }
     }
 }
@@ -130,8 +130,16 @@ pub struct TrainingInstance {
     pub pre_score: f64,         // the player's score prior to the action
     pub action: AiPlayerAction, // the action taken
     pub post_score: f64,        // the player's score after the action
-    pub outcome: Option<TrainingOutcome>, // how did things work out for the player?
-                                // set as None until the outcome is determined
+
+    /// How did things work out for the player?
+    ///
+    /// Set as None until the outcome is determined
+    pub outcome: Option<TrainingOutcome>, //
+
+    /// The turn on which the game ended, or the last played on draws
+    ///
+    /// Set as None until the outcome is determined
+    pub last_turn: Option<TurnNum>,
 }
 impl TrainingInstance {
     pub fn undetermined(
@@ -152,23 +160,25 @@ impl TrainingInstance {
             action,
             post_score,
             outcome: None,
+            last_turn: None,
         }
     }
 
-    pub fn determine(&mut self, outcome: TrainingOutcome) {
+    pub fn determine(&mut self, outcome: TrainingOutcome, last_turn: TurnNum) {
         self.outcome = Some(outcome);
+        self.last_turn = Some(last_turn);
     }
 
-    pub fn victory(&mut self) {
-        self.determine(TrainingOutcome::Victory);
+    pub fn victory(&mut self, last_turn: TurnNum) {
+        self.determine(TrainingOutcome::Victory, last_turn);
     }
 
-    pub fn defeat(&mut self) {
-        self.determine(TrainingOutcome::Defeat);
+    pub fn defeat(&mut self, last_turn: TurnNum) {
+        self.determine(TrainingOutcome::Defeat, last_turn);
     }
 
-    pub fn inconclusive(&mut self) {
-        self.determine(TrainingOutcome::Inconclusive);
+    pub fn inconclusive(&mut self, last_turn: TurnNum) {
+        self.determine(TrainingOutcome::Inconclusive, last_turn);
     }
 }
 
