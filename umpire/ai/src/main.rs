@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 use std::{
     cell::RefCell,
+    cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     fs::File,
     io::stdout,
@@ -31,7 +32,7 @@ use burn_autodiff::Autodiff;
 use burn_train::{metric::LossMetric, LearnerBuilder};
 use burn_wgpu::Wgpu;
 
-use clap::{value_parser, Arg, ArgAction};
+use clap::{builder::BoolishValueParser, value_parser, Arg, ArgAction};
 
 use crossterm::{
     cursor::{MoveTo, Show},
@@ -156,6 +157,13 @@ async fn main() -> Result<(), String> {
             .help("The # of samples taken per class; really min(n,q) where n is samples available and q is qty desired")
             .value_parser(value_parser!(usize))
             .default_value("10")
+        )
+        .arg(
+            Arg::new("datagenqty_eq")
+            .long("eq")
+            .help("Ensure the quantities of victories and defeats recorded are equal; use the min if less than the datagen qty (-Q)")
+            .value_parser(BoolishValueParser::new())
+            .default_value("true")
         )
         .arg(
             Arg::new("detsec")
@@ -343,6 +351,8 @@ async fn main() -> Result<(), String> {
 
         let datagen_qty: Option<usize> =
             datagenpath.map(|_| sub_matches.get_one("datagenqty").copied().unwrap());
+
+        let datagen_qty_eq: bool = sub_matches.get_one("datagenqty_eq").copied().unwrap();
 
         if let Some(datagen_qty) = datagen_qty {
             println!("Datagen qty: {}", datagen_qty);
@@ -538,6 +548,31 @@ async fn main() -> Result<(), String> {
                 for data in data_by_outcome.values_mut() {
                     data.shuffle(&mut rng);
                     data.truncate(datagen_qty.unwrap());
+                }
+
+                if datagen_qty_eq {
+                    // Ensure that victories and defeats are recorded in equal quantity
+                    // This likely means truncating further
+                    // TODO Only truncate once per outcome
+                    let victory_qty = data_by_outcome[&TrainingOutcome::Victory].len();
+                    let defeat_qty = data_by_outcome[&TrainingOutcome::Defeat].len();
+                    match victory_qty.cmp(&defeat_qty) {
+                        Ordering::Greater => {
+                            data_by_outcome
+                                .get_mut(&TrainingOutcome::Victory)
+                                .unwrap()
+                                .truncate(defeat_qty);
+                        }
+                        Ordering::Less => {
+                            data_by_outcome
+                                .get_mut(&TrainingOutcome::Defeat)
+                                .unwrap()
+                                .truncate(victory_qty);
+                        }
+                        Ordering::Equal => {
+                            // do nothing
+                        }
+                    }
                 }
 
                 // Write the training instances
