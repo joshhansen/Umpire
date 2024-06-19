@@ -365,7 +365,8 @@ async fn main() -> Result<(), String> {
 
         let palette = palette16(num_ais).unwrap();
 
-        let print_results = |victory_counts: &BTreeMap<Option<PlayerNum>, usize>| {
+        let print_results = |victory_counts: &BTreeMap<Option<PlayerNum>, usize>,
+                             game_lengths: &BTreeMap<TurnNum, usize>| {
             for (i, spec) in ai_specs.iter().map(|s| s.spec()).enumerate() {
                 println!(
                     "{} wins: {}",
@@ -374,6 +375,14 @@ async fn main() -> Result<(), String> {
                 );
             }
             println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
+            let mut total_games: usize = 0;
+            let mut total_turns: TurnNum = 0;
+            for (turn, freq) in game_lengths {
+                total_games += *freq;
+                total_turns += *turn * *freq as TurnNum;
+            }
+            let mean_game_length = total_turns as f64 / total_games as f64;
+            println!("Average game length: {}", mean_game_length);
         };
 
         let mut seed = sub_matches.get_one::<u64>("random_seed").cloned();
@@ -389,6 +398,7 @@ async fn main() -> Result<(), String> {
         let mut total_training_instances_written = 0usize;
 
         let mut victory_counts: BTreeMap<Option<PlayerNum>, usize> = BTreeMap::new();
+        let mut game_lengths: BTreeMap<TurnNum, usize> = BTreeMap::new();
         for e in 0..episodes {
             let city_namer = IntNamer::new("city");
 
@@ -502,6 +512,8 @@ async fn main() -> Result<(), String> {
                 }
             }
 
+            *game_lengths.entry(last_turn).or_default() += 1;
+
             let mut data_by_outcome: BTreeMap<TrainingOutcome, Vec<TrainingInstance>> =
                 BTreeMap::new();
             for t in TrainingOutcome::values() {
@@ -604,7 +616,7 @@ async fn main() -> Result<(), String> {
                 .or_insert(0) += 1;
 
             println!();
-            print_results(&victory_counts);
+            print_results(&victory_counts, &game_lengths);
 
             if let Some(seed) = seed.as_mut() {
                 *seed += SEED_INTERVAL;
@@ -619,7 +631,7 @@ async fn main() -> Result<(), String> {
 
         execute!(stdout, LeaveAlternateScreen).unwrap();
 
-        print_results(&victory_counts);
+        print_results(&victory_counts, &game_lengths);
 
         println!(
             "Total training instances written: {}",
