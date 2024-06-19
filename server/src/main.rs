@@ -8,7 +8,7 @@ use common::{
     conf,
     game::{
         action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
-        ai::{fX, TrainingFocus},
+        ai::{fX, AiDevice, TrainingFocus},
         city::{City, CityID},
         error::GameError,
         map::{gen::MapType, Tile},
@@ -973,6 +973,7 @@ async fn main() -> anyhow::Result<()> {
     let ai_thread = {
         let game = Arc::clone(&game);
         let player_types = player_types.clone();
+        let device: AiDevice = Default::default();
         tokio::spawn(async move {
             let unique_ai_ptypes: BTreeSet<PlayerType> = player_types
                 .iter()
@@ -1024,7 +1025,7 @@ async fn main() -> anyhow::Result<()> {
                     // Always clear on unit production for the robots
                     let mut turn = ctrl.turn_ctrl(true).await;
 
-                    ai.take_turn(&mut turn, None).await;
+                    ai.take_turn(&mut turn, None, device).await;
 
                     turn.force_end_turn().await.unwrap();
                 }

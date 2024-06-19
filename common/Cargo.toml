@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 async-trait = { workspace = true }
+burn = { workspace = true }
+burn-autodiff = { workspace = true }
+burn-wgpu = { workspace = true }
 clap = { workspace = true }
 csv = "1.1.3"
 #delegate = "0.9.0"

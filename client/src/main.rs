@@ -33,8 +33,11 @@ use common::{
     cli::{self, players_arg},
     conf,
     game::{
-        ai::AISpec, map::gen::MapType, player::PlayerControl, turn_async::TurnTaker, Game, IGame,
-        PlayerNum, PlayerSecret, PlayerType,
+        ai::{AISpec, AiDevice},
+        map::gen::MapType,
+        player::PlayerControl,
+        turn_async::TurnTaker,
+        Game, IGame, PlayerNum, PlayerSecret, PlayerType,
     },
     log::LogTarget,
     name::{city_namer, unit_namer},
@@ -259,6 +262,8 @@ async fn main() -> Result<(), String> {
         (game, secrets, num_players, dims, player_types)
     };
 
+    let device: AiDevice = Default::default();
+
     let palette = match color_depth {
         16 | 256 => match color_depth {
             16 => palette16(num_players).expect("Error loading 16-color palette"),
@@ -342,7 +347,7 @@ async fn main() -> Result<(), String> {
 
                 match &player_types[player] {
                     PlayerType::Human => {
-                        let turn_outcome = ui.take_turn(&mut turn, None).await;
+                        let turn_outcome = ui.take_turn(&mut turn, None, device).await;
                         assert!(turn_outcome.training_instances.is_none());
 
                         if turn_outcome.quit {
@@ -355,7 +360,7 @@ async fn main() -> Result<(), String> {
                             .get_mut(ai_type)
                             .unwrap()
                             .borrow_mut()
-                            .take_turn(&mut turn, None)
+                            .take_turn(&mut turn, None, device)
                             .await;
                         assert!(turn_outcome.training_instances.is_none());
 

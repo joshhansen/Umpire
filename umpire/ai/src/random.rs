@@ -7,7 +7,7 @@ use crossterm::{cursor::MoveTo, execute};
 use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 
 use common::{
-    game::{player::PlayerTurn, turn_async::ActionwiseTurnTaker, unit::UnitType},
+    game::{ai::AiDevice, player::PlayerTurn, turn_async::ActionwiseTurnTaker, unit::UnitType},
     util::Direction,
 };
 
@@ -34,7 +34,11 @@ impl RandomAI {
 
 #[async_trait]
 impl ActionwiseTurnTaker for RandomAI {
-    async fn next_action(&mut self, ctrl: &PlayerTurn) -> Option<AiPlayerAction> {
+    async fn next_action(
+        &mut self,
+        ctrl: &PlayerTurn,
+        _device: AiDevice,
+    ) -> Option<AiPlayerAction> {
         if let Some(city_loc) = ctrl.player_production_set_requests().await.first() {
             let valid_productions: Vec<UnitType> =
                 ctrl.valid_productions_conservative(*city_loc).await;
@@ -136,6 +140,7 @@ mod test {
 
     use common::{
         game::{
+            ai::AiDevice,
             alignment::Alignment,
             map::{gen::MapType, terrain::Terrain, MapData},
             player::PlayerControl,
@@ -151,6 +156,7 @@ mod test {
 
     #[tokio::test]
     pub async fn test_random_ai() {
+        let device: AiDevice = Default::default();
         {
             let mut ai = RandomAI::new(init_rng(None), 0, false);
 
@@ -171,7 +177,7 @@ mod test {
 
             for _ in 0..1000 {
                 let mut turn = ctrl.turn_ctrl(true).await;
-                ai.take_turn(&mut turn, None).await;
+                ai.take_turn(&mut turn, None, device).await;
                 turn.force_end_turn().await.unwrap();
             }
         }
@@ -192,7 +198,7 @@ mod test {
                     {
                         let mut turn = ctrl.turn_ctrl(true).await;
 
-                        ai.take_turn(&mut turn, None).await;
+                        ai.take_turn(&mut turn, None, device).await;
 
                         turn.force_end_turn().await.unwrap();
                     }
@@ -242,6 +248,8 @@ mod test {
 
         let mut ai = RandomAI::new(rng, 2, false);
 
+        let device: AiDevice = Default::default();
+
         for _turn in 0..1000 {
             {
                 let ctrl = &mut ctrls[0];
@@ -255,7 +263,7 @@ mod test {
                 let ctrl = &mut ctrls[1];
                 let mut turn = ctrl.turn_ctrl(true).await;
 
-                ai.take_turn(&mut turn, None).await;
+                ai.take_turn(&mut turn, None, device).await;
 
                 turn.force_end_turn().await.unwrap();
             }

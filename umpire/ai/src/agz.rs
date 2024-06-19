@@ -21,7 +21,8 @@ use burn::{
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
 use common::game::ai::{
-    PER_ACTION_CHANNELS, POSSIBLE_ACTIONS, POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS, P_DROPOUT,
+    AiBackend, AiBackendDevice, AiDevice, PER_ACTION_CHANNELS, POSSIBLE_ACTIONS,
+    POSSIBLE_CITY_ACTIONS, POSSIBLE_UNIT_ACTIONS, P_DROPOUT,
 };
 use num_traits::ToPrimitive;
 
@@ -281,8 +282,12 @@ impl<B: Backend> Storable for AgzActionModel<B> {
 }
 
 #[async_trait]
-impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
-    async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction> {
+impl ActionwiseTurnTaker2 for AgzActionModel<AiBackend> {
+    async fn next_city_action(
+        &mut self,
+        turn: &PlayerTurn,
+        device: AiDevice,
+    ) -> Option<NextCityAction> {
         let legal_action_indices: BTreeSet<usize> = NextCityAction::legal(turn)
             .await
             .into_iter()
@@ -293,12 +298,13 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
             return None;
         }
 
+        let device: AiBackendDevice = device.into();
+
         let feats = Self::features(turn, TrainingFocus::City).await;
 
-        let device: B::Device = Default::default();
-
         // [batch,feat] (a batch of one)
-        let feats: Tensor<B, 2> = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
+        let feats: Tensor<AiBackend, 2> =
+            Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
         let probs = self.evaluate_tensors(feats);
 
@@ -321,7 +327,11 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
         Some(NextCityAction::from(city_action_idx))
     }
 
-    async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction> {
+    async fn next_unit_action(
+        &mut self,
+        turn: &PlayerTurn,
+        device: AiDevice,
+    ) -> Option<NextUnitAction> {
         let legal_action_indices: BTreeSet<usize> = NextUnitAction::legal(turn)
             .await
             .iter()
@@ -333,9 +343,10 @@ impl<B: Backend> ActionwiseTurnTaker2 for AgzActionModel<B> {
             return None;
         }
 
+        let device: AiBackendDevice = device.into();
+
         let feats = Self::features(turn, TrainingFocus::Unit).await;
 
-        let device: B::Device = Default::default();
         let feats = Tensor::from_floats(feats.as_slice(), &device).reshape([1, -1]);
 
         let unit_action_probs: Vec<(usize, fX)> = self

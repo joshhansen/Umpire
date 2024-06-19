@@ -20,7 +20,6 @@ use std::{
 };
 
 use burn::{
-    backend::wgpu::WgpuDevice,
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
     nn::DropoutConfig,
     optim::SgdConfig,
@@ -30,7 +29,7 @@ use burn::{
 };
 use burn_autodiff::Autodiff;
 use burn_train::{metric::LossMetric, LearnerBuilder};
-use burn_wgpu::Wgpu;
+use burn_wgpu::{Wgpu, WgpuDevice};
 
 use clap::{builder::BoolishValueParser, value_parser, Arg, ArgAction};
 
@@ -45,12 +44,12 @@ use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use umpire_ai::{
     agz::AgzActionModelConfig,
     data::{AgzBatcher, AgzData, AgzDatum},
-    AiBackend, Storable,
+    Storable,
 };
 
 use common::{
     game::{
-        ai::{TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
+        ai::{AiBackend, AiDevice, TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
         map::gen::MapType,
         TurnNum,
     },
@@ -89,20 +88,20 @@ fn parse_ai_specs(specs: &Vec<String>) -> Result<Vec<AISpec>, String> {
     Ok(ai_specs)
 }
 
-fn load_ais<B: Backend>(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI<B>>>>, String> {
-    let mut unique_ais: BTreeMap<AISpec, Rc<RefCell<AI<B>>>> = BTreeMap::new();
+fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI<Wgpu>>>>, String> {
+    let mut unique_ais: BTreeMap<AISpec, Rc<RefCell<AI<Wgpu>>>> = BTreeMap::new();
 
     for ai_type in ai_types {
         println!("Loading AI type {}", ai_type);
         unique_ais.entry(ai_type.clone()).or_insert_with(|| {
-            let ai: AI<B> = ai_type.clone().into();
+            let ai: AI<Wgpu> = ai_type.clone().into();
             Rc::new(RefCell::new(ai))
         });
     }
 
-    let mut ais: Vec<Rc<RefCell<AI<B>>>> = Vec::with_capacity(ai_types.len());
+    let mut ais: Vec<Rc<RefCell<AI<Wgpu>>>> = Vec::with_capacity(ai_types.len());
     for ai_type in ai_types {
-        let ai: Rc<RefCell<AI<B>>> = Rc::clone(&unique_ais[ai_type]);
+        let ai: Rc<RefCell<AI<Wgpu>>> = Rc::clone(&unique_ais[ai_type]);
         ais.push(ai);
     }
     Ok(ais)
@@ -136,7 +135,7 @@ async fn main() -> Result<(), String> {
         .action(ArgAction::SetTrue)
     )
     .subcommand(
-        cli::app(SUBCMD_EVAL, "MSwHWf")
+        cli::app(SUBCMD_EVAL, "MSwHWfg")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
             Arg::new("ai_models")
@@ -188,7 +187,7 @@ async fn main() -> Result<(), String> {
         )
     )
     .subcommand(
-        cli::app(SUBCMD_AGZTRAIN, "DS")
+        cli::app(SUBCMD_AGZTRAIN, "DSg")
         .about(format!("Train an AlphaGo Zero-inspired neural network AI for the game of {}", conf::APP_NAME))
         .arg_required_else_help(true)
         // .arg(
@@ -231,14 +230,6 @@ async fn main() -> Result<(), String> {
                 .help("Size of training batches")
                 .value_parser(value_parser!(usize))
                 .default_value("2048")
-        )
-        .arg(
-            Arg::new("gpu")
-                .short('g')
-                .long("gpu")
-                .help("Index of the GPU to use; falls back to CPU if none exists")
-                .value_parser(value_parser!(usize))
-                .default_value("0")
         )
         .arg(
             Arg::new("resume_epoch")
@@ -325,7 +316,33 @@ async fn main() -> Result<(), String> {
             .unwrap()
             .cloned()
             .collect();
-        let ai_specs: Vec<AISpec> = parse_ai_specs(&ai_specs_s)?;
+
+        let gpu = sub_matches.get_one::<usize>("gpu").copied();
+        let device = gpu.map_or_else(Default::default, AiDevice::DiscreteGpu);
+
+        // Load up the AI specifications, respecting --gpu if present
+        let ai_specs: Vec<AISpec> = {
+            let mut ai_specs = parse_ai_specs(&ai_specs_s)?;
+
+            for ai_spec in ai_specs.iter_mut() {
+                match ai_spec {
+                    AISpec::FromPath {
+                        device: device_, ..
+                    } => {
+                        *device_ = device;
+                    }
+                    AISpec::FromLevel {
+                        device: device_, ..
+                    } => {
+                        *device_ = device;
+                    }
+                    _ => {
+                        // do nothing
+                    }
+                }
+            }
+            ai_specs
+        };
 
         let mut ais: Vec<Rc<RefCell<AI<AiBackend>>>> = load_ais(&ai_specs)?;
         let num_ais = ais.len();
@@ -474,7 +491,10 @@ async fn main() -> Result<(), String> {
 
                     let mut turn = ctrl.turn_ctrl(true).await;
 
-                    let turn_outcome = ai.borrow_mut().take_turn(&mut turn, Some(1.0)).await;
+                    let turn_outcome = ai
+                        .borrow_mut()
+                        .take_turn(&mut turn, Some(1.0), device)
+                        .await;
 
                     if let Some(player_partial_data) = player_partial_data.as_mut() {
                         let partial_data =
@@ -613,7 +633,7 @@ async fn main() -> Result<(), String> {
 
             *victory_counts
                 .entry(game.read().await.victor().await)
-                .or_insert(0) += 1;
+                .or_default() += 1;
 
             println!();
             print_results(&victory_counts, &game_lengths);
@@ -643,11 +663,13 @@ async fn main() -> Result<(), String> {
             .get_one::<f64>("dnn_learning_rate")
             .copied()
             .unwrap();
-        let gpu = sub_matches.get_one::<usize>("gpu").copied().unwrap();
+        let gpu = sub_matches.get_one::<usize>("gpu").copied();
 
         println!("Batch size: {}", batch_size);
         println!("Learning rate: {}", learning_rate);
-        println!("GPU: {}", gpu);
+        if let Some(gpu) = gpu {
+            println!("GPU: {}", gpu);
+        }
 
         let dataload_threads: usize = sub_matches.get_one("dataload_threads").copied().unwrap();
         println!("Dataload threads: {}", dataload_threads);
@@ -657,7 +679,7 @@ async fn main() -> Result<(), String> {
         let output_path: String = sub_matches.get_one("out").cloned().unwrap();
         let output_path = Path::new(&output_path).to_owned();
 
-        let device = WgpuDevice::DiscreteGpu(gpu);
+        let device = gpu.map_or_else(Default::default, WgpuDevice::DiscreteGpu);
 
         let dropout_config = DropoutConfig::new(P_DROPOUT);
         let model_config = AgzActionModelConfig::new(POSSIBLE_ACTIONS, dropout_config);

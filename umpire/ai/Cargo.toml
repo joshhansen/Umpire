@@ -22,8 +22,8 @@ uuid = { workspace = true }
 umpire-tui = { path = "../tui" }
 
 # AI/ML
-burn = { version = "0.13", default-features = false, features = ["wgpu", "std", "fusion", "autotune"] }
-burn-autodiff = "0.13"
+burn = { workspace = true }
+burn-autodiff = { workspace = true }
 burn-train = { version = "0.13", default-features = false, features = ["metrics", "tui"] }
 burn-wgpu = { workspace = true }
 flate2 = { workspace = true }

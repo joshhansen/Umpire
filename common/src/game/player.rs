@@ -35,14 +35,14 @@ pub enum PlayerType {
 }
 
 impl PlayerType {
-    pub fn values() -> [Self; 6] {
+    pub fn values() -> [Self; 3] {
         [
             Self::Human,
             Self::AI(AISpec::Random { seed: None }),
-            Self::AI(AISpec::FromLevel(1)),
-            Self::AI(AISpec::FromLevel(2)),
-            Self::AI(AISpec::FromLevel(3)),
-            Self::AI(AISpec::FromLevel(4)),
+            Self::AI(AISpec::FromLevel {
+                level: 0,
+                device: Default::default(),
+            }),
         ]
     }
 }

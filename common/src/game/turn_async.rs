@@ -13,7 +13,7 @@ use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
     action::{AiPlayerAction, NextCityAction, NextUnitAction},
-    ai::{TrainingFocus, TrainingInstance},
+    ai::{AiDevice, TrainingFocus, TrainingInstance},
     player::{PlayerControl, PlayerTurn},
     turn::TurnOutcome,
     PlayerNum, PlayerSecret,
@@ -30,6 +30,7 @@ pub trait TurnTakerSuperuser {
         secret: PlayerSecret,
         clear_after_unit_production: bool,
         datagen_prob: Option<f64>,
+        device: AiDevice,
     ) -> TurnOutcome;
 }
 
@@ -41,6 +42,7 @@ pub trait TurnTakerDIY {
         player: &mut PlayerControl,
         clear_after_unit_production: bool,
         datagen_prob: Option<f64>,
+        device: AiDevice,
     ) -> TurnOutcome;
 }
 
@@ -48,18 +50,28 @@ pub trait TurnTakerDIY {
 /// for you.
 #[async_trait]
 pub trait TurnTaker {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome;
+    async fn take_turn(
+        &mut self,
+        turn: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+        device: AiDevice,
+    ) -> TurnOutcome;
 }
 
 /// Implements TurnTaker by indicating the next action the player should take, if any
 #[async_trait]
 pub trait ActionwiseTurnTaker {
-    async fn next_action(&mut self, turn: &PlayerTurn) -> Option<AiPlayerAction>;
+    async fn next_action(&mut self, turn: &PlayerTurn, device: AiDevice) -> Option<AiPlayerAction>;
 }
 
 #[async_trait]
 impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+    async fn take_turn(
+        &mut self,
+        turn: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+        device: AiDevice,
+    ) -> TurnOutcome {
         let mut training_instances = datagen_prob.map(|_| Vec::new());
 
         let player = turn.current_player().await;
@@ -72,7 +84,7 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                 None
             };
 
-            if let Some(action) = self.next_action(turn).await {
+            if let Some(action) = self.next_action(turn, device).await {
                 let (num_features, features) = if datagen_prob.is_some() {
                     // Determine if the spatial features should focus on the next city or the next unit
                     let focus = if NextCityAction::try_from(action).is_ok() {
@@ -125,18 +137,26 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
 /// Like ActionwiseTurnTaker, but determines city and unit actions separately
 #[async_trait]
 pub trait ActionwiseTurnTaker2 {
-    async fn next_city_action(&mut self, turn: &PlayerTurn) -> Option<NextCityAction>;
+    async fn next_city_action(
+        &mut self,
+        turn: &PlayerTurn,
+        device: AiDevice,
+    ) -> Option<NextCityAction>;
 
-    async fn next_unit_action(&mut self, turn: &PlayerTurn) -> Option<NextUnitAction>;
+    async fn next_unit_action(
+        &mut self,
+        turn: &PlayerTurn,
+        device: AiDevice,
+    ) -> Option<NextUnitAction>;
 }
 
 #[async_trait]
 impl<T: ActionwiseTurnTaker2 + Send> ActionwiseTurnTaker for T {
-    async fn next_action(&mut self, turn: &PlayerTurn) -> Option<AiPlayerAction> {
-        if let Some(city_action) = self.next_city_action(turn).await {
+    async fn next_action(&mut self, turn: &PlayerTurn, device: AiDevice) -> Option<AiPlayerAction> {
+        if let Some(city_action) = self.next_city_action(turn, device).await {
             Some(city_action.into())
         } else {
-            self.next_unit_action(turn)
+            self.next_unit_action(turn, device)
                 .await
                 .map(|unit_action| unit_action.into())
         }
@@ -150,10 +170,11 @@ impl<T: TurnTaker + Send> TurnTakerDIY for T {
         player: &mut PlayerControl,
         clear_after_unit_production: bool,
         datagen_prob: Option<f64>,
+        device: AiDevice,
     ) -> TurnOutcome {
         let mut turn = player.turn_ctrl(clear_after_unit_production).await;
 
-        let outcome = <Self as TurnTaker>::take_turn(self, &mut turn, datagen_prob).await;
+        let outcome = <Self as TurnTaker>::take_turn(self, &mut turn, datagen_prob, device).await;
 
         turn.force_end_turn().await.unwrap();
 
@@ -170,6 +191,7 @@ impl<T: TurnTakerDIY + Send> TurnTakerSuperuser for T {
         secret: PlayerSecret,
         clear_after_unit_production: bool,
         datagen_prob: Option<f64>,
+        device: AiDevice,
     ) -> TurnOutcome {
         let mut ctrl = PlayerControl::new(game, player, secret).await;
 
@@ -178,6 +200,7 @@ impl<T: TurnTakerDIY + Send> TurnTakerSuperuser for T {
             &mut ctrl,
             clear_after_unit_production,
             datagen_prob,
+            device,
         )
         .await
     }

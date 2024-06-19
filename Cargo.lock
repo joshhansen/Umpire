@@ -787,6 +787,9 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "burn",
+ "burn-autodiff",
+ "burn-wgpu",
  "clap 4.2.1",
  "csv",
  "delegate",

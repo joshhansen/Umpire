@@ -31,6 +31,7 @@ use common::{
     colors::Colors,
     conf::{self, HEADER_HEIGHT},
     game::{
+        ai::AiDevice,
         city::City,
         combat::{CombatCapable, CombatOutcome, CombatParticipant},
         map::Tile,
@@ -1024,7 +1025,12 @@ impl UI for TermUI {
 
 #[async_trait]
 impl TurnTaker for TermUI {
-    async fn take_turn(&mut self, ctrl: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+    async fn take_turn(
+        &mut self,
+        ctrl: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+        _device: AiDevice,
+    ) -> TurnOutcome {
         if datagen_prob.is_some() {
             eprintln!("TermUI doesn't generate training data but generate_data was true");
             //FIXME Code smell: refused bequest

@@ -4,24 +4,20 @@ use async_trait::async_trait;
 
 use burn::prelude::*;
 
-use burn_autodiff::Autodiff;
 use burn_wgpu::{Wgpu, WgpuDevice};
 use futures::lock::Mutex as MutexAsync;
 use rand::rngs::StdRng;
 
 use common::{
     game::{
-        action::AiPlayerAction, ai::AISpec, player::PlayerTurn, turn::TurnOutcome,
+        action::AiPlayerAction,
+        ai::{AISpec, AiDevice},
+        player::PlayerTurn,
+        turn::TurnOutcome,
         turn_async::TurnTaker as TurnTakerAsync,
     },
     util::init_rng,
 };
-
-pub type AiBackend = Wgpu;
-pub type AiBackendTrain = Autodiff<AiBackend>;
-pub const fn default_device() -> <AiBackend as Backend>::Device {
-    WgpuDevice::BestAvailable
-}
 
 pub trait Loadable<B: Backend>: Sized {
     fn load<P: AsRef<Path>>(path: P, device: B::Device) -> Result<Self, String>;
@@ -73,20 +69,20 @@ impl<B: Backend> fmt::Debug for AI<B> {
     }
 }
 
-impl<B: Backend> From<AISpec> for AI<B> {
+impl From<AISpec> for AI<Wgpu> {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
             AISpec::Random { seed } => Self::Random(RandomAI::new(init_rng(seed), 0, false)), //NOTE Assuming 0 verbosity
-            AISpec::FromPath(path) => {
-                let device: B::Device = Default::default();
+            AISpec::FromPath { path, device } => {
+                let device: WgpuDevice = device.into();
                 Self::load(Path::new(path.as_str()), device).unwrap()
             }
-            AISpec::FromLevel(level) => {
-                let device: B::Device = Default::default();
+            AISpec::FromLevel { level, device } => {
+                let device: WgpuDevice = device.into();
                 let agz = match level {
                     0 => {
                         let bytes = include_bytes!("../../../ai/agz/15x15/0.agz.bin");
-                        AgzActionModel::<B>::load_from_bytes(bytes.as_slice(), device).unwrap()
+                        AgzActionModel::<Wgpu>::load_from_bytes(bytes.as_slice(), device).unwrap()
                     }
                     level => unreachable!("Unsupported AI level: {}", level),
                 };
@@ -143,11 +139,16 @@ impl<B: Backend> Storable for AI<B> {
 }
 
 #[async_trait]
-impl<B: Backend> TurnTakerAsync for AI<B> {
-    async fn take_turn(&mut self, turn: &mut PlayerTurn, datagen_prob: Option<f64>) -> TurnOutcome {
+impl TurnTakerAsync for AI<Wgpu> {
+    async fn take_turn(
+        &mut self,
+        turn: &mut PlayerTurn,
+        datagen_prob: Option<f64>,
+        device: AiDevice,
+    ) -> TurnOutcome {
         match self {
-            Self::Random(ai) => ai.take_turn(turn, datagen_prob).await,
-            Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob).await,
+            Self::Random(ai) => ai.take_turn(turn, datagen_prob, device).await,
+            Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob, device).await,
         }
     }
 }

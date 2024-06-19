@@ -1,5 +1,8 @@
 use std::{cmp::Ordering, collections::BTreeMap, fmt, path::Path};
 
+use burn::tensor::backend::Backend;
+use burn_autodiff::Autodiff;
+use burn_wgpu::{Wgpu, WgpuDevice};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +12,27 @@ use super::{
     unit::{POSSIBLE_UNIT_TYPES, POSSIBLE_UNIT_TYPES_WRIT_LARGE},
     PlayerNum, PlayerType, TurnNum,
 };
+
+pub type AiBackend = Wgpu;
+pub type AiBackendTrain = Autodiff<AiBackend>;
+pub type AiBackendDevice = <AiBackend as Backend>::Device;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum AiDevice {
+    #[default]
+    Best,
+    Cpu,
+    DiscreteGpu(usize),
+}
+impl From<AiDevice> for WgpuDevice {
+    fn from(value: AiDevice) -> Self {
+        match value {
+            AiDevice::Best => Self::BestAvailable,
+            AiDevice::Cpu => Self::Cpu,
+            AiDevice::DiscreteGpu(x) => Self::DiscreteGpu(x),
+        }
+    }
+}
 
 #[allow(non_camel_case_types)]
 pub type fX = f32;
@@ -197,10 +221,10 @@ pub enum AISpec {
     /// AI loaded from a path.
     ///
     /// See the Loadable impl for `AI` for more information.
-    FromPath(String),
+    FromPath { path: String, device: AiDevice },
 
     /// AI loaded from a preset AI level, beginning at 1
-    FromLevel(usize),
+    FromLevel { level: usize, device: AiDevice },
 }
 
 impl PartialOrd for AISpec {
@@ -217,13 +241,17 @@ impl Ord for AISpec {
                 Self::Random { seed: other_seed } => seed.cmp(other_seed),
                 _ => Ordering::Greater,
             },
-            Self::FromPath(path) => match other {
+            Self::FromPath { path, .. } => match other {
                 Self::Random { seed: _ } => Ordering::Less,
-                Self::FromPath(other_path) => path.cmp(other_path),
-                Self::FromLevel(_) => Ordering::Greater,
+                Self::FromPath {
+                    path: other_path, ..
+                } => path.cmp(other_path),
+                Self::FromLevel { .. } => Ordering::Greater,
             },
-            Self::FromLevel(level) => match other {
-                Self::FromLevel(other_level) => level.cmp(other_level),
+            Self::FromLevel { level, .. } => match other {
+                Self::FromLevel {
+                    level: other_level, ..
+                } => level.cmp(other_level),
                 _ => Ordering::Less,
             },
         }
@@ -246,12 +274,16 @@ impl TryFrom<String> for AISpec {
         }
 
         match value.as_str() {
-            "0" => Ok(Self::FromLevel(
-                value.chars().next().unwrap().to_digit(10).unwrap() as usize,
-            )),
+            "0" => Ok(Self::FromLevel {
+                level: value.chars().next().unwrap().to_digit(10).unwrap() as usize,
+                device: Default::default(),
+            }),
             s => {
                 if Path::new(s).exists() {
-                    Ok(Self::FromPath(value))
+                    Ok(Self::FromPath {
+                        path: value,
+                        device: Default::default(),
+                    })
                 } else {
                     Err(format!("Unrecognized AI specification '{}'", s))
                 }
@@ -272,8 +304,8 @@ impl Specified for AISpec {
                 }
                 s
             }
-            Self::FromPath(path) => format!("AI from path {}", path),
-            Self::FromLevel(level) => format!("level {} AI", level),
+            Self::FromPath { path, .. } => format!("AI from path {}", path),
+            Self::FromLevel { level, .. } => format!("level {} AI", level),
         }
     }
 
@@ -287,8 +319,8 @@ impl Specified for AISpec {
                 }
                 s
             }
-            Self::FromPath(path) => path.clone(),
-            Self::FromLevel(level) => format!("{}", level),
+            Self::FromPath { path, .. } => path.clone(),
+            Self::FromLevel { level, .. } => format!("{}", level),
         }
     }
 }

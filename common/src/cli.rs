@@ -44,6 +44,12 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .default_value(FOG_OF_WAR)
                 .value_parser(clap::builder::BoolishValueParser::new()),
 
+            'g' => Arg::new("gpu")
+                .short('g')
+                .long("gpu")
+                .help("Index of the GPU to use; default device otherwise")
+                .value_parser(value_parser!(usize)),
+            
             // 'm' => Arg::with_name("ai_model")
             //     .short("m")
             //     .long("model")
