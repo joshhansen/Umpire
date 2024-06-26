@@ -1,13 +1,10 @@
 //! Reified player actions
 
-use std::{collections::BTreeSet, ops::Deref};
+use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    game::TurnPhase,
-    util::{Direction, Location},
-};
+use crate::util::{Direction, Location};
 
 use super::{
     ai::POSSIBLE_ACTIONS,
@@ -31,38 +28,20 @@ pub trait Actionable {
 /// Bare-bones actions, reduced for machine learning purposes
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum AiPlayerAction {
-    SetNextCityProduction { unit_type: UnitType },
-    MoveNextUnit { direction: Direction },
-    DisbandNextUnit,
-    SkipNextUnit,
-    //NOTE When adding new action types, make sure to add them to `possible_actions`
+    City(NextCityAction),
+    Unit(NextUnitAction),
+    //NOTE When adding new action types, make sure to add them to `possible_actions` in agz.rs
 }
 
 impl AiPlayerAction {
-    pub fn legal_actions<G: Deref<Target = Game>>(game: G) -> BTreeSet<Self> {
-        let mut a = BTreeSet::new();
-
-        debug_assert!(!game.current_turn_is_done());
-        debug_assert_eq!(game.turn_phase(), TurnPhase::Main);
-
-        //TODO Possibly consider actions for all cities instead of just the next one that isn't set yet
-        if let Some(city_loc) = game.current_player_production_set_requests().next() {
-            for unit_type in game.current_player_valid_productions_conservative(city_loc) {
-                a.insert(AiPlayerAction::SetNextCityProduction { unit_type });
-            }
+    pub fn city_action(&self) -> bool {
+        match self {
+            Self::City(_) => true,
+            Self::Unit(_) => false,
         }
-
-        //TODO Possibly consider actions for all units instead of just the next one that needs orders
-        if let Some(unit_id) = game.current_player_unit_orders_requests().next() {
-            for direction in game.current_player_unit_legal_directions(unit_id).unwrap() {
-                a.insert(AiPlayerAction::MoveNextUnit { direction });
-            }
-            a.insert(AiPlayerAction::SkipNextUnit);
-        }
-
-        debug_assert!(!a.is_empty());
-
-        a
+    }
+    pub fn unit_action(&self) -> bool {
+        !self.city_action()
     }
 
     /// All actions possible in general---not specific to any particular game state
@@ -86,62 +65,62 @@ impl AiPlayerAction {
     // Direction::DownRight,  17
     // SkipNextTurn           18
     pub const POSSIBLE: [Self; POSSIBLE_ACTIONS] = [
-        AiPlayerAction::SetNextCityProduction {
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Infantry,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Armor,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Fighter,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Bomber,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Transport,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Destroyer,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Submarine,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Cruiser,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Battleship,
-        },
-        AiPlayerAction::SetNextCityProduction {
+        }),
+        AiPlayerAction::City(NextCityAction::SetProduction {
             unit_type: UnitType::Carrier,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::Up,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::Down,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::Left,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::Right,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::UpLeft,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::UpRight,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::DownLeft,
-        },
-        AiPlayerAction::MoveNextUnit {
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Move {
             direction: Direction::DownRight,
-        },
-        AiPlayerAction::DisbandNextUnit,
-        AiPlayerAction::SkipNextUnit,
+        }),
+        AiPlayerAction::Unit(NextUnitAction::Disband),
+        AiPlayerAction::Unit(NextUnitAction::Skip),
     ];
 }
 
@@ -163,45 +142,49 @@ impl From<AiPlayerAction> for usize {
 impl Actionable for AiPlayerAction {
     fn to_action(&self, game: &mut Game, secret: PlayerSecret) -> UmpireResult<PlayerAction> {
         Ok(match self {
-            AiPlayerAction::SetNextCityProduction { unit_type } => {
-                let city_loc = game.player_production_set_requests(secret)?.next().unwrap();
+            Self::City(city_action) => match city_action {
+                NextCityAction::SetProduction { unit_type } => {
+                    let city_loc = game.player_production_set_requests(secret)?.next().unwrap();
 
-                let city_id = game.player_city_by_loc(secret, city_loc)?.unwrap().id;
+                    let city_id = game.player_city_by_loc(secret, city_loc)?.unwrap().id;
 
-                PlayerAction::SetCityProduction {
-                    city_id,
-                    production: *unit_type,
+                    PlayerAction::SetCityProduction {
+                        city_id,
+                        production: *unit_type,
+                    }
                 }
-            }
-            AiPlayerAction::MoveNextUnit { direction } => {
-                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+            },
+            Self::Unit(unit_action) => match unit_action {
+                NextUnitAction::Move { direction } => {
+                    let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
 
-                debug_assert!({
-                    let legal: BTreeSet<Direction> = game
-                        .player_unit_legal_directions(secret, unit_id)?
-                        .collect();
+                    debug_assert!({
+                        let legal: BTreeSet<Direction> = game
+                            .player_unit_legal_directions(secret, unit_id)?
+                            .collect();
 
-                    legal.contains(direction)
-                });
+                        legal.contains(direction)
+                    });
 
-                PlayerAction::MoveUnitInDirection {
-                    unit_id,
-                    direction: *direction,
+                    PlayerAction::MoveUnitInDirection {
+                        unit_id,
+                        direction: *direction,
+                    }
                 }
-            }
-            AiPlayerAction::DisbandNextUnit => {
-                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
-                PlayerAction::DisbandUnit { unit_id }
-            }
-            AiPlayerAction::SkipNextUnit => {
-                let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
-                PlayerAction::SkipUnit { unit_id }
-            }
+                NextUnitAction::Disband => {
+                    let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+                    PlayerAction::DisbandUnit { unit_id }
+                }
+                NextUnitAction::Skip => {
+                    let unit_id = game.player_unit_orders_requests(secret)?.next().unwrap();
+                    PlayerAction::SkipUnit { unit_id }
+                }
+            },
         })
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub enum NextCityAction {
     SetProduction { unit_type: UnitType },
 }
@@ -241,11 +224,7 @@ impl Actionable for NextCityAction {
 
 impl Into<AiPlayerAction> for NextCityAction {
     fn into(self) -> AiPlayerAction {
-        match self {
-            Self::SetProduction { unit_type } => {
-                AiPlayerAction::SetNextCityProduction { unit_type }
-            }
-        }
+        AiPlayerAction::City(self)
     }
 }
 
@@ -272,15 +251,33 @@ impl TryFrom<AiPlayerAction> for NextCityAction {
     type Error = ();
     fn try_from(action: AiPlayerAction) -> Result<Self, Self::Error> {
         match action {
-            AiPlayerAction::SetNextCityProduction { unit_type } => {
-                Ok(NextCityAction::SetProduction { unit_type })
-            }
+            AiPlayerAction::City(city_action) => Ok(city_action),
             _ => Err(()),
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+impl Ord for NextCityAction {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            Self::SetProduction {
+                unit_type: unit_type1,
+            } => match other {
+                Self::SetProduction {
+                    unit_type: unit_type2,
+                } => unit_type1.cmp(unit_type2),
+            },
+        }
+    }
+}
+
+impl PartialOrd for NextCityAction {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(<Self as Ord>::cmp(self, other))
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum NextUnitAction {
     Move { direction: Direction },
     Disband,
@@ -349,11 +346,7 @@ impl Actionable for NextUnitAction {
 
 impl Into<AiPlayerAction> for NextUnitAction {
     fn into(self) -> AiPlayerAction {
-        match self {
-            Self::Move { direction } => AiPlayerAction::MoveNextUnit { direction },
-            Self::Disband => AiPlayerAction::DisbandNextUnit,
-            Self::Skip => AiPlayerAction::SkipNextUnit,
-        }
+        AiPlayerAction::Unit(self)
     }
 }
 
@@ -373,9 +366,7 @@ impl TryFrom<AiPlayerAction> for NextUnitAction {
     type Error = ();
     fn try_from(action: AiPlayerAction) -> Result<Self, ()> {
         match action {
-            AiPlayerAction::MoveNextUnit { direction } => Ok(NextUnitAction::Move { direction }),
-            AiPlayerAction::DisbandNextUnit => Ok(NextUnitAction::Disband),
-            AiPlayerAction::SkipNextUnit => Ok(NextUnitAction::Skip),
+            AiPlayerAction::Unit(unit_action) => Ok(unit_action),
             _ => Err(()),
         }
     }

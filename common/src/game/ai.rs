@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, collections::BTreeMap, fmt, path::Path};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    path::Path,
+};
 
 use burn::tensor::backend::Backend;
 use burn_autodiff::Autodiff;
@@ -10,7 +15,7 @@ use crate::{cli::Specified, game::action::AiPlayerAction, util::POSSIBLE_DIRECTI
 
 use super::{
     unit::{POSSIBLE_UNIT_TYPES, POSSIBLE_UNIT_TYPES_WRIT_LARGE},
-    PlayerNum, PlayerType, TurnNum,
+    ActionNum, PlayerNum, PlayerType, TurnNum,
 };
 
 pub type AiBackend = Wgpu;
@@ -149,8 +154,16 @@ impl TryFrom<String> for TrainingOutcome {
 pub struct TrainingInstance {
     pub player: PlayerNum, // the player that took the action
     pub num_features: usize,
+
+    /// The actions among which the player selected
+    pub legal_actions: BTreeSet<AiPlayerAction>,
+
     pub features: BTreeMap<usize, fX>,
     pub turn: TurnNum,
+
+    /// The number of actions taken by the player prior to this one
+    pub action_count: ActionNum,
+
     pub pre_score: f64,         // the player's score prior to the action
     pub action: AiPlayerAction, // the action taken
     pub post_score: f64,        // the player's score after the action
@@ -158,7 +171,7 @@ pub struct TrainingInstance {
     /// How did things work out for the player?
     ///
     /// Set as None until the outcome is determined
-    pub outcome: Option<TrainingOutcome>, //
+    pub outcome: Option<TrainingOutcome>,
 
     /// The turn on which the game ended, or the last played on draws
     ///
@@ -169,8 +182,10 @@ impl TrainingInstance {
     pub fn undetermined(
         player: PlayerNum,
         num_features: usize,
+        legal_actions: BTreeSet<AiPlayerAction>,
         features: BTreeMap<usize, fX>,
         turn: TurnNum,
+        action_count: ActionNum,
         pre_score: f64,
         action: AiPlayerAction,
         post_score: f64,
@@ -178,8 +193,10 @@ impl TrainingInstance {
         Self {
             player,
             num_features,
+            legal_actions,
             features,
             turn,
+            action_count,
             pre_score,
             action,
             post_score,

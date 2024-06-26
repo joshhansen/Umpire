@@ -8,7 +8,9 @@ use tarpc::context;
 
 use crate::{
     game::{
-        action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
+        action::{
+            AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome,
+        },
         ai::{fX, TrainingFocus},
         city::{City, CityID},
         error::GameError,
@@ -19,7 +21,7 @@ use crate::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, OrdersSet, PlayerNum, PlayerSecret, PlayerType, ProductionCleared,
+        ActionNum, Game, IGame, OrdersSet, PlayerNum, PlayerSecret, PlayerType, ProductionCleared,
         ProductionSet, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnEnded,
         TurnNum, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
     },
@@ -142,6 +144,14 @@ pub trait UmpireRpc {
         player_secret: PlayerSecret,
     ) -> UmpireResult<Vec<UnitID>>;
 
+    async fn player_next_unit_legal_actions(
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextUnitAction>>;
+
+    async fn player_next_city_legal_actions(
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextCityAction>>;
+
     async fn player_toplevel_unit_by_loc(
         player_secret: PlayerSecret,
         loc: Location,
@@ -238,6 +248,8 @@ pub trait UmpireRpc {
     ) -> UmpireResult<Vec<ProductionCleared>>;
 
     async fn turn() -> TurnNum;
+
+    async fn player_action(player_secret: PlayerSecret) -> UmpireResult<ActionNum>;
 
     async fn turn_phase() -> TurnPhase;
 
@@ -650,6 +662,26 @@ impl IGame for RpcGame {
             .unwrap()
     }
 
+    async fn player_next_unit_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextUnitAction>> {
+        self.game
+            .player_next_unit_legal_actions(context::current(), player_secret)
+            .await
+            .unwrap()
+    }
+
+    async fn player_next_city_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextCityAction>> {
+        self.game
+            .player_next_city_legal_actions(context::current(), player_secret)
+            .await
+            .unwrap()
+    }
+
     async fn move_toplevel_unit_by_id(
         &mut self,
         player_secret: PlayerSecret,
@@ -832,6 +864,13 @@ impl IGame for RpcGame {
 
     async fn turn(&self) -> TurnNum {
         self.game.turn(context::current()).await.unwrap()
+    }
+
+    async fn player_action(&self, player_secret: PlayerSecret) -> UmpireResult<ActionNum> {
+        self.game
+            .player_action(context::current(), player_secret)
+            .await
+            .unwrap()
     }
 
     async fn turn_phase(&self) -> TurnPhase {

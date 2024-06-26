@@ -1,18 +1,19 @@
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, collections::BTreeSet, sync::Arc};
 
 use delegate::delegate;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock as RwLockTokio;
 
 use super::{
-    action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
+    action::{AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, AISpec, TrainingFocus},
     error::GameError,
     map::dijkstra::Source,
     move_::Move,
     obs::{LocatedObsLite, ObsTracker},
-    IGame, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedOrdersResult,
-    ProposedUmpireResult, TurnEnded, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
+    ActionNum, IGame, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet,
+    ProposedOrdersResult, ProposedUmpireResult, TurnEnded, TurnPhase, TurnStart, UmpireResult,
+    UnitDisbanded,
 };
 use crate::{
     cli::Specified,
@@ -389,6 +390,22 @@ impl PlayerControl {
         self.wrapping
     }
 
+    pub async fn player_next_unit_legal_actions(&self) -> UmpireResult<BTreeSet<NextUnitAction>> {
+        self.game
+            .read()
+            .await
+            .player_next_unit_legal_actions(self.secret)
+            .await
+    }
+
+    pub async fn player_next_city_legal_actions(&self) -> UmpireResult<BTreeSet<NextCityAction>> {
+        self.game
+            .read()
+            .await
+            .player_next_city_legal_actions(self.secret)
+            .await
+    }
+
     delegate! {
         to self.game.read().await {
             pub async fn current_player(&self) -> PlayerNum;
@@ -441,6 +458,9 @@ impl PlayerControl {
             pub async fn player_units(&self, [self.secret]) -> Vec<Unit>;
 
             pub async fn turn(&self) -> TurnNum;
+
+            #[unwrap]
+            pub async fn player_action(&self, [self.secret]) -> ActionNum;
 
             pub async fn turn_is_done(&self, [self.player], turn: TurnNum) -> UmpireResult<bool>;
             pub async fn current_turn_is_done(&self) -> bool;
@@ -636,6 +656,13 @@ impl<'a> PlayerTurn<'a> {
             pub async fn player_unit_by_id(&self, id: UnitID) -> Option<Unit>;
 
             pub async fn player_unit_legal_directions(&self, unit_id: UnitID) -> UmpireResult<Vec<Direction>>;
+            pub async fn player_next_unit_legal_actions(
+                &self,
+            ) -> UmpireResult<BTreeSet<NextUnitAction>>;
+
+            pub async fn player_next_city_legal_actions(
+                &self,
+            ) -> UmpireResult<BTreeSet<NextCityAction>>;
 
             pub async fn player_unit_orders_requests(&self) -> Vec<UnitID>;
 
@@ -644,6 +671,8 @@ impl<'a> PlayerTurn<'a> {
             pub fn tile(&self, loc: Location) -> Option<Cow<Tile>>;
 
             pub async fn turn(&self) -> TurnNum;
+
+            pub async fn player_action(&self) -> ActionNum;
 
             pub async fn turn_is_done(&self, turn: TurnNum) -> UmpireResult<bool>;
             pub async fn current_turn_is_done(&self) -> bool;

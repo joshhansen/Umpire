@@ -7,7 +7,13 @@ use crossterm::{cursor::MoveTo, execute};
 use rand::{rngs::StdRng, seq::SliceRandom, Rng};
 
 use common::{
-    game::{ai::AiDevice, player::PlayerTurn, turn_async::ActionwiseTurnTaker, unit::UnitType},
+    game::{
+        action::{NextCityAction, NextUnitAction},
+        ai::AiDevice,
+        player::PlayerTurn,
+        turn_async::ActionwiseTurnTaker,
+        unit::UnitType,
+    },
     util::Direction,
 };
 
@@ -49,9 +55,9 @@ impl ActionwiseTurnTaker for RandomAI {
                 println!("{:?} -> {:?}", city_loc, unit_type);
             }
 
-            return Some(AiPlayerAction::SetNextCityProduction {
+            return Some(AiPlayerAction::City(NextCityAction::SetProduction {
                 unit_type: *unit_type,
-            });
+            }));
         }
 
         if let Some(unit_id) = ctrl.player_unit_orders_requests().await.first().copied() {
@@ -110,21 +116,21 @@ impl ActionwiseTurnTaker for RandomAI {
                     println!("{:?} {} -> {:?}", unit_id, unit.loc, direction);
                 }
 
-                return Some(AiPlayerAction::MoveNextUnit {
+                return Some(AiPlayerAction::Unit(NextUnitAction::Move {
                     direction: *direction,
-                });
+                }));
             } else if x <= move_prob + skip_prob {
                 if self.verbosity > 1 {
                     println!("Random skipped unit: {:?}", unit_id);
                 }
                 // ctrl.order_unit_skip(unit_id).unwrap();
-                return Some(AiPlayerAction::SkipNextUnit);
+                return Some(AiPlayerAction::Unit(NextUnitAction::Skip));
             } else {
                 if self.verbosity > 1 {
                     let loc = ctrl.player_unit_loc(unit_id).await.unwrap();
                     println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
                 }
-                return Some(AiPlayerAction::DisbandNextUnit);
+                return Some(AiPlayerAction::Unit(NextUnitAction::Disband));
             }
         }
 

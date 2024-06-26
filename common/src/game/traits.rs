@@ -20,14 +20,14 @@ use crate::{
 };
 
 use super::{
-    action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
+    action::{AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, TrainingFocus},
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
-    Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
-    ProposedOrdersResult, ProposedResult, TurnEnded, TurnNum, TurnPhase, TurnStart, UmpireResult,
-    UnitDisbanded,
+    ActionNum, Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet,
+    ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnEnded, TurnNum, TurnPhase,
+    TurnStart, UmpireResult, UnitDisbanded,
 };
 
 #[async_trait]
@@ -212,6 +212,16 @@ pub trait IGame: Send + Sync {
         player_secret: PlayerSecret,
     ) -> UmpireResult<Vec<UnitID>>;
 
+    async fn player_next_unit_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextUnitAction>>;
+
+    async fn player_next_city_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextCityAction>>;
+
     // Movement-related methods
 
     /// Must be player's turn
@@ -342,6 +352,8 @@ pub trait IGame: Send + Sync {
     ) -> UmpireResult<Vec<ProductionCleared>>;
 
     async fn turn(&self) -> TurnNum;
+
+    async fn player_action(&self, player_secret: PlayerSecret) -> UmpireResult<ActionNum>;
 
     async fn current_player(&self) -> PlayerNum;
 

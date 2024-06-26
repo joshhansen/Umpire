@@ -5,7 +5,7 @@
 //!
 //! From most to least powerful: TurnTakerSuperuser -> TurnTakerDIY -> TurnTaker -> ActionwiseTurnTaker
 
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use async_trait::async_trait;
 
@@ -16,7 +16,7 @@ use super::{
     ai::{AiDevice, TrainingFocus, TrainingInstance},
     player::{PlayerControl, PlayerTurn},
     turn::TurnOutcome,
-    PlayerNum, PlayerSecret,
+    ActionNum, PlayerNum, PlayerSecret,
 };
 use crate::{game::Game, util::sparsify};
 
@@ -84,7 +84,25 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                 None
             };
 
+            let action_num: ActionNum = turn.player_action().await;
+
             if let Some(action) = self.next_action(turn, device).await {
+                let legal_actions: BTreeSet<AiPlayerAction> = if action.unit_action() {
+                    turn.player_next_unit_legal_actions()
+                        .await
+                        .unwrap()
+                        .into_iter()
+                        .map(AiPlayerAction::Unit)
+                        .collect()
+                } else {
+                    turn.player_next_city_legal_actions()
+                        .await
+                        .unwrap()
+                        .into_iter()
+                        .map(AiPlayerAction::City)
+                        .collect()
+                };
+
                 let (num_features, features) = if datagen_prob.is_some() {
                     // Determine if the spatial features should focus on the next city or the next unit
                     let focus = if NextCityAction::try_from(action).is_ok() {
@@ -112,8 +130,10 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                             .push(TrainingInstance::undetermined(
                                 player,
                                 num_features.unwrap(),
+                                legal_actions,
                                 features.unwrap(),
                                 turn_num,
+                                action_num,
                                 pre_score.unwrap(),
                                 action,
                                 post_score,

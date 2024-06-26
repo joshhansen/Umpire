@@ -247,6 +247,13 @@ async fn main() -> Result<(), String> {
                 .default_value("8")
         )
         .arg(
+            Arg::new("min_unit_choices")
+                .long("min_unit_choices")
+                .help("The minimum # of legal actions for unit action training instances")
+                .value_parser(value_parser!(usize))
+                .default_value("3")// skip, disband, and something else at minimum
+        )
+        .arg(
             Arg::new("input")
                 .help("Input files containing TrainingInstances")
                 .action(ArgAction::Append)
@@ -692,6 +699,8 @@ async fn main() -> Result<(), String> {
 
         let resume_epoch: Option<usize> = sub_matches.get_one("resume_epoch").copied();
 
+        let min_unit_choices: usize = sub_matches.get_one("min_unit_choices").copied().unwrap();
+
         let mut data: Vec<AgzDatum> = Vec::new();
 
         let seed = sub_matches.get_one::<u64>("random_seed").copied();
@@ -715,16 +724,22 @@ async fn main() -> Result<(), String> {
                     bincode::deserialize_from(&mut r);
 
                 if let Ok(instance) = maybe_instance {
-                    let outcome = instance.outcome.unwrap();
-                    count += 1;
+                    // If it was a unit action, make sure it chose between at least min_unit_choices options
+                    if (instance.action.unit_action()
+                        && instance.legal_actions.len() >= min_unit_choices)
+                        || instance.action.city_action()
+                    {
+                        let outcome = instance.outcome.unwrap();
+                        count += 1;
 
-                    if rng.gen_bool(sample_prob) {
-                        data.push(AgzDatum {
-                            features: densify(instance.num_features, &instance.features),
-                            turns_until_outcome: instance.last_turn.unwrap() - instance.turn,
-                            action: instance.action.into(),
-                            outcome,
-                        });
+                        if rng.gen_bool(sample_prob) {
+                            data.push(AgzDatum {
+                                features: densify(instance.num_features, &instance.features),
+                                turns_until_outcome: instance.last_turn.unwrap() - instance.turn,
+                                action: instance.action.into(),
+                                outcome,
+                            });
+                        }
                     }
                 } else {
                     break;

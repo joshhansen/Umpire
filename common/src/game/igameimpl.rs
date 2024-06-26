@@ -20,14 +20,17 @@ use crate::{
 };
 
 use super::{
-    action::{Actionable, AiPlayerAction, PlayerAction, PlayerActionOutcome},
+    action::{
+        Actionable, AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction,
+        PlayerActionOutcome,
+    },
     ai::{fX, TrainingFocus},
     move_::Move,
     obs::LocatedObsLite,
     player::PlayerNum,
-    Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet, ProposedActionResult,
-    ProposedOrdersResult, ProposedResult, TurnEnded, TurnNum, TurnPhase, TurnStart, UmpireResult,
-    UnitDisbanded,
+    ActionNum, Game, OrdersSet, PlayerSecret, ProductionCleared, ProductionSet,
+    ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnEnded, TurnNum, TurnPhase,
+    TurnStart, UmpireResult, UnitDisbanded,
 };
 
 pub use super::traits::IGame;
@@ -248,6 +251,20 @@ impl IGame for Game {
         Game::player_units_with_pending_orders(self, player_secret).map(|units| units.collect())
     }
 
+    async fn player_next_unit_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextUnitAction>> {
+        Game::player_next_unit_legal_actions(self, player_secret)
+    }
+
+    async fn player_next_city_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextCityAction>> {
+        Game::player_next_city_legal_actions(self, player_secret)
+    }
+
     async fn move_toplevel_unit_by_id(
         &mut self,
         player_secret: PlayerSecret,
@@ -375,6 +392,10 @@ impl IGame for Game {
 
     async fn turn(&self) -> TurnNum {
         self.turn()
+    }
+
+    async fn player_action(&self, player_secret: PlayerSecret) -> UmpireResult<ActionNum> {
+        self.player_action(player_secret)
     }
 
     async fn turn_phase(&self) -> TurnPhase {

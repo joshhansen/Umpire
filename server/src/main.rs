@@ -7,7 +7,9 @@ use common::{
     cli::{self, players_arg, Specified},
     conf,
     game::{
-        action::{AiPlayerAction, PlayerAction, PlayerActionOutcome},
+        action::{
+            AiPlayerAction, NextCityAction, NextUnitAction, PlayerAction, PlayerActionOutcome,
+        },
         ai::{fX, AiDevice, TrainingFocus},
         city::{City, CityID},
         error::GameError,
@@ -20,7 +22,7 @@ use common::{
             orders::{Orders, OrdersResult},
             Unit, UnitID, UnitType,
         },
-        Game, IGame, OrdersSet, PlayerNum, PlayerSecret, PlayerType, ProductionCleared,
+        ActionNum, Game, IGame, OrdersSet, PlayerNum, PlayerSecret, PlayerType, ProductionCleared,
         ProductionSet, ProposedActionResult, ProposedOrdersResult, ProposedResult, TurnEnded,
         TurnNum, TurnPhase, TurnStart, UmpireResult, UnitDisbanded,
     },
@@ -412,6 +414,28 @@ impl UmpireRpc for UmpireServer {
             .map(|units| units.collect())
     }
 
+    async fn player_next_unit_legal_actions(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextUnitAction>> {
+        self.game
+            .read()
+            .await
+            .player_next_unit_legal_actions(player_secret)
+    }
+
+    async fn player_next_city_legal_actions(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextCityAction>> {
+        self.game
+            .read()
+            .await
+            .player_next_city_legal_actions(player_secret)
+    }
+
     // Movement-related methods
 
     async fn move_toplevel_unit_by_id(
@@ -607,6 +631,14 @@ impl UmpireRpc for UmpireServer {
 
     async fn turn_phase(self, _: Context) -> TurnPhase {
         self.game.read().await.turn_phase()
+    }
+
+    async fn player_action(
+        self,
+        _: Context,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<ActionNum> {
+        self.game.read().await.player_action(player_secret)
     }
 
     async fn current_player(self, _: Context) -> PlayerNum {

@@ -33,6 +33,7 @@ use uuid::Uuid;
 
 use crate::{
     game::{
+        action::NextCityAction,
         ai::{
             ADDED_WIDE_FEATURES, BASE_CONV_FEATS, DEEP_HEIGHT, DEEP_HEIGHT_REL_MAX,
             DEEP_HEIGHT_REL_MIN, DEEP_IN_LEN, DEEP_WIDTH, DEEP_WIDTH_REL_MAX, DEEP_WIDTH_REL_MIN,
@@ -66,7 +67,7 @@ pub use crate::game::alignment::Alignment;
 pub use self::player::{PlayerNum, PlayerType};
 
 use self::{
-    action::{Actionable, PlayerAction, PlayerActionOutcome},
+    action::{Actionable, NextUnitAction, PlayerAction, PlayerActionOutcome},
     ai::{fX, TrainingFocus, FEATS_LEN},
     alignment::{Aligned, AlignedMaybe},
     map::gen::MapType,
@@ -982,6 +983,51 @@ impl Game {
         let obs = self.player_observations(player_secret).unwrap();
 
         Ok(directions_unit_could_move_iter(obs, unit, self.wrapping))
+    }
+
+    pub fn player_next_unit_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextUnitAction>> {
+        let _player = self.player_with_secret(player_secret)?;
+
+        let mut a = BTreeSet::new();
+
+        debug_assert!(!self.current_turn_is_done());
+        debug_assert_eq!(self.turn_phase(), TurnPhase::Main);
+
+        if let Some(unit_id) = self.current_player_unit_orders_requests().next() {
+            for direction in self.current_player_unit_legal_directions(unit_id).unwrap() {
+                a.insert(NextUnitAction::Move { direction });
+            }
+            a.insert(NextUnitAction::Disband);
+            a.insert(NextUnitAction::Skip);
+        }
+
+        // Units can always skip
+        debug_assert!(!a.is_empty());
+
+        Ok(a)
+    }
+
+    pub fn player_next_city_legal_actions(
+        &self,
+        player_secret: PlayerSecret,
+    ) -> UmpireResult<BTreeSet<NextCityAction>> {
+        let _player = self.player_with_secret(player_secret)?;
+
+        let mut a = BTreeSet::new();
+
+        debug_assert!(!self.current_turn_is_done());
+        debug_assert_eq!(self.turn_phase(), TurnPhase::Main);
+
+        if let Some(city_loc) = self.current_player_production_set_requests().next() {
+            for unit_type in self.current_player_valid_productions_conservative(city_loc) {
+                a.insert(NextCityAction::SetProduction { unit_type });
+            }
+        }
+
+        Ok(a)
     }
 
     /// The current player's most recent observation of the tile at location `loc`, if any
@@ -2082,6 +2128,11 @@ impl Game {
 
     pub fn turn_phase(&self) -> TurnPhase {
         self.turn_phase
+    }
+
+    pub fn player_action(&self, player_secret: PlayerSecret) -> UmpireResult<ActionNum> {
+        self.player_with_secret(player_secret)
+            .map(|player| self.action_counts[player])
     }
 
     pub fn current_player(&self) -> PlayerNum {
