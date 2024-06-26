@@ -218,6 +218,9 @@ pub enum AISpec {
     /// A horrible AI that makes decisions randomly
     Random { seed: Option<u64> },
 
+    /// An even worse AI that only ever skips unit actions; first possible production for cities
+    Skip,
+
     /// AI loaded from a path.
     ///
     /// See the Loadable impl for `AI` for more information.
@@ -233,16 +236,21 @@ impl PartialOrd for AISpec {
     }
 }
 
-// random > path > level
+// random > skip > path > level
 impl Ord for AISpec {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self {
             Self::Random { seed } => match other {
                 Self::Random { seed: other_seed } => seed.cmp(other_seed),
-                _ => Ordering::Greater,
+                Self::Skip | Self::FromPath { .. } | Self::FromLevel { .. } => Ordering::Greater,
+            },
+            Self::Skip => match other {
+                Self::Random { .. } => Ordering::Less,
+                Self::Skip => Ordering::Equal,
+                Self::FromPath { .. } | Self::FromLevel { .. } => Ordering::Greater,
             },
             Self::FromPath { path, .. } => match other {
-                Self::Random { seed: _ } => Ordering::Less,
+                Self::Random { .. } | Self::Skip => Ordering::Less,
                 Self::FromPath {
                     path: other_path, ..
                 } => path.cmp(other_path),
@@ -252,7 +260,7 @@ impl Ord for AISpec {
                 Self::FromLevel {
                     level: other_level, ..
                 } => level.cmp(other_level),
-                _ => Ordering::Less,
+                Self::Random { .. } | Self::Skip | Self::FromPath { .. } => Ordering::Less,
             },
         }
     }
@@ -274,6 +282,7 @@ impl TryFrom<String> for AISpec {
         }
 
         match value.as_str() {
+            "s" => Ok(Self::Skip),
             "0" => Ok(Self::FromLevel {
                 level: value.chars().next().unwrap().to_digit(10).unwrap() as usize,
                 device: Default::default(),
@@ -304,6 +313,7 @@ impl Specified for AISpec {
                 }
                 s
             }
+            Self::Skip => String::from("skip"),
             Self::FromPath { path, .. } => format!("AI from path {}", path),
             Self::FromLevel { level, .. } => format!("level {} AI", level),
         }
@@ -319,6 +329,7 @@ impl Specified for AISpec {
                 }
                 s
             }
+            Self::Skip => String::from("s"),
             Self::FromPath { path, .. } => path.clone(),
             Self::FromLevel { level, .. } => format!("{}", level),
         }

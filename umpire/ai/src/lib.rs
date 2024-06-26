@@ -40,11 +40,14 @@ pub mod agz;
 pub mod data;
 
 mod random;
+mod skip;
 
 use agz::AgzActionModel;
 
 pub enum AI<B: Backend> {
     Random(RandomAI),
+
+    Skip(SkipAI),
 
     /// AlphaGo Zero style action model
     AGZ(MutexAsync<AgzActionModel<B>>),
@@ -63,6 +66,7 @@ impl<B: Backend> fmt::Debug for AI<B> {
             "{}",
             match self {
                 Self::Random(_) => "random",
+                Self::Skip(_) => "skip",
                 Self::AGZ(_) => "agz",
             }
         )
@@ -73,6 +77,7 @@ impl From<AISpec> for AI<Wgpu> {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
             AISpec::Random { seed } => Self::Random(RandomAI::new(init_rng(seed), 0, false)), //NOTE Assuming 0 verbosity
+            AISpec::Skip => AI::Skip(SkipAI {}),
             AISpec::FromPath { path, device } => {
                 let device: WgpuDevice = device.into();
                 Self::load(Path::new(path.as_str()), device).unwrap()
@@ -133,6 +138,7 @@ impl<B: Backend> Storable for AI<B> {
     fn store(self, path: &Path) -> Result<(), String> {
         match self {
             Self::Random(_) => Err(String::from("Cannot store random AI; load explicitly using the appropriate specification (r/rand/random)")),
+            Self::Skip(_) => Err(String::from("Cannot store skip-only AI; load explicitly using the appropriate specification (s)")),
             Self::AGZ(agz) => agz.into_inner().store(path),
         }
     }
@@ -148,6 +154,7 @@ impl TurnTakerAsync for AI<Wgpu> {
     ) -> TurnOutcome {
         match self {
             Self::Random(ai) => ai.take_turn(turn, datagen_prob, device).await,
+            Self::Skip(ai) => ai.take_turn(turn, datagen_prob, device).await,
             Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob, device).await,
         }
     }
@@ -155,3 +162,4 @@ impl TurnTakerAsync for AI<Wgpu> {
 
 // Exports
 pub use random::RandomAI;
+pub use skip::SkipAI;
