@@ -10,7 +10,6 @@ use rand::rngs::StdRng;
 
 use common::{
     game::{
-        action::AiPlayerAction,
         ai::{AISpec, AiDevice},
         player::PlayerTurn,
         turn::TurnOutcome,
@@ -54,8 +53,8 @@ pub enum AI<B: Backend> {
 }
 
 impl<B: Backend> AI<B> {
-    pub fn random(rng: StdRng, verbosity: usize, fix_output_loc: bool) -> Self {
-        Self::Random(RandomAI::new(rng, verbosity, fix_output_loc))
+    pub fn random(rng: StdRng) -> Self {
+        Self::Random(RandomAI::new(rng))
     }
 }
 
@@ -76,7 +75,7 @@ impl<B: Backend> fmt::Debug for AI<B> {
 impl From<AISpec> for AI<Wgpu> {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
-            AISpec::Random { seed } => Self::Random(RandomAI::new(init_rng(seed), 0, false)), //NOTE Assuming 0 verbosity
+            AISpec::Random { seed } => Self::Random(RandomAI::new(init_rng(seed))),
             AISpec::Skip => AI::Skip(SkipAI {}),
             AISpec::FromPath { path, device } => {
                 let device: WgpuDevice = device.into();

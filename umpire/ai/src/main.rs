@@ -51,7 +51,7 @@ use common::{
     game::{
         ai::{AiBackend, AiDevice, TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
         map::gen::MapType,
-        ActionNum, TurnNum,
+        TurnNum,
     },
     util::{densify, init_rng},
 };

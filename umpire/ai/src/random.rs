@@ -1,140 +1,49 @@
-use std::io::stdout;
-
 use async_trait::async_trait;
 
-use crossterm::{cursor::MoveTo, execute};
+use rand::{rngs::StdRng, seq::SliceRandom};
 
-use rand::{rngs::StdRng, seq::SliceRandom, Rng};
-
-use common::{
-    game::{
-        action::{NextCityAction, NextUnitAction},
-        ai::AiDevice,
-        player::PlayerTurn,
-        turn_async::ActionwiseTurnTaker,
-        unit::UnitType,
-    },
-    util::Direction,
+use common::game::{
+    action::{NextCityAction, NextUnitAction},
+    ai::AiDevice,
+    player::PlayerTurn,
+    turn_async::ActionwiseTurnTaker2,
 };
-
-use super::AiPlayerAction;
-
-const P_DISBAND: f64 = 0.01;
-const P_SKIP: f64 = 0.1;
-const P_MOVE: f64 = 1f64 - P_DISBAND - P_SKIP;
 
 pub struct RandomAI {
     rng: StdRng,
-    verbosity: usize,
-    fix_output_loc: bool,
 }
 impl RandomAI {
-    pub fn new(rng: StdRng, verbosity: usize, fix_output_loc: bool) -> Self {
-        Self {
-            rng,
-            verbosity,
-            fix_output_loc,
-        }
+    pub fn new(rng: StdRng) -> Self {
+        Self { rng }
     }
 }
 
 #[async_trait]
-impl ActionwiseTurnTaker for RandomAI {
-    async fn next_action(
+impl ActionwiseTurnTaker2 for RandomAI {
+    async fn next_city_action(
         &mut self,
-        ctrl: &PlayerTurn,
+        turn: &PlayerTurn,
         _device: AiDevice,
-    ) -> Option<AiPlayerAction> {
-        if let Some(city_loc) = ctrl.player_production_set_requests().await.first() {
-            let valid_productions: Vec<UnitType> =
-                ctrl.valid_productions_conservative(*city_loc).await;
+    ) -> Option<NextCityAction> {
+        let legal: Vec<NextCityAction> = turn
+            .player_next_city_legal_actions()
+            .await
+            .into_iter()
+            .collect();
+        legal.choose(&mut self.rng).copied()
+    }
 
-            let unit_type = valid_productions.choose(&mut self.rng).unwrap();
-
-            if self.verbosity > 2 {
-                println!("{:?} -> {:?}", city_loc, unit_type);
-            }
-
-            return Some(AiPlayerAction::City(NextCityAction::SetProduction {
-                unit_type: *unit_type,
-            }));
-        }
-
-        if let Some(unit_id) = ctrl.player_unit_orders_requests().await.first().copied() {
-            let unit = ctrl.player_unit_by_id(unit_id).await.unwrap();
-            // let unit_id = unit.id;
-
-            // let possible: Vec<Location> = match ctrl.current_player_unit_legal_one_step_destinations(unit_id) {
-            //     Ok(it) => it,
-            //     Err(e) => {
-            //         let tile = ctrl.current_player_tile(unit.loc);
-            //         panic!("Error getting destinations for unit with orders request: {}\nunit: {:?}\ntile: {:?}\ntile unit: {:?}\ntile city: {:?}",
-            //                e, unit, tile, tile.as_ref().map(|t| t.unit.as_ref()), tile.as_ref().map(|t| t.city.as_ref()))
-            //     }
-            // }.drain().collect();
-
-            let possible: Vec<Direction> = match ctrl.player_unit_legal_directions(unit_id).await {
-                Ok(it) => it,
-                Err(e) => {
-                    let tile = ctrl.tile(unit.loc);
-                    panic!("Error getting destinations for unit with orders request: {}\nunit: {:?}\ntile: {:?}\ntile unit: {:?}\ntile city: {:?}",
-                           e, unit, tile, tile.as_ref().map(|t| t.unit.as_ref()), tile.as_ref().map(|t| t.city.as_ref()))
-                }
-            };
-
-            // // Check to be sure the source location isn't appearing in the list of destinations
-            // debug_assert!(!possible.contains(
-            //         ctrl.current_player_unit_loc(unit_id).as_ref().unwrap()
-            //     ),
-            //     "The current location {} of unit with ID {:?} appeared in list of one step destinations {:?}",
-            //     ctrl.current_player_unit_loc(unit_id).as_ref().unwrap(),
-            //     unit_id,
-            //     possible
-            // );
-
-            // Normalization factor
-            let z = if possible.is_empty() {
-                P_SKIP + P_DISBAND
-            } else {
-                1f64
-            };
-
-            let move_prob = if possible.is_empty() { 0f64 } else { P_MOVE } / z;
-            let skip_prob = P_SKIP / z;
-
-            let x: f64 = self.rng.gen();
-
-            if self.fix_output_loc {
-                let mut stdout = stdout();
-                execute!(stdout, MoveTo(60, 3)).unwrap();
-            }
-
-            if x <= move_prob {
-                let direction = possible.choose(&mut self.rng).unwrap();
-
-                if self.verbosity > 1 {
-                    println!("{:?} {} -> {:?}", unit_id, unit.loc, direction);
-                }
-
-                return Some(AiPlayerAction::Unit(NextUnitAction::Move {
-                    direction: *direction,
-                }));
-            } else if x <= move_prob + skip_prob {
-                if self.verbosity > 1 {
-                    println!("Random skipped unit: {:?}", unit_id);
-                }
-                // ctrl.order_unit_skip(unit_id).unwrap();
-                return Some(AiPlayerAction::Unit(NextUnitAction::Skip));
-            } else {
-                if self.verbosity > 1 {
-                    let loc = ctrl.player_unit_loc(unit_id).await.unwrap();
-                    println!("Random disbanded unit: {:?} at location {}", unit_id, loc);
-                }
-                return Some(AiPlayerAction::Unit(NextUnitAction::Disband));
-            }
-        }
-
-        None
+    async fn next_unit_action(
+        &mut self,
+        turn: &PlayerTurn,
+        _device: AiDevice,
+    ) -> Option<NextUnitAction> {
+        let legal: Vec<NextUnitAction> = turn
+            .player_next_unit_legal_actions()
+            .await
+            .into_iter()
+            .collect();
+        legal.choose(&mut self.rng).copied()
     }
 }
 
