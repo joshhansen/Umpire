@@ -90,14 +90,12 @@ impl<T: ActionwiseTurnTaker + Send> TurnTaker for T {
                 let legal_actions: BTreeSet<AiPlayerAction> = if action.unit_action() {
                     turn.player_next_unit_legal_actions()
                         .await
-                        .unwrap()
                         .into_iter()
                         .map(AiPlayerAction::Unit)
                         .collect()
                 } else {
                     turn.player_next_city_legal_actions()
                         .await
-                        .unwrap()
                         .into_iter()
                         .map(AiPlayerAction::City)
                         .collect()

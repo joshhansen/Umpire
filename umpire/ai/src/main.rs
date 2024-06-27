@@ -51,7 +51,7 @@ use common::{
     game::{
         ai::{AiBackend, AiDevice, TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
         map::gen::MapType,
-        TurnNum,
+        ActionNum, TurnNum,
     },
     util::{densify, init_rng},
 };
@@ -135,7 +135,7 @@ async fn main() -> Result<(), String> {
         .action(ArgAction::SetTrue)
     )
     .subcommand(
-        cli::app(SUBCMD_EVAL, "MSwHWfg")
+        cli::app(SUBCMD_EVAL, "MSwHWfgu")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
             Arg::new("ai_models")
@@ -187,7 +187,7 @@ async fn main() -> Result<(), String> {
         )
     )
     .subcommand(
-        cli::app(SUBCMD_AGZTRAIN, "DSg")
+        cli::app(SUBCMD_AGZTRAIN, "DSgu")
         .about(format!("Train an AlphaGo Zero-inspired neural network AI for the game of {}", conf::APP_NAME))
         .arg_required_else_help(true)
         // .arg(
@@ -245,13 +245,6 @@ async fn main() -> Result<(), String> {
                 .help("Number of threads for the dataload process")
                 .value_parser(value_parser!(usize))
                 .default_value("8")
-        )
-        .arg(
-            Arg::new("min_unit_choices")
-                .long("min_unit_choices")
-                .help("The minimum # of legal actions for unit action training instances")
-                .value_parser(value_parser!(usize))
-                .default_value("3")// skip, disband, and something else at minimum
         )
         .arg(
             Arg::new("input")
@@ -360,6 +353,9 @@ async fn main() -> Result<(), String> {
             .cloned()
             .filter_map(|s| TrainingOutcome::try_from(s).ok())
             .collect();
+
+        let min_unit_choices: usize = sub_matches.get_one("min_unit_choices").copied().unwrap();
+        println!("Min unit choices: {}", min_unit_choices);
 
         let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
@@ -507,7 +503,18 @@ async fn main() -> Result<(), String> {
                         let partial_data =
                             player_partial_data.entry(player).or_insert_with(Vec::new);
 
-                        partial_data.extend(turn_outcome.training_instances.unwrap().into_iter());
+                        partial_data.extend(
+                            turn_outcome
+                                .training_instances
+                                .unwrap()
+                                .into_iter()
+                                // Only include instances where units had enough actions to choose from
+                                .filter(|i| {
+                                    (i.action.unit_action()
+                                        && i.legal_actions.len() >= min_unit_choices)
+                                        || i.action.city_action()
+                                }),
+                        );
                     }
 
                     if verbosity > 1 && fix_output_loc {
@@ -700,6 +707,7 @@ async fn main() -> Result<(), String> {
         let resume_epoch: Option<usize> = sub_matches.get_one("resume_epoch").copied();
 
         let min_unit_choices: usize = sub_matches.get_one("min_unit_choices").copied().unwrap();
+        println!("Min unit choices: {}", min_unit_choices);
 
         let mut data: Vec<AgzDatum> = Vec::new();
 

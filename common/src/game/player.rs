@@ -390,20 +390,22 @@ impl PlayerControl {
         self.wrapping
     }
 
-    pub async fn player_next_unit_legal_actions(&self) -> UmpireResult<BTreeSet<NextUnitAction>> {
+    pub async fn player_next_unit_legal_actions(&self) -> BTreeSet<NextUnitAction> {
         self.game
             .read()
             .await
             .player_next_unit_legal_actions(self.secret)
             .await
+            .unwrap()
     }
 
-    pub async fn player_next_city_legal_actions(&self) -> UmpireResult<BTreeSet<NextCityAction>> {
+    pub async fn player_next_city_legal_actions(&self) -> BTreeSet<NextCityAction> {
         self.game
             .read()
             .await
             .player_next_city_legal_actions(self.secret)
             .await
+            .unwrap()
     }
 
     delegate! {
@@ -658,11 +660,11 @@ impl<'a> PlayerTurn<'a> {
             pub async fn player_unit_legal_directions(&self, unit_id: UnitID) -> UmpireResult<Vec<Direction>>;
             pub async fn player_next_unit_legal_actions(
                 &self,
-            ) -> UmpireResult<BTreeSet<NextUnitAction>>;
+            ) -> BTreeSet<NextUnitAction>;
 
             pub async fn player_next_city_legal_actions(
                 &self,
-            ) -> UmpireResult<BTreeSet<NextCityAction>>;
+            ) -> BTreeSet<NextCityAction>;
 
             pub async fn player_unit_orders_requests(&self) -> Vec<UnitID>;
 
