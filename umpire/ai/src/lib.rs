@@ -46,6 +46,8 @@ use agz::AgzActionModel;
 pub enum AI<B: Backend> {
     Random(RandomAI),
 
+    RandomPlus(RandomPlusAI),
+
     Skip(SkipAI),
 
     /// AlphaGo Zero style action model
@@ -65,6 +67,7 @@ impl<B: Backend> fmt::Debug for AI<B> {
             "{}",
             match self {
                 Self::Random(_) => "random",
+                Self::RandomPlus(_) => "random+",
                 Self::Skip(_) => "skip",
                 Self::AGZ(_) => "agz",
             }
@@ -76,6 +79,7 @@ impl From<AISpec> for AI<Wgpu> {
     fn from(ai_type: AISpec) -> Self {
         match ai_type {
             AISpec::Random { seed } => Self::Random(RandomAI::new(init_rng(seed))),
+            AISpec::RandomPlus { seed } => Self::RandomPlus(RandomPlusAI::new(init_rng(seed))),
             AISpec::Skip => AI::Skip(SkipAI {}),
             AISpec::FromPath { path, device } => {
                 let device: WgpuDevice = device.into();
@@ -137,6 +141,7 @@ impl<B: Backend> Storable for AI<B> {
     fn store(self, path: &Path) -> Result<(), String> {
         match self {
             Self::Random(_) => Err(String::from("Cannot store random AI; load explicitly using the appropriate specification (r/rand/random)")),
+            Self::RandomPlus(_) => Err(String::from("Cannot store random AI; load explicitly using the appropriate specification (R)")),
             Self::Skip(_) => Err(String::from("Cannot store skip-only AI; load explicitly using the appropriate specification (s)")),
             Self::AGZ(agz) => agz.into_inner().store(path),
         }
@@ -153,6 +158,7 @@ impl TurnTakerAsync for AI<Wgpu> {
     ) -> TurnOutcome {
         match self {
             Self::Random(ai) => ai.take_turn(turn, datagen_prob, device).await,
+            Self::RandomPlus(ai) => ai.take_turn(turn, datagen_prob, device).await,
             Self::Skip(ai) => ai.take_turn(turn, datagen_prob, device).await,
             Self::AGZ(agz) => agz.lock().await.take_turn(turn, datagen_prob, device).await,
         }
@@ -161,4 +167,5 @@ impl TurnTakerAsync for AI<Wgpu> {
 
 // Exports
 pub use random::RandomAI;
+pub use random::RandomPlusAI;
 pub use skip::SkipAI;

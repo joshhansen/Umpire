@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     fmt::{self, Display},
     path::Path,
@@ -22,7 +21,9 @@ pub type AiBackend = Wgpu;
 pub type AiBackendTrain = Autodiff<AiBackend>;
 pub type AiBackendDevice = <AiBackend as Backend>::Device;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize,
+)]
 pub enum AiDevice {
     #[default]
     Best,
@@ -230,15 +231,20 @@ impl TrainingInstance {
 
 lazy_static! {
     static ref RANDOM_RGX: Regex = Regex::new(r"^r(?:and(?:om)?)?(?:(?P<seed>\d+))?$").unwrap();
+    static ref RANDOM_PLUS_RGX: Regex =
+        Regex::new(r"^R(?:and(?:om)?)?(?:(?P<seed>\d+))?$").unwrap();
 }
 
 /// A user specification of an AI
 ///
 /// Used as a lightweight description of an AI to be passed around. Also to validate AIs given at the command line.
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum AISpec {
     /// A horrible AI that makes decisions randomly
     Random { seed: Option<u64> },
+
+    /// A less-horrible AI that makes decisions randomly, but skips and disbands less
+    RandomPlus { seed: Option<u64> },
 
     /// An even worse AI that only ever skips unit actions; first possible production for cities
     Skip,
@@ -250,42 +256,6 @@ pub enum AISpec {
 
     /// AI loaded from a preset AI level, beginning at 1
     FromLevel { level: usize, device: AiDevice },
-}
-
-impl PartialOrd for AISpec {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-// random > skip > path > level
-impl Ord for AISpec {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self {
-            Self::Random { seed } => match other {
-                Self::Random { seed: other_seed } => seed.cmp(other_seed),
-                Self::Skip | Self::FromPath { .. } | Self::FromLevel { .. } => Ordering::Greater,
-            },
-            Self::Skip => match other {
-                Self::Random { .. } => Ordering::Less,
-                Self::Skip => Ordering::Equal,
-                Self::FromPath { .. } | Self::FromLevel { .. } => Ordering::Greater,
-            },
-            Self::FromPath { path, .. } => match other {
-                Self::Random { .. } | Self::Skip => Ordering::Less,
-                Self::FromPath {
-                    path: other_path, ..
-                } => path.cmp(other_path),
-                Self::FromLevel { .. } => Ordering::Greater,
-            },
-            Self::FromLevel { level, .. } => match other {
-                Self::FromLevel {
-                    level: other_level, ..
-                } => level.cmp(other_level),
-                Self::Random { .. } | Self::Skip | Self::FromPath { .. } => Ordering::Less,
-            },
-        }
-    }
 }
 
 impl fmt::Display for AISpec {
@@ -301,6 +271,11 @@ impl TryFrom<String> for AISpec {
         if let Some(m) = RANDOM_RGX.captures(value.as_str()) {
             let seed: Option<u64> = m.name("seed").map(|seed| seed.as_str().parse().unwrap());
             return Ok(Self::Random { seed });
+        }
+
+        if let Some(m) = RANDOM_PLUS_RGX.captures(value.as_str()) {
+            let seed: Option<u64> = m.name("seed").map(|seed| seed.as_str().parse().unwrap());
+            return Ok(Self::RandomPlus { seed });
         }
 
         match value.as_str() {
@@ -331,7 +306,18 @@ impl Specified for AISpec {
             Self::Random { seed } => {
                 let mut s = String::from("random");
                 if let Some(seed) = seed {
+                    s.push('(');
                     s.push_str(seed.to_string().as_str());
+                    s.push(')');
+                }
+                s
+            }
+            Self::RandomPlus { seed } => {
+                let mut s = String::from("random+");
+                if let Some(seed) = seed {
+                    s.push('(');
+                    s.push_str(seed.to_string().as_str());
+                    s.push(')');
                 }
                 s
             }
@@ -347,7 +333,18 @@ impl Specified for AISpec {
             Self::Random { seed } => {
                 let mut s = String::from("r");
                 if let Some(seed) = seed {
+                    s.push('(');
                     s.push_str(seed.to_string().as_str());
+                    s.push(')');
+                }
+                s
+            }
+            Self::RandomPlus { seed } => {
+                let mut s = String::from("R");
+                if let Some(seed) = seed {
+                    s.push('(');
+                    s.push_str(seed.to_string().as_str());
+                    s.push(')');
                 }
                 s
             }
