@@ -306,6 +306,18 @@ impl TryFrom<char> for Direction {
 }
 
 impl Direction {
+    pub fn sym(&self) -> char {
+        match self {
+            Self::Up => '↑',
+            Self::Down => '↓',
+            Self::Left => '←',
+            Self::Right => '→',
+            Self::UpLeft => '↖',
+            Self::UpRight => '↗',
+            Self::DownLeft => '↙',
+            Self::DownRight => '↘',
+        }
+    }
     pub fn try_from_viewport_shift(c: char) -> Result<Direction, String> {
         match c {
             conf::KEY_VIEWPORT_SHIFT_UP => Ok(Direction::Up),

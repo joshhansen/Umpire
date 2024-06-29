@@ -1,7 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
-    fmt,
+    fmt::{self, Display},
     path::Path,
 };
 
@@ -114,6 +114,11 @@ impl TrainingOutcome {
             Self::Inconclusive => 0.33333334,
             Self::Defeat => 0.5 - 0.5 / (10.0 as fX + turns_until_outcome as fX).log10(),
         }
+    }
+}
+impl Display for TrainingOutcome {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(<Self as Specified>::desc(self).as_str())
     }
 }
 impl Specified for TrainingOutcome {

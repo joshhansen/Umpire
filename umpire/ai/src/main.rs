@@ -49,6 +49,7 @@ use umpire_ai::{
 
 use common::{
     game::{
+        action::AiPlayerAction,
         ai::{AiBackend, AiDevice, TrainingOutcome, POSSIBLE_ACTIONS, P_DROPOUT},
         map::gen::MapType,
         TurnNum,
@@ -142,6 +143,14 @@ async fn main() -> Result<(), String> {
                 .help(AI_MODEL_SPECS_HELP)
                 .action(ArgAction::Append)
                 .required(true)
+        )
+        .arg(
+            Arg::new("captured_players")
+                .short('C')
+                .long("capture")
+                .help("Index of AI/player whose data to capture; multiple allowed; implies others ignored; all captured by default")
+                .value_parser(value_parser!(usize))
+                .action(ArgAction::Append)
         )
         .arg(
             Arg::new("datagenpath")
@@ -347,6 +356,22 @@ async fn main() -> Result<(), String> {
         let mut ais: Vec<Rc<RefCell<AI<AiBackend>>>> = load_ais(&ai_specs)?;
         let num_ais = ais.len();
 
+        // Players we will record data from; defaults to everyone.
+        let captured_players: BTreeSet<PlayerNum> = {
+            let mut captured: BTreeSet<PlayerNum> = sub_matches
+                .get_many::<usize>("captured_players")
+                .unwrap_or_default()
+                .copied()
+                .collect();
+
+            if captured.is_empty() {
+                for player in 0..num_ais {
+                    captured.insert(player);
+                }
+            }
+            captured
+        };
+
         let ignored_outcomes: BTreeSet<TrainingOutcome> = sub_matches
             .get_many::<String>("ignored_outcomes")
             .unwrap_or_default()
@@ -499,22 +524,24 @@ async fn main() -> Result<(), String> {
                         .take_turn(&mut turn, Some(1.0), device)
                         .await;
 
-                    if let Some(player_partial_data) = player_partial_data.as_mut() {
-                        let partial_data =
-                            player_partial_data.entry(player).or_insert_with(Vec::new);
+                    if captured_players.contains(&player) {
+                        if let Some(player_partial_data) = player_partial_data.as_mut() {
+                            let partial_data =
+                                player_partial_data.entry(player).or_insert_with(Vec::new);
 
-                        partial_data.extend(
-                            turn_outcome
-                                .training_instances
-                                .unwrap()
-                                .into_iter()
-                                // Only include instances where units had enough actions to choose from
-                                .filter(|i| {
-                                    (i.action.unit_action()
-                                        && i.legal_actions.len() >= min_unit_choices)
-                                        || i.action.city_action()
-                                }),
-                        );
+                            partial_data.extend(
+                                turn_outcome
+                                    .training_instances
+                                    .unwrap()
+                                    .into_iter()
+                                    // Only include instances where units had enough actions to choose from
+                                    .filter(|i| {
+                                        (i.action.unit_action()
+                                            && i.legal_actions.len() >= min_unit_choices)
+                                            || i.action.city_action()
+                                    }),
+                            );
+                        }
                     }
 
                     if verbosity > 1 && fix_output_loc {
@@ -709,14 +736,16 @@ async fn main() -> Result<(), String> {
         let min_unit_choices: usize = sub_matches.get_one("min_unit_choices").copied().unwrap();
         println!("Min unit choices: {}", min_unit_choices);
 
-        let mut data: Vec<AgzDatum> = Vec::new();
-
         let seed = sub_matches.get_one::<u64>("random_seed").copied();
         if let Some(seed) = seed.as_ref() {
             println!("Random seed: {:?}", seed);
         }
         let mut rng = init_rng(seed);
 
+        let mut action_class_data: BTreeMap<
+            AiPlayerAction,
+            BTreeMap<TrainingOutcome, Vec<AgzDatum>>,
+        > = BTreeMap::new();
         for input_path in input_paths {
             if verbosity > 0 {
                 println!("Loading {}", input_path);
@@ -733,21 +762,25 @@ async fn main() -> Result<(), String> {
 
                 if let Ok(instance) = maybe_instance {
                     // If it was a unit action, make sure it chose between at least min_unit_choices options
-                    if (instance.action.unit_action()
-                        && instance.legal_actions.len() >= min_unit_choices)
-                        || instance.action.city_action()
+                    if rng.gen_bool(sample_prob)
+                        && ((instance.action.unit_action()
+                            && instance.legal_actions.len() >= min_unit_choices)
+                            || instance.action.city_action())
                     {
                         let outcome = instance.outcome.unwrap();
                         count += 1;
 
-                        if rng.gen_bool(sample_prob) {
-                            data.push(AgzDatum {
+                        action_class_data
+                            .entry(instance.action)
+                            .or_default()
+                            .entry(outcome)
+                            .or_default()
+                            .push(AgzDatum {
                                 features: densify(instance.num_features, &instance.features),
                                 turns_until_outcome: instance.last_turn.unwrap() - instance.turn,
-                                action: instance.action.into(),
+                                action: instance.action,
                                 outcome,
                             });
-                        }
                     }
                 } else {
                     break;
@@ -759,12 +792,68 @@ async fn main() -> Result<(), String> {
             }
         }
 
-        let mut class_balance: BTreeMap<TrainingOutcome, usize> = BTreeMap::new();
-        for datum in &data {
-            *class_balance.entry(datum.outcome).or_default() += 1;
+        let print_class_balance = |action_class_data: &BTreeMap<
+            AiPlayerAction,
+            BTreeMap<TrainingOutcome, Vec<AgzDatum>>,
+        >| {
+            let mut class_balance: BTreeMap<TrainingOutcome, usize> = BTreeMap::new();
+            for (outcome, freq) in action_class_data.values().flat_map(|outcome_data| {
+                outcome_data
+                    .iter()
+                    .map(|(outcome, data)| (outcome, data.len()))
+            }) {
+                *class_balance.entry(*outcome).or_default() += freq;
+            }
+
+            print!("action");
+            for outcome in TrainingOutcome::values() {
+                print!("\t{}", outcome);
+            }
+            println!();
+
+            for (action, outcome_data) in action_class_data {
+                print!("{}:", action);
+                for outcome in TrainingOutcome::values() {
+                    print!(
+                        "\t{}",
+                        outcome_data
+                            .get(&outcome)
+                            .map(|data| data.len())
+                            .unwrap_or_default()
+                    );
+                }
+                println!();
+            }
+            print!("*:");
+            for outcome in TrainingOutcome::values() {
+                print!(
+                    "\t{}",
+                    class_balance.get(&outcome).copied().unwrap_or_default()
+                );
+            }
+            println!();
+        };
+
+        println!("Original action-class balance");
+        print_class_balance(&action_class_data);
+
+        // Balance the per-action class distribution by downsampling
+        for outcome_data in action_class_data.values_mut() {
+            let min_freq = outcome_data.values().map(|data| data.len()).min().unwrap();
+
+            for outcome_data_ in outcome_data.values_mut() {
+                outcome_data_.shuffle(&mut rng);
+                outcome_data_.truncate(min_freq);
+            }
         }
 
-        println!("Class balance: {:?}", class_balance);
+        println!("Final action-class balance");
+        print_class_balance(&action_class_data);
+
+        let data: Vec<AgzDatum> = action_class_data
+            .into_values()
+            .flat_map(|outcome_data| outcome_data.into_values().flatten())
+            .collect();
 
         let mut train_data: Vec<AgzDatum> = Vec::new();
         let mut valid_data: Vec<AgzDatum> = Vec::new();

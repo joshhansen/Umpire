@@ -1,6 +1,6 @@
 //! Reified player actions
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
@@ -122,6 +122,25 @@ impl AiPlayerAction {
         AiPlayerAction::Unit(NextUnitAction::Disband),
         AiPlayerAction::Unit(NextUnitAction::Skip),
     ];
+}
+
+impl Display for AiPlayerAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::City(a) => match a {
+                NextCityAction::SetProduction { unit_type } => {
+                    f.write_str(unit_type.key().to_string().as_str())
+                }
+            },
+            Self::Unit(a) => match a {
+                NextUnitAction::Move { direction } => {
+                    f.write_str(direction.sym().to_string().as_str())
+                }
+                NextUnitAction::Disband => f.write_str("D"),
+                NextUnitAction::Skip => f.write_str("S"),
+            },
+        }
+    }
 }
 
 impl From<usize> for AiPlayerAction {

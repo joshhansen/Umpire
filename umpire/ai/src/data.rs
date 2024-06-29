@@ -3,6 +3,7 @@ use burn::{
     prelude::*,
 };
 use common::game::{
+    action::AiPlayerAction,
     ai::{fX, TrainingOutcome},
     TurnNum,
 };
@@ -10,7 +11,7 @@ use common::game::{
 #[derive(Clone, Debug)]
 pub struct AgzDatum {
     pub features: Vec<fX>,
-    pub action: usize,
+    pub action: AiPlayerAction,
     pub turns_until_outcome: TurnNum,
     pub outcome: TrainingOutcome,
 }
@@ -72,7 +73,13 @@ impl<B: Backend> Batcher<AgzDatum, AgzBatch<B>> for AgzBatcher<B> {
 
         let features = Tensor::cat(features, 0).to_device(&self.device);
 
-        let actions: Vec<i32> = items.iter().map(|item| item.action as i32).collect();
+        let actions: Vec<i32> = items
+            .iter()
+            .map(|item| {
+                let idx: usize = item.action.into();
+                idx as i32
+            })
+            .collect();
         let actions: Tensor<B, 1, Int> = Tensor::from_ints(actions.as_slice(), &self.device);
 
         let targets: Vec<fX> = items
