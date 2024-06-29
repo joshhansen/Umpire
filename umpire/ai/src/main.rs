@@ -28,7 +28,11 @@ use burn::{
     tensor::backend::AutodiffBackend,
 };
 use burn_autodiff::Autodiff;
-use burn_train::{metric::LossMetric, LearnerBuilder};
+use burn_train::{
+    checkpoint::{CheckpointingAction, CheckpointingStrategy},
+    metric::{store::EventStoreClient, LossMetric},
+    LearnerBuilder,
+};
 use burn_wgpu::{Wgpu, WgpuDevice};
 
 use clap::{builder::BoolishValueParser, value_parser, Arg, ArgAction};
@@ -927,6 +931,17 @@ fn create_artifact_dir<P: AsRef<Path>>(artifact_dir: &P) {
     std::fs::create_dir_all(artifact_dir).ok();
 }
 
+struct SaveAllCheckpoints;
+impl CheckpointingStrategy for SaveAllCheckpoints {
+    fn checkpointing(
+        &mut self,
+        _epoch: usize,
+        _collector: &EventStoreClient,
+    ) -> Vec<CheckpointingAction> {
+        vec![CheckpointingAction::Save]
+    }
+}
+
 pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
     artifact_dir: &P,
     config: TrainingConfig,
@@ -972,6 +987,8 @@ pub fn train<B: AutodiffBackend, P: AsRef<Path>>(
         .devices(vec![device.clone()])
         .num_epochs(config.num_epochs)
         .summary();
+
+    learner_builder.with_checkpointing_strategy(SaveAllCheckpoints {});
 
     if let Some(resume_epoch) = resume_epoch {
         learner_builder = learner_builder.checkpoint(resume_epoch);
