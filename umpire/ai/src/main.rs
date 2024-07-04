@@ -97,7 +97,7 @@ fn load_ais(ai_types: &Vec<AISpec>) -> Result<Vec<Rc<RefCell<AI<Wgpu>>>>, String
     let mut unique_ais: BTreeMap<AISpec, Rc<RefCell<AI<Wgpu>>>> = BTreeMap::new();
 
     for ai_type in ai_types {
-        println!("Loading AI type {}", ai_type);
+        eprintln!("Loading AI type {}", ai_type);
         unique_ais.entry(ai_type.clone()).or_insert_with(|| {
             let ai: AI<Wgpu> = ai_type.clone().into();
             Rc::new(RefCell::new(ai))
@@ -280,8 +280,8 @@ async fn main() -> Result<(), String> {
     let (subcommand, sub_matches) = matches.subcommand().unwrap();
 
     match subcommand {
-        "eval" => println!("Evaluating {} AIs", conf::APP_NAME),
-        "agztrain" => println!("Training {} AI - a la AlphaGo Zero", conf::APP_NAME),
+        "eval" => eprintln!("Evaluating {} AIs", conf::APP_NAME),
+        "agztrain" => eprintln!("Training {} AI - a la AlphaGo Zero", conf::APP_NAME),
         c => unreachable!("Unrecognized subcommand {} should have been caught by the agument parser; there's a bug somehere", c)
     }
 
@@ -293,13 +293,13 @@ async fn main() -> Result<(), String> {
         execute!(stdout, MoveTo(0, term_height - 7)).unwrap();
     }
 
-    println!("Episodes: {}", episodes);
+    eprintln!("Episodes: {}", episodes);
 
-    println!("Verbosity: {}", verbosity);
+    eprintln!("Verbosity: {}", verbosity);
 
     if subcommand == SUBCMD_EVAL {
         let steps: usize = sub_matches.get_one("steps").copied().unwrap();
-        println!("Steps: {}", steps);
+        eprintln!("Steps: {}", steps);
 
         let map_heights: Vec<u16> = sub_matches
             .get_many::<u16>("map_height")
@@ -384,11 +384,11 @@ async fn main() -> Result<(), String> {
             .collect();
 
         let min_unit_choices: usize = sub_matches.get_one("min_unit_choices").copied().unwrap();
-        println!("Min unit choices: {}", min_unit_choices);
+        eprintln!("Min unit choices: {}", min_unit_choices);
 
         let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
-            println!("Generating data to path: {}", datagenpath.display());
+            eprintln!("Generating data to path: {}", datagenpath.display());
 
             if datagenpath.exists() {
                 eprintln!(
@@ -404,7 +404,7 @@ async fn main() -> Result<(), String> {
         let datagen_qty_eq: bool = sub_matches.get_one("datagenqty_eq").copied().unwrap();
 
         if let Some(datagen_qty) = datagen_qty {
-            println!("Datagen qty: {}", datagen_qty);
+            eprintln!("Datagen qty: {}", datagen_qty);
         }
 
         let mut data_outfile = datagenpath.map(|datagenpath| {
@@ -416,14 +416,30 @@ async fn main() -> Result<(), String> {
 
         let print_results = |victory_counts: &BTreeMap<Option<PlayerNum>, usize>,
                              game_lengths: &BTreeMap<TurnNum, usize>| {
-            for (i, spec) in ai_specs.iter().map(|s| s.spec()).enumerate() {
-                println!(
-                    "{} wins: {}",
-                    spec,
-                    victory_counts.get(&Some(i)).unwrap_or(&0)
-                );
-            }
-            println!("Draws: {}", victory_counts.get(&None).unwrap_or(&0));
+            let specs: Vec<String> = ai_specs.iter().map(|s| s.spec()).collect();
+
+            let out: Vec<String> = specs
+                .into_iter()
+                .enumerate()
+                .flat_map(|(player, spec)| {
+                    let wins = victory_counts
+                        .get(&Some(player))
+                        .copied()
+                        .unwrap_or_default();
+                    vec![spec, wins.to_string()]
+                })
+                .chain(vec![
+                    "draw".to_string(),
+                    victory_counts
+                        .get(&None)
+                        .copied()
+                        .unwrap_or_default()
+                        .to_string(),
+                ])
+                .collect();
+
+            println!("{}", out.join("\t"));
+
             let mut total_games: usize = 0;
             let mut total_turns: TurnNum = 0;
             for (turn, freq) in game_lengths {
@@ -431,17 +447,17 @@ async fn main() -> Result<(), String> {
                 total_turns += *turn * *freq as TurnNum;
             }
             let mean_game_length = total_turns as f64 / total_games as f64;
-            println!("Average game length: {}", mean_game_length);
+            eprintln!("Average game length: {}", mean_game_length);
         };
 
         let mut seed = sub_matches.get_one::<u64>("random_seed").cloned();
         if let Some(seed) = seed.as_ref() {
-            println!("Random seed: {:?}", seed);
+            eprintln!("Random seed: {:?}", seed);
         }
         let mut rng = init_rng(seed);
         let deterministic_secrets = sub_matches.get_one::<bool>("detsec").copied().unwrap();
         if deterministic_secrets {
-            println!("***WARNING*** Secret generation may be deterministic");
+            eprintln!("***WARNING*** Secret generation may be deterministic");
         }
 
         let mut total_training_instances_written = 0usize;
@@ -503,7 +519,7 @@ async fn main() -> Result<(), String> {
                 execute!(stdout, MoveTo(0, 0)).unwrap();
             }
 
-            println!(
+            eprintln!(
                 "Evaluating: {:?} {:?} {} {:?}",
                 ai_specs_s, wrapping, map_dims, map_types
             );
@@ -670,7 +686,7 @@ async fn main() -> Result<(), String> {
                 if fix_output_loc {
                     execute!(stdout, MoveTo(0, term_height - 1),).unwrap();
                 }
-                println!(
+                eprintln!(
                     "Wrote {} ({} total)",
                     training_instances_written, total_training_instances_written
                 );
@@ -680,8 +696,10 @@ async fn main() -> Result<(), String> {
                 .entry(game.read().await.victor().await)
                 .or_default() += 1;
 
-            println!();
-            print_results(&victory_counts, &game_lengths);
+            if verbosity > 1 {
+                println!();
+                print_results(&victory_counts, &game_lengths);
+            }
 
             if let Some(seed) = seed.as_mut() {
                 *seed += SEED_INTERVAL;
@@ -698,7 +716,7 @@ async fn main() -> Result<(), String> {
 
         print_results(&victory_counts, &game_lengths);
 
-        println!(
+        eprintln!(
             "Total training instances written: {}",
             total_training_instances_written,
         );
