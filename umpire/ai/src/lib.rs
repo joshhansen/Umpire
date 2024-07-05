@@ -92,6 +92,10 @@ impl From<AISpec> for AI<Wgpu> {
                         let bytes = include_bytes!("../../../ai/agz/15x15/0.agz.bin");
                         AgzActionModel::<Wgpu>::load_from_bytes(bytes.as_slice(), device).unwrap()
                     }
+                    1 => {
+                        let bytes = include_bytes!("../../../ai/agz/15x15/1.agz.bin");
+                        AgzActionModel::<Wgpu>::load_from_bytes(bytes.as_slice(), device).unwrap()
+                    }
                     level => unreachable!("Unsupported AI level: {}", level),
                 };
 
