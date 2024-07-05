@@ -140,7 +140,7 @@ async fn main() -> Result<(), String> {
         .action(ArgAction::SetTrue)
     )
     .subcommand(
-        cli::app(SUBCMD_EVAL, "MSwHWfgu")
+        cli::app(SUBCMD_EVAL, "MSwHWfg")
         .about(format!("Have a set of AIs duke it out to see who plays the game of {} best", conf::APP_NAME))
         .arg(
             Arg::new("ai_models")
@@ -200,7 +200,7 @@ async fn main() -> Result<(), String> {
         )
     )
     .subcommand(
-        cli::app(SUBCMD_AGZTRAIN, "DSgu")
+        cli::app(SUBCMD_AGZTRAIN, "DSg")
         .about(format!("Train an AlphaGo Zero-inspired neural network AI for the game of {}", conf::APP_NAME))
         .arg_required_else_help(true)
         // .arg(
