@@ -280,7 +280,7 @@ impl TryFrom<String> for AISpec {
 
         match value.as_str() {
             "s" => Ok(Self::Skip),
-            "0" => Ok(Self::FromLevel {
+            "0" | "1" => Ok(Self::FromLevel {
                 level: value.chars().next().unwrap().to_digit(10).unwrap() as usize,
                 device: Default::default(),
             }),
