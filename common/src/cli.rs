@@ -109,13 +109,6 @@ pub fn app(name: impl Into<Str>, included_flags: &'static str) -> Command {
                 .action(ArgAction::Set)
                 .value_parser(value_parser!(u64)),
 
-            'u' => Arg::new("min_unit_choices")
-                    .short('u')
-                    .long("min_unit_choices")
-                    .help("The minimum # of legal actions for unit action training instances")
-                    .value_parser(value_parser!(usize))
-                    .default_value("0"),
-
             c => panic!("Tried to build CLI with unrecognized flag '{}'", c)
         });
     }

@@ -383,9 +383,6 @@ async fn main() -> Result<(), String> {
             .filter_map(|s| TrainingOutcome::try_from(s).ok())
             .collect();
 
-        let min_unit_choices: usize = sub_matches.get_one("min_unit_choices").copied().unwrap();
-        eprintln!("Min unit choices: {}", min_unit_choices);
-
         let datagenpath = sub_matches.get_one::<String>("datagenpath").map(Path::new);
         if let Some(datagenpath) = datagenpath {
             eprintln!("Generating data to path: {}", datagenpath.display());
@@ -549,18 +546,8 @@ async fn main() -> Result<(), String> {
                             let partial_data =
                                 player_partial_data.entry(player).or_insert_with(Vec::new);
 
-                            partial_data.extend(
-                                turn_outcome
-                                    .training_instances
-                                    .unwrap()
-                                    .into_iter()
-                                    // Only include instances where units had enough actions to choose from
-                                    .filter(|i| {
-                                        (i.action.unit_action()
-                                            && i.legal_actions.len() >= min_unit_choices)
-                                            || i.action.city_action()
-                                    }),
-                            );
+                            partial_data
+                                .extend(turn_outcome.training_instances.unwrap().into_iter());
                         }
                     }
 
@@ -755,9 +742,6 @@ async fn main() -> Result<(), String> {
 
         let resume_epoch: Option<usize> = sub_matches.get_one("resume_epoch").copied();
 
-        let min_unit_choices: usize = sub_matches.get_one("min_unit_choices").copied().unwrap();
-        println!("Min unit choices: {}", min_unit_choices);
-
         let seed = sub_matches.get_one::<u64>("random_seed").copied();
         if let Some(seed) = seed.as_ref() {
             println!("Random seed: {:?}", seed);
@@ -784,11 +768,7 @@ async fn main() -> Result<(), String> {
 
                 if let Ok(instance) = maybe_instance {
                     // If it was a unit action, make sure it chose between at least min_unit_choices options
-                    if rng.gen_bool(sample_prob)
-                        && ((instance.action.unit_action()
-                            && instance.legal_actions.len() >= min_unit_choices)
-                            || instance.action.city_action())
-                    {
+                    if rng.gen_bool(sample_prob) {
                         let outcome = instance.outcome.unwrap();
                         count += 1;
 
