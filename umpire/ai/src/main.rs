@@ -376,6 +376,10 @@ async fn main() -> Result<(), String> {
             captured
         };
 
+        for player in &captured_players {
+            eprintln!("Capturing player {}", player);
+        }
+
         let ignored_outcomes: BTreeSet<TrainingOutcome> = sub_matches
             .get_many::<String>("ignored_outcomes")
             .unwrap_or_default()
@@ -466,6 +470,9 @@ async fn main() -> Result<(), String> {
         let mut victory_counts: BTreeMap<Option<PlayerNum>, usize> = BTreeMap::new();
         let mut game_lengths: BTreeMap<TurnNum, usize> = BTreeMap::new();
         for e in 0..episodes {
+            if verbosity == 1 {
+                eprintln!("Game {} / {}", e, episodes);
+            }
             let city_namer = IntNamer::new("city");
 
             let map_width = map_widths.choose(&mut rng).copied().unwrap();
