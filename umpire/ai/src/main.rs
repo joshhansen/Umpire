@@ -443,7 +443,11 @@ async fn main() -> Result<(), String> {
                 total_games += *freq;
                 total_turns += *turn * *freq as TurnNum;
             }
-            let mean_game_length = total_turns as f64 / total_games as f64;
+            let mean_game_length = if total_games == 0 {
+                0.0
+            } else {
+                total_turns as f64 / total_games as f64
+            };
             eprintln!("Average game length: {}", mean_game_length);
         };
 
