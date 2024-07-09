@@ -175,7 +175,7 @@ async fn main() -> Result<(), String> {
             .long("eq")
             .help("Ensure the quantities of victories and defeats recorded are equal; use the min if less than the datagen qty (-Q)")
             .value_parser(BoolishValueParser::new())
-            .default_value("true")
+            .default_value("false")
         )
         .arg(
             Arg::new("detsec")
