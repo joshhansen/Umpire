@@ -545,11 +545,11 @@ async fn main() -> Result<(), String> {
                         .take_turn(&mut turn, Some(1.0), device)
                         .await;
 
-                    if captured_players.contains(&player) {
-                        if let Some(player_partial_data) = player_partial_data.as_mut() {
-                            let partial_data =
-                                player_partial_data.entry(player).or_insert_with(Vec::new);
+                    if let Some(player_partial_data) = player_partial_data.as_mut() {
+                        let partial_data =
+                            player_partial_data.entry(player).or_insert_with(Vec::new);
 
+                        if captured_players.contains(&player) {
                             partial_data
                                 .extend(turn_outcome.training_instances.unwrap().into_iter());
                         }
