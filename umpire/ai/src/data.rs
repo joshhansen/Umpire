@@ -1,6 +1,6 @@
 use burn::{
     data::{dataloader::batcher::Batcher, dataset::Dataset},
-    prelude::*,
+    tensor::{backend::Backend, Int, Tensor},
 };
 use common::game::{
     action::AiPlayerAction,

@@ -8,16 +8,15 @@ use std::{fmt, path::Path};
 
 use async_trait::async_trait;
 
+use burn::config::Config;
+use burn::module::Module;
+use burn::nn::conv::{Conv2d, Conv2dConfig};
 use burn::nn::loss::{MseLoss, Reduction};
-use burn::nn::{Dropout, DropoutConfig};
+use burn::nn::{Dropout, DropoutConfig, Linear, LinearConfig};
 use burn::record::{BinBytesRecorder, BinFileRecorder, FullPrecisionSettings, Recorder};
 use burn::tensor::activation::{relu, sigmoid};
-use burn::tensor::backend::AutodiffBackend;
-use burn::{
-    module::Module,
-    nn::{conv::Conv2dConfig, LinearConfig},
-    prelude::*,
-};
+use burn::tensor::backend::{AutodiffBackend, Backend};
+use burn::tensor::{Int, Tensor};
 use burn_train::{RegressionOutput, TrainOutput, TrainStep, ValidStep};
 
 use common::game::ai::{
@@ -114,9 +113,9 @@ impl AgzActionModelConfig {
 #[derive(Debug, Module)]
 pub struct AgzActionModel<B: Backend> {
     dropout: Dropout,
-    convs: Vec<nn::conv::Conv2d<B>>,
-    dense_common: Vec<nn::Linear<B>>,
-    dense_per_action: Vec<Vec<nn::Linear<B>>>,
+    convs: Vec<Conv2d<B>>,
+    dense_common: Vec<Linear<B>>,
+    dense_per_action: Vec<Vec<Linear<B>>>,
 }
 impl<B: Backend> AgzActionModel<B> {
     async fn features(turn: &PlayerTurn<'_>, focus: TrainingFocus) -> Vec<fX> {

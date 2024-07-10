@@ -23,8 +23,6 @@ umpire-tui = { path = "../tui" }
 
 # AI/ML
 burn = { workspace = true }
-burn-autodiff = { workspace = true }
 burn-train = { version = "0.13", default-features = false, features = ["metrics", "tui"] }
-burn-wgpu = { workspace = true }
 flate2 = { workspace = true }
 num-traits = "0.2.18"

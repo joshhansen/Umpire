@@ -16,8 +16,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use burn_wgpu::Wgpu;
-
+use burn::backend::Wgpu;
 use clap::{builder::BoolishValueParser, Arg, ArgAction};
 
 use tarpc::{client, context, tokio_serde::formats::Bincode};

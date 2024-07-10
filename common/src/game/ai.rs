@@ -4,9 +4,10 @@ use std::{
     path::Path,
 };
 
-use burn::tensor::backend::Backend;
-use burn_autodiff::Autodiff;
-use burn_wgpu::{Wgpu, WgpuDevice};
+use burn::{
+    backend::{wgpu::WgpuDevice, Autodiff, Wgpu},
+    tensor::backend::Backend,
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 

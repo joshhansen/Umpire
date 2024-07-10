@@ -20,6 +20,7 @@ use std::{
 };
 
 use burn::{
+    backend::{wgpu::WgpuDevice, Autodiff, Wgpu},
     data::{dataloader::DataLoaderBuilder, dataset::Dataset},
     nn::DropoutConfig,
     optim::SgdConfig,
@@ -27,13 +28,11 @@ use burn::{
     record::{BinFileRecorder, FullPrecisionSettings},
     tensor::backend::AutodiffBackend,
 };
-use burn_autodiff::Autodiff;
 use burn_train::{
     checkpoint::{CheckpointingAction, CheckpointingStrategy},
     metric::{store::EventStoreClient, LossMetric},
     LearnerBuilder,
 };
-use burn_wgpu::{Wgpu, WgpuDevice};
 
 use clap::{builder::BoolishValueParser, value_parser, Arg, ArgAction};
 

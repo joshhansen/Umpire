@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bincode = "1.2.1"
-burn-wgpu = { workspace = true }
+burn = { workspace = true }
 clap = { workspace = true }
 common = { path = "../common" }
 crossterm = { workspace = true }

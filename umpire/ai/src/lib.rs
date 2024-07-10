@@ -2,9 +2,10 @@ use std::{fmt, path::Path};
 
 use async_trait::async_trait;
 
-use burn::prelude::*;
-
-use burn_wgpu::{Wgpu, WgpuDevice};
+use burn::{
+    backend::{wgpu::WgpuDevice, Wgpu},
+    tensor::backend::Backend,
+};
 use futures::lock::Mutex as MutexAsync;
 use rand::rngs::StdRng;
 

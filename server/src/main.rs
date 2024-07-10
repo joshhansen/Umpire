@@ -32,7 +32,7 @@ use common::{
 };
 
 use anyhow::anyhow;
-use burn_wgpu::Wgpu;
+use burn::backend::Wgpu;
 use clap::Arg;
 use futures::{future, prelude::*};
 use get_if_addrs::get_if_addrs;

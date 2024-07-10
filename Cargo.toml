@@ -27,9 +27,7 @@ default-members = ["client"]
 anyhow = "1.0"
 async-trait = "0.1.68"
 bincode = "1.2.1"
-burn = { version = "0.13", default-features = false, features = ["std", "fusion", "autotune"] }
-burn-autodiff = "0.13"
-burn-wgpu = "0.13"
+burn = { version = "0.13", default-features = false, features = ["autodiff", "dataset", "wgpu"] }
 clap = "4.1.4"
 crossterm = "0.25.0"
 flate2 = "1.0.13"
